@@ -1,0 +1,159 @@
+trigger:
+- develop
+
+# this also triggered on pull request to main creation if this is added as build validation
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - group: develop
+  - name: BUILD_ID
+    value: $(Build.BuildId)
+  - name: DOCKER_IMAGE_TAG
+    value: $(Build.SourceVersion)-$(System.PlanId)
+  - name: SERVICE_NAME
+    value: "ecssvc-agency-ac-dev"
+  - name: TASK_DEFINITION_NAME
+    value: "agency-dev"
+  - name: AWS_ECR_IMAGE_URI
+    value: $(AWS_ECR_URL)agency
+  - name: AWS_ECR_REPOSITORY_NAME
+    value: "agency"
+  - name: "AWS_REGION"
+    value: "ap-southeast-1"
+
+
+stages:
+- stage: info
+  displayName: '[Info]'
+  jobs:
+    - job: info
+      steps:
+        - script: |
+            echo "Target Branch: $(System.PullRequest.TargetBranch)"
+            echo "Target Branch: $(System.PullRequest.TargetBranch)"
+            echo "Target Branch: $(System.PullRequest.SourceBranch)"
+            echo "Build.SourceBranch: $(Build.SourceBranch)"
+            echo "Build.SourceBranchName: $(Build.SourceBranchName)"
+            echo "Build.Reason: $(Build.Reason)"
+      displayName: '[info]'
+
+- stage: Build
+  variables:
+    - group: develop
+  displayName: 'Build Validation'
+  condition: |
+    and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+  jobs:
+    # - job: SCA
+    #   displayName: 'Test - SCA'
+    #   steps:
+    #     - checkout: self
+    #     - task: NodeTool@0
+    #       inputs:
+    #         versionSpec: '20.x'
+    #       displayName: 'Install Node.js'
+    #     - script: |
+    #         npm install
+    #         npm audit --audit-level=high
+    #       displayName: 'Perform a vulnerability audit against the installed packages'
+        # - task: AdvancedSecurity-Dependency-Scanning@1
+        #   displayName: "Advanced Security Dependency Scanning"
+    - job: Test_Code
+      displayName: 'Test - Code'
+      steps:
+        - checkout: self
+        - task: NodeTool@0
+          inputs:
+            versionSpec: '20.x'
+          displayName: 'Install Node.js'
+        - task: AdvancedSecurity-Codeql-Init@1
+          inputs:
+            languages: "javascript"
+            # Supported languages: csharp, cpp, go, java, javascript, python, ruby, swift
+            # You can customize the initialize task: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/advanced-security-codeql-init-v1?view=azure-pipelines
+            # If you're using a self-hosted agent to run CodeQL, use `enableAutomaticCodeQLInstall` to automatically use the latest CodeQL bits on your agent:
+            enableAutomaticCodeQLInstall: true
+        # - task: AdvancedSecurity-Dependency-Scanning@1 # More details on this task: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/advanced-security-dependency-scanning-v1?view=azure-pipelines
+        - task: AdvancedSecurity-Codeql-Analyze@1 # More details on this task: https://learn.microsoft.com/en-us/azure/devops/pipelines/tasks/reference/advanced-security-codeql-analyze-v1?view=azure-pipelines
+    - job: Node_Build
+      displayName: 'Build - Code'
+      steps:
+        - task: NodeTool@0
+          inputs:
+            versionSpec: '20.x'
+          displayName: 'Install Node.js'
+
+        - script: |
+            echo "Clean install npm modules"
+            npm ci
+          displayName: 'Install npm modules and dependencies'
+
+        - script: |
+            echo "Run yarn build"
+            npm run build
+          displayName: 'Run npm run build'
+
+        - script: |
+            echo "Cleaning up Next.js build assets"
+            rm -rf .next
+          displayName: 'Clean up Next.js build assets'
+
+    - job: Docker_Build
+      displayName: 'Build - Docker Image'
+      steps:
+        - checkout: self
+        # - task: AWSShellScript@1
+        #   displayName: 'Retrieve Atlas Certs'
+        #   inputs:
+        #     awsCredentials: 'aws-agency-dev'
+        #     regionName: 'ap-southeast-1'
+        #     scriptType: 'inline'
+        #     inlineScript: |
+        #       echo "Storing secret as a PEM file..."
+        #       SECRET=$(aws secretsmanager get-secret-value --secret-id ATLAS_CERT --query SecretString --output text)
+        #       echo "$SECRET" > ./certs/client.pem
+        #       ls -la
+        - task: Docker@2
+          displayName: 'Building docker image'
+          inputs:
+            command: 'build'
+            Dockerfile: '**/Dockerfile'
+            tags: $(DOCKER_IMAGE_TAG)
+            repository: $(AWS_ECR_IMAGE_URI)
+            arguments: |
+              --build-arg ENV=$(ENV)
+              --build-arg AZURE_OPENAI_API_KEY=$(AZURE_OPENAI_API_KEY)
+              --build-arg AZURE_OPENAI_ENDPOINT=$(AZURE_OPENAI_ENDPOINT)
+              --build-arg DEPLOYMENT_NAME=$(DEPLOYMENT_NAME)
+
+    # - job: Docker_Scan
+    #   dependsOn: Docker_Build
+    #   displayName: 'Test - Scan Docker Image'
+    #   steps:
+    #     - checkout: self
+    #     - task: trivy@1
+    #       inputs:
+    #         image: '$(AWS_ECR_IMAGE_URI):$(DOCKER_IMAGE_TAG)'
+    #         severities: 'CRITICAL,HIGH'
+    #       displayName: 'Run Trivy Scan'
+    #       condition: succeeded() # Runs scan only if build step succeeds
+    #     - script: |
+    #         docker image rm $(AWS_ECR_IMAGE_URI):$(IMAGE_TAG)
+    #         docker system prune -f
+
+
+
+- stage: Deploy_dev
+  displayName: 'Deploy To Development'
+  # Trigger deploy to dev on pull request to main created or pull request to develop completed
+  condition: |
+    or(
+      and(eq(variables['Build.Reason'], 'IndividualCI'), eq(variables['Build.SourceBranch'], 'refs/heads/develop')),
+      eq(variables['Build.Reason'], 'Manual')
+    )
+  jobs:
+    - template: pipeline-deploy.yaml
+      parameters:
+        environment_name: 'aws-agency-dev'
+        deployment_name: 'DeployToDev'

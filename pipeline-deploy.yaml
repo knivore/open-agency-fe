@@ -1,0 +1,112 @@
+# File: simple-param.yml
+parameters:
+- name: deployment_name # name of the parameter; required
+  type: string # data type of the parameter; required
+  default: "DeployToDev"
+- name: environment_name # name of the parameter; required
+  type: string # data type of the parameter; required
+  default: "aws-agency-dev"
+
+jobs:
+  - job: Docker_Build
+    displayName: 'Build - Docker Image'
+    steps:
+      - checkout: self
+      - task: Docker@2
+        displayName: 'Building docker image'
+        inputs:
+          command: 'build'
+          Dockerfile: '**/Dockerfile'
+          tags: $(DOCKER_IMAGE_TAG)
+          repository: $(AWS_ECR_IMAGE_URI)
+          arguments: |
+            --build-arg ENV=$(ENV)
+            --build-arg AZURE_OPENAI_API_KEY=$(AZURE_OPENAI_API_KEY)
+            --build-arg AZURE_OPENAI_ENDPOINT=$(AZURE_OPENAI_ENDPOINT)
+            --build-arg DEPLOYMENT_NAME=$(DEPLOYMENT_NAME)
+      - task: ECRPushImage@1
+        inputs:
+          awsCredentials: ${{ parameters.environment_name }}
+          regionName: '$(AWS_DEFAULT_REGION)'
+          sourceImageName: '$(AWS_ECR_IMAGE_URI)'
+          sourceImageTag: '$(DOCKER_IMAGE_TAG)'
+          repositoryName: '$(AWS_ECR_REPOSITORY_NAME)'
+          pushTag: '$(DOCKER_IMAGE_TAG)'
+        displayName: 'Push image to ECR'
+      - script: |
+          docker image rm $(AWS_ECR_IMAGE_URI):$(DOCKER_IMAGE_TAG)
+          docker system prune -f
+        displayName: 'Delete built docker image for testing and remove all unused docker data'
+
+
+  - deployment: ${{ parameters.deployment_name }}
+    dependsOn: Docker_Build
+    displayName: 'Deploy - Approval Check'
+    environment:
+      name: ${{ parameters.environment_name }}
+
+  - job: Deploy
+    dependsOn: ${{ parameters.deployment_name }}
+    condition: succeeded()
+    displayName: 'Deploy - Update ECS Task Definition/Service'
+    steps:
+    - task: AWSShellScript@1
+      displayName: 'Update ECS task definition'
+      inputs:
+        awsCredentials: ${{ parameters.environment_name }}
+        regionName: 'ap-southeast-1'
+        scriptType: 'inline'
+        inlineScript: |
+          TASK_DEFINITION=$(aws ecs describe-task-definition --include TAGS --task-definition "$(TASK_DEFINITION_NAME)" --region "$(AWS_DEFAULT_REGION)")
+                  NEW_CONTAINER_DEFINITION=$(echo $TASK_DEFINITION | jq --arg IMAGE $(AWS_ECR_IMAGE_URI):$(DOCKER_IMAGE_TAG) '.taskDefinition.containerDefinitions[0].image = $IMAGE' | jq .taskDefinition.containerDefinitions)
+                  PROXY_CONFIGURATION=$(echo $TASK_DEFINITION | jq .taskDefinition.proxyConfiguration )
+                  CPU=$(echo $TASK_DEFINITION | jq --raw-output '.taskDefinition.cpu' )
+                  MEMORY=$(echo $TASK_DEFINITION | jq --raw-output '.taskDefinition.memory' )
+                  TAGS=$(echo $TASK_DEFINITION | jq --raw-output '.tags' )
+                  TASK_ROLE_ARN=$(echo $TASK_DEFINITION | jq --raw-output '.taskDefinition.taskRoleArn')
+                  EXECUTION_ROLE_ARN=$(echo $TASK_DEFINITION | jq --raw-output '.taskDefinition.executionRoleArn')
+                  VOLUMES=$(echo $TASK_DEFINITION | jq --raw-output '.taskDefinition.volumes')
+                  echo "Registering new container definition..."
+                  echo $NEW_CONTAINER_DEFINITION
+                  echo $TASK_DEFINITION
+                  echo "----"
+                  if [ "${PROXY_CONFIGURATION}" == "null" ]; then
+                    aws ecs register-task-definition --volumes "${VOLUMES}" --execution-role-arn "${EXECUTION_ROLE_ARN}" --task-role-arn "${TASK_ROLE_ARN}" --region "${AWS_DEFAULT_REGION}" --family "${TASK_DEFINITION_NAME}" --container-definitions "${NEW_CONTAINER_DEFINITION}" --requires-compatibilities "FARGATE" --network-mode "awsvpc" --cpu "${CPU}" --memory "${MEMORY}" --tags "${TAGS}"
+                  else
+                    aws ecs register-task-definition --volumes "${VOLUMES}" --execution-role-arn "${EXECUTION_ROLE_ARN}" --task-role-arn "${TASK_ROLE_ARN}" --region "${AWS_DEFAULT_REGION}" --family "${TASK_DEFINITION_NAME}" --proxy-configuration "${PROXY_CONFIGURATION}" --container-definitions "${NEW_CONTAINER_DEFINITION}" --requires-compatibilities "FARGATE" --network-mode "awsvpc" --cpu "${CPU}" --memory "${MEMORY}" --tags "${TAGS}"
+                  fi
+                  echo "Updating the service..."
+                  echo $NEW_CONTAINER_DEFINITION
+    - task: AWSShellScript@1
+      displayName: 'Update ECS task service'
+      inputs:
+        awsCredentials: ${{ parameters.environment_name }}
+        regionName: 'ap-southeast-1'
+        scriptType: 'inline'
+        inlineScript: 'aws ecs update-service --region "${AWS_DEFAULT_REGION}" --cluster "${CLUSTER_NAME}" --service "${SERVICE_NAME}"  --task-definition "${TASK_DEFINITION_NAME}" --force-new-deployment'
+    - task: AWSShellScript@1
+      displayName: 'Update SSM with latest image name:tag'
+      inputs:
+        awsCredentials: ${{ parameters.environment_name }}
+        regionName: 'ap-southeast-1'
+        scriptType: 'inline'
+        inlineScript: 'aws ssm put-parameter --name "AGENCY_IMAGE" --value $(AWS_ECR_IMAGE_URI):$(DOCKER_IMAGE_TAG) --type "SecureString" --description "agency image" --overwrite'
+
+  - job: clear_workspace
+    displayName: 'Post - Clear workspace'
+    dependsOn:
+      - deploy
+    workspace:
+      clean: outputs | resources | all # what to clean up before the job
+  - job: check_space
+    dependsOn:
+      - clear_workspace
+    displayName: 'Post - Check agent disk space'
+    steps:
+      - script: |
+          df -h
+          echo -e "---"
+          df -h /opt/azdo/_work/
+          echo -e "---"
+          du -h --max-depth=1
+        displayName: 'Check available disk space'

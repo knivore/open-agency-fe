@@ -1,0 +1,498 @@
+@config "../tailwind.config.ts";
+@import 'tailwindcss';
+
+/* Shadcn UI */
+@layer base {
+  :root {
+    --background: 204 70% 98%;
+    --foreground: 222 28% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 28% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 28% 12%;
+
+    --primary-50: 204 100% 97%;
+    --primary-100: 203 100% 94%;
+    --primary-200: 202 100% 87%;
+    --primary-300: 202 100% 78%;
+    --primary-400: 202 100% 69%;
+    --primary-500: 202 88% 56%;
+    --primary-600: 204 78% 45%;
+    --primary-700: 207 80% 36%;
+    --primary-800: 211 74% 28%;
+    --primary-900: 215 68% 22%;
+    --primary-950: 219 74% 13%;
+    --primary-foreground: 0 0% 98%;
+
+    --secondary-50: 173 48% 96%;
+    --secondary-100: 174 45% 91%;
+    --secondary-200: 174 42% 82%;
+    --secondary-300: 174 38% 68%;
+    --secondary-400: 174 35% 52%;
+    --secondary-500: 176 50% 39%;
+    --secondary-600: 177 58% 31%;
+    --secondary-700: 178 64% 24%;
+    --secondary-800: 181 58% 19%;
+    --secondary-900: 184 52% 15%;
+    --secondary-950: 186 58% 9%;
+    --secondary-foreground: 0 0% 100%;
+
+    /* Neutral Colors */
+    --neutral-950: 0 0% 0%; /* hsla(0, 0%, 0%, 1) */
+    --neutral-900: 0 0% 15%; /* hsla(0, 0%, 15%, 1) */
+    --neutral-800: 0 0% 22%; /* hsla(0, 0%, 22%, 1) */
+    --neutral-700: 0 0% 31%; /* hsla(0, 0%, 31%, 1) */
+    --neutral-600: 0 0% 43%; /* hsla(0, 0%, 43%, 1) */
+    --neutral-500: 0 0% 52%; /* hsla(0, 0%, 52%, 1) */
+    --neutral-400: 0 0% 63%; /* hsla(0, 0%, 63%, 1) */
+    --neutral-300: 0 0% 74%; /* hsla(0, 0%, 74%, 1) */
+    --neutral-200: 0 0% 85%; /* hsla(0, 0%, 85%, 1) */
+    --neutral-100: 0 0% 92%; /* hsla(0, 0%, 92%, 1) */
+    --neutral-50: 0 0% 98%; /* hsla(0, 0%, 98%, 1) */
+    --neutral-0: 0 0% 100%; /* hsla(0, 0%, 100%, 1) */
+
+    /* Success Colors */
+    --success-50: 160 90% 96%; /* hsla(160, 90%, 96%, 1) */
+    --success-100: 161 89% 93%; /* hsla(161, 89%, 93%, 1) */
+    --success-200: 160 100% 87%; /* hsla(160, 100%, 87%, 1) */
+    --success-300: 160 82% 80%; /* hsla(160, 82%, 80%, 1) */
+    --success-400: 160 68% 52%; /* hsla(160, 68%, 52%, 1) */
+    --success-500: 160 90% 39%; /* hsla(160, 90%, 39%, 1) */
+    --success-600: 160 100% 33%; /* hsla(160, 100%, 33%, 1) */
+    --success-700: 160 100% 24%; /* hsla(160, 100%, 24%, 1) */
+    --success-800: 160 94% 20%; /* hsla(160, 94%, 20%, 1) */
+    --success-900: 160 90% 16%; /* hsla(160, 90%, 16%, 1) */
+    --success-950: 160 96% 9%; /* hsla(160, 96%, 9%, 1) */
+
+    /* Warning Colors */
+    --warning-50: 40 100% 96%; /* hsla(40, 100%, 96%, 1) */
+    --warning-100: 40 100% 93%; /* hsla(40, 100%, 93%, 1) */
+    --warning-200: 41 100% 85%; /* hsla(41, 100%, 85%, 1) */
+    --warning-300: 40 100% 75%; /* hsla(40, 100%, 75%, 1) */
+    --warning-400: 40 100% 64%; /* hsla(40, 100%, 64%, 1) */
+    --warning-500: 40 100% 50%; /* hsla(40, 100%, 50%, 1) */
+    --warning-600: 40 100% 44%; /* hsla(40, 100%, 44%, 1) */
+    --warning-700: 40 98% 37%; /* hsla(40, 98%, 37%, 1) */
+    --warning-800: 40 90% 31%; /* hsla(40, 90%, 31%, 1) */
+    --warning-900: 40 84% 26%; /* hsla(40, 84%, 26%, 1) */
+    --warning-950: 40 100% 14%; /* hsla(40, 100%, 14%, 1) */
+
+    /* Destructive Colors */
+    --destructive-50: 0 87% 97%; /* hsla(0, 87%, 97%, 1) */
+    --destructive-100: 0 83% 93%; /* hsla(0, 83%, 93%, 1) */
+    --destructive-200: 0 84% 88%; /* hsla(0, 84%, 88%, 1) */
+    --destructive-300: 0 85% 79%; /* hsla(0, 85%, 79%, 1) */
+    --destructive-400: 0 85% 67%; /* hsla(0, 85%, 67%, 1) */
+    --destructive-500: 0 85% 57%; /* hsla(0, 85%, 57%, 1) */
+    --destructive-600: 0 85% 51%; /* hsla(0, 85%, 51%, 1) */
+    --destructive-700: 0 85% 42%; /* hsla(0, 85%, 42%, 1) */
+    --destructive-800: 0 85% 35%; /* hsla(0, 85%, 35%, 1) */
+    --destructive-900: 0 85% 31%; /* hsla(0, 85%, 31%, 1) */
+    --destructive-950: 0 84% 15%; /* hsla(0, 84%, 15%, 1) */
+
+    --muted: 205 44% 95%;
+    --muted-foreground: 216 13% 42%;
+    --accent: 203 100% 95%;
+    --accent-foreground: 207 80% 26%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 209 36% 86%;
+    --input: 209 30% 72%;
+    --ring: 204 78% 45%;
+    --chart-1: 202 100% 69%;
+    --chart-2: 207 80% 36%;
+    --chart-3: 215 68% 22%;
+    --chart-4: 196 82% 62%;
+    --chart-5: 218 74% 48%;
+    --radius: 0.5rem;
+  }
+  .dark {
+    --background: 219 56% 7%;
+    --foreground: 0 0% 98%;
+    --card: 218 48% 9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 218 48% 9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 216 36% 15%;
+    --muted-foreground: 211 28% 70%;
+    --accent: 209 52% 17%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 34% 18%;
+    --input: 214 34% 23%;
+    --ring: 202 100% 69%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  input:not([cmdk-input]):not([type='button']):not([type='checkbox']):not(
+      [type='color']
+    ):not([type='file']):not([type='hidden']):not([type='image']):not(
+      [type='radio']
+    ):not([type='range']):not([type='reset']):not([type='submit']),
+  textarea,
+  select {
+    @apply bg-white shadow-sm shadow-neutral-950/5 transition-colors;
+  }
+
+  input:not([cmdk-input]):not([type='button']):not([type='checkbox']):not(
+      [type='color']
+    ):not([type='file']):not([type='hidden']):not([type='image']):not(
+      [type='radio']
+    ):not([type='range']):not([type='reset']):not(
+      [type='submit']
+    ):focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    @apply border-primary outline-none ring-2 ring-primary/20;
+  }
+}
+/* Shadcn UI End */
+
+:root {
+  --brand-cyan: #5fc3ff;
+  --brand-blue: #0b72b9;
+  --brand-blue-deep: #06355e;
+  --brand-violet: #8a56ff;
+  --surface-blue: #f5fbff;
+  --surface-blue-strong: #eaf7ff;
+  --foreground-rgb: 0, 0, 0;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+  --text-primary: #ffffff;
+  --text-primary-inverse: #090909;
+  --text-primary-main: #0f6ea8;
+  --text-secondary: #a6aaae;
+  --text-secondary-inverse: #494a4d;
+  --background-bubble-primary: #0b72b9;
+  --background-bubble-secondary: #f7f7f7;
+  --border-primary: #ced0d2;
+  --background-soft: #eaf7ff;
+  --background-start-rgb: 214, 219, 220;
+  --background-end-rgb: 255, 255, 255;
+  --text-tertiary: #6b6f73;
+  --shadow-primary:
+    0px 6px 16px 0px #0a0a0a1f, 0px 4px 14px 0px #0a0a0a14,
+    0px 8px 10px 0px #0a0a0a14;
+  --processing-dot-size: 4px;
+}
+
+.dark {
+  --brand-cyan: #5fc3ff;
+  --brand-blue: #5fc3ff;
+  --brand-blue-deep: #02192b;
+  --brand-violet: #a989ff;
+  --surface-blue: #061d31;
+  --surface-blue-strong: #062a44;
+  --text-primary: #090909;
+  --text-primary-inverse: #ffffff;
+  --text-primary-main: #5fc3ff;
+  --text-secondary: #494a4d;
+  --text-secondary-inverse: #a6aaae;
+  --background-bubble-primary: #5fc3ff;
+  --background-bubble-secondary: #232324;
+  --background-soft: #062a44;
+  --border-primary: #262626;
+  --background-start-rgb: 23, 23, 23;
+  --background-end-rgb: 28, 28, 28;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground-rgb: 255, 255, 255;
+    --background-start-rgb: 0, 0, 0;
+    --background-end-rgb: 0, 0, 0;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .agency-gradient {
+    background-image: linear-gradient(
+      135deg,
+      var(--brand-cyan) 0%,
+      var(--brand-blue) 52%,
+      var(--brand-violet) 100%
+    );
+  }
+
+  .agency-gradient-soft {
+    background:
+      radial-gradient(
+        circle at 12% 8%,
+        rgba(95, 195, 255, 0.28),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 92% 12%,
+        rgba(138, 86, 255, 0.16),
+        transparent 26%
+      ),
+      linear-gradient(135deg, #ffffff 0%, var(--surface-blue) 48%, #f7fbff 100%);
+  }
+
+  .agency-gradient-text {
+    background-image: linear-gradient(
+      135deg,
+      var(--brand-blue) 0%,
+      var(--brand-cyan) 42%,
+      var(--brand-violet) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  .agency-card {
+    border-color: hsl(var(--primary-100));
+    background:
+      linear-gradient(
+        180deg,
+        rgba(255, 255, 255, 0.98),
+        rgba(255, 255, 255, 0.94)
+      ),
+      radial-gradient(
+        circle at top left,
+        rgba(95, 195, 255, 0.14),
+        transparent 34%
+      );
+    box-shadow: 0 10px 30px rgba(6, 53, 94, 0.07);
+  }
+
+  .dark .agency-gradient-soft {
+    background:
+      radial-gradient(
+        circle at 12% 8%,
+        rgba(95, 195, 255, 0.16),
+        transparent 32%
+      ),
+      radial-gradient(
+        circle at 92% 12%,
+        rgba(138, 86, 255, 0.14),
+        transparent 26%
+      ),
+      linear-gradient(135deg, #04111f 0%, var(--surface-blue) 48%, #061827 100%);
+  }
+
+  .dark .agency-card {
+    border-color: hsl(var(--border));
+    background:
+      linear-gradient(180deg, rgba(10, 28, 46, 0.98), rgba(7, 22, 38, 0.96)),
+      radial-gradient(
+        circle at top left,
+        rgba(95, 195, 255, 0.12),
+        transparent 34%
+      );
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.28);
+  }
+
+  .agency-soft-shadow {
+    box-shadow: 0 14px 36px rgba(6, 53, 94, 0.1);
+  }
+}
+
+.chatbot-section {
+  background-color: var(--text-primary);
+  box-shadow: var(--shadow-primary);
+  border: 1px solid var(--border-primary);
+}
+
+.chatbot-header {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.chatbot-header svg {
+  fill: var(--text-primary-inverse);
+}
+
+.chatbot-text-primary {
+  color: var(--text-primary-inverse);
+}
+
+.chatbot-text-secondary {
+  color: var(--text-secondary);
+}
+
+.chatbot-text-secondary-inverse {
+  color: var(--text-secondary-inverse);
+}
+
+.chatbot-text-tertiary {
+  color: var(--text-tertiary);
+}
+
+.chatbot-input {
+  color: var(--text-primary-inverse);
+  border: 1px solid var(--border-primary);
+}
+
+.chatbot-input::placeholder {
+  color: var(--text-secondary);
+}
+
+.chatbot-send-button {
+  background-color: var(--text-primary-inverse);
+  color: var(--text-primary);
+}
+
+.chatbot-send-button svg {
+  fill: var(--text-primary);
+}
+
+.chatbot-button-primary {
+  background-color: var(--text-primary-inverse);
+  color: var(--text-primary);
+}
+
+.chatbot-button-secondary {
+  border: 1px solid var(--border-primary);
+  color: var(--text-primary-inverse);
+}
+
+.chatbot-faq-link {
+  border: 1px solid var(--border-primary);
+  border-radius: 24px;
+  color: var(--background-bubble-primary);
+}
+
+.chatbot-faq-link svg {
+  fill: var(--text-tertiary);
+}
+
+.talk-bubble {
+  text-align: left;
+  display: inline-block;
+  position: relative;
+  color: var(--text-secondary-inverse);
+  background-color: var(--background-bubble-secondary);
+  border-radius: 10px;
+  border-bottom-left-radius: 0px;
+}
+
+.talk-bubble.user {
+  text-align: right;
+  color: var(--text-primary);
+  background-color: var(--background-bubble-primary);
+  border-radius: 10px;
+  border-bottom-right-radius: 0px;
+}
+
+.talk-bubble svg {
+  position: absolute;
+  left: -1px;
+  bottom: 2px;
+  transform: translateY(100%) rotateY(180deg);
+  fill: var(--background-bubble-secondary);
+}
+
+.talk-bubble.user svg {
+  right: -1px;
+  left: auto;
+  bottom: 2px;
+  transform: translateY(100%);
+  fill: var(--background-bubble-primary);
+}
+
+.dot-flashing {
+  position: relative;
+  /* padding-left: 8px; */
+  /* padding-right: 8px; */
+  width: var(--processing-dot-size);
+  height: var(--processing-dot-size);
+  border-radius: 100%;
+  background-color: var(--text-tertiary);
+  color: var(--text-tertiary);
+  animation: dot-flashing 1s infinite linear alternate;
+  animation-delay: 0.5s;
+}
+
+.dot-flashing::before,
+.dot-flashing::after {
+  content: '';
+  display: inline-block;
+  position: absolute;
+  top: 0;
+}
+
+.dot-flashing::before {
+  left: -6px;
+  width: var(--processing-dot-size);
+  height: var(--processing-dot-size);
+  border-radius: 100%;
+  background-color: var(--text-tertiary);
+  color: var(--text-tertiary);
+  animation: dot-flashing 1s infinite alternate;
+  animation-delay: 0s;
+}
+
+.dot-flashing::after {
+  left: 6px;
+  width: var(--processing-dot-size);
+  height: var(--processing-dot-size);
+  border-radius: 100%;
+  background-color: var(--text-tertiary);
+  color: var(--text-tertiary);
+  animation: dot-flashing 1s infinite alternate;
+  animation-delay: 1s;
+}
+
+@keyframes dot-flashing {
+  0% {
+    background-color: var(--text-tertiary);
+  }
+
+  50%,
+  100% {
+    background-color: rgba(95, 195, 255, 0.22);
+  }
+}
+
+.prompt-button {
+  background-color: var(--background-soft);
+  color: var(--text-primary-main);
+}
+
+.verbose-button {
+  background-color: var(--background-bubble-primary);
+  color: var(--text-primary);
+}
+
+/* Toggle Styles */
+.toggle-background {
+  background-color: var(--background-bubble-primary);
+}
+
+.toggle-boarder {
+  border: 1px solid var(--background-bubble-primary);
+}
+
+.vercel-link {
+  color: var(--text-primary-inverse);
+  background-color: var(--text-primary);
+  border-color: var(--border-primary);
+}
+
+.vercel-link hr {
+  border-color: var(--border-primary);
+}

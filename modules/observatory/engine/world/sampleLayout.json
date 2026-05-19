@@ -1,0 +1,181 @@
+{
+  "schemaVersion": 1,
+  "world": {
+    "id": "world:observatory-mvp",
+    "name": "Observatory MVP World",
+    "grid": {
+      "tileSize": 32,
+      "size": {
+        "width": 42,
+        "height": 18
+      }
+    },
+    "maps": [
+      {
+        "id": "map:main-office",
+        "name": "Main Runtime Office",
+        "size": {
+          "width": 42,
+          "height": 18
+        },
+        "defaultFloorAssetId": "floor:office-blue",
+        "rooms": [
+          {
+            "id": "room:runtime-floor",
+            "name": "Runtime Floor",
+            "kind": "runtime",
+            "bounds": {
+              "x": 1,
+              "y": 1,
+              "width": 13,
+              "height": 12
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition"
+          },
+          {
+            "id": "room:workflow-pod",
+            "name": "Workflow Pod",
+            "kind": "workspace",
+            "bounds": {
+              "x": 15,
+              "y": 1,
+              "width": 13,
+              "height": 12
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition"
+          },
+          {
+            "id": "room:commons",
+            "name": "Commons",
+            "kind": "commons",
+            "bounds": {
+              "x": 29,
+              "y": 1,
+              "width": 12,
+              "height": 12
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition"
+          }
+        ],
+        "objects": [
+          {
+            "id": "object:runtime-desk-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:server-workbench-with-tools",
+            "roomId": "room:runtime-floor",
+            "position": {
+              "x": 4,
+              "y": 5
+            },
+            "size": {
+              "width": 2,
+              "height": 3
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:workflow-desk-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station",
+            "roomId": "room:workflow-pod",
+            "position": {
+              "x": 19,
+              "y": 5
+            },
+            "size": {
+              "width": 4,
+              "height": 3
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:commons-orb",
+            "assetId": "furniture:1-modern-office-singles-48x48:office-water-cooler",
+            "roomId": "room:commons",
+            "position": {
+              "x": 34,
+              "y": 5
+            },
+            "size": {
+              "width": 1,
+              "height": 2
+            },
+            "blocksMovement": false
+          },
+          {
+            "id": "object:runtime-server-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
+            "roomId": "room:runtime-floor",
+            "position": {
+              "x": 9,
+              "y": 5
+            },
+            "size": {
+              "width": 1,
+              "height": 3
+            },
+            "blocksMovement": true
+          }
+        ],
+        "agents": [
+          {
+            "id": "agent:atlas",
+            "name": "Atlas",
+            "assetId": "human:atlas",
+            "roomId": "room:runtime-floor",
+            "position": {
+              "x": 5,
+              "y": 8
+            },
+            "status": "working"
+          },
+          {
+            "id": "agent:byte",
+            "name": "Byte",
+            "assetId": "human:byte",
+            "roomId": "room:workflow-pod",
+            "position": {
+              "x": 20,
+              "y": 8
+            },
+            "status": "idle"
+          },
+          {
+            "id": "agent:clio",
+            "name": "Clio",
+            "assetId": "human:clio",
+            "roomId": "room:commons",
+            "position": {
+              "x": 34,
+              "y": 8
+            },
+            "status": "idle"
+          },
+          {
+            "id": "agent:delta",
+            "name": "Delta",
+            "assetId": "human:delta",
+            "roomId": "room:runtime-floor",
+            "position": {
+              "x": 9,
+              "y": 8
+            },
+            "status": "idle"
+          },
+          {
+            "id": "agent:echo",
+            "name": "Echo",
+            "assetId": "human:echo",
+            "roomId": "room:workflow-pod",
+            "position": {
+              "x": 24,
+              "y": 8
+            },
+            "status": "idle"
+          }
+        ]
+      }
+    ]
+  }
+}

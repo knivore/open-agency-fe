@@ -1,0 +1,215 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-05-11",
+  "notes": "Human-reviewed metadata overrides. Runtime code still imports image URLs through moduleAssetRegistry.ts; this file records reviewed corrections so generated candidates can be audited and promoted without checking hundreds of files manually.",
+  "overrides": [
+    {
+      "assetId": "floor:office-blue",
+      "catalogPath": "floors/Floors_1.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "floor",
+      "source": {
+        "frameWidth": 32,
+        "frameHeight": 32
+      },
+      "frame": 50,
+      "autotile": {
+        "columns": 16,
+        "kind": "rpgmaker-a2-ground",
+        "set": {
+          "x": 2,
+          "y": 3,
+          "width": 2,
+          "height": 3
+        },
+        "tileSize": 32
+      },
+      "tags": [
+        "office-pack",
+        "floor",
+        "office",
+        "rpgmaker-a2"
+      ]
+    },
+    {
+      "assetId": "wall:office-partition",
+      "catalogPath": "walls/Walls_1.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "wall",
+      "source": {
+        "frameWidth": 48,
+        "frameHeight": 48
+      },
+      "frame": 4,
+      "autotile": {
+        "columns": 16,
+        "kind": "rpgmaker-a4-wall",
+        "set": {
+          "x": 4,
+          "y": 0,
+          "width": 2,
+          "height": 3
+        },
+        "sourceLayout": {
+          "x": 0,
+          "topY": 0,
+          "faceY": 144,
+          "blockWidth": 96,
+          "blockCount": 4,
+          "colorKey": "#1a1c2c"
+        },
+        "tileSize": 48
+      },
+      "tags": [
+        "office-pack",
+        "wall",
+        "office",
+        "rpgmaker-a4"
+      ]
+    },
+    {
+      "assetId": "furniture:ops-workstation",
+      "catalogPath": "furnitures/1_Modern_Office_Singles_48x48/server-workbench-with-tools.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "furniture",
+      "source": {
+        "kind": "image"
+      },
+      "collision": {
+        "width": 2,
+        "height": 2
+      },
+      "tags": [
+        "office-pack",
+        "desk",
+        "runtime",
+        "server",
+        "workbench",
+        "workstation"
+      ]
+    },
+    {
+      "assetId": "decor:planning-whiteboard",
+      "catalogPath": "furnitures/1_Modern_Office_Singles_48x48/planning-whiteboard-chart.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "decor",
+      "source": {
+        "kind": "image"
+      },
+      "collision": {
+        "width": 2,
+        "height": 2
+      },
+      "tags": [
+        "office-pack",
+        "planning",
+        "whiteboard"
+      ]
+    },
+    {
+      "assetId": "decor:agent-laptop",
+      "catalogPath": "furnitures/1_Modern_Office_Singles_48x48/compact-gray-laptop.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "decor",
+      "source": {
+        "kind": "image"
+      },
+      "tags": [
+        "office-pack",
+        "dynamic",
+        "laptop",
+        "work-device"
+      ]
+    },
+    {
+      "assetId": "human:atlas",
+      "catalogPath": "characters/Character_48x48_01.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "human",
+      "source": {
+        "frameWidth": 48,
+        "frameHeight": 96
+      },
+      "frame": 3,
+      "tags": [
+        "office-pack",
+        "agent",
+        "character-action-sheet"
+      ]
+    },
+    {
+      "assetId": "human:byte",
+      "catalogPath": "characters/Character_48x48_02.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "human",
+      "source": {
+        "frameWidth": 48,
+        "frameHeight": 96
+      },
+      "frame": 3,
+      "tags": [
+        "office-pack",
+        "agent",
+        "character-action-sheet"
+      ]
+    },
+    {
+      "assetId": "human:clio",
+      "catalogPath": "characters/Character_48x48_03.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "human",
+      "source": {
+        "frameWidth": 48,
+        "frameHeight": 96
+      },
+      "frame": 3,
+      "tags": [
+        "office-pack",
+        "agent",
+        "character-action-sheet"
+      ]
+    },
+    {
+      "assetId": "human:delta",
+      "catalogPath": "characters/Character_48x48_04.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "human",
+      "source": {
+        "frameWidth": 48,
+        "frameHeight": 96
+      },
+      "frame": 3,
+      "tags": [
+        "office-pack",
+        "agent",
+        "character-action-sheet"
+      ]
+    },
+    {
+      "assetId": "human:echo",
+      "catalogPath": "characters/Character_48x48_05.png",
+      "reviewStatus": "reviewed",
+      "reviewPriority": "high",
+      "category": "human",
+      "source": {
+        "frameWidth": 48,
+        "frameHeight": 96
+      },
+      "frame": 3,
+      "tags": [
+        "office-pack",
+        "agent",
+        "character-action-sheet"
+      ]
+    }
+  ]
+}

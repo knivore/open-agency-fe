@@ -1,0 +1,1152 @@
+{
+  "metadata": {
+    "id": "layout:observatory-default",
+    "name": "Default Observatory Agency Office",
+    "notes": "Published Observatory layout with tightened common work, reception, and pantry room clusters.",
+    "publishedAt": "2026-05-19T04:55:22.251Z",
+    "publishedBy": "local-builder",
+    "status": "draft",
+    "version": 1,
+    "createdAt": "2026-05-11T15:52:31.880Z",
+    "updatedAt": "2026-05-19T04:56:10.221Z"
+  },
+  "schemaVersion": 1,
+  "world": {
+    "id": "world:observatory-agency-office",
+    "name": "Observatory Agency Office",
+    "grid": {
+      "tileSize": 48,
+      "size": {
+        "width": 27,
+        "height": 17
+      }
+    },
+    "maps": [
+      {
+        "id": "map:level-1",
+        "name": "Level 1 - Runtime Floor",
+        "size": {
+          "width": 27,
+          "height": 17
+        },
+        "defaultFloorAssetId": "floor:office-blue",
+        "rooms": [
+          {
+            "id": "room:level-1-reception",
+            "name": "Reception",
+            "kind": "commons",
+            "bounds": {
+              "height": 6,
+              "width": 7,
+              "x": 0,
+              "y": 0
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Visitor intake and workflow handoff area."
+            },
+            "wallOpenings": [
+              {
+                "x": 2,
+                "y": 5
+              },
+              {
+                "x": 3,
+                "y": 5
+              }
+            ],
+            "wallAssetOverrides": [
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 0,
+                  "y": 5,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 1,
+                  "y": 5,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 4,
+                  "y": 5,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 5,
+                  "y": 5,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 6,
+                  "y": 5,
+                  "wallSide": "south"
+                }
+              }
+            ]
+          },
+          {
+            "id": "room:level-1-common-work",
+            "name": "Common Work Area",
+            "kind": "workspace",
+            "bounds": {
+              "height": 8,
+              "width": 13,
+              "x": 7,
+              "y": 0
+            },
+            "floorAssetId": "floor:office-floors-1:variant-07",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:shared-runtime",
+              "description": "Compact shared execution pod for active workflow agents."
+            },
+            "wallOpenings": [
+              {
+                "x": 19,
+                "y": 2
+              },
+              {
+                "x": 19,
+                "y": 3
+              },
+              {
+                "x": 19,
+                "y": 4
+              },
+              {
+                "x": 7,
+                "y": 6
+              },
+              {
+                "x": 10,
+                "y": 7
+              },
+              {
+                "x": 11,
+                "y": 7
+              },
+              {
+                "x": 12,
+                "y": 7
+              },
+              {
+                "x": 13,
+                "y": 7
+              },
+              {
+                "x": 14,
+                "y": 7
+              },
+              {
+                "x": 15,
+                "y": 7
+              },
+              {
+                "x": 16,
+                "y": 7
+              },
+              {
+                "x": 17,
+                "y": 7
+              },
+              {
+                "x": 18,
+                "y": 7
+              }
+            ],
+            "wallAssetOverrides": [
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 10,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 11,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 12,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 13,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 14,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 15,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 16,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 17,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 18,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 19,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 19,
+                  "y": 5,
+                  "wallSide": "east"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 19,
+                  "y": 6,
+                  "wallSide": "east"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 7,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 7,
+                  "y": 2,
+                  "wallSide": "west"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 7,
+                  "y": 3,
+                  "wallSide": "west"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 7,
+                  "y": 4,
+                  "wallSide": "west"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 7,
+                  "y": 5,
+                  "wallSide": "west"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 7,
+                  "y": 7,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 8,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 8,
+                  "y": 7,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 9,
+                  "y": 0,
+                  "wallSide": "north"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-02",
+                "point": {
+                  "x": 9,
+                  "y": 7,
+                  "wallSide": "south"
+                }
+              }
+            ],
+            "wallEdgeOpenings": [
+              {
+                "point": {
+                  "x": 7,
+                  "y": 7
+                },
+                "side": "west"
+              },
+              {
+                "point": {
+                  "x": 19,
+                  "y": 7
+                },
+                "side": "south"
+              }
+            ]
+          },
+          {
+            "id": "room:level-1-pantry",
+            "name": "Pantry",
+            "kind": "commons",
+            "bounds": {
+              "height": 6,
+              "width": 7,
+              "x": 20,
+              "y": 0
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Break area for coffee and idle actions."
+            },
+            "wallAssetOverrides": [
+              {
+                "assetId": "wall:walls-1:variant-03",
+                "point": {
+                  "x": 22,
+                  "y": 0
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-03",
+                "point": {
+                  "x": 23,
+                  "y": 0
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-03",
+                "point": {
+                  "x": 24,
+                  "y": 0
+                }
+              }
+            ],
+            "wallOpenings": [
+              {
+                "x": 20,
+                "y": 2
+              },
+              {
+                "x": 20,
+                "y": 3
+              },
+              {
+                "x": 20,
+                "y": 4
+              }
+            ]
+          },
+          {
+            "id": "room:level-1-west-corridor",
+            "name": "West Connector",
+            "kind": "commons",
+            "bounds": {
+              "height": 2,
+              "width": 7,
+              "x": 0,
+              "y": 6
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Reception overflow connector into the central corridor."
+            },
+            "wallOpenings": [
+              {
+                "x": 0,
+                "y": 6
+              },
+              {
+                "x": 1,
+                "y": 6
+              },
+              {
+                "x": 2,
+                "y": 6
+              },
+              {
+                "x": 3,
+                "y": 6
+              },
+              {
+                "x": 4,
+                "y": 6
+              },
+              {
+                "x": 5,
+                "y": 6
+              },
+              {
+                "x": 6,
+                "y": 6
+              },
+              {
+                "x": 0,
+                "y": 7
+              },
+              {
+                "x": 1,
+                "y": 7
+              },
+              {
+                "x": 2,
+                "y": 7
+              },
+              {
+                "x": 3,
+                "y": 7
+              },
+              {
+                "x": 4,
+                "y": 7
+              },
+              {
+                "x": 5,
+                "y": 7
+              },
+              {
+                "x": 6,
+                "y": 7
+              }
+            ]
+          },
+          {
+            "id": "room:level-1-executive",
+            "name": "Executive Work Room",
+            "kind": "runtime",
+            "bounds": {
+              "height": 6,
+              "width": 10,
+              "x": 10,
+              "y": 11
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:main-agent",
+              "description": "Main-agent focused execution room."
+            },
+            "wallOpenings": [
+              {
+                "x": 14,
+                "y": 11
+              },
+              {
+                "x": 15,
+                "y": 11
+              }
+            ]
+          },
+          {
+            "id": "room:level-1-runtime-lab",
+            "name": "Runtime Lab",
+            "kind": "runtime",
+            "bounds": {
+              "height": 7,
+              "width": 10,
+              "x": 0,
+              "y": 8
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:runtime-lab",
+              "description": "Server, screen, and validation area for active runtime tasks."
+            },
+            "wallOpenings": [
+              {
+                "x": 2,
+                "y": 8
+              },
+              {
+                "x": 3,
+                "y": 8
+              }
+            ]
+          },
+          {
+            "id": "room:level-1-planning-lounge",
+            "name": "Planning Lounge",
+            "kind": "workspace",
+            "bounds": {
+              "height": 10,
+              "width": 7,
+              "x": 20,
+              "y": 6
+            },
+            "floorAssetId": "floor:office-floors-1:variant-02",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "planning",
+              "description": "Whiteboard and review corner for queued or approval-heavy work."
+            },
+            "wallOpenings": [
+              {
+                "x": 20,
+                "y": 8
+              },
+              {
+                "x": 20,
+                "y": 9
+              },
+              {
+                "x": 20,
+                "y": 10
+              }
+            ]
+          },
+          {
+            "bounds": {
+              "height": 3,
+              "width": 10,
+              "x": 10,
+              "y": 8
+            },
+            "floorAssetId": "floor:office-floors-1:variant-07",
+            "id": "room:manual-8",
+            "kind": "workspace",
+            "name": "Manual Room 8",
+            "wallAssetId": "wall:office-partition",
+            "wallOpenings": [
+              {
+                "x": 11,
+                "y": 8
+              },
+              {
+                "x": 12,
+                "y": 8
+              },
+              {
+                "x": 13,
+                "y": 8
+              },
+              {
+                "x": 14,
+                "y": 8
+              },
+              {
+                "x": 15,
+                "y": 8
+              },
+              {
+                "x": 16,
+                "y": 8
+              },
+              {
+                "x": 17,
+                "y": 8
+              },
+              {
+                "x": 18,
+                "y": 8
+              },
+              {
+                "x": 19,
+                "y": 8
+              },
+              {
+                "x": 19,
+                "y": 9
+              },
+              {
+                "x": 14,
+                "y": 10
+              },
+              {
+                "x": 15,
+                "y": 10
+              }
+            ],
+            "wallEdgeOpenings": [
+              {
+                "point": {
+                  "x": 10,
+                  "y": 8
+                },
+                "side": "north"
+              },
+              {
+                "point": {
+                  "x": 19,
+                  "y": 10
+                },
+                "side": "east"
+              }
+            ],
+            "wallAssetOverrides": [
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 10,
+                  "y": 10,
+                  "wallSide": "west"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 10,
+                  "y": 9,
+                  "wallSide": "west"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 11,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 12,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 13,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 16,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 17,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 18,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              },
+              {
+                "assetId": "wall:walls-1:variant-01",
+                "point": {
+                  "x": 19,
+                  "y": 10,
+                  "wallSide": "south"
+                }
+              }
+            ]
+          }
+        ],
+        "objects": [
+          {
+            "id": "object:level-1-common-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-whiteboard-panel",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 14,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 19,
+              "offsetPx": {
+                "x": 0,
+                "y": -65
+              },
+              "sizePx": {
+                "height": 172.79999999999998,
+                "width": 115.2
+              }
+            },
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:shared-runtime",
+              "description": "Planning board for common-work tasks before agents move to computers."
+            }
+          },
+          {
+            "id": "object:level-1-common-plant",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-small-office-plant",
+            "position": {
+              "x": 19,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 20,
+              "offsetPx": {
+                "x": -10,
+                "y": -5
+              }
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Idle pause point near the wall monitor."
+            }
+          },
+          {
+            "id": "object:level-1-pantry-water-dispenser",
+            "assetId": "furniture:1-modern-office-singles-48x48:office-water-cooler",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 24,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": 25,
+                "y": 0
+              }
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Water break interaction point."
+            }
+          },
+          {
+            "id": "object:level-1-executive-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:whiteboard-with-ui-chart",
+            "position": {
+              "x": 10,
+              "y": 10
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:main-agent",
+              "description": "Main-agent planning board."
+            },
+            "render": {
+              "depth": 19,
+              "offsetPx": {
+                "x": 15,
+                "y": -5
+              }
+            }
+          },
+          {
+            "id": "object:level-1-executive-server-rack",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
+            "roomId": "room:level-1-executive",
+            "position": {
+              "x": 18,
+              "y": 11
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": 0,
+                "y": -10
+              }
+            },
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:main-agent",
+              "description": "Local runtime telemetry rack."
+            }
+          },
+          {
+            "id": "object:level-1-executive-plant",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-small-office-plant",
+            "position": {
+              "x": 19,
+              "y": 11
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 20,
+              "offsetPx": {
+                "x": 0,
+                "y": 20
+              },
+              "sizePx": {
+                "height": 115.2,
+                "width": 76.80000000000001
+              }
+            }
+          },
+          {
+            "id": "object:level-1-lab-server",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 8,
+              "y": 8
+            },
+            "size": {
+              "height": 3,
+              "width": 1
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:runtime-lab",
+              "description": "Live runtime server."
+            },
+            "render": {
+              "offsetPx": {
+                "x": -11,
+                "y": 0
+              }
+            }
+          },
+          {
+            "id": "object:level-1-lab-bench",
+            "assetId": "furniture:1-modern-office-singles-48x48:server-workbench-with-tools",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 0,
+              "y": 8
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": 0,
+                "y": 15
+              }
+            },
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:runtime-lab",
+              "description": "Validation bench."
+            }
+          },
+          {
+            "id": "object:level-1-lab-server-cage",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-server-cage-front",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 6,
+              "y": 8
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": -15,
+                "y": 0
+              }
+            },
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:runtime-lab",
+              "description": "Rack-mounted service cluster."
+            }
+          },
+          {
+            "id": "object:level-1-lab-storage",
+            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
+            "position": {
+              "x": 4,
+              "y": 6
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": 3,
+                "y": 4
+              }
+            }
+          },
+          {
+            "id": "object:level-1-lounge-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:planning-whiteboard-chart",
+            "position": {
+              "x": 21,
+              "y": 5
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "planning",
+              "description": "Planning and approval board.",
+              "logs": ["[echo] Review queue prepared."],
+              "recentEvents": ["Planning notes updated."]
+            },
+            "render": {
+              "depth": 19,
+              "offsetPx": {
+                "x": 0,
+                "y": -5
+              }
+            }
+          },
+          {
+            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
+            "blocksMovement": false,
+            "id": "object:manual-42",
+            "position": {
+              "x": 16,
+              "y": 9
+            },
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": 3,
+                "y": 4
+              }
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            }
+          },
+          {
+            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
+            "blocksMovement": false,
+            "id": "object:manual-43",
+            "position": {
+              "x": 24,
+              "y": 4
+            },
+            "render": {
+              "depth": 18,
+              "offsetPx": {
+                "x": 3,
+                "y": 4
+              }
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            }
+          }
+        ],
+        "agents": [
+          {
+            "id": "agent:atlas",
+            "name": "Atlas",
+            "assetId": "human:atlas",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 10,
+              "y": 5
+            },
+            "status": "idle",
+            "runtime": {
+              "behavior": "ambient",
+              "workflowId": "workflow:shared-runtime",
+              "targetObjectId": "object:level-1-common-desk-1",
+              "recentEvents": [
+                "Idle: reviewing backlog",
+                "Ready for workflow assignment"
+              ]
+            }
+          },
+          {
+            "id": "agent:byte",
+            "name": "Byte",
+            "assetId": "human:byte",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 14,
+              "y": 6
+            },
+            "status": "idle",
+            "runtime": {
+              "behavior": "ambient",
+              "workflowId": "workflow:shared-runtime",
+              "targetObjectId": "object:level-1-common-desk-5",
+              "recentEvents": [
+                "Idle: checking runtime notes",
+                "Ready for workflow assignment"
+              ]
+            }
+          },
+          {
+            "id": "agent:clio",
+            "name": "Clio",
+            "assetId": "human:clio",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 24,
+              "y": 4
+            },
+            "status": "idle",
+            "runtime": {
+              "behavior": "ambient",
+              "targetObjectId": "object:level-1-pantry-coffee-loop",
+              "recentEvents": ["Idle: coffee break"]
+            }
+          },
+          {
+            "id": "agent:delta",
+            "name": "Main Agent",
+            "assetId": "human:delta",
+            "roomId": "room:level-1-executive",
+            "position": {
+              "x": 13,
+              "y": 15
+            },
+            "status": "working",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:main-agent",
+              "targetObjectId": "object:level-1-executive-desk",
+              "recentEvents": ["Coordinating primary workflow"]
+            }
+          },
+          {
+            "id": "agent:echo",
+            "name": "Echo",
+            "assetId": "human:echo",
+            "roomId": "room:level-1-planning-lounge",
+            "position": {
+              "x": 25,
+              "y": 14
+            },
+            "status": "idle",
+            "runtime": {
+              "behavior": "planning",
+              "targetObjectId": "object:level-1-lounge-whiteboard",
+              "recentEvents": ["Reviewing approval queue"]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

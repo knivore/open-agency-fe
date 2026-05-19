@@ -1,0 +1,51 @@
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+indent_style = space
+indent_size = 2
+
+# TypeScript/JavaScript files
+[*.{ts,tsx,js,jsx}]
+quote_type = single
+max_line_length = 100
+
+# Component files
+[src/components/**.{tsx,ts}]
+filename_case = pascal
+
+# Page files in pages directory
+[src/pages/**.{tsx,ts}]
+filename_case = kebab
+
+# Utility files and hooks
+[src/{utils,hooks}/**.{ts,tsx}]
+filename_case = camel
+
+# Config files
+[*.config.{js,ts}]
+filename_case = kebab
+
+# Next.js 13+ App Router special files
+[src/app/**/page.tsx]
+filename_case = lower
+
+[src/app/**/layout.tsx]
+filename_case = lower
+
+[src/app/**/loading.tsx]
+filename_case = lower
+
+[src/app/**/error.tsx]
+filename_case = lower
+
+# Package files
+[package.json]
+indent_size = 2
+
+# Lock files
+[*.lock]
+indent_size = 2

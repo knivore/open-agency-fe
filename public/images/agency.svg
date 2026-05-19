@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Stylised Agency "A" symbol based on the provided artwork.  The symbol is
+  constructed from a single thick stroke forming a triangular loop and two
+  circular nodes.  A linear gradient flows from purple at the bottom left to
+  blue at the top right, matching the original asset.  The viewBox allows
+  scaling to any size.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-labelledby="title" role="img">
+  <title>Agency Symbol A</title>
+  <defs>
+    <!-- Gradient matching the purple‑to‑blue sweep of the original logo -->
+    <linearGradient id="ag-grad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <!-- Gradient flows from blue at the top to purple at the bottom -->
+      <stop offset="0%" stop-color="#5FC3FF"/>
+      <stop offset="100%" stop-color="#8A56FF"/>
+    </linearGradient>
+  </defs>
+  <!-- The main triangular stroke forming the letter A.  Stroke width and
+       rounded caps/joins reproduce the thick, smooth lines of the original. -->
+  <!-- Draw the triangular loop: bottom left to apex to bottom right.  The
+       coordinates have been adjusted to better match the proportions of
+       the original symbol. -->
+  <!-- The main triangular stroke uses a straight line on the left leg and a
+       curved quadratic segment on the right leg to mimic the upward hook
+       seen in the original symbol. -->
+  <path d="M20 85 L50 15 Q75 45 85 85" stroke="url(#ag-grad)" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- Circular node on the upper right leg -->
+  <circle cx="80" cy="28" r="10" fill="url(#ag-grad)"/>
+  <!-- Circular node inside the symbol -->
+  <circle cx="50" cy="60" r="10" fill="url(#ag-grad)"/>
+</svg>
