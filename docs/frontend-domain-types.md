@@ -2,28 +2,28 @@
 
 ## Type Organization
 
-The frontend now has a centralized domain type layer under `/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types`.
+The frontend has a centralized domain type layer under `types/`.
 
-- [types/api.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/api.ts)
+- [types/api.ts](../types/api.ts)
   Shared API primitives such as `JsonObject`, list/delete envelopes, health responses, backend validation errors, and `ApiError`.
-- [types/auth.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/auth.ts)
+- [types/auth.ts](../types/auth.ts)
   Auth-facing types for `User`, `AuthUser`, `AuthSession`, `LoginRequest`, and `LoginResponse`.
-- [types/agents.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/agents.ts)
+- [types/agents.ts](../types/agents.ts)
   Canonical agent and behavior profile models used by agent and profile screens.
-- [types/workflows.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/workflows.ts)
+- [types/workflows.ts](../types/workflows.ts)
   Workflow, node, edge, task, and versioning models aligned to the transformed backend workflow definitions.
-- [types/runtime.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/runtime.ts)
+- [types/runtime.ts](../types/runtime.ts)
   Execution, run, status, schedule, artifact, event, and A2A task types.
-- [types/integrations.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/integrations.ts)
+- [types/integrations.ts](../types/integrations.ts)
   Model provider, model profile, MCP server, integration category, provider status, and credential-reference models.
-- [types/tools.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/tools.ts)
+- [types/tools.ts](../types/tools.ts)
   Tool definitions, tool bindings, validation payloads, and provider config field metadata.
-- [types/workflowBuilderDrafts.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/workflowBuilderDrafts.ts)
+- [types/workflowBuilderDrafts.ts](../types/workflowBuilderDrafts.ts)
   Assistant/builder draft payloads used for workflow proposal generation and persistence.
-- [types/index.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/types/index.ts)
+- [types/index.ts](../types/index.ts)
   Barrel export for shared import ergonomics.
 
-`/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/api/backend/types.ts` now acts as a compatibility re-export only. New code should prefer importing from `@/types/*` directly.
+`lib/api/backend/types.ts` now acts as a compatibility re-export only. New code should prefer importing from `@/types/*` directly.
 
 ## Backend Sources Used
 
@@ -44,11 +44,10 @@ The type layer was aligned from the transformed backend codebase at `/Users/kehc
 
 Existing frontend usage was also used as a constraint, especially in:
 
-- [lib/api/backend](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/api/backend)
-- [components/agent-app](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/components/agent-app)
-- [components/workflow-app](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/components/workflow-app)
-- [components/integrations-app](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/components/integrations-app)
-- [app/(protected)/profile/page.tsx](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/app/(protected)/profile/page.tsx)
+- [lib/api/backend](../lib/api/backend)
+- [components/agent-app](../components/agent-app)
+- [components/workflow](../components/workflow)
+- [components/integrations-app](../components/integrations-app)
 
 ## Important Schema Assumptions
 
@@ -63,11 +62,10 @@ Existing frontend usage was also used as a constraint, especially in:
 
 The new type layer is already in active use in representative frontend modules:
 
-- [lib/api/errors.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/api/errors.ts)
-- [lib/workflows/graphMapping.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/workflows/graphMapping.ts)
-- [lib/workflows/runFormatting.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/workflows/runFormatting.ts)
-- [lib/integrations/catalog.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/integrations/catalog.ts)
-- [lib/api/backend/a2a.ts](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/lib/api/backend/a2a.ts)
+- [lib/api/errors.ts](../lib/api/errors.ts)
+- [lib/workflows/runFormatting.ts](../lib/workflows/runFormatting.ts)
+- [lib/integrations/catalog.ts](../lib/integrations/catalog.ts)
+- [lib/api/backend/a2a.ts](../lib/api/backend/a2a.ts)
 
 ## Recommendation On Generated Types
 

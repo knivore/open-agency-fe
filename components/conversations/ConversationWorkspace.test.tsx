@@ -454,9 +454,12 @@ describe('ConversationWorkspace', () => {
 
     expect(await screen.findByText('Conversation history')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Earlier Conversation' })).toBeInTheDocument();
+    const earlierConversationButton = await screen.findByRole('button', {
+      name: 'Earlier Conversation',
+    });
+    expect(earlierConversationButton).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Earlier Conversation' }));
+    fireEvent.click(earlierConversationButton);
 
     await waitFor(() => {
       expect(conversationsApi.getConversation).toHaveBeenCalledWith('conversation-2');

@@ -157,28 +157,6 @@ export interface ConnectorCredentialValidationPayload extends JsonObject {
   capability?: ConnectorCapabilityDefinition | null;
 }
 
-export interface ConnectorHealthHistoryItem extends JsonObject {
-  executionId: string;
-  credentialId: string;
-  credentialName: string;
-  provider: string;
-  status: string;
-  startedAt?: string | null;
-  completedAt?: string | null;
-  error?: string | null;
-  eventTypes?: string[];
-}
-
-export interface ConnectorHealthHistoryPayload extends JsonObject {
-  items: ConnectorHealthHistoryItem[];
-  total: number;
-  limit: number;
-  offset: number;
-  status?: string | null;
-  startedAfter?: string | null;
-  startedBefore?: string | null;
-}
-
 export interface IntegrationCategory extends JsonObject {
   id: string;
   name: string;

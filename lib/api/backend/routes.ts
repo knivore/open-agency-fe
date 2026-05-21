@@ -18,11 +18,16 @@ export const backendRoutes = {
     byId: (conversationId: string) => `/conversations/${conversationId}`,
     messages: (conversationId: string) => `/conversations/${conversationId}/messages`,
     stream: (conversationId: string) => `/conversations/${conversationId}/stream`,
-    approvalRequests: (conversationId: string) => `/conversations/${conversationId}/approval-requests`,
-    approveApprovalRequest: (approvalRequestId: string) => `/conversations/approval-requests/${approvalRequestId}/approve`,
-    rejectApprovalRequest: (approvalRequestId: string) => `/conversations/approval-requests/${approvalRequestId}/reject`,
-    requestChangesToApprovalRequest: (approvalRequestId: string) => `/conversations/approval-requests/${approvalRequestId}/request-changes`,
-    splitApprovalRequest: (approvalRequestId: string) => `/conversations/approval-requests/${approvalRequestId}/split`,
+    approvalRequests: (conversationId: string) =>
+      `/conversations/${conversationId}/approval-requests`,
+    approveApprovalRequest: (approvalRequestId: string) =>
+      `/conversations/approval-requests/${approvalRequestId}/approve`,
+    rejectApprovalRequest: (approvalRequestId: string) =>
+      `/conversations/approval-requests/${approvalRequestId}/reject`,
+    requestChangesToApprovalRequest: (approvalRequestId: string) =>
+      `/conversations/approval-requests/${approvalRequestId}/request-changes`,
+    splitApprovalRequest: (approvalRequestId: string) =>
+      `/conversations/approval-requests/${approvalRequestId}/split`,
   },
   tools: {
     list: () => '/tools',
@@ -71,6 +76,9 @@ export const backendRoutes = {
     categories: () => '/integrations/categories',
     capabilities: () => '/integrations/connectors/capabilities',
   },
+  connectors: {
+    test: (credentialId: string) => `/integrations/connectors/${credentialId}/test`,
+  },
   workflows: {
     list: () => '/workflows',
     create: () => '/workflows',
@@ -85,13 +93,6 @@ export const backendRoutes = {
     clone: (workflowId: string) => `/workflows/${workflowId}/clone`,
     validate: () => '/workflows/validate',
   },
-  workflowBuilder: {
-    generateDraft: () => '/workflow-builder/drafts/generate',
-    validateDraft: () => '/workflow-builder/drafts/validate',
-    persistDraft: () => '/workflow-builder/drafts/persist',
-    rewriteAgent: () => '/workflow-builder/rewrite/agent',
-    rewriteTask: () => '/workflow-builder/rewrite/task',
-  },
   executions: {
     list: () => '/executions',
     active: () => '/executions/active',
@@ -99,7 +100,8 @@ export const backendRoutes = {
     runtimeRevisionById: (revisionId: string) => `/executions/runtime/revisions/${revisionId}`,
     runtimeContainers: () => '/executions/runtime/containers',
     runtimeMetrics: () => '/executions/runtime/metrics',
-    runtimeContainerLogs: (containerId: string) => `/executions/runtime/containers/${containerId}/logs`,
+    runtimeContainerLogs: (containerId: string) =>
+      `/executions/runtime/containers/${containerId}/logs`,
     runtimeReconcile: () => '/executions/runtime/reconcile',
     create: () => '/executions',
     byId: (executionId: string) => `/executions/${executionId}`,
@@ -111,7 +113,8 @@ export const backendRoutes = {
     reject: (executionId: string) => `/executions/${executionId}/reject`,
     events: (executionId: string) => `/executions/${executionId}/events`,
     artifacts: (executionId: string) => `/executions/${executionId}/artifacts`,
-    artifactImagesStream: (executionId: string) => `/executions/${executionId}/artifacts/images/stream`,
+    artifactImagesStream: (executionId: string) =>
+      `/executions/${executionId}/artifacts/images/stream`,
     hitlStream: (executionId: string) => `/executions/${executionId}/hitl/stream`,
     hitlReply: (executionId: string) => `/executions/${executionId}/hitl/reply`,
     runtimeLogs: (executionId: string) => `/executions/${executionId}/runtime/logs`,
@@ -136,8 +139,10 @@ export const backendRoutes = {
   },
   profile: {
     credentials: () => '/credentials',
-    connectorCredentialSchema: (providerKey: string) => `/credentials/connectors/${providerKey}/schema`,
-    validateConnectorCredential: (providerKey: string) => `/credentials/connectors/${providerKey}/validate`,
+    connectorCredentialSchema: (providerKey: string) =>
+      `/credentials/connectors/${providerKey}/schema`,
+    validateConnectorCredential: (providerKey: string) =>
+      `/credentials/connectors/${providerKey}/validate`,
     createConnectorCredential: (providerKey: string) => `/credentials/connectors/${providerKey}`,
     credentialById: (credentialId: string) => `/credentials/${credentialId}`,
     updateConnectorCredential: (credentialId: string) => `/credentials/${credentialId}/connector`,

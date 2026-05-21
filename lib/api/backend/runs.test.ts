@@ -93,6 +93,7 @@ describe('runsApi', () => {
       replacementOfExecutionId: null,
       restartReason: null,
       metadata: undefined,
+      outputPayload: null,
       error: null,
     });
   });

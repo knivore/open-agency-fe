@@ -1,10 +1,8 @@
 import type { AgentDefinition } from '@/types/agents';
 import type {
-  WorkflowAgentFormData,
   WorkflowDefinition,
   WorkflowEdgeDefinition,
   WorkflowNodeDefinition,
-  WorkflowTaskFormData,
   TaskDefinition,
 } from '@/types/workflows';
 import type {
@@ -35,7 +33,7 @@ function normalizeToolIds(agent: WorkflowBuilderAgent) {
     .filter((toolId): toolId is string => typeof toolId === 'string' && toolId.trim().length > 0);
 }
 
-export function workflowAgentFormToDefinition(agent: WorkflowAgentFormData, index = 0): AgentDefinition {
+export function builderAgentToDefinition(agent: WorkflowBuilderAgent, index = 0): AgentDefinition {
   return {
     id: agent.id ?? makeScopedId('agent', agent.name, index),
     name: agent.name,
@@ -44,64 +42,30 @@ export function workflowAgentFormToDefinition(agent: WorkflowAgentFormData, inde
     system_prompt: agent.role,
     role: agent.role,
     backstory: agent.backstory,
-    model_profile_id: agent.model_profile_id ?? null,
-    tool_ids: [...(agent.tool_ids ?? [])],
-    handoff_agent_ids: [...(agent.handoff_agent_ids ?? [])],
+    model_profile_id: agent.llm ?? null,
+    tool_ids: normalizeToolIds(agent),
+    handoff_agent_ids: agent.allow_delegation ? [] : [],
     metadata: {
-      migrated_from: 'agency-fe-workflow-agent-form',
+      migrated_from: 'agency-fe-workflow-builder',
     },
   };
 }
 
-export function builderAgentToDefinition(agent: WorkflowBuilderAgent, index = 0): AgentDefinition {
-  return workflowAgentFormToDefinition(
-    {
-      id: agent.id,
-      name: agent.name,
-      role: agent.role,
-      instructions: agent.instructions,
-      backstory: agent.backstory,
-      temperature: agent.temperature ?? null,
-      model_profile_id: agent.llm ?? null,
-      tool_ids: normalizeToolIds(agent),
-      handoff_agent_ids: agent.allow_delegation ? [] : [],
-      tool_configs: agent.agentTools ?? [],
-    },
-    index
-  );
-}
-
-export function workflowTaskFormToDefinition(task: WorkflowTaskFormData, index = 0): TaskDefinition {
+export function builderTaskToDefinition(task: WorkflowBuilderTask, index = 0): TaskDefinition {
   return {
     id: task.id ?? makeScopedId('task', task.name, index),
     name: task.name,
     description: task.description,
     instructions: task.description,
     expected_output: task.expected_output,
-    agent_id: task.agent_id ?? null,
+    agent_id: task.agentId ?? null,
     tool_ids: [],
-    depends_on_task_ids: (task.depends_on_task_ids ?? []).filter(
+    depends_on_task_ids: (task.context ?? []).filter(
       (dependencyId): dependencyId is string =>
         typeof dependencyId === 'string' && dependencyId.trim().length > 0
     ),
-    human_approval_required: Boolean(task.human_approval_required),
+    human_approval_required: Boolean(task.human_input),
   };
-}
-
-export function builderTaskToDefinition(task: WorkflowBuilderTask, index = 0): TaskDefinition {
-  return workflowTaskFormToDefinition(
-    {
-      id: task.id,
-      name: task.name,
-      description: task.description,
-      expected_output: task.expected_output,
-      agent_id: task.agentId ?? null,
-      depends_on_task_ids: task.context ?? [],
-      human_approval_required: Boolean(task.human_input),
-      includeTask: task.includeTask,
-    },
-    index
-  );
 }
 
 export function rebuildWorkflowGraph(workflow: WorkflowDefinition): WorkflowDefinition {
@@ -151,8 +115,13 @@ export function rebuildWorkflowGraph(workflow: WorkflowDefinition): WorkflowDefi
   };
 }
 
-export function workflowBuilderBaseToWorkflowDefinition(builderDraft: WorkflowBuilderBase, userId?: string | null): WorkflowDefinition {
-  const agentDefinitions = (builderDraft.agents ?? []).map((agent, index) => builderAgentToDefinition(agent, index));
+export function workflowBuilderBaseToWorkflowDefinition(
+  builderDraft: WorkflowBuilderBase,
+  userId?: string | null
+): WorkflowDefinition {
+  const agentDefinitions = (builderDraft.agents ?? []).map((agent, index) =>
+    builderAgentToDefinition(agent, index)
+  );
   const agentIdMap = new Map(agentDefinitions.map((agent) => [agent.name, agent.id]));
   const taskDefinitions = (builderDraft.tasks ?? []).map((task, index) => {
     const definition = builderTaskToDefinition(task, index);
@@ -184,7 +153,7 @@ export function workflowBuilderBaseToWorkflowDefinition(builderDraft: WorkflowBu
       labels: ['draft'],
     },
     metadata: {
-      owner_ids: userId ? [userId] : builderDraft.owned_by ?? [],
+      owner_ids: userId ? [userId] : (builderDraft.owned_by ?? []),
       created_by: userId ?? builderDraft.created_by ?? null,
       inputs: builderDraft.inputs ?? [],
       process: builderDraft.process ?? 'sequential',
@@ -194,7 +163,10 @@ export function workflowBuilderBaseToWorkflowDefinition(builderDraft: WorkflowBu
   return workflow;
 }
 
-export function cloneWorkflowDefinition(workflow: WorkflowDefinition, userId?: string | null): WorkflowDefinition {
+export function cloneWorkflowDefinition(
+  workflow: WorkflowDefinition,
+  userId?: string | null
+): WorkflowDefinition {
   const agentIdMap = new Map<string, string>();
   const taskIdMap = new Map<string, string>();
 
@@ -213,7 +185,7 @@ export function cloneWorkflowDefinition(workflow: WorkflowDefinition, userId?: s
     return {
       ...task,
       id: newId,
-      agent_id: task.agent_id ? agentIdMap.get(task.agent_id) ?? null : null,
+      agent_id: task.agent_id ? (agentIdMap.get(task.agent_id) ?? null) : null,
     };
   });
 

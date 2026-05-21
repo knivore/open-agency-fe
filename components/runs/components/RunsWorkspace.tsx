@@ -23,6 +23,7 @@ import {
   CardTitle,
 } from '@/components/library/shadcn/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
+import PageHeader from '@/components/app-shell/PageHeader';
 import {
   RunsEmptyCard,
   RunsErrorAlert,
@@ -260,57 +261,108 @@ export default function RunsWorkspace() {
   if (runs.length === 0) {
     return (
       <div className="space-y-6">
-        <RunsEmptyCard
-          title="No runs found"
-          description="The canonical executions route returned no runs."
-          actionLabel="Refresh"
-          onAction={() => runsQuery.refetch()}
+        <PageHeader
+          eyebrow="Runs"
+          title="Runs"
+          description="Live operations, coordination, and execution records"
+          actions={
+            <>
+              <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
+                <TabsList>
+                  <TabsTrigger value="list" className="gap-2">
+                    <List className="h-4 w-4" />
+                    List
+                  </TabsTrigger>
+                  <TabsTrigger value="observatory" className="gap-2">
+                    <ActivitySquare className="h-4 w-4" />
+                    Observatory
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => runsQuery.refetch()}
+                disabled={runsQuery.isFetching}
+              >
+                <RefreshCw
+                  className={`mr-2 h-4 w-4 ${runsQuery.isFetching ? 'animate-spin' : ''}`}
+                />
+                Refresh
+              </Button>
+            </>
+          }
         />
         {observatoryAgentControls}
+        <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
+          <TabsContent value="list" className="mt-0">
+            <RunsEmptyCard
+              title="No runs found"
+              description="The canonical executions route returned no runs."
+              actionLabel="Refresh"
+              onAction={() => runsQuery.refetch()}
+            />
+          </TabsContent>
+          <TabsContent value="observatory" className="mt-0">
+            {observatoryHasMounted ? (
+              <ObservatoryRuntimeSurface
+                agents={observatoryAgents}
+                layoutSource="repo"
+                mode="viewer"
+                runtimeObjectOverlays={false}
+                runtimeContext={observatoryRuntimeContext}
+                runtimePreviewMode={observatoryRuntimePreviewMode}
+                runs={observatoryRuntimeRuns}
+                useLayoutAgentsWhenEmpty
+              />
+            ) : null}
+          </TabsContent>
+        </Tabs>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Runs</h1>
-          <p className="text-sm text-neutral-500">
-            Live operations, coordination, and execution records
-          </p>
-          <div className="mt-2 flex flex-wrap gap-2">
+      <PageHeader
+        eyebrow="Runs"
+        title="Runs"
+        description="Live operations, coordination, and execution records"
+        meta={
+          <>
             <Badge variant="outline">{runs.length} total</Badge>
             <Badge variant="outline">{activeCount} active</Badge>
             {statusFilter !== 'all' ? (
               <Badge variant="secondary">Filtered: {statusFilter}</Badge>
             ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
-            <TabsList>
-              <TabsTrigger value="list" className="gap-2">
-                <List className="h-4 w-4" />
-                List
-              </TabsTrigger>
-              <TabsTrigger value="observatory" className="gap-2">
-                <ActivitySquare className="h-4 w-4" />
-                Observatory
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => runsQuery.refetch()}
-            disabled={runsQuery.isFetching}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${runsQuery.isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
+              <TabsList>
+                <TabsTrigger value="list" className="gap-2">
+                  <List className="h-4 w-4" />
+                  List
+                </TabsTrigger>
+                <TabsTrigger value="observatory" className="gap-2">
+                  <ActivitySquare className="h-4 w-4" />
+                  Observatory
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => runsQuery.refetch()}
+              disabled={runsQuery.isFetching}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${runsQuery.isFetching ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center">
         <Input
@@ -390,7 +442,7 @@ export default function RunsWorkspace() {
             <RunSessionsTable runs={filteredRuns} workflowNamesById={workflowNamesById} />
           )}
         </TabsContent>
-        <TabsContent value="observatory" className="mt-0" forceMount>
+        <TabsContent value="observatory" className="mt-0">
           {observatoryHasMounted ? (
             <ObservatoryRuntimeSurface
               agents={observatoryAgents}
@@ -400,7 +452,7 @@ export default function RunsWorkspace() {
               runtimeContext={observatoryRuntimeContext}
               runtimePreviewMode={observatoryRuntimePreviewMode}
               runs={observatoryRuntimeRuns}
-              useLayoutAgentsWhenEmpty={false}
+              useLayoutAgentsWhenEmpty
             />
           ) : null}
         </TabsContent>

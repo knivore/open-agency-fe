@@ -1,4 +1,4 @@
-import WorkflowDetailWorkspace from '@/components/workflow-app/WorkflowDetailWorkspace';
+import WorkflowDetailWorkspace from '@/components/workflow/WorkflowDetailWorkspace';
 
 interface WorkflowDetailPageProps {
   params: Promise<{ id: string }>;

@@ -3,7 +3,6 @@ import type { JsonObject } from '@/types/api';
 import type { ApprovalRequest } from '@/types/conversations';
 import type { ExecutionEventRecord } from '@/types/runtime';
 import type { ToolDefinition, ToolParameterMetadata } from '@/types/tools';
-import type { User } from '@/types/users';
 import { z } from 'zod';
 
 export interface WorkflowNodeDefinition extends JsonObject {
@@ -142,20 +141,6 @@ export interface WorkflowDefinition extends JsonObject {
   monitoring?: WorkflowMonitoringOperatorPayload;
 }
 
-export interface WorkflowWorkspaceDetail extends JsonObject {
-  workflow: WorkflowDefinition;
-  creator?: User;
-  owners: User[];
-}
-
-export interface WorkflowEditorFormData {
-  id?: string | null;
-  name: string;
-  description: string;
-  process: string;
-  inputs: string[];
-}
-
 export type WorkflowAgentLlmProvider = 'ollama' | 'openai_compatible' | 'openai';
 export type ExecutionHost = 'local' | 'docker';
 
@@ -200,78 +185,6 @@ export interface WorkflowAgentToolConfig {
   parameters_metadata?: Record<string, ToolParameterMetadata> | null;
   parameters: Record<string, string>;
 }
-
-export interface WorkflowToolOption {
-  id: string;
-  name: string;
-  description: string;
-  parameters_metadata?: Record<string, ToolParameterMetadata> | null;
-}
-
-export interface WorkflowAgentFormData {
-  id?: string | null;
-  name: string;
-  role: string;
-  instructions: string;
-  backstory: string;
-  temperature?: number | null;
-  model_profile_id?: string | null;
-  llm_override?: WorkflowAgentLlmOverride | null;
-  tool_ids: string[];
-  handoff_agent_ids: string[];
-  tool_configs: WorkflowAgentToolConfig[];
-}
-
-export interface WorkflowTaskFormData {
-  id?: string | null;
-  name: string;
-  description: string;
-  expected_output: string;
-  agent_id?: string | null;
-  depends_on_task_ids: string[];
-  human_approval_required?: boolean | null;
-  includeTask?: boolean;
-}
-
-const WorkflowAgentToolConfigSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string(),
-  created_by: z.string().optional(),
-  owned_by: z.string().optional(),
-  parameters_metadata: z.record(z.string(), z.custom<ToolParameterMetadata>()).nullish(),
-  parameters: z.record(z.string(), z.string()),
-});
-
-export const WorkflowAgentFormSchema = z.object({
-  id: z.string().nullish(),
-  name: z.string(),
-  role: z.string(),
-  instructions: z.string(),
-  backstory: z.string(),
-  temperature: z.number().min(0).max(1).nullish(),
-  model_profile_id: z.string().nullish(),
-  llm_override: z.object({
-    provider: z.enum(['ollama', 'openai_compatible', 'openai']),
-    model: z.string(),
-    base_url: z.string().nullish(),
-    api_key: z.string().nullish(),
-  }).nullish(),
-  tool_ids: z.array(z.string()).default([]),
-  handoff_agent_ids: z.array(z.string()).default([]),
-  tool_configs: z.array(WorkflowAgentToolConfigSchema).default([]),
-});
-
-export const WorkflowTaskFormSchema = z.object({
-  id: z.string().nullish(),
-  name: z.string(),
-  description: z.string(),
-  expected_output: z.string(),
-  agent_id: z.string().nullish(),
-  depends_on_task_ids: z.array(z.string()).default([]),
-  human_approval_required: z.boolean().nullish(),
-  includeTask: z.boolean().optional(),
-});
 
 export const WorkflowEditorFormSchema = z.object({
   id: z.string().nullish(),

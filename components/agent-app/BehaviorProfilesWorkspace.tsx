@@ -1,6 +1,15 @@
 'use client';
 
-import { type Dispatch, type SetStateAction, useMemo, useState, useTransition } from 'react';
+import {
+  type Dispatch,
+  type SetStateAction,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { behaviorProfilesApi, modelProfilesApi, modelProvidersApi } from '@/lib/api/backend';
 import type {
@@ -26,10 +35,63 @@ import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
 import { Copy, RefreshCw } from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import PageHeader from '@/components/app-shell/PageHeader';
 import { toast } from 'sonner';
 
 const OPENAI_CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const OPENAI_CODEX_REDIRECT_URI = 'http://localhost:1455/auth/callback';
+const AGENCY_OAUTH_CALLBACK_MESSAGE_TYPE = 'agency-oauth-callback';
+
+type AgencyOAuthCallbackMessage = {
+  type: typeof AGENCY_OAUTH_CALLBACK_MESSAGE_TYPE;
+  redirectUrl: string;
+};
+
+function isLoopbackCallbackOrigin(origin: string, redirectUri?: string) {
+  try {
+    const originUrl = new URL(origin);
+    if (redirectUri) {
+      const redirectOrigin = new URL(redirectUri).origin;
+      if (originUrl.origin === redirectOrigin) {
+        return true;
+      }
+    }
+    return (
+      (originUrl.hostname === 'localhost' || originUrl.hostname === '127.0.0.1') &&
+      originUrl.port === '1455'
+    );
+  } catch {
+    return false;
+  }
+}
+
+function oauthCallbackRedirectUrlFromMessage(
+  event: MessageEvent,
+  authData: ProviderAuthorizeResponse
+) {
+  if (!isLoopbackCallbackOrigin(event.origin, authData.redirect_uri)) {
+    return null;
+  }
+  if (!isRecord(event.data)) {
+    return null;
+  }
+  const message = event.data as Partial<AgencyOAuthCallbackMessage>;
+  if (
+    message.type !== AGENCY_OAUTH_CALLBACK_MESSAGE_TYPE ||
+    typeof message.redirectUrl !== 'string'
+  ) {
+    return null;
+  }
+  try {
+    const redirectUrl = new URL(message.redirectUrl);
+    if (redirectUrl.searchParams.get('state') !== authData.state) {
+      return null;
+    }
+    return message.redirectUrl;
+  } catch {
+    return null;
+  }
+}
 
 type ProfileFormState = {
   name: string;
@@ -858,12 +920,14 @@ function OAuthDialog({
   const [authProfileId, setAuthProfileId] = useState(defaultOAuthProfileId(provider));
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const completedRedirectRef = useRef<string | null>(null);
   const oauthProfiles = oauthProfilesForProvider(provider);
   const statusLabel = oauthStatusLabel(provider, authProfileId);
   const accountId = oauthAccountId(provider, authProfileId);
 
   const handleStart = () => {
     setError(null);
+    completedRedirectRef.current = null;
     startTransition(async () => {
       try {
         const res = await modelProvidersApi.authorizeProvider(provider.id, { authProfileId });
@@ -914,28 +978,56 @@ function OAuthDialog({
     });
   };
 
+  const completeOAuth = useCallback(
+    (input: string) => {
+      if (!authData) return;
+      const trimmedInput = input.trim();
+      if (!trimmedInput) return;
+      const isRedirectUrl = /^https?:\/\//i.test(trimmedInput);
+      setError(null);
+      startTransition(async () => {
+        try {
+          await modelProvidersApi.completeAuthorizeProvider(provider.id, {
+            code: isRedirectUrl ? undefined : trimmedInput,
+            redirect_url: isRedirectUrl ? trimmedInput : undefined,
+            pkce_verifier: authData.pkce_verifier,
+            state: authData.state,
+            auth_profile_id: authData.auth_profile_id || authProfileId,
+            client_id: authData.client_id,
+          });
+          toast.success('OAuth authorization successful!');
+          setIsOpen(false);
+          await onComplete();
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Failed to complete OAuth flow');
+        }
+      });
+    },
+    [authData, authProfileId, onComplete, provider.id, startTransition]
+  );
+
+  useEffect(() => {
+    if (!isOpen || step !== 'waiting' || !authData) {
+      return;
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      const redirectUrl = oauthCallbackRedirectUrlFromMessage(event, authData);
+      if (!redirectUrl || completedRedirectRef.current === redirectUrl) {
+        return;
+      }
+      completedRedirectRef.current = redirectUrl;
+      setCompletionInput(redirectUrl);
+      completeOAuth(redirectUrl);
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [authData, completeOAuth, isOpen, step]);
+
   const handleManualComplete = () => {
     if (!authData) return;
-    const trimmedInput = completionInput.trim();
-    const isRedirectUrl = /^https?:\/\//i.test(trimmedInput);
-    setError(null);
-    startTransition(async () => {
-      try {
-        await modelProvidersApi.completeAuthorizeProvider(provider.id, {
-          code: isRedirectUrl ? undefined : trimmedInput,
-          redirect_url: isRedirectUrl ? trimmedInput : undefined,
-          pkce_verifier: authData.pkce_verifier,
-          state: authData.state,
-          auth_profile_id: authData.auth_profile_id || authProfileId,
-          client_id: authData.client_id,
-        });
-        toast.success('OAuth authorization successful!');
-        setIsOpen(false);
-        await onComplete();
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to complete OAuth flow');
-      }
-    });
+    completeOAuth(completionInput);
   };
 
   return (
@@ -1466,15 +1558,17 @@ function CreateLlmModelDialog({
   const [oauthData, setOauthData] = useState<ProviderAuthorizeResponse | null>(null);
   const [completionInput, setCompletionInput] = useState('');
   const [createdProviderId, setCreatedProviderId] = useState<string | null>(null);
+  const completedRedirectRef = useRef<string | null>(null);
 
-  const reset = () => {
+  const reset = useCallback(() => {
     setState(defaultCreateLlmModelState(providers));
     setError(null);
     setOauthStep('idle');
     setOauthData(null);
     setCompletionInput('');
     setCreatedProviderId(null);
-  };
+    completedRedirectRef.current = null;
+  }, [providers]);
 
   const updateProviderFamily = (family: ProviderFamily) => {
     const provider = defaultProviderForm(family);
@@ -1519,6 +1613,7 @@ function CreateLlmModelDialog({
             const preset = providerPresetForFamily(state.provider.family);
             if (preset.requiresOAuth) {
               const authProfileId = state.provider.authProfileId?.trim() || 'default';
+              completedRedirectRef.current = null;
               const res = await modelProvidersApi.authorizeProvider(newProvider.id, {
                 clientId: state.provider.clientId,
                 authProfileId,
@@ -1551,55 +1646,81 @@ function CreateLlmModelDialog({
     });
   };
 
-  const handleOAuthComplete = () => {
-    if (!oauthData || !createdProviderId) return;
-    const trimmedInput = completionInput.trim();
-    const isRedirectUrl = /^https?:\/\//i.test(trimmedInput);
-    setError(null);
-    startTransition(async () => {
-      try {
-        await modelProvidersApi.completeAuthorizeProvider(createdProviderId, {
-          code: isRedirectUrl ? undefined : trimmedInput,
-          redirect_url: isRedirectUrl ? trimmedInput : undefined,
-          pkce_verifier: oauthData.pkce_verifier,
-          client_id: oauthData.client_id,
-          state: oauthData.state,
-          auth_profile_id: oauthData.auth_profile_id || state.provider.authProfileId || 'default',
-        });
+  const completeOAuthAndCreateModel = useCallback(
+    (input: string) => {
+      if (!oauthData || !createdProviderId) return;
+      const trimmedInput = input.trim();
+      if (!trimmedInput) return;
+      const isRedirectUrl = /^https?:\/\//i.test(trimmedInput);
+      setError(null);
+      startTransition(async () => {
+        try {
+          await modelProvidersApi.completeAuthorizeProvider(createdProviderId, {
+            code: isRedirectUrl ? undefined : trimmedInput,
+            redirect_url: isRedirectUrl ? trimmedInput : undefined,
+            pkce_verifier: oauthData.pkce_verifier,
+            client_id: oauthData.client_id,
+            state: oauthData.state,
+            auth_profile_id: oauthData.auth_profile_id || state.provider.authProfileId || 'default',
+          });
 
-        // Authorization successful, now create the model profile
-        const preset = providerPresetForFamily(state.provider.family);
-        const modelState = { ...state };
-        if (preset.defaultProfile) {
-          const dp = preset.defaultProfile;
-          modelState.profileName = dp.name;
-          modelState.profileDescription = dp.description;
-          modelState.temperature = dp.temperature;
-          modelState.maxTokens = dp.maxTokens;
-          modelState.topP = dp.topP;
+          const preset = providerPresetForFamily(state.provider.family);
+          const modelState = { ...state };
+          if (preset.defaultProfile) {
+            const dp = preset.defaultProfile;
+            modelState.profileName = dp.name;
+            modelState.profileDescription = dp.description;
+            modelState.temperature = dp.temperature;
+            modelState.maxTokens = dp.maxTokens;
+            modelState.topP = dp.topP;
+          }
+
+          await modelProfilesApi.createProfile(
+            toProfilePayloadFromLlmModelState({
+              state: {
+                ...modelState,
+                oauthProfileId:
+                  oauthData.auth_profile_id || state.provider.authProfileId || 'default',
+              },
+              providerId: createdProviderId,
+              baseUrl: state.provider.baseUrl.trim() || null,
+              apiKey: null,
+            })
+          );
+
+          await onRefresh();
+          toast.success('OAuth successful and LLM model created!');
+          reset();
+          setIsOpen(false);
+        } catch (e) {
+          setError(e instanceof Error ? e.message : 'Failed to complete OAuth and create model');
         }
+      });
+    },
+    [createdProviderId, oauthData, onRefresh, reset, startTransition, state]
+  );
 
-        await modelProfilesApi.createProfile(
-          toProfilePayloadFromLlmModelState({
-            state: {
-              ...modelState,
-              oauthProfileId:
-                oauthData.auth_profile_id || state.provider.authProfileId || 'default',
-            },
-            providerId: createdProviderId,
-            baseUrl: state.provider.baseUrl.trim() || null,
-            apiKey: null,
-          })
-        );
+  useEffect(() => {
+    if (!isOpen || oauthStep !== 'waiting' || !oauthData) {
+      return;
+    }
 
-        await onRefresh();
-        toast.success('OAuth successful and LLM model created!');
-        reset();
-        setIsOpen(false);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to complete OAuth and create model');
+    const handleMessage = (event: MessageEvent) => {
+      const redirectUrl = oauthCallbackRedirectUrlFromMessage(event, oauthData);
+      if (!redirectUrl || completedRedirectRef.current === redirectUrl) {
+        return;
       }
-    });
+      completedRedirectRef.current = redirectUrl;
+      setCompletionInput(redirectUrl);
+      completeOAuthAndCreateModel(redirectUrl);
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [completeOAuthAndCreateModel, isOpen, oauthData, oauthStep]);
+
+  const handleOAuthComplete = () => {
+    completeOAuthAndCreateModel(completionInput);
   };
 
   const selectedPreset = providerPresetForFamily(state.provider.family);
@@ -2382,32 +2503,31 @@ export default function BehaviorProfilesWorkspace() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">LLM Models</h1>
-          <p className="text-sm text-neutral-500">
-            Set up LLM connections and selectable model presets for agents and workflows.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <CreateLlmModelDialog
-            providers={providers}
-            modelOptionsByProvider={modelOptionsByProvider}
-            onRefresh={refreshAll}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => void refreshAll()}
-            disabled={profilesQuery.isFetching || providersQuery.isFetching}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${profilesQuery.isFetching || providersQuery.isFetching ? 'animate-spin' : ''}`}
+      <PageHeader
+        eyebrow="LLM Models"
+        title="LLM Models"
+        description="Set up LLM connections and selectable model presets for agents and workflows."
+        actions={
+          <>
+            <CreateLlmModelDialog
+              providers={providers}
+              modelOptionsByProvider={modelOptionsByProvider}
+              onRefresh={refreshAll}
             />
-            Refresh
-          </Button>
-        </div>
-      </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void refreshAll()}
+              disabled={profilesQuery.isFetching || providersQuery.isFetching}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${profilesQuery.isFetching || providersQuery.isFetching ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
       <div className="space-y-3">
         <div>

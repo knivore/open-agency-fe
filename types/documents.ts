@@ -1,5 +1,7 @@
 import type { MemoryScope } from '@/types/memory';
 
+export type DocumentMemoryScope = Exclude<MemoryScope, 'global'>;
+
 export interface DocumentIngestionResult {
   document_id: string;
   filename: string;
@@ -12,7 +14,7 @@ export interface DocumentIngestionResult {
 
 export interface DocumentIngestionInput {
   file: File;
-  scope?: MemoryScope;
+  scope?: DocumentMemoryScope;
   workspaceId?: string;
   conversationId?: string;
   workflowId?: string;

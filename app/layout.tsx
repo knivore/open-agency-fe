@@ -2,7 +2,6 @@ import './globals.css';
 import Providers from '@/app/providers';
 import type { Metadata } from 'next';
 import { Toaster } from 'sonner';
-import Footer from '@/app/footer';
 
 export const metadata: Metadata = {
   title: 'Agency',
@@ -22,7 +21,6 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
     <body className="h-screen flex flex-col">
     <Providers>
       <div className="flex-1">{children}</div>
-      {/*<Footer />*/}
       <Toaster />
     </Providers>
     </body>

@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { agentsApi, behaviorProfilesApi, conversationsApi, toolsApi } from '@/lib/api/backend';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { toolDisplayName } from '@/lib/tools/displayName';
-import type { Agent, BehaviorTuningProfile } from '@/types/agents';
+import type { Agent, AgentConfig, BehaviorTuningProfile } from '@/types/agents';
 import type { ToolDefinition } from '@/types/tools';
 import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
@@ -21,9 +21,182 @@ import {
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
-import { ChevronDown, ChevronUp, FileText, RefreshCw } from 'lucide-react';
+import { ChevronDown, ChevronUp, FileText, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import PageHeader from '@/components/app-shell/PageHeader';
+import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import { toast } from 'sonner';
+
+interface ToolCategory {
+  id: string;
+  label: string;
+  description: string;
+  keywords: string[];
+}
+
+const toolCategories: ToolCategory[] = [
+  {
+    id: 'browser',
+    label: 'Browser and Screenshots',
+    description: 'Page control, visual inspection, screenshots, and browser extraction.',
+    keywords: ['browser', 'screenshot', 'page', 'click', 'visual', 'extract', 'web', 'url'],
+  },
+  {
+    id: 'system',
+    label: 'System and Command',
+    description: 'CLI commands, shell access, computer control, and runtime operations.',
+    keywords: ['cli', 'command', 'computer', 'runtime', 'shell', 'terminal'],
+  },
+  {
+    id: 'communication',
+    label: 'Communication and Human Input',
+    description: 'Human handoff, questions, notifications, and outbound messages.',
+    keywords: [
+      'ask human',
+      'clarification',
+      'email',
+      'human',
+      'message',
+      'notification',
+      'operator',
+      'question',
+      'slack',
+    ],
+  },
+  {
+    id: 'workflow',
+    label: 'Workflows and Runs',
+    description: 'Workflow definitions, executions, run state, and execution artifacts.',
+    keywords: ['execution', 'run', 'workflow', 'task', 'approval'],
+  },
+  {
+    id: 'memory',
+    label: 'Memory and Knowledge',
+    description: 'Memory storage, retrieval, search, embeddings, and knowledge lookup.',
+    keywords: ['embedding', 'knowledge', 'memory', 'retrieval', 'search', 'vector'],
+  },
+  {
+    id: 'files',
+    label: 'Files and Documents',
+    description: 'Document conversion, spreadsheets, uploads, and file artifacts.',
+    keywords: [
+      'artifact',
+      'csv',
+      'docx',
+      'document',
+      'excel',
+      'file',
+      'image',
+      'json',
+      'markdown',
+      'pdf',
+      'sheet',
+      'word',
+    ],
+  },
+  {
+    id: 'other',
+    label: 'Other Tools',
+    description: 'Tools that do not match the primary operational groups.',
+    keywords: [],
+  },
+];
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+}
+
+function agentConfigOrDefaults(agent: Agent): AgentConfig {
+  const legacyAgent = agent as Agent & {
+    instructions?: unknown;
+    model_profile_id?: unknown;
+    system_prompt?: unknown;
+    tool_ids?: unknown;
+    toolIds?: unknown;
+    handoff_agent_ids?: unknown;
+    handoffAgentIds?: unknown;
+  };
+  const config = agent.config;
+
+  return {
+    instructions:
+      config?.instructions ??
+      (typeof legacyAgent.instructions === 'string' ? legacyAgent.instructions : null),
+    systemPrompt:
+      config?.systemPrompt ??
+      (typeof legacyAgent.system_prompt === 'string' ? legacyAgent.system_prompt : null),
+    modelProfileId:
+      config?.modelProfileId ??
+      (typeof legacyAgent.model_profile_id === 'string' ? legacyAgent.model_profile_id : null),
+    toolIds:
+      config?.toolIds ??
+      (stringArray(legacyAgent.tool_ids).length > 0
+        ? stringArray(legacyAgent.tool_ids)
+        : stringArray(legacyAgent.toolIds)),
+    handoffAgentIds:
+      config?.handoffAgentIds ??
+      (stringArray(legacyAgent.handoff_agent_ids).length > 0
+        ? stringArray(legacyAgent.handoff_agent_ids)
+        : stringArray(legacyAgent.handoffAgentIds)),
+    metadata: config?.metadata,
+  };
+}
+
+function toolSearchText(tool: ToolDefinition) {
+  return [
+    tool.id,
+    tool.name,
+    tool.display_name,
+    toolDisplayName(tool),
+    tool.description,
+    tool.tool_type,
+    ...(tool.tags ?? []),
+  ]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/[_-]+/g, ' ')
+    .toLowerCase();
+}
+
+function categoryForTool(tool: ToolDefinition) {
+  const searchText = toolSearchText(tool);
+  const fallbackCategory = toolCategories[toolCategories.length - 1];
+  let bestCategory = fallbackCategory;
+  let bestScore = 0;
+
+  toolCategories.forEach((category) => {
+    if (category.id === fallbackCategory.id) {
+      return;
+    }
+
+    const score = category.keywords.reduce(
+      (total, keyword) => total + (searchText.includes(keyword) ? 1 : 0),
+      0
+    );
+
+    if (score > bestScore) {
+      bestCategory = category;
+      bestScore = score;
+    }
+  });
+
+  return bestCategory;
+}
+
+function sortToolsByAssignmentAndName(toolIds: string[]) {
+  const selectedIds = new Set(toolIds);
+
+  return (left: ToolDefinition, right: ToolDefinition) => {
+    const leftSelected = selectedIds.has(left.id);
+    const rightSelected = selectedIds.has(right.id);
+
+    if (leftSelected !== rightSelected) {
+      return leftSelected ? -1 : 1;
+    }
+
+    return toolDisplayName(left).localeCompare(toolDisplayName(right));
+  };
+}
 
 function ToolAssignmentControls({
   disabled,
@@ -39,6 +212,20 @@ function ToolAssignmentControls({
   const allToolIds = tools.map((tool) => tool.id);
   const assignmentMode =
     toolIds.length === 0 ? 'none' : toolIds.length === allToolIds.length ? 'all' : 'selected';
+  const selectedToolIds = new Set(toolIds);
+  const groupedTools = toolCategories
+    .map((category) => {
+      const categoryTools = tools
+        .filter((tool) => categoryForTool(tool).id === category.id)
+        .sort(sortToolsByAssignmentAndName(toolIds));
+
+      return {
+        ...category,
+        assignedCount: categoryTools.filter((tool) => selectedToolIds.has(tool.id)).length,
+        tools: categoryTools,
+      };
+    })
+    .filter((category) => category.tools.length > 0);
   const toggleTool = (toolId: string, checked: boolean) => {
     onChange(
       checked
@@ -46,63 +233,118 @@ function ToolAssignmentControls({
         : toolIds.filter((value) => value !== toolId)
     );
   };
+  const selectCategory = (categoryToolIds: string[]) => {
+    onChange(Array.from(new Set([...toolIds, ...categoryToolIds])));
+  };
+  const clearCategory = (categoryToolIds: string[]) => {
+    const categoryToolIdSet = new Set(categoryToolIds);
+    onChange(toolIds.filter((toolId) => !categoryToolIdSet.has(toolId)));
+  };
 
   if (tools.length === 0) {
     return <p className="text-xs text-neutral-500">No canonical tools available.</p>;
   }
 
   return (
-    <div className="space-y-3">
-      <div className="grid gap-2 sm:grid-cols-3">
-        <Button
-          type="button"
-          variant={assignmentMode === 'none' ? 'default' : 'outline'}
-          disabled={disabled}
-          onClick={() => onChange([])}
-        >
-          No tools
-        </Button>
-        <Button
-          type="button"
-          variant={assignmentMode === 'selected' ? 'default' : 'outline'}
-          disabled={disabled}
-          onClick={() => onChange(toolIds)}
-        >
-          Selected tools
-        </Button>
-        <Button
-          type="button"
-          variant={assignmentMode === 'all' ? 'default' : 'outline'}
-          disabled={disabled}
-          onClick={() => onChange(allToolIds)}
-        >
-          All tools
-        </Button>
-      </div>
-      <p className="text-xs text-neutral-500">
-        {toolIds.length} of {tools.length} tools assigned. Use all tools for broad autonomous
-        agents; use selected tools for scoped agents.
-      </p>
-      <div className="grid gap-2 md:grid-cols-2">
-        {tools.map((tool) => (
-          <label
-            key={tool.id}
-            className="flex items-start gap-2 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-700"
+    <section className="space-y-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-neutral-900">Tool assignment</h3>
+          <p className="mt-1 text-xs text-neutral-500">
+            {toolIds.length} of {tools.length} tools assigned. Groups are sorted with selected tools
+            first, then alphabetically.
+          </p>
+        </div>
+        <div className="grid min-w-72 flex-1 gap-2 sm:max-w-xl sm:grid-cols-3">
+          <Button
+            type="button"
+            variant={assignmentMode === 'none' ? 'default' : 'outline'}
+            disabled={disabled}
+            onClick={() => onChange([])}
           >
-            <input
-              type="checkbox"
-              checked={toolIds.includes(tool.id)}
-              onChange={(event) => toggleTool(tool.id, event.target.checked)}
-              disabled={disabled}
-            />
-            <span>
-              <span className="block font-medium text-neutral-900">{toolDisplayName(tool)}</span>
-              <span className="block text-xs text-neutral-500">{tool.description}</span>
-            </span>
-          </label>
+            No tools
+          </Button>
+          <Button
+            type="button"
+            variant={assignmentMode === 'selected' ? 'default' : 'outline'}
+            disabled={disabled}
+            onClick={() => onChange(toolIds)}
+          >
+            Selected tools
+          </Button>
+          <Button
+            type="button"
+            variant={assignmentMode === 'all' ? 'default' : 'outline'}
+            disabled={disabled}
+            onClick={() => onChange(allToolIds)}
+          >
+            All tools
+          </Button>
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {groupedTools.map((category) => (
+          <div key={category.id} className="rounded-lg border border-neutral-200 bg-white p-3">
+            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-neutral-900">{category.label}</p>
+                  <Badge variant="secondary">
+                    {category.assignedCount} / {category.tools.length}
+                  </Badge>
+                </div>
+                <p className="mt-1 text-xs text-neutral-500">{category.description}</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled || category.assignedCount === category.tools.length}
+                  onClick={() => selectCategory(category.tools.map((tool) => tool.id))}
+                >
+                  Select group
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={disabled || category.assignedCount === 0}
+                  onClick={() => clearCategory(category.tools.map((tool) => tool.id))}
+                >
+                  Clear group
+                </Button>
+              </div>
+            </div>
+            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              {category.tools.map((tool) => (
+                <label
+                  key={tool.id}
+                  className="flex min-w-0 items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700"
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedToolIds.has(tool.id)}
+                    onChange={(event) => toggleTool(tool.id, event.target.checked)}
+                    disabled={disabled}
+                    className="mt-1"
+                  />
+                  <span className="min-w-0">
+                    <span className="block font-medium text-neutral-900">
+                      {toolDisplayName(tool)}
+                    </span>
+                    <span className="line-clamp-3 block text-xs leading-5 text-neutral-500">
+                      {tool.description}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </div>
+          </div>
         ))}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -172,6 +414,43 @@ function formatPromptLength(characterCount: number) {
   return `${(characterCount / 1000).toFixed(1)}k chars`;
 }
 
+function AssignedToolsSummary({
+  assignedTools,
+  toolCount,
+  tools,
+}: {
+  assignedTools: Array<{ id: string; label: string }>;
+  toolCount: number;
+  tools: ToolDefinition[];
+}) {
+  return (
+    <div className="rounded-lg border border-neutral-200 bg-white p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+          Assigned tools
+        </p>
+        <span className="text-xs text-neutral-500">
+          {toolCount} / {tools.length}
+        </span>
+      </div>
+      {assignedTools.length > 0 ? (
+        <div className="flex flex-wrap gap-2">
+          {assignedTools.map((tool) => (
+            <Badge key={tool.id} variant="outline" title={tool.id}>
+              {tool.label}
+            </Badge>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-neutral-500">No tools assigned.</p>
+      )}
+      {tools.length === 0 ? (
+        <p className="mt-2 text-xs text-amber-700">No assignable tools loaded from the backend.</p>
+      ) : null}
+    </div>
+  );
+}
+
 function AgentCard({
   agent,
   isMainAgent,
@@ -191,10 +470,11 @@ function AgentCard({
   profiles: BehaviorTuningProfile[];
   tools: ToolDefinition[];
 }) {
-  const toolCount = agent.config.toolIds.length;
-  const handoffCount = agent.config.handoffAgentIds.length;
-  const instructionSummary = agent.config.instructions ?? '';
-  const assignedTools = agent.config.toolIds.map((toolId) => {
+  const config = agentConfigOrDefaults(agent);
+  const toolCount = config.toolIds.length;
+  const handoffCount = config.handoffAgentIds.length;
+  const instructionSummary = config.instructions ?? '';
+  const assignedTools = config.toolIds.map((toolId) => {
     const tool = tools.find((candidate) => candidate.id === toolId);
     return {
       id: toolId,
@@ -204,10 +484,10 @@ function AgentCard({
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(mainAgent?.name ?? agent.name);
   const [description, setDescription] = useState(agent.description ?? '');
-  const [instructions, setInstructions] = useState(agent.config.instructions ?? '');
+  const [instructions, setInstructions] = useState(config.instructions ?? '');
   const [role, setRole] = useState(mainAgent?.description ?? agent.role ?? '');
-  const [modelProfileId, setModelProfileId] = useState(agent.config.modelProfileId ?? '');
-  const [toolIds, setToolIds] = useState<string[]>(agent.config.toolIds);
+  const [modelProfileId, setModelProfileId] = useState(config.modelProfileId ?? '');
+  const [toolIds, setToolIds] = useState<string[]>(config.toolIds);
   const [error, setError] = useState<string | null>(null);
   const [deleteMode, setDeleteMode] = useState(false);
   const [isPending, startTransition] = useTransition();
@@ -225,10 +505,10 @@ function AgentCard({
   const resetForm = () => {
     setName(mainAgent?.name ?? agent.name);
     setDescription(agent.description ?? '');
-    setInstructions(agent.config.instructions ?? '');
+    setInstructions(config.instructions ?? '');
     setRole(mainAgent?.description ?? agent.role ?? '');
-    setModelProfileId(agent.config.modelProfileId ?? '');
-    setToolIds(agent.config.toolIds);
+    setModelProfileId(config.modelProfileId ?? '');
+    setToolIds(config.toolIds);
     setError(null);
     setDeleteMode(false);
   };
@@ -305,141 +585,187 @@ function AgentCard({
   };
 
   return (
-    <Card className="min-w-0 border-neutral-200">
-      <CardHeader className="space-y-3">
-        <div className="min-w-0 space-y-2">
-          <div>
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-lg leading-6">{displayName}</CardTitle>
-              {isMainAgent ? (
-                <Badge className="agency-gradient text-white hover:brightness-105">
-                  Main agent
-                </Badge>
-              ) : null}
+    <>
+      <Card className="min-w-0 border-neutral-200">
+        <CardHeader className="space-y-3">
+          <div className="min-w-0 space-y-2">
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <CardTitle className="text-lg leading-6">{displayName}</CardTitle>
+                {isMainAgent ? (
+                  <Badge className="agency-gradient text-white hover:brightness-105">
+                    Main agent
+                  </Badge>
+                ) : null}
+              </div>
+              <CardDescription className="mt-1 line-clamp-2">{cardDescription}</CardDescription>
             </div>
-            <CardDescription className="mt-1 line-clamp-2">{cardDescription}</CardDescription>
+            <Badge variant="secondary" className="max-w-full shrink-0 whitespace-normal text-left">
+              {profiles.find((profile) => profile.id === config.modelProfileId)?.name ||
+                config.modelProfileId ||
+                'No profile'}
+            </Badge>
           </div>
-          <Badge variant="secondary" className="max-w-full shrink-0 whitespace-normal text-left">
-            {profiles.find((profile) => profile.id === agent.config.modelProfileId)?.name ||
-              agent.config.modelProfileId ||
-              'No profile'}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm text-neutral-600">
-        <div className="flex flex-wrap gap-2">
-          <Badge variant="outline">
-            {toolCount} assigned tool{toolCount === 1 ? '' : 's'}
-          </Badge>
-          <Badge variant="outline">
-            {handoffCount} handoff{handoffCount === 1 ? '' : 's'}
-          </Badge>
-        </div>
-        <AgentInstructionPreview instructions={instructionSummary} />
-        <div className="rounded-lg border border-neutral-200 bg-white p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-              Assigned tools
-            </p>
-            <span className="text-xs text-neutral-500">
-              {toolCount} / {tools.length}
-            </span>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-neutral-600">
+          <div className="flex flex-wrap gap-2">
+            <Badge variant="outline">
+              {toolCount} assigned tool{toolCount === 1 ? '' : 's'}
+            </Badge>
+            <Badge variant="outline">
+              {handoffCount} handoff{handoffCount === 1 ? '' : 's'}
+            </Badge>
           </div>
-          {assignedTools.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {assignedTools.map((tool) => (
-                <Badge key={tool.id} variant="outline" title={tool.id}>
-                  {tool.label}
-                </Badge>
-              ))}
+          <AgentInstructionPreview instructions={instructionSummary} />
+          <AssignedToolsSummary assignedTools={assignedTools} toolCount={toolCount} tools={tools} />
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              resetForm();
+              setIsEditing(true);
+            }}
+          >
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit agent
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Dialog
+        open={isEditing}
+        onOpenChange={(open) => {
+          setIsEditing(open);
+          if (!open && !isPending) {
+            resetForm();
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit {displayName}</DialogTitle>
+            <DialogDescription>
+              Update the agent definition, assigned tools, and retrieval documents.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor={`${agent.id}-name`}>Name</Label>
+                <Input
+                  id={`${agent.id}-name`}
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  disabled={isPending}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${agent.id}-description`}>Description</Label>
+                <Input
+                  id={`${agent.id}-description`}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  disabled={isPending}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${agent.id}-role`}>Role</Label>
+                <Input
+                  id={`${agent.id}-role`}
+                  value={role}
+                  onChange={(event) => setRole(event.target.value)}
+                  disabled={isPending}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${agent.id}-model-profile`}>Model profile</Label>
+                <select
+                  id={`${agent.id}-model-profile`}
+                  value={modelProfileId}
+                  onChange={(event) => setModelProfileId(event.target.value)}
+                  disabled={isPending}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {!isMainAgent ? <option value="">No profile</option> : null}
+                  {profiles.map((profile) => (
+                    <option key={profile.id} value={profile.id}>
+                      {profile.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor={`${agent.id}-instructions`}>Instructions</Label>
+                <Textarea
+                  id={`${agent.id}-instructions`}
+                  value={instructions}
+                  onChange={(event) => setInstructions(event.target.value)}
+                  disabled={isPending}
+                  className="min-h-48"
+                />
+              </div>
             </div>
-          ) : (
-            <p className="text-xs text-neutral-500">
-              No tools assigned. Use Edit agent to assign command, computer-use, workflow, memory,
-              or custom tools.
-            </p>
-          )}
-          {tools.length === 0 ? (
-            <p className="mt-2 text-xs text-amber-700">
-              No assignable tools loaded from the backend. Run main-agent setup/sync or create tools
-              first.
-            </p>
-          ) : null}
-        </div>
-        {isEditing ? (
-          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
-            <div className="space-y-1.5">
-              <Label htmlFor={`${agent.id}-name`}>Name</Label>
-              <Input
-                id={`${agent.id}-name`}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                disabled={isPending}
+
+            <div className="space-y-3">
+              <DocumentIngestionControl
+                frame="inline"
+                title="Agent documents"
+                description="Upload retrieval material for this agent."
+                scope="user"
+                lockedScope
+                lockedAgent
+                agentId={agent.id}
+                agents={[{ id: agent.id, label: displayName }]}
+                defaultTags={['agent-rag', `agent:${agent.id}`]}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${agent.id}-description`}>Description</Label>
-              <Input
-                id={`${agent.id}-description`}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${agent.id}-instructions`}>Instructions</Label>
-              <Textarea
-                id={`${agent.id}-instructions`}
-                value={instructions}
-                onChange={(event) => setInstructions(event.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${agent.id}-role`}>Role</Label>
-              <Input
-                id={`${agent.id}-role`}
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`${agent.id}-model-profile`}>Model profile</Label>
-              <select
-                id={`${agent.id}-model-profile`}
-                value={modelProfileId}
-                onChange={(event) => setModelProfileId(event.target.value)}
-                disabled={isPending}
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                {!isMainAgent ? <option value="">No profile</option> : null}
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tool assignment</Label>
-              <ToolAssignmentControls
-                disabled={isPending}
-                onChange={setToolIds}
-                toolIds={toolIds}
-                tools={tools}
-              />
-            </div>
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-            <div className="flex gap-2">
+          </div>
+
+          <ToolAssignmentControls
+            disabled={isPending}
+            onChange={setToolIds}
+            toolIds={toolIds}
+            tools={tools}
+          />
+
+          {error ? <p className="text-xs text-red-600">{error}</p> : null}
+
+          <DialogFooter className="items-center gap-2 sm:justify-between sm:space-x-0">
+            {isMainAgent ? (
+              <span className="text-xs text-neutral-500">Main agent cannot be deleted here.</span>
+            ) : deleteMode ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="destructive"
+                  disabled={isPending}
+                  onClick={handleDelete}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {isPending ? 'Deleting...' : 'Confirm delete'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isPending}
+                  onClick={() => setDeleteMode(false)}
+                >
+                  Cancel delete
+                </Button>
+              </div>
+            ) : (
               <Button
                 type="button"
-                className="agency-gradient text-white hover:brightness-105"
-                disabled={isPending || !name.trim() || !instructions.trim()}
-                onClick={handleSave}
+                variant="outline"
+                disabled={isPending}
+                onClick={() => setDeleteMode(true)}
               >
-                {isPending ? 'Saving...' : 'Save'}
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete agent
               </Button>
+            )}
+            <div className="flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -451,50 +777,20 @@ function AgentCard({
               >
                 Cancel
               </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                resetForm();
-                setIsEditing(true);
-              }}
-            >
-              Edit agent
-            </Button>
-            {isMainAgent ? (
-              <p className="text-xs text-neutral-500"></p>
-            ) : deleteMode ? (
-              <>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={handleDelete}
-                >
-                  {isPending ? 'Deleting...' : 'Confirm delete'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isPending}
-                  onClick={() => setDeleteMode(false)}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button type="button" variant="outline" onClick={() => setDeleteMode(true)}>
-                Delete agent
+              <Button
+                type="button"
+                className="agency-gradient text-white hover:brightness-105"
+                disabled={isPending || !name.trim() || !instructions.trim()}
+                onClick={handleSave}
+              >
+                <Save className="mr-2 h-4 w-4" />
+                {isPending ? 'Saving...' : 'Save'}
               </Button>
-            )}
-          </div>
-        )}
-      </CardContent>
-    </Card>
+            </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 
@@ -752,24 +1048,27 @@ export default function AgentsWorkspace() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Agents</h1>
-          <p className="text-sm text-neutral-500">AI Agents and their definitions</p>
-          {mainAgentLookupMessage ? (
-            <p className="mt-2 text-sm text-amber-700">{mainAgentLookupMessage}</p>
-          ) : null}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => agentsQuery.refetch()}
-          disabled={agentsQuery.isFetching}
-        >
-          <RefreshCw className={`mr-2 h-4 w-4 ${agentsQuery.isFetching ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Agents"
+        title="Agents"
+        description="AI Agents and their definitions"
+        meta={
+          mainAgentLookupMessage ? (
+            <p className="text-sm text-amber-700">{mainAgentLookupMessage}</p>
+          ) : null
+        }
+        actions={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => agentsQuery.refetch()}
+            disabled={agentsQuery.isFetching}
+          >
+            <RefreshCw className={`mr-2 h-4 w-4 ${agentsQuery.isFetching ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        }
+      />
 
       <CreateAgentCard
         onCreated={async () => {

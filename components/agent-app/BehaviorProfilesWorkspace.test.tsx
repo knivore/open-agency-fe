@@ -358,7 +358,7 @@ describe('BehaviorProfilesWorkspace', () => {
     });
 
     expect(
-      screen.getByText(/localhost usually points at the backend container itself/i)
+      screen.getByText(/`?localhost`? usually points at the backend container itself/i)
     ).toBeInTheDocument();
   });
 
@@ -405,7 +405,7 @@ describe('BehaviorProfilesWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit connection' }));
 
     expect(
-      screen.getByText(/localhost usually points at the backend container itself/i)
+      screen.getByText(/`?localhost`? usually points at the backend container itself/i)
     ).toBeInTheDocument();
   });
 

@@ -21,10 +21,24 @@ import type {
 } from '@/lib/api/backend/types';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/library/shadcn/card';
-import WorkflowRuntimeAdapterPanel from '@/components/workflow-app/WorkflowRuntimeAdapterPanel';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/library/shadcn/card';
+import PageHeader from '@/components/app-shell/PageHeader';
+import WorkflowRuntimeAdapterPanel from '@/components/workflow/WorkflowRuntimeAdapterPanel';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/library/shadcn/table';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/library/shadcn/table';
 import {
   CheckCircle2,
   FileText,
@@ -38,7 +52,11 @@ import {
   Table2,
   User,
 } from 'lucide-react';
-import { RunsEmptyCard, RunsErrorAlert, RunsLoadingCard } from '@/components/runs/components/RunsState';
+import {
+  RunsEmptyCard,
+  RunsErrorAlert,
+  RunsLoadingCard,
+} from '@/components/runs/components/RunsState';
 import { toast } from 'sonner';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
@@ -224,15 +242,21 @@ function finalOutputForEvents(events: ExecutionEventRecord[]) {
 }
 
 function finalOutputArtifactForEvents(events: ExecutionEventRecord[]) {
-  return events.find((event) => {
-    if (event.event_type !== 'artifact.created') {
-      return false;
-    }
-    const payload = event.payload ?? {};
-    const name = payloadText(payload, ['name', 'Name']);
-    const uri = payloadText(payload, ['uri', 'Uri']);
-    return name === 'final_output.txt' || uri?.endsWith('/final_output') || uri?.includes('/final_output');
-  }) ?? null;
+  return (
+    events.find((event) => {
+      if (event.event_type !== 'artifact.created') {
+        return false;
+      }
+      const payload = event.payload ?? {};
+      const name = payloadText(payload, ['name', 'Name']);
+      const uri = payloadText(payload, ['uri', 'Uri']);
+      return (
+        name === 'final_output.txt' ||
+        uri?.endsWith('/final_output') ||
+        uri?.includes('/final_output')
+      );
+    }) ?? null
+  );
 }
 
 function sanitizeDisplayPayload(value: unknown): unknown {
@@ -245,7 +269,9 @@ function sanitizeDisplayPayload(value: unknown): unknown {
   }
 
   if (isRecord(value)) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeDisplayPayload(item)]));
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, sanitizeDisplayPayload(item)])
+    );
   }
 
   return value;
@@ -261,8 +287,17 @@ function summarizeEventPayload(event: ExecutionEventRecord) {
   }
 
   if (event.event_type === 'llm.response.created') {
-    const response = payloadText(payload, ['output', 'Output', 'text', 'Text', 'content', 'message']);
-    return response ? response.split('\n').find((line) => line.trim()) ?? 'Model response received.' : 'Model response received.';
+    const response = payloadText(payload, [
+      'output',
+      'Output',
+      'text',
+      'Text',
+      'content',
+      'message',
+    ]);
+    return response
+      ? (response.split('\n').find((line) => line.trim()) ?? 'Model response received.')
+      : 'Model response received.';
   }
 
   if (event.event_type === 'artifact.created') {
@@ -276,10 +311,21 @@ function summarizeEventPayload(event: ExecutionEventRecord) {
     if (error) {
       return `Run ended with an error: ${error}`;
     }
-    return output ? 'Run completed and produced a final output.' : 'Run completed without a final output.';
+    return output
+      ? 'Run completed and produced a final output.'
+      : 'Run completed without a final output.';
   }
 
-  const candidateKeys = ['error', 'content', 'message', 'summary', 'reason', 'task_name', 'tool_name', 'status'];
+  const candidateKeys = [
+    'error',
+    'content',
+    'message',
+    'summary',
+    'reason',
+    'task_name',
+    'tool_name',
+    'status',
+  ];
   for (const key of candidateKeys) {
     const value = payload[key];
     if (typeof value === 'string' && value.trim()) {
@@ -305,7 +351,9 @@ function summarizeEventPayload(event: ExecutionEventRecord) {
 
 function MarkdownBlock({ children, compact = false }: { children: string; compact?: boolean }) {
   return (
-    <div className={`min-w-0 break-words ${compact ? 'space-y-1 text-sm' : 'space-y-3 text-sm leading-6'}`}>
+    <div
+      className={`min-w-0 break-words ${compact ? 'space-y-1 text-sm' : 'space-y-3 text-sm leading-6'}`}
+    >
       <ReactMarkdown
         components={{
           a: ({ children: linkChildren, href }) => (
@@ -332,7 +380,9 @@ function MarkdownBlock({ children, compact = false }: { children: string; compac
           h3: ({ children: headingChildren }) => (
             <h4 className="text-sm font-semibold text-neutral-950">{headingChildren}</h4>
           ),
-          li: ({ children: listChildren }) => <li className="ml-4 list-disc pl-1">{listChildren}</li>,
+          li: ({ children: listChildren }) => (
+            <li className="ml-4 list-disc pl-1">{listChildren}</li>
+          ),
           ol: ({ children: listChildren }) => <ol className="space-y-1">{listChildren}</ol>,
           p: ({ children: paragraphChildren }) => <p>{paragraphChildren}</p>,
           ul: ({ children: listChildren }) => <ul className="space-y-1">{listChildren}</ul>,
@@ -347,7 +397,8 @@ function MarkdownBlock({ children, compact = false }: { children: string; compac
 function MissingThought() {
   return (
     <div className="rounded-md border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500">
-      Thought not available in a readable format. The runtime marked this as a parser miss, not model content.
+      Thought not available in a readable format. The runtime marked this as a parser miss, not
+      model content.
     </div>
   );
 }
@@ -381,10 +432,15 @@ function MessagePayloadList({ messages }: { messages: unknown[] }) {
         const content = record.content;
 
         return (
-          <div key={`${role}-${index}`} className="rounded-md border border-black/10 bg-white/70 p-3">
+          <div
+            key={`${role}-${index}`}
+            className="rounded-md border border-black/10 bg-white/70 p-3"
+          >
             <div className="mb-2 flex flex-wrap items-center gap-2">
               <Badge variant="secondary">{role}</Badge>
-              {typeof record.name === 'string' && record.name ? <span className="text-xs text-neutral-500">{record.name}</span> : null}
+              {typeof record.name === 'string' && record.name ? (
+                <span className="text-xs text-neutral-500">{record.name}</span>
+              ) : null}
             </div>
             <PayloadValue value={content} depth={1} />
           </div>
@@ -394,7 +450,15 @@ function MessagePayloadList({ messages }: { messages: unknown[] }) {
   );
 }
 
-function PayloadValue({ value, depth = 0, fieldKey }: { value: unknown; depth?: number; fieldKey?: string }) {
+function PayloadValue({
+  value,
+  depth = 0,
+  fieldKey,
+}: {
+  value: unknown;
+  depth?: number;
+  fieldKey?: string;
+}) {
   if (fieldKey?.toLowerCase() === 'thought' && isUnavailableThought(value)) {
     return <MissingThought />;
   }
@@ -412,7 +476,9 @@ function PayloadValue({ value, depth = 0, fieldKey }: { value: unknown; depth?: 
       <div className="space-y-2">
         {value.map((item, index) => (
           <div key={index} className="rounded-md border border-black/10 bg-white/60 p-2">
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500">Item {index + 1}</div>
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+              Item {index + 1}
+            </div>
             <PayloadValue value={item} depth={depth + 1} />
           </div>
         ))}
@@ -446,8 +512,13 @@ function PayloadFields({ entries, depth }: { entries: Array<[string, unknown]>; 
   return (
     <dl className="grid gap-2">
       {entries.map(([key, value]) => (
-        <div key={key} className={depth === 0 ? 'rounded-md border border-black/10 bg-white/60 p-2' : ''}>
-          <dt className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">{formatPayloadKey(key)}</dt>
+        <div
+          key={key}
+          className={depth === 0 ? 'rounded-md border border-black/10 bg-white/60 p-2' : ''}
+        >
+          <dt className="text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+            {formatPayloadKey(key)}
+          </dt>
           <dd className="mt-1 text-sm text-neutral-800">
             <PayloadValue value={value} depth={depth + 1} fieldKey={key} />
           </dd>
@@ -512,7 +583,9 @@ function PayloadSection({
 }) {
   return (
     <section className="rounded-md border border-black/10 bg-white/70 p-3">
-      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-neutral-500">{title}</p>
+      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-neutral-500">
+        {title}
+      </p>
       <div className={scrollable ? 'max-h-72 overflow-auto pr-1' : ''}>{children}</div>
     </section>
   );
@@ -617,7 +690,9 @@ function EventPayloadDetails({ event }: { event: ExecutionEventRecord }) {
 function RunStoryOverview({ events }: { events: ExecutionEventRecord[] }) {
   const finalOutput = finalOutputForEvents(events);
   const finalOutputArtifact = finalOutputArtifactForEvents(events);
-  const llmResponseCount = events.filter((event) => event.event_type === 'llm.response.created').length;
+  const llmResponseCount = events.filter(
+    (event) => event.event_type === 'llm.response.created'
+  ).length;
   const artifactCount = events.filter((event) => event.event_type === 'artifact.created').length;
 
   return (
@@ -655,7 +730,9 @@ function RunStoryOverview({ events }: { events: ExecutionEventRecord[] }) {
           ) : null}
         </div>
       ) : (
-        <p className="mt-3 text-sm text-neutral-500">No final output has been reported for this run yet.</p>
+        <p className="mt-3 text-sm text-neutral-500">
+          No final output has been reported for this run yet.
+        </p>
       )}
     </section>
   );
@@ -724,18 +801,28 @@ function EventStoryView({ events }: { events: ExecutionEventRecord[] }) {
                     <span className="font-semibold">
                       <EventTitle event={event} />
                     </span>
-                    {showRawEventType ? <span className="text-current/65">{event.event_type}</span> : null}
+                    {showRawEventType ? (
+                      <span className="text-current/65">{event.event_type}</span>
+                    ) : null}
                     <span className="text-current/65">#{event.sequence}</span>
                     <span className="text-current/65">{formatDate(event.timestamp)}</span>
-                    {event.task_id ? <span className="text-current/65">Task: {event.task_id}</span> : null}
+                    {event.task_id ? (
+                      <span className="text-current/65">Task: {event.task_id}</span>
+                    ) : null}
                   </div>
                   <div className={`mt-2 break-words text-sm ${isSystem ? 'text-center' : ''}`}>
-                    {summaryIsLong ? <MarkdownBlock compact>{summary}</MarkdownBlock> : <p>{summary}</p>}
+                    {summaryIsLong ? (
+                      <MarkdownBlock compact>{summary}</MarkdownBlock>
+                    ) : (
+                      <p>{summary}</p>
+                    )}
                   </div>
                 </div>
               </div>
               <div className="mt-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-current/60">Details</p>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-current/60">
+                  Details
+                </p>
                 <div className="rounded-md border border-black/10 bg-white/70 p-3 text-xs">
                   <EventPayloadDetails event={event} />
                 </div>
@@ -783,25 +870,33 @@ export function ArtifactCard({ artifact }: { artifact: ExecutionArtifact }) {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-neutral-900">{artifact.name || artifact.id}</p>
-          {artifact.uri ? <p className="mt-1 break-words font-mono text-xs text-neutral-500">{artifact.uri}</p> : null}
+          {artifact.uri ? (
+            <p className="mt-1 break-words font-mono text-xs text-neutral-500">{artifact.uri}</p>
+          ) : null}
         </div>
         <div className="flex flex-wrap gap-2">
           <Badge variant="outline">{artifact.artifact_type || 'artifact'}</Badge>
           {artifact.media_type ? <Badge variant="secondary">{artifact.media_type}</Badge> : null}
-          {artifact.size_bytes != null ? <Badge variant="outline">{artifact.size_bytes} bytes</Badge> : null}
+          {artifact.size_bytes != null ? (
+            <Badge variant="outline">{artifact.size_bytes} bytes</Badge>
+          ) : null}
         </div>
       </div>
 
       {contentText ? (
         <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Content</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            Content
+          </p>
           <div className="max-h-72 overflow-auto pr-1">
             <MarkdownBlock>{contentText}</MarkdownBlock>
           </div>
         </div>
       ) : hasJsonContent ? (
         <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
-          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">Content JSON</p>
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500">
+            Content JSON
+          </p>
           <pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-neutral-700">
             {JSON.stringify(contentJson, null, 2)}
           </pre>
@@ -843,16 +938,22 @@ function RunOutputs({
   artifacts: ExecutionArtifact[];
   isLoadingArtifacts: boolean;
 }) {
-  const primaryOutput = outputPayload ? finalOutputFromPayload(outputPayload) ?? outputTextFromValue(outputPayload) : null;
+  const primaryOutput = outputPayload
+    ? (finalOutputFromPayload(outputPayload) ?? outputTextFromValue(outputPayload))
+    : null;
   const outputNodeOutputs = outputPayloadNodeOutputs(outputPayload);
-  const nodeOutputs = Object.keys(outputNodeOutputs).length > 0 ? outputNodeOutputs : stateNodeOutputs ?? {};
+  const nodeOutputs =
+    Object.keys(outputNodeOutputs).length > 0 ? outputNodeOutputs : (stateNodeOutputs ?? {});
   const nodeOutputEntries = Object.entries(nodeOutputs);
-  const contentArtifacts = artifacts.filter((artifact) => artifact.content_text || artifact.content_json);
+  const contentArtifacts = artifacts.filter(
+    (artifact) => artifact.content_text || artifact.content_json
+  );
   const visibleArtifacts = contentArtifacts.filter((artifact) => {
     const artifactText = cleanPayloadText(artifact.content_text);
     return !primaryOutput || artifactText !== primaryOutput;
   });
-  const hasOutput = Boolean(primaryOutput) || nodeOutputEntries.length > 0 || visibleArtifacts.length > 0;
+  const hasOutput =
+    Boolean(primaryOutput) || nodeOutputEntries.length > 0 || visibleArtifacts.length > 0;
 
   return (
     <Card>
@@ -956,7 +1057,9 @@ function StructuredRuntimeLogs({ logs }: { logs?: RunLogEntry }) {
         <section className="space-y-3">
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-neutral-900">Container stdout/stderr</h3>
-            <Badge variant="outline">{logs?.container_id || logs?.containerId || 'container'}</Badge>
+            <Badge variant="outline">
+              {logs?.container_id || logs?.containerId || 'container'}
+            </Badge>
           </div>
           <pre className="max-h-[360px] overflow-auto rounded-lg border border-neutral-200 bg-neutral-950 p-4 text-xs text-neutral-100">
             {rawContainerLogs}
@@ -999,10 +1102,14 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
   const workflowTab = searchParams.get('tab') || 'runs';
   const rerunWorkflowId = run.workflowId ?? workflowIdFromUrl ?? '';
   const workflowBackHref =
-    workflowIdFromUrl || run.workflowId ? `/workflows/${workflowIdFromUrl || run.workflowId}?tab=${workflowTab}` : null;
+    workflowIdFromUrl || run.workflowId
+      ? `/workflows/${workflowIdFromUrl || run.workflowId}?tab=${workflowTab}`
+      : null;
   const linkedConversation = conversationContextQuery.data?.conversation ?? null;
   const linkedApprovals = conversationContextQuery.data?.approvals ?? [];
-  const linkedMessages = conversationContextQuery.data?.messages.filter((message) => message.execution_id === runId) ?? [];
+  const linkedMessages =
+    conversationContextQuery.data?.messages.filter((message) => message.execution_id === runId) ??
+    [];
   const workflow = workflowQuery.data;
   const {
     runtimeAdaptersQuery,
@@ -1014,16 +1121,24 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     workflowId: rerunWorkflowId,
     workflow,
     listRuntimeAdapters: api.runtimeAdapters.listRuntimeAdapters,
-    getWorkflow: async (workflowId) => workflowQuery.data ?? await workflowQuery.refetch().then((result) => {
-      if (!result.data) {
-        throw new Error(`Workflow ${workflowId} could not be loaded.`);
-      }
-      return result.data;
-    }),
+    getWorkflow: async (workflowId) =>
+      workflowQuery.data ??
+      (await workflowQuery.refetch().then((result) => {
+        if (!result.data) {
+          throw new Error(`Workflow ${workflowId} could not be loaded.`);
+        }
+        return result.data;
+      })),
     executeWorkflow: api.runs.executeWorkflow,
     redirectTo: (nextRunId) => `/runs/${nextRunId}?workflowId=${rerunWorkflowId}&tab=runs`,
     additionalInvalidationKeys: () => [queryKeys.backendActiveRunSessions()],
   });
+  const effectiveSelectedRerunAdapterId =
+    selectedRerunAdapterId ||
+    preferredRuntimeAdapterId ||
+    run.runtimeAdapterId ||
+    runnableRuntimeAdapters[0]?.id ||
+    '';
   const { tasks: derivedTasks, agents: derivedAgents } = useRunPresence({
     run,
     workflow,
@@ -1042,21 +1157,45 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
       return;
     }
 
-    if (!selectedRerunAdapterId || !runnableRuntimeAdapters.some((adapter) => adapter.id === selectedRerunAdapterId)) {
+    if (
+      !selectedRerunAdapterId ||
+      !runnableRuntimeAdapters.some((adapter) => adapter.id === selectedRerunAdapterId)
+    ) {
       setSelectedRerunAdapterId(effectivePreferredAdapterId);
     }
-  }, [preferredRuntimeAdapterId, run.runtimeAdapterId, runnableRuntimeAdapters, selectedRerunAdapterId]);
+  }, [
+    preferredRuntimeAdapterId,
+    run.runtimeAdapterId,
+    runnableRuntimeAdapters,
+    selectedRerunAdapterId,
+  ]);
 
   if (runQuery.isLoading) {
-    return <RunsLoadingCard title="Run" description="Loading canonical execution detail from the backend." />;
+    return (
+      <RunsLoadingCard
+        title="Run"
+        description="Loading canonical execution detail from the backend."
+      />
+    );
   }
 
   if (runQuery.isError) {
-    return <RunsErrorAlert title="Failed to load run" message={runQuery.error.message} onRetry={() => runQuery.refetch()} />;
+    return (
+      <RunsErrorAlert
+        title="Failed to load run"
+        message={runQuery.error.message}
+        onRetry={() => runQuery.refetch()}
+      />
+    );
   }
 
   if (!runDetail) {
-    return <RunsEmptyCard title="Run not found" description="The backend returned no execution detail for this run." />;
+    return (
+      <RunsEmptyCard
+        title="Run not found"
+        description="The backend returned no execution detail for this run."
+      />
+    );
   }
 
   const canPause = run.status === 'running';
@@ -1090,7 +1229,10 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     });
   };
 
-  const handleApprovalDecision = async (approvalRequestId: string, action: 'approve' | 'reject') => {
+  const handleApprovalDecision = async (
+    approvalRequestId: string,
+    action: 'approve' | 'reject'
+  ) => {
     await toast.promise(approvalDecisionMutation.mutateAsync({ approvalRequestId, action }), {
       loading: `${action === 'approve' ? 'Approving' : 'Rejecting'} request...`,
       success: `Approval ${action === 'approve' ? 'granted' : 'rejected'}.`,
@@ -1100,7 +1242,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
   };
 
   const handleRerun = async () => {
-    const rerunPromise = launchWorkflow(selectedRerunAdapterId || null);
+    const rerunPromise = launchWorkflow(effectiveSelectedRerunAdapterId || null);
     await toast.promise(rerunPromise, {
       loading: 'Starting workflow again...',
       success: 'Workflow run started.',
@@ -1112,58 +1254,58 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-500">Run</p>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">{run.id}</h1>
-          <p className="mt-1 text-sm text-neutral-500">Workflow: {run.workflowId || 'Unknown'}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {workflowBackHref ? (
-            <Button asChild type="button" variant="outline">
-              <Link href={workflowBackHref}>Back to Workflow Runs</Link>
+      <PageHeader
+        eyebrow="Run"
+        title={run.id}
+        description={`Workflow: ${run.workflowId || 'Unknown'}`}
+        actions={
+          <>
+            {workflowBackHref ? (
+              <Button asChild type="button" variant="outline">
+                <Link href={workflowBackHref}>Back to Workflow Runs</Link>
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => refreshAll()}
+              disabled={runQuery.isFetching || timelineQuery.isFetching}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${runQuery.isFetching || timelineQuery.isFetching ? 'animate-spin' : ''}`}
+              />
+              Refresh
             </Button>
-          ) : null}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => refreshAll()}
-            disabled={runQuery.isFetching || timelineQuery.isFetching}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${runQuery.isFetching || timelineQuery.isFetching ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePause}
-            disabled={!canPause || pauseMutation.isPending}
-          >
-            <Pause className="mr-2 h-4 w-4" />
-            {pauseMutation.isPending ? 'Pausing...' : 'Pause'}
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleResume}
-            disabled={!canResume || resumeMutation.isPending}
-          >
-            <Play className="mr-2 h-4 w-4" />
-            {resumeMutation.isPending ? 'Resuming...' : 'Resume'}
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={handleCancel}
-            disabled={!canCancel || cancelMutation.isPending}
-          >
-            <Square className="mr-2 h-4 w-4" />
-            {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
-          </Button>
-        </div>
-      </div>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePause}
+              disabled={!canPause || pauseMutation.isPending}
+            >
+              <Pause className="mr-2 h-4 w-4" />
+              {pauseMutation.isPending ? 'Pausing...' : 'Pause'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleResume}
+              disabled={!canResume || resumeMutation.isPending}
+            >
+              <Play className="mr-2 h-4 w-4" />
+              {resumeMutation.isPending ? 'Resuming...' : 'Resume'}
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleCancel}
+              disabled={!canCancel || cancelMutation.isPending}
+            >
+              <Square className="mr-2 h-4 w-4" />
+              {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Card>
@@ -1241,7 +1383,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         selectLabel="Runtime adapter for the next run"
         selectId="run-detail-rerun-adapter"
         adapters={runnableRuntimeAdapters}
-        selectedAdapterId={selectedRerunAdapterId}
+        selectedAdapterId={effectiveSelectedRerunAdapterId}
         preferredAdapterId={preferredRuntimeAdapterId}
         currentAdapterId={run.runtimeAdapterId}
         isPending={rerunMutation.isPending}
@@ -1252,7 +1394,9 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
             <Play className="mr-2 h-4 w-4" />
             {rerunMutation.isPending
               ? 'Starting...'
-              : `Run Again${selectedRerunAdapterId ? ` With ${selectedRerunAdapterId}` : ''}`}
+              : `Run Again${
+                  effectiveSelectedRerunAdapterId ? ` With ${effectiveSelectedRerunAdapterId}` : ''
+                }`}
           </>
         }
         onAdapterChange={setSelectedRerunAdapterId}
@@ -1629,9 +1773,14 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
             <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
               <div>
                 <CardTitle>Run Events</CardTitle>
-                <CardDescription>Backend event log<span hidden> from `/executions/{'{id}'}/events`.</span></CardDescription>
+                <CardDescription>
+                  Backend event log<span hidden> from `/executions/{'{id}'}/events`.</span>
+                </CardDescription>
               </div>
-              <div className="inline-flex h-9 rounded-md border border-neutral-200 bg-neutral-50 p-1" aria-label="Run events view">
+              <div
+                className="inline-flex h-9 rounded-md border border-neutral-200 bg-neutral-50 p-1"
+                aria-label="Run events view"
+              >
                 <Button
                   type="button"
                   size="sm"
@@ -1734,7 +1883,9 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
               ) : (artifactsQuery.data?.items ?? []).length === 0 ? (
                 <p className="text-sm text-neutral-500">No artifacts were reported for this run.</p>
               ) : (
-                artifactsQuery.data?.items.map((artifact) => <ArtifactCard key={artifact.id} artifact={artifact} />)
+                artifactsQuery.data?.items.map((artifact) => (
+                  <ArtifactCard key={artifact.id} artifact={artifact} />
+                ))
               )}
             </CardContent>
           </Card>

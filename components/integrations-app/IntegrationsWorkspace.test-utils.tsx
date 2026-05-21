@@ -2,15 +2,9 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import IntegrationsWorkspace from '@/components/integrations-app/IntegrationsWorkspace';
-import type { ConnectorHealthHistoryItem, IntegrationCategory } from '@/types/integrations';
-import type { ComponentProps } from 'react';
+import type { IntegrationCategory } from '@/types/integrations';
 
 const apiMocks = vi.hoisted(() => ({
-  connectorsApi: {
-    testConnector: vi.fn(),
-    getConnectorHistory: vi.fn(),
-    getAggregateConnectorHistory: vi.fn(),
-  },
   credentialsApi: {
     getConnectorCredentialSchema: vi.fn(),
     validateConnectorCredential: vi.fn(),
@@ -48,7 +42,6 @@ const clipboardMocks = vi.hoisted(() => ({
 }));
 
 export const {
-  connectorsApi,
   credentialsApi,
   integrationsApi,
   mcpServersApi,
@@ -60,7 +53,6 @@ export const {
 export const { writeClipboardText } = clipboardMocks;
 
 vi.mock('@/lib/api/backend', () => ({
-  connectorsApi: apiMocks.connectorsApi,
   credentialsApi: apiMocks.credentialsApi,
   integrationsApi: apiMocks.integrationsApi,
   mcpServersApi: apiMocks.mcpServersApi,
@@ -69,7 +61,7 @@ vi.mock('@/lib/api/backend', () => ({
   toolsApi: apiMocks.toolsApi,
 }));
 
-export function renderWorkspace(props?: ComponentProps<typeof IntegrationsWorkspace>) {
+export function renderWorkspace() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -80,21 +72,9 @@ export function renderWorkspace(props?: ComponentProps<typeof IntegrationsWorksp
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <IntegrationsWorkspace {...props} />
+      <IntegrationsWorkspace />
     </QueryClientProvider>
   );
-}
-
-export function connectorHistoryPayload(items: ConnectorHealthHistoryItem[] = []) {
-  return {
-    items,
-    total: items.length,
-    limit: items.length || 20,
-    offset: 0,
-    status: null,
-    startedAfter: null,
-    startedBefore: null,
-  };
 }
 
 export function setupIntegrationsWorkspaceTest() {
@@ -194,7 +174,7 @@ export function setupIntegrationsWorkspaceTest() {
       providerAliases: ['telegram'],
       healthSupported: true,
       requiredMetadata: [],
-      supportedSecretRefSchemes: ['env'],
+      supportedSecretRefSchemes: ['env://', 'env:'],
     });
     credentialsApi.validateConnectorCredential.mockResolvedValue({
       provider: 'telegram-bot',
@@ -223,13 +203,6 @@ export function setupIntegrationsWorkspaceTest() {
       secret_ref: 'env://TELEGRAM_BOT_TOKEN',
       metadata: {},
     });
-    connectorsApi.testConnector.mockResolvedValue({
-      ok: true,
-      provider: 'telegram-bot',
-      audit_execution_id: 'connector-test-123',
-    });
-    connectorsApi.getConnectorHistory.mockResolvedValue(connectorHistoryPayload());
-    connectorsApi.getAggregateConnectorHistory.mockResolvedValue(connectorHistoryPayload());
   });
 
   afterEach(() => {

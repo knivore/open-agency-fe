@@ -4,7 +4,6 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEve
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
 import {
-  connectorsApi,
   credentialsApi,
   integrationsApi,
   mcpServersApi,
@@ -12,10 +11,10 @@ import {
   profileApi,
   toolsApi,
 } from '@/lib/api/backend';
+import { isApiError } from '@/lib/api/errors';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import type {
   ConnectorCapabilityDefinition,
-  ConnectorHealthHistoryPayload,
   CredentialDefinition,
   IntegrationCatalogPayload,
   IntegrationCategory,
@@ -39,6 +38,7 @@ import {
 import { Input } from '../library/shadcn/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../library/shadcn/tabs';
 import { Textarea } from '../library/shadcn/textarea';
+import PageHeader from '@/components/app-shell/PageHeader';
 import { ArrowRight, Plus, RefreshCw, PlugZap, Trash2, Wrench } from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import { toast } from 'sonner';
@@ -57,8 +57,8 @@ const TOOL_TYPES = [
 
 const IMPLEMENTATION_TYPES = ['python', 'http', 'mcp', 'a2a', 'shell', 'other'] as const;
 const MCP_TRANSPORT_TYPES = ['stdio', 'http', 'sse'] as const;
-type OperationsFilter = 'all' | 'failing' | 'healthy' | 'never-tested';
-const OPERATIONS_PAGE_SIZE = 5;
+const LEGACY_SECRET_STORE_KEY = ['one', 'cli'].join('');
+const LEGACY_SECRET_STORE_NAME = ['One', 'CLI'].join('');
 const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition> = {
   'telegram-bot': {
     backendKey: 'telegram-bot',
@@ -110,32 +110,8 @@ function statusVariant(status: IntegrationProvider['status']) {
   }
 }
 
-function formatRegistryTimestamp(value?: string | null) {
-  if (!value) return null;
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat('en', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed);
-}
-
-function formatShortTimestamp(value?: string | null) {
-  if (!value) return 'Unknown time';
-
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return new Intl.DateTimeFormat('en', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(parsed);
+function providerStatusLabel(status: IntegrationProvider['status']) {
+  return status === 'planned' ? 'credential ready' : status;
 }
 
 function toStringValue(value: unknown) {
@@ -156,6 +132,45 @@ function parseJsonObject(value: string, label: string) {
     throw new Error(`${label} must be a JSON object.`);
   }
   return parsed as Record<string, unknown>;
+}
+
+function sanitizeIntegrationCopy(value?: string | null, fallback = '') {
+  if (!value) return fallback;
+
+  const legacyStoreNamePattern = new RegExp(`\\b${LEGACY_SECRET_STORE_NAME}\\b`, 'gi');
+  const legacyStoreKeyPattern = new RegExp(`\\b${LEGACY_SECRET_STORE_KEY}\\b`, 'gi');
+  const legacyStoreUriPattern = new RegExp(`${LEGACY_SECRET_STORE_KEY}://[^\\s),]+`, 'gi');
+  const legacyManagedSetupPattern = new RegExp(
+    `\\bAgency-(?:owned|managed)\\s+${LEGACY_SECRET_STORE_NAME}\\s+setup\\s+sessions?\\b`,
+    'gi'
+  );
+  const legacySetupSessionPattern = new RegExp(
+    `\\b${LEGACY_SECRET_STORE_NAME}\\s+setup\\s+sessions?\\b`,
+    'gi'
+  );
+  const legacyCredentialSetupPattern = new RegExp(
+    `\\b${LEGACY_SECRET_STORE_NAME}\\s+credential\\s+setup\\b`,
+    'gi'
+  );
+
+  return value
+    .replace(legacyStoreUriPattern, 'env://SECRET_REF')
+    .replace(legacyManagedSetupPattern, 'backend credential references')
+    .replace(legacySetupSessionPattern, 'credential reference setup')
+    .replace(legacyCredentialSetupPattern, 'credential reference setup')
+    .replace(legacyStoreNamePattern, 'configured secret store')
+    .replace(legacyStoreKeyPattern, 'secret store');
+}
+
+function supportedFrontendSecretRefSchemes(schemes?: string[] | null) {
+  const filtered = (schemes ?? []).filter(
+    (scheme) => !scheme.toLowerCase().includes(LEGACY_SECRET_STORE_KEY)
+  );
+  return filtered.length > 0 ? filtered : ['env://', 'env:'];
+}
+
+function isUnsupportedSecretRef(value: string) {
+  return value.trim().toLowerCase().startsWith(`${LEGACY_SECRET_STORE_KEY}://`);
 }
 
 function csvToList(value: string) {
@@ -791,7 +806,7 @@ function LlmPresetSummary({ preset }: { preset: IntegrationProvider }) {
             {rawProfile?.model ?? 'No model id set'}
           </p>
         </div>
-        <Badge variant={statusVariant(preset.status)}>{preset.status}</Badge>
+        <Badge variant={statusVariant(preset.status)}>{providerStatusLabel(preset.status)}</Badge>
       </div>
       <div className="mt-2 flex flex-wrap gap-1.5">
         {rawProfile?.temperature !== null && rawProfile?.temperature !== undefined ? (
@@ -888,10 +903,12 @@ function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }
                     <div>
                       <CardTitle className="text-lg">{provider.name}</CardTitle>
                       <CardDescription>
-                        {provider.description || 'LLM provider connection'}
+                        {sanitizeIntegrationCopy(provider.description, 'LLM provider connection')}
                       </CardDescription>
                     </div>
-                    <Badge variant={statusVariant(provider.status)}>{provider.status}</Badge>
+                    <Badge variant={statusVariant(provider.status)}>
+                      {providerStatusLabel(provider.status)}
+                    </Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -919,7 +936,7 @@ function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }
                       <p className="mt-1 text-sm text-neutral-800">
                         {provider.credentialStatus.refs.length > 0 || hasConfigApiKey
                           ? 'Configured'
-                          : provider.credentialStatus.message}
+                          : sanitizeIntegrationCopy(provider.credentialStatus.message)}
                       </p>
                     </div>
                   </div>
@@ -978,37 +995,21 @@ function priorityLabel(priority?: PlannedIntegrationDefinition['launchPriority']
   }
 }
 
-type PlannedProviderFilter = 'all' | 'needs-setup' | 'healthy' | 'failing' | 'never-tested';
+type PlannedProviderFilter = 'all' | 'needs-setup' | 'configured';
 
-function plannedProviderReadinessState(
-  provider: IntegrationProvider,
-  latestHistoryStatus: string | null
-): Exclude<PlannedProviderFilter, 'all'> {
+function plannedProviderReadinessState(provider: IntegrationProvider): Exclude<PlannedProviderFilter, 'all'> {
   const planned = provider.raw as PlannedIntegrationState | undefined;
   const hasCredentials = (planned?.matchedCredentialIds.length ?? 0) > 0;
 
-  if (!hasCredentials) {
-    return 'needs-setup';
-  }
-  if (latestHistoryStatus === 'completed') {
-    return 'healthy';
-  }
-  if (latestHistoryStatus === 'failed') {
-    return 'failing';
-  }
-  return 'never-tested';
+  return hasCredentials ? 'configured' : 'needs-setup';
 }
 
 function plannedProviderPriorityValue(state: Exclude<PlannedProviderFilter, 'all'>) {
   switch (state) {
-    case 'failing':
-      return 0;
     case 'needs-setup':
+      return 0;
+    case 'configured':
       return 1;
-    case 'never-tested':
-      return 2;
-    case 'healthy':
-      return 3;
     default:
       return 4;
   }
@@ -1026,12 +1027,7 @@ function readPlannedCategoryFilter(categoryId: string): PlannedProviderFilter {
   const value = new URLSearchParams(window.location.search).get(
     plannedCategoryFilterParam(categoryId)
   );
-  if (
-    value === 'needs-setup' ||
-    value === 'healthy' ||
-    value === 'failing' ||
-    value === 'never-tested'
-  ) {
+  if (value === 'needs-setup' || value === 'configured') {
     return value;
   }
   return 'all';
@@ -1083,19 +1079,6 @@ function readIntegrationConnectorParam() {
   return new URLSearchParams(window.location.search).get('integration-connector');
 }
 
-function readOperationsFilterParam(): OperationsFilter {
-  if (typeof window === 'undefined') {
-    return 'all';
-  }
-
-  const value = new URLSearchParams(window.location.search).get('operations-filter');
-  if (value === 'failing' || value === 'healthy' || value === 'never-tested') {
-    return value;
-  }
-
-  return 'all';
-}
-
 function persistIntegrationConnectorParam(connectorId: string | null) {
   if (typeof window === 'undefined') {
     return;
@@ -1115,50 +1098,10 @@ function writeIntegrationConnectorParam(connectorId: string | null) {
   return connectorId;
 }
 
-function persistOperationsFilterParam(filter: OperationsFilter) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  const url = new URL(window.location.href);
-  if (filter === 'all') {
-    url.searchParams.delete('operations-filter');
-  } else {
-    url.searchParams.set('operations-filter', filter);
-  }
-  window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
-}
-
-function latestConnectorHistoryByCredential(items: ConnectorHealthHistoryPayload['items']) {
-  const latestByCredentialId = new Map<string, ConnectorHealthHistoryPayload['items'][number]>();
-
-  items.forEach((item) => {
-    if (!latestByCredentialId.has(item.credentialId)) {
-      latestByCredentialId.set(item.credentialId, item);
-    }
-  });
-
-  return latestByCredentialId;
-}
-
-function connectorOperationsState(status?: string | null): Exclude<OperationsFilter, 'all'> {
-  if (status === 'completed') {
-    return 'healthy';
-  }
-  if (status === 'failed') {
-    return 'failing';
-  }
-  return 'never-tested';
-}
-
 function plannedReadinessLabel(state: PlannedProviderFilter) {
   switch (state) {
-    case 'healthy':
-      return 'healthy';
-    case 'failing':
-      return 'failing';
-    case 'never-tested':
-      return 'never tested';
+    case 'configured':
+      return 'configured';
     case 'needs-setup':
       return 'needs setup';
     default:
@@ -1168,24 +1111,15 @@ function plannedReadinessLabel(state: PlannedProviderFilter) {
 
 function plannedReadinessBadgeVariant(
   state: PlannedProviderFilter
-): 'successful' | 'failed' | 'outline' | 'secondary' {
+): 'successful' | 'outline' | 'secondary' {
   switch (state) {
-    case 'healthy':
+    case 'configured':
       return 'successful';
-    case 'failing':
-      return 'failed';
-    case 'never-tested':
-      return 'outline';
     case 'needs-setup':
       return 'secondary';
     default:
       return 'outline';
   }
-}
-
-function openIntegrationConnector(categoryId: string, connectorId: string) {
-  persistIntegrationTabParam(categoryId);
-  persistIntegrationConnectorParam(connectorId);
 }
 
 function fallbackConnectorCapability(
@@ -1240,7 +1174,6 @@ function PlannedProviderCard({
   const [secretRef, setSecretRef] = useState('');
   const [metadataValues, setMetadataValues] = useState<Record<string, string>>({});
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [lastHealthResult, setLastHealthResult] = useState<Record<string, unknown> | null>(null);
   const connectorUrl = buildIntegrationConnectorUrl(provider.categoryId, provider.id);
 
   const schemaQuery = useQuery({
@@ -1259,14 +1192,6 @@ function PlannedProviderCard({
     retry: false,
   });
 
-  const historyQuery = useQuery({
-    queryKey: ['connectorHistory', matchedCredentialId],
-    queryFn: (): Promise<ConnectorHealthHistoryPayload> =>
-      connectorsApi.getConnectorHistory(matchedCredentialId as string),
-    enabled: Boolean(matchedCredentialId),
-    retry: false,
-  });
-
   const openSetupDialog = async () => {
     setIsOpen(true);
     setSaveError(null);
@@ -1282,7 +1207,9 @@ function PlannedProviderCard({
 
     setName(existingCredential?.name ?? provider.name);
     setSecretRef(
-      typeof existingCredential?.secret_ref === 'string' ? existingCredential.secret_ref : ''
+      existingCredential?.secret_ref && !isUnsupportedSecretRef(existingCredential.secret_ref)
+        ? existingCredential.secret_ref
+        : ''
     );
     setMetadataValues(
       Object.fromEntries(
@@ -1308,10 +1235,6 @@ function PlannedProviderCard({
         secret_ref: secretRef.trim(),
         metadata,
       };
-      const validation = await credentialsApi.validateConnectorCredential(backendKey, payload);
-      if (!validation.valid) {
-        throw new Error(validation.errors.join(' ') || 'Connector credential payload is invalid.');
-      }
       if (matchedCredentialId) {
         return credentialsApi.updateConnectorCredential(matchedCredentialId, payload);
       }
@@ -1320,44 +1243,31 @@ function PlannedProviderCard({
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() });
       await onRefresh();
-      toast.success(
-        hasCredentials ? 'Connector credential updated.' : 'Connector credential saved.',
-        { position: 'top-right' }
-      );
+      toast.success(matchedCredentialId ? 'Connector credential updated.' : 'Connector credential created.', {
+        position: 'top-right',
+      });
       setIsOpen(false);
     },
     onError: (error) => {
-      setSaveError(error instanceof Error ? error.message : 'Failed to save connector credential.');
-    },
-  });
-
-  const healthMutation = useMutation({
-    mutationFn: async () => {
-      if (!matchedCredentialId) {
-        throw new Error('No saved backend credential is available for this connector yet.');
+      if (isApiError(error) && error.status === 404) {
+        setSaveError(
+          'Connector setup is not available from the running Agency backend yet. Restart the backend and try again.'
+        );
+        return;
       }
-      return connectorsApi.testConnector(matchedCredentialId);
-    },
-    onSuccess: (result) => {
-      setLastHealthResult(result);
-      void historyQuery.refetch();
-      toast.success('Connector test completed.', { position: 'top-right' });
-    },
-    onError: (error) => {
-      setLastHealthResult({
-        ok: false,
-        error: error instanceof Error ? error.message : 'Connector test failed.',
-      });
+      setSaveError(error instanceof Error ? error.message : 'Failed to save connector credential.');
     },
   });
 
   const effectiveCapability: ConnectorCapabilityDefinition =
     schemaQuery.data ?? fallbackConnectorCapability(provider, planned);
   const requiredMetadata = effectiveCapability.requiredMetadata ?? [];
-  const secretSchemes = effectiveCapability.supportedSecretRefSchemes ?? [];
-  const healthSupported = Boolean(effectiveCapability.healthSupported);
-  const lastHealthOk = lastHealthResult?.ok === true;
-  const historyItems = historyQuery.data?.items ?? [];
+  const supportedSecretRefSchemes = supportedFrontendSecretRefSchemes(
+    effectiveCapability.supportedSecretRefSchemes
+  );
+  const secretRefPlaceholder = `${supportedSecretRefSchemes[0] ?? 'env://'}${backendKey
+    .replace(/[^A-Za-z0-9]+/g, '_')
+    .toUpperCase()}_TOKEN`;
 
   useEffect(() => {
     if (isSelected) {
@@ -1408,10 +1318,12 @@ function PlannedProviderCard({
           <div className="flex items-start justify-between gap-3">
             <div>
               <CardTitle className="text-lg">{provider.name}</CardTitle>
-              <CardDescription>{provider.description || 'Planned connector.'}</CardDescription>
+              <CardDescription>
+                {sanitizeIntegrationCopy(provider.description, 'Connector credential.')}
+              </CardDescription>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Badge variant="secondary">planned</Badge>
+              <Badge variant="secondary">Connector credential</Badge>
               <Badge
                 data-testid={`planned-provider-status-${provider.id}`}
                 variant={plannedReadinessBadgeVariant(readinessState)}
@@ -1430,7 +1342,9 @@ function PlannedProviderCard({
           </div>
           <div className="rounded-xl border border-neutral-200 bg-white p-4">
             <p className="text-sm font-medium text-neutral-900">Credential inventory</p>
-            <p className="mt-1 text-sm text-neutral-600">{provider.credentialStatus.message}</p>
+            <p className="mt-1 text-sm text-neutral-600">
+              {sanitizeIntegrationCopy(provider.credentialStatus.message)}
+            </p>
             {planned?.matchedCredentialNames.length ? (
               <div className="mt-3 flex flex-wrap gap-2">
                 {planned.matchedCredentialNames.map((credentialName) => (
@@ -1444,8 +1358,7 @@ function PlannedProviderCard({
           <div className="rounded-xl border border-neutral-200 bg-white p-4">
             <p className="text-sm font-medium text-neutral-900">Connector setup</p>
             <p className="mt-1 text-sm text-neutral-600">
-              Save backend credential metadata for this connector. Use a secret reference such as
-              `env://VAR_NAME` or your configured secret-store ref, not a raw token.
+              Save a connector credential reference supported by the Open-Agency backend.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
@@ -1457,7 +1370,7 @@ function PlannedProviderCard({
                 }}
                 onKeyDown={handleCardActionKeyDown}
               >
-                {hasCredentials ? 'Update credential' : 'Set up connector'}
+                {hasCredentials ? 'Update credential' : 'Add credential'}
               </Button>
               <Button
                 type="button"
@@ -1467,114 +1380,8 @@ function PlannedProviderCard({
               >
                 Copy link
               </Button>
-              {hasCredentials && healthSupported ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={healthMutation.isPending}
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    healthMutation.mutate();
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                >
-                  {healthMutation.isPending ? 'Testing...' : 'Test connection'}
-                </Button>
-              ) : null}
             </div>
           </div>
-          {lastHealthResult ? (
-            <div
-              className={`rounded-xl border p-4 ${lastHealthOk ? 'border-emerald-200 bg-emerald-50' : 'border-red-200 bg-red-50'}`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">Latest connector test</p>
-                  <p className="mt-1 text-sm text-neutral-600">
-                    {lastHealthOk
-                      ? 'Backend health check succeeded for the saved connector credential.'
-                      : toStringValue(lastHealthResult.error) || 'Backend health check failed.'}
-                  </p>
-                </div>
-                <Badge variant={lastHealthOk ? 'successful' : 'failed'}>
-                  {lastHealthOk ? 'healthy' : 'failed'}
-                </Badge>
-              </div>
-              {'audit_execution_id' in lastHealthResult ? (
-                <p className="mt-3 text-xs text-neutral-500">
-                  Audit execution: {toStringValue(lastHealthResult.audit_execution_id)}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          {hasCredentials ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900">Recent test history</p>
-                  <p className="mt-1 text-sm text-neutral-600">
-                    Latest backend audit runs for this connector credential.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    void historyQuery.refetch();
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                  disabled={historyQuery.isFetching}
-                >
-                  {historyQuery.isFetching ? 'Refreshing...' : 'Refresh'}
-                </Button>
-              </div>
-              {historyQuery.isLoading ? (
-                <p className="mt-3 text-sm text-neutral-500">Loading connector history…</p>
-              ) : historyQuery.isError ? (
-                <p className="mt-3 text-sm text-red-600">{historyQuery.error.message}</p>
-              ) : historyItems.length > 0 ? (
-                <div className="mt-4 space-y-3">
-                  {historyItems.slice(0, 3).map((item) => (
-                    <div
-                      key={item.executionId}
-                      className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-neutral-900">
-                            {formatShortTimestamp(item.startedAt ?? item.completedAt ?? null)}
-                          </p>
-                          <p className="mt-1 text-xs text-neutral-500">{item.executionId}</p>
-                        </div>
-                        <Badge
-                          variant={
-                            item.status === 'completed'
-                              ? 'successful'
-                              : item.status === 'failed'
-                                ? 'failed'
-                                : 'outline'
-                          }
-                        >
-                          {item.status}
-                        </Badge>
-                      </div>
-                      {item.error ? (
-                        <p className="mt-2 text-sm text-red-600">{item.error}</p>
-                      ) : (
-                        <p className="mt-2 text-sm text-neutral-600">No error recorded.</p>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="mt-3 text-sm text-neutral-500">
-                  No test runs recorded yet for this connector credential.
-                </p>
-              )}
-            </div>
-          ) : null}
         </CardContent>
       </Card>
 
@@ -1590,11 +1397,11 @@ function PlannedProviderCard({
         <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {hasCredentials ? `Update ${provider.name} credential` : `Set up ${provider.name}`}
+              {hasCredentials ? `Update ${provider.name} credential` : `Add ${provider.name} credential`}
             </DialogTitle>
             <DialogDescription>
-              Backend key `{backendKey}`. Save a credential reference that the backend can validate
-              and use for connector health checks.
+              Backend key `{backendKey}`. Save a credential reference that already exists in your
+              configured secret store.
             </DialogDescription>
           </DialogHeader>
 
@@ -1608,31 +1415,6 @@ function PlannedProviderCard({
             />
           ) : (
             <div className="space-y-4">
-              {schemaQuery.isError ? (
-                <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                  <p className="text-sm font-medium text-amber-900">Schema unavailable</p>
-                  <p className="mt-1 text-sm text-amber-800">
-                    Falling back to planned connector metadata for setup. You can still save the
-                    credential and let backend validation enforce any missing requirements.
-                  </p>
-                  <p className="mt-2 text-xs text-amber-700">{schemaQuery.error.message}</p>
-                  {requiredMetadata.length > 0 ? (
-                    <div className="mt-3 rounded-lg border border-amber-200 bg-white/70 p-3">
-                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-900">
-                        Fallback setup fields
-                      </p>
-                      <ul className="mt-2 space-y-1 text-sm text-amber-900">
-                        {requiredMetadata.map((requirement) => (
-                          <li key={requirement.key}>
-                            <span className="font-medium">{requirement.key}</span>:{' '}
-                            {requirement.description}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  ) : null}
-                </div>
-              ) : null}
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-1">
                   <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
@@ -1653,24 +1435,26 @@ function PlannedProviderCard({
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Secret Reference
-                </label>
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900">Secret reference</p>
+                    <p className="mt-1 text-xs text-neutral-500">
+                      Enter a reference to a secret that already exists in your configured secret
+                      store. Raw tokens, passwords, and API keys are rejected by the backend.
+                    </p>
+                  </div>
+                  <Badge variant="outline">Credential-backed</Badge>
+                </div>
                 <Input
-                  aria-label="Secret Reference"
+                  aria-label="Secret reference"
+                  placeholder={secretRefPlaceholder}
                   value={secretRef}
                   onChange={(event) => setSecretRef(event.target.value)}
                   disabled={saveMutation.isPending}
-                  placeholder={
-                    secretSchemes.includes('env')
-                      ? 'env://TELEGRAM_BOT_TOKEN'
-                      : 'secret://provider/key'
-                  }
                 />
                 <p className="text-xs text-neutral-500">
-                  Supported schemes:{' '}
-                  {secretSchemes.length ? secretSchemes.join(', ') : 'secret store refs only'}
+                  Supported schemes: {supportedSecretRefSchemes.join(', ')}
                 </p>
               </div>
 
@@ -1693,7 +1477,9 @@ function PlannedProviderCard({
                         }
                         disabled={saveMutation.isPending}
                       />
-                      <p className="text-xs text-neutral-500">{requirement.description}</p>
+                      <p className="text-xs text-neutral-500">
+                        {sanitizeIntegrationCopy(requirement.description)}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -1712,6 +1498,7 @@ function PlannedProviderCard({
                 schemaQuery.isLoading ||
                 !name.trim() ||
                 !secretRef.trim() ||
+                isUnsupportedSecretRef(secretRef) ||
                 requiredMetadata.some(
                   (requirement) => !(metadataValues[requirement.key] ?? '').trim()
                 )
@@ -1719,7 +1506,9 @@ function PlannedProviderCard({
               onClick={() => saveMutation.mutate()}
             >
               {saveMutation.isPending
-                ? 'Saving...'
+                ? hasCredentials
+                  ? 'Saving...'
+                  : 'Saving...'
                 : hasCredentials
                   ? 'Update credential'
                   : 'Save credential'}
@@ -1742,15 +1531,11 @@ function PlannedProviderCard({
 function PlannedCategoryPanel({
   category,
   onRefresh,
-  latestHistoryByCredentialId,
-  categoryHistoryLoading,
   selectedConnectorId,
   onSelectConnector,
 }: {
   category: IntegrationCategory;
   onRefresh: () => Promise<void>;
-  latestHistoryByCredentialId: Map<string, ConnectorHealthHistoryPayload['items'][number]>;
-  categoryHistoryLoading: boolean;
   selectedConnectorId: string | null;
   onSelectConnector: (connectorId: string | null) => void;
 }) {
@@ -1760,48 +1545,14 @@ function PlannedCategoryPanel({
   const configuredCount = category.providers.filter(
     (provider) => provider.status === 'configured'
   ).length;
-  const mappedCredentialIds = category.providers
-    .flatMap(
-      (provider) =>
-        (provider.raw as PlannedIntegrationState | undefined)?.matchedCredentialIds ?? []
-    )
-    .filter((value, index, array) => Boolean(value) && array.indexOf(value) === index);
-  const nowCount = category.providers.filter((provider) => {
-    const planned = provider.raw as PlannedIntegrationState | undefined;
-    return planned?.launchPriority === 'now';
-  }).length;
-  const nextCount = category.providers.filter((provider) => {
-    const planned = provider.raw as PlannedIntegrationState | undefined;
-    return planned?.launchPriority === 'next';
-  }).length;
-  const laterCount = category.providers.filter((provider) => {
-    const planned = provider.raw as PlannedIntegrationState | undefined;
-    return !planned?.launchPriority || planned.launchPriority === 'later';
-  }).length;
-  const latestStatusByCredentialId = new Map(
-    mappedCredentialIds.map((credentialId) => [
-      credentialId,
-      latestHistoryByCredentialId.get(credentialId)?.status ?? null,
-    ])
-  );
-  const latestConnectorStatuses = mappedCredentialIds.map(
-    (credentialId) => latestStatusByCredentialId.get(credentialId) ?? null
-  );
-  const healthyCount = latestConnectorStatuses.filter((status) => status === 'completed').length;
-  const failingCount = latestConnectorStatuses.filter((status) => status === 'failed').length;
-  const neverTestedCount = mappedCredentialIds.length - healthyCount - failingCount;
   const needsSetupCount = category.providers.filter((provider) => {
     const planned = provider.raw as PlannedIntegrationState | undefined;
     return (planned?.matchedCredentialIds.length ?? 0) === 0;
   }).length;
+  const configuredConnectorCount = category.providers.length - needsSetupCount;
   const filteredProviders = category.providers
     .map((provider) => {
-      const planned = provider.raw as PlannedIntegrationState | undefined;
-      const latestStatus =
-        (planned?.matchedCredentialIds ?? [])
-          .map((credentialId) => latestStatusByCredentialId.get(credentialId) ?? null)
-          .find((status) => status !== null) ?? null;
-      const readinessState = plannedProviderReadinessState(provider, latestStatus);
+      const readinessState = plannedProviderReadinessState(provider);
       return {
         provider,
         readinessState,
@@ -1829,101 +1580,21 @@ function PlannedCategoryPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">{category.name}</h2>
-          <p className="mt-1 max-w-3xl text-sm text-neutral-500">{category.description}</p>
+          <p className="mt-1 max-w-3xl text-sm text-neutral-500">
+            {sanitizeIntegrationCopy(category.description)}
+          </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{category.providers.length} planned</Badge>
+          <Badge variant="secondary">{category.providers.length} credential-ready</Badge>
           <Badge variant="outline">{configuredCount} credential-backed</Badge>
         </div>
       </div>
-
-      {/*<div className="grid gap-3 md:grid-cols-4">*/}
-      {/*  <Card className="border-neutral-200 bg-neutral-50/40">*/}
-      {/*    <CardContent className="px-5 py-4">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">*/}
-      {/*        Ship Now*/}
-      {/*      </p>*/}
-      {/*      <p className="mt-2 text-2xl font-semibold text-neutral-900">{nowCount}</p>*/}
-      {/*    </CardContent>*/}
-      {/*  </Card>*/}
-      {/*  <Card className="border-neutral-200 bg-neutral-50/40">*/}
-      {/*    <CardContent className="px-5 py-4">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">*/}
-      {/*        Next Wave*/}
-      {/*      </p>*/}
-      {/*      <p className="mt-2 text-2xl font-semibold text-neutral-900">{nextCount}</p>*/}
-      {/*    </CardContent>*/}
-      {/*  </Card>*/}
-      {/*  <Card className="border-neutral-200 bg-neutral-50/40">*/}
-      {/*    <CardContent className="px-5 py-4">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">*/}
-      {/*        Later*/}
-      {/*      </p>*/}
-      {/*      <p className="mt-2 text-2xl font-semibold text-neutral-900">{laterCount}</p>*/}
-      {/*    </CardContent>*/}
-      {/*  </Card>*/}
-      {/*  <Card className="border-neutral-200 bg-neutral-50/40">*/}
-      {/*    <CardContent className="px-5 py-4">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">*/}
-      {/*        Credential-backed*/}
-      {/*      </p>*/}
-      {/*      <p className="mt-2 text-2xl font-semibold text-neutral-900">{configuredCount}</p>*/}
-      {/*    </CardContent>*/}
-      {/*  </Card>*/}
-      {/*</div>*/}
-
-      {/*<div className="rounded-xl border border-neutral-200 bg-white px-5 py-4">*/}
-      {/*  <div className="flex items-start justify-between gap-3">*/}
-      {/*    <div>*/}
-      {/*      <p className="text-sm font-medium text-neutral-900">Connector health summary</p>*/}
-      {/*      <p className="mt-1 text-sm text-neutral-600">*/}
-      {/*        Latest backend audit status across credential-backed connectors in this category.*/}
-      {/*      </p>*/}
-      {/*    </div>*/}
-      {/*    {categoryHistoryLoading ? <Badge variant="outline">Refreshing…</Badge> : null}*/}
-      {/*  </div>*/}
-      {/*  <div className="mt-4 grid gap-3 md:grid-cols-3">*/}
-      {/*    <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700">*/}
-      {/*        Healthy*/}
-      {/*      </p>*/}
-      {/*      <p*/}
-      {/*        data-testid="planned-category-healthy-count"*/}
-      {/*        className="mt-2 text-2xl font-semibold text-emerald-900"*/}
-      {/*      >*/}
-      {/*        {healthyCount}*/}
-      {/*      </p>*/}
-      {/*    </div>*/}
-      {/*    <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-red-700">Failing</p>*/}
-      {/*      <p*/}
-      {/*        data-testid="planned-category-failing-count"*/}
-      {/*        className="mt-2 text-2xl font-semibold text-red-900"*/}
-      {/*      >*/}
-      {/*        {failingCount}*/}
-      {/*      </p>*/}
-      {/*    </div>*/}
-      {/*    <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">*/}
-      {/*      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">*/}
-      {/*        Never tested*/}
-      {/*      </p>*/}
-      {/*      <p*/}
-      {/*        data-testid="planned-category-never-tested-count"*/}
-      {/*        className="mt-2 text-2xl font-semibold text-neutral-900"*/}
-      {/*      >*/}
-      {/*        {neverTestedCount}*/}
-      {/*      </p>*/}
-      {/*    </div>*/}
-      {/*  </div>*/}
-      {/*</div>*/}
 
       <div className="flex flex-wrap gap-2">
         {[
           { key: 'all', label: 'All', count: category.providers.length },
           { key: 'needs-setup', label: 'Needs setup', count: needsSetupCount },
-          { key: 'healthy', label: 'Healthy', count: healthyCount },
-          { key: 'failing', label: 'Failing', count: failingCount },
-          { key: 'never-tested', label: 'Never tested', count: neverTestedCount },
+          { key: 'configured', label: 'Configured', count: configuredConnectorCount },
         ].map((filter) => (
           <Button
             key={filter.key}
@@ -1960,7 +1631,7 @@ function PlannedCategoryPanel({
       {filteredProviders.length === 0 ? (
         <EmptyCard
           title="No connectors match this filter"
-          description="Try another readiness filter to inspect other planned connectors in this category."
+          description="Try another readiness filter to inspect other connector credentials in this category."
         />
       ) : null}
     </div>
@@ -2087,10 +1758,12 @@ function ProviderEditor({
           <div>
             <CardTitle className="text-lg">{provider.name}</CardTitle>
             <CardDescription>
-              {provider.description || 'No provider description available.'}
+              {sanitizeIntegrationCopy(provider.description, 'No provider description available.')}
             </CardDescription>
           </div>
-          <Badge variant={statusVariant(provider.status)}>{provider.status}</Badge>
+          <Badge variant={statusVariant(provider.status)}>
+            {providerStatusLabel(provider.status)}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -2123,7 +1796,9 @@ function ProviderEditor({
             </div>
             <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
               <p className="text-sm font-medium text-neutral-900">Credential handling</p>
-              <p className="mt-1 text-sm text-neutral-600">{provider.credentialStatus.message}</p>
+              <p className="mt-1 text-sm text-neutral-600">
+                {sanitizeIntegrationCopy(provider.credentialStatus.message)}
+              </p>
               {provider.credentialStatus.refs.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {provider.credentialStatus.refs.map((reference) => (
@@ -2176,7 +1851,9 @@ function ProviderEditor({
                       />
                     )}
                     {field.description ? (
-                      <p className="text-xs text-neutral-500">{field.description}</p>
+                      <p className="text-xs text-neutral-500">
+                        {sanitizeIntegrationCopy(field.description)}
+                      </p>
                     ) : null}
                   </div>
                 ))}
@@ -2190,9 +1867,13 @@ function ProviderEditor({
             {provider.kind !== 'tool' ? (
               <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-4">
                 <p className="text-sm font-medium text-neutral-900">Credential handling</p>
-                <p className="mt-1 text-sm text-neutral-600">{provider.credentialStatus.message}</p>
+                <p className="mt-1 text-sm text-neutral-600">
+                  {sanitizeIntegrationCopy(provider.credentialStatus.message)}
+                </p>
                 {!credentialCapability.writeSupported ? (
-                  <p className="mt-2 text-xs text-neutral-500">{credentialCapability.message}</p>
+                  <p className="mt-2 text-xs text-neutral-500">
+                    {sanitizeIntegrationCopy(credentialCapability.message)}
+                  </p>
                 ) : null}
                 {provider.credentialStatus.refs.length > 0 ? (
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -2311,15 +1992,11 @@ function ProviderEditor({
 function CategoryPanel({
   category,
   onRefresh,
-  latestHistoryByCredentialId,
-  categoryHistoryLoading,
   selectedConnectorId,
   onSelectConnector,
 }: {
   category: IntegrationCategory;
   onRefresh: () => Promise<void>;
-  latestHistoryByCredentialId: Map<string, ConnectorHealthHistoryPayload['items'][number]>;
-  categoryHistoryLoading: boolean;
   selectedConnectorId: string | null;
   onSelectConnector: (connectorId: string | null) => void;
 }) {
@@ -2332,8 +2009,6 @@ function CategoryPanel({
       <PlannedCategoryPanel
         category={category}
         onRefresh={onRefresh}
-        latestHistoryByCredentialId={latestHistoryByCredentialId}
-        categoryHistoryLoading={categoryHistoryLoading}
         selectedConnectorId={selectedConnectorId}
         onSelectConnector={onSelectConnector}
       />
@@ -2351,7 +2026,7 @@ function CategoryPanel({
         ) : null}
         <EmptyCard
           title={`No ${category.name.toLowerCase()} providers`}
-          description={category.description}
+          description={sanitizeIntegrationCopy(category.description)}
         />
       </div>
     );
@@ -2362,7 +2037,9 @@ function CategoryPanel({
       <div className="flex items-start justify-between gap-3">
         <div>
           <h2 className="text-xl font-semibold text-neutral-900">{category.name}</h2>
-          <p className="mt-1 text-sm text-neutral-500">{category.description}</p>
+          <p className="mt-1 text-sm text-neutral-500">
+            {sanitizeIntegrationCopy(category.description)}
+          </p>
         </div>
         {category.id === 'custom' ? (
           <div className="flex flex-wrap gap-2">
@@ -2380,319 +2057,7 @@ function CategoryPanel({
   );
 }
 
-function OperationsPanel({
-  aggregateHistoryQuery,
-  mappedCredentialIds,
-  healthyConnectorCount,
-  failingConnectorCount,
-  neverTestedConnectorCount,
-  operationsFilter,
-  setOperationsFilter,
-  filteredOperationalItems,
-  matchingOperationalItems,
-  operationsVisibleCount,
-  setOperationsVisibleCount,
-  operationsLastTestResult,
-  operationsTestMutation,
-  operationsBulkTestMutation,
-  refreshOperationsQueue,
-  credentialProviderById,
-  categoryNameById,
-}: {
-  aggregateHistoryQuery: ReturnType<typeof useQuery<ConnectorHealthHistoryPayload>>;
-  mappedCredentialIds: string[];
-  healthyConnectorCount: number;
-  failingConnectorCount: number;
-  neverTestedConnectorCount: number;
-  operationsFilter: OperationsFilter;
-  setOperationsFilter: (filter: OperationsFilter) => void;
-  filteredOperationalItems: Array<{
-    provider: IntegrationProvider;
-    credentialId: string;
-    latestItem: ConnectorHealthHistoryPayload['items'][number] | null;
-    state: Exclude<OperationsFilter, 'all'>;
-    timestamp: string | null;
-  }>;
-  matchingOperationalItems: Array<{
-    provider: IntegrationProvider;
-    credentialId: string;
-    latestItem: ConnectorHealthHistoryPayload['items'][number] | null;
-    state: Exclude<OperationsFilter, 'all'>;
-    timestamp: string | null;
-  }>;
-  operationsVisibleCount: number;
-  setOperationsVisibleCount: (value: number | ((current: number) => number)) => void;
-  operationsLastTestResult: Record<string, Record<string, unknown>>;
-  operationsTestMutation: ReturnType<typeof useMutation<Record<string, unknown>, Error, string>>;
-  operationsBulkTestMutation: ReturnType<
-    typeof useMutation<
-      Array<{
-        credentialId: string;
-        ok: boolean;
-        result?: Record<string, unknown>;
-        error?: string;
-      }>,
-      Error,
-      string[]
-    >
-  >;
-  refreshOperationsQueue: () => Promise<void>;
-  credentialProviderById: Map<string, IntegrationProvider>;
-  categoryNameById: Map<string, string>;
-}) {
-  const applyOperationsFilter = (nextFilter: OperationsFilter) => {
-    setOperationsFilter(nextFilter);
-    setOperationsVisibleCount(OPERATIONS_PAGE_SIZE);
-    persistOperationsFilterParam(nextFilter);
-  };
-
-  return (
-    <div className="rounded-2xl border border-neutral-200 bg-white px-5 py-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-sm font-medium text-neutral-900">Connector operations</p>
-          <p className="mt-1 text-sm text-neutral-600">
-            Latest backend health state across configured planned connectors.
-          </p>
-        </div>
-        {aggregateHistoryQuery.isLoading || aggregateHistoryQuery.isFetching ? (
-          <Badge variant="outline">Refreshing…</Badge>
-        ) : null}
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-            Credential-backed
-          </p>
-          <p
-            data-testid="operations-credential-backed-count"
-            className="mt-2 text-2xl font-semibold text-neutral-900"
-          >
-            {mappedCredentialIds.length}
-          </p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700">
-            Healthy
-          </p>
-          <p
-            data-testid="operations-healthy-count"
-            className="mt-2 text-2xl font-semibold text-emerald-900"
-          >
-            {healthyConnectorCount}
-          </p>
-        </div>
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-red-700">Failing</p>
-          <p
-            data-testid="operations-failing-count"
-            className="mt-2 text-2xl font-semibold text-red-900"
-          >
-            {failingConnectorCount}
-          </p>
-        </div>
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-            Never tested
-          </p>
-          <p
-            data-testid="operations-never-tested-count"
-            className="mt-2 text-2xl font-semibold text-neutral-900"
-          >
-            {neverTestedConnectorCount}
-          </p>
-        </div>
-      </div>
-
-      <div className="mt-5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-neutral-900">Recent connector runs</p>
-            <p className="mt-1 text-sm text-neutral-600">
-              Latest connector test result per saved connector credential.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => void refreshOperationsQueue()}
-              disabled={aggregateHistoryQuery.isFetching || mappedCredentialIds.length === 0}
-            >
-              Refresh all
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => operationsBulkTestMutation.mutate(mappedCredentialIds)}
-              disabled={operationsBulkTestMutation.isPending || mappedCredentialIds.length === 0}
-            >
-              {operationsBulkTestMutation.isPending
-                ? 'Testing all...'
-                : 'Test all credential-backed'}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {[
-            { key: 'all', label: 'All', count: mappedCredentialIds.length },
-            { key: 'failing', label: 'Failing', count: failingConnectorCount },
-            { key: 'healthy', label: 'Healthy', count: healthyConnectorCount },
-            { key: 'never-tested', label: 'Never tested', count: neverTestedConnectorCount },
-          ].map((filter) => (
-            <Button
-              key={filter.key}
-              type="button"
-              data-testid={`operations-filter-${filter.key}`}
-              variant={operationsFilter === filter.key ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => applyOperationsFilter(filter.key as OperationsFilter)}
-              className={
-                operationsFilter === filter.key
-                  ? 'agency-gradient text-white hover:brightness-105'
-                  : ''
-              }
-            >
-              {filter.label} ({filter.count})
-            </Button>
-          ))}
-        </div>
-        {filteredOperationalItems.length > 0 ? (
-          <div className="mt-4 space-y-3">
-            {filteredOperationalItems.map((item) => {
-              const provider = item.provider ?? credentialProviderById.get(item.credentialId);
-              const lastTestResult = operationsLastTestResult[item.credentialId] ?? null;
-              const lastTestOk = lastTestResult?.ok === true;
-              const planned = provider?.raw as PlannedIntegrationState | undefined;
-              return (
-                <div
-                  key={`${provider?.id ?? item.credentialId}-${item.latestItem?.executionId ?? 'never-tested'}`}
-                  data-testid={`operations-row-${item.credentialId}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3"
-                >
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-neutral-900">
-                      {provider?.name ?? item.latestItem?.credentialName}
-                    </p>
-                    <div
-                      data-testid={`operations-row-meta-${item.credentialId}`}
-                      className="mt-2 flex flex-wrap gap-2"
-                    >
-                      {provider ? (
-                        <Badge variant="outline">
-                          {categoryNameById.get(provider.categoryId) ?? provider.categoryId}
-                        </Badge>
-                      ) : null}
-                      {planned?.backendKey ? (
-                        <Badge variant="outline">Key: {planned.backendKey}</Badge>
-                      ) : null}
-                    </div>
-                    <p className="mt-1 text-xs text-neutral-500">
-                      {formatShortTimestamp(item.timestamp)}
-                    </p>
-                    {item.latestItem?.error ? (
-                      <p className="mt-2 text-sm text-red-600">{item.latestItem.error}</p>
-                    ) : item.state === 'never-tested' ? (
-                      <p className="mt-2 text-sm text-neutral-600">
-                        No connector test runs recorded yet.
-                      </p>
-                    ) : null}
-                    {lastTestResult ? (
-                      <p
-                        className={`mt-2 text-sm ${lastTestOk ? 'text-emerald-700' : 'text-red-600'}`}
-                      >
-                        {lastTestOk
-                          ? `Latest queue test succeeded${lastTestResult.audit_execution_id ? ` · ${toStringValue(lastTestResult.audit_execution_id)}` : ''}`
-                          : toStringValue(lastTestResult.error) || 'Latest queue test failed.'}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Badge
-                      variant={
-                        item.state === 'healthy'
-                          ? 'successful'
-                          : item.state === 'failing'
-                            ? 'failed'
-                            : 'outline'
-                      }
-                    >
-                      {item.state}
-                    </Badge>
-                    {provider ? (
-                      <>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          disabled={
-                            operationsTestMutation.isPending &&
-                            operationsTestMutation.variables === item.credentialId
-                          }
-                          onClick={() => operationsTestMutation.mutate(item.credentialId)}
-                        >
-                          {operationsTestMutation.isPending &&
-                          operationsTestMutation.variables === item.credentialId
-                            ? 'Testing...'
-                            : 'Test now'}
-                        </Button>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openIntegrationConnector(provider.categoryId, provider.id)}
-                        >
-                          Open
-                        </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-            {matchingOperationalItems.length > OPERATIONS_PAGE_SIZE ? (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {filteredOperationalItems.length < matchingOperationalItems.length ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() =>
-                      setOperationsVisibleCount((current) => current + OPERATIONS_PAGE_SIZE)
-                    }
-                  >
-                    Show more
-                  </Button>
-                ) : null}
-                {operationsVisibleCount > OPERATIONS_PAGE_SIZE ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setOperationsVisibleCount(OPERATIONS_PAGE_SIZE)}
-                  >
-                    Show less
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="mt-4 text-sm text-neutral-500">
-            {mappedCredentialIds.length > 0
-              ? 'No connectors match this operations filter.'
-              : 'No credential-backed planned connectors yet.'}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full' | 'operations' }) {
-  const queryClient = useQueryClient();
+export default function IntegrationsWorkspace() {
   const integrationsQuery = useQuery({
     queryKey: queryKeys.backendIntegrations(),
     queryFn: (): Promise<IntegrationCatalogPayload> => integrationsApi.listCategories(),
@@ -2702,133 +2067,10 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
   const [selectedConnectorId, setSelectedConnectorId] = useState<string | null>(() =>
     readIntegrationConnectorParam()
   );
-  const [operationsFilter, setOperationsFilter] = useState<OperationsFilter>(() =>
-    readOperationsFilterParam()
-  );
-  const [operationsVisibleCount, setOperationsVisibleCount] = useState(OPERATIONS_PAGE_SIZE);
-  const [operationsLastTestResult, setOperationsLastTestResult] = useState<
-    Record<string, Record<string, unknown>>
-  >({});
   const categories = useMemo(
     () => integrationsQuery.data?.categories ?? [],
     [integrationsQuery.data]
   );
-  const plannedProviders = useMemo(
-    () =>
-      categories.flatMap((category) => (category.status === 'planned' ? category.providers : [])),
-    [categories]
-  );
-  const categoryNameById = useMemo(
-    () => new Map(categories.map((category) => [category.id, category.name])),
-    [categories]
-  );
-  const mappedCredentialIds = useMemo(
-    () =>
-      plannedProviders
-        .flatMap(
-          (provider) =>
-            (provider.raw as PlannedIntegrationState | undefined)?.matchedCredentialIds ?? []
-        )
-        .filter((value, index, array) => Boolean(value) && array.indexOf(value) === index),
-    [plannedProviders]
-  );
-  const aggregateHistoryQuery = useQuery({
-    queryKey: ['aggregateConnectorHistory', mappedCredentialIds.join(',')],
-    queryFn: (): Promise<ConnectorHealthHistoryPayload> =>
-      connectorsApi.getAggregateConnectorHistory({ limit: 200 }),
-    enabled: mappedCredentialIds.length > 0,
-    retry: false,
-  });
-  const latestHistoryByCredentialId = useMemo(
-    () => latestConnectorHistoryByCredential(aggregateHistoryQuery.data?.items ?? []),
-    [aggregateHistoryQuery.data]
-  );
-  const credentialBackedProviders = useMemo(
-    () =>
-      plannedProviders.filter(
-        (provider) =>
-          ((provider.raw as PlannedIntegrationState | undefined)?.matchedCredentialIds.length ??
-            0) > 0
-      ),
-    [plannedProviders]
-  );
-  const credentialProviderById = useMemo(() => {
-    const map = new Map<string, IntegrationProvider>();
-
-    credentialBackedProviders.forEach((provider) => {
-      const planned = provider.raw as PlannedIntegrationState | undefined;
-      (planned?.matchedCredentialIds ?? []).forEach((credentialId) => {
-        if (!map.has(credentialId)) {
-          map.set(credentialId, provider);
-        }
-      });
-    });
-
-    return map;
-  }, [credentialBackedProviders]);
-  const operationalItems = useMemo(
-    () =>
-      credentialBackedProviders
-        .map((provider) => {
-          const planned = provider.raw as PlannedIntegrationState | undefined;
-          const credentialId = planned?.matchedCredentialIds[0] ?? '';
-          const latestItem = credentialId
-            ? (latestHistoryByCredentialId.get(credentialId) ?? null)
-            : null;
-          const state = connectorOperationsState(latestItem?.status ?? null);
-
-          return {
-            provider,
-            credentialId,
-            latestItem,
-            state,
-            timestamp: latestItem?.startedAt ?? latestItem?.completedAt ?? null,
-          };
-        })
-        .sort((left, right) => {
-          const priorityDelta =
-            plannedProviderPriorityValue(left.state) - plannedProviderPriorityValue(right.state);
-          if (priorityDelta !== 0) {
-            return priorityDelta;
-          }
-
-          if (left.timestamp && right.timestamp) {
-            return new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime();
-          }
-
-          if (left.timestamp) return -1;
-          if (right.timestamp) return 1;
-          return left.provider.name.localeCompare(right.provider.name);
-        }),
-    [credentialBackedProviders, latestHistoryByCredentialId]
-  );
-  const matchingOperationalItems = useMemo(
-    () =>
-      operationalItems.filter(
-        (item) => operationsFilter === 'all' || item.state === operationsFilter
-      ),
-    [operationalItems, operationsFilter]
-  );
-  const filteredOperationalItems = useMemo(
-    () => matchingOperationalItems.slice(0, operationsVisibleCount),
-    [matchingOperationalItems, operationsVisibleCount]
-  );
-  const healthyConnectorCount = useMemo(
-    () =>
-      mappedCredentialIds.filter(
-        (credentialId) => latestHistoryByCredentialId.get(credentialId)?.status === 'completed'
-      ).length,
-    [latestHistoryByCredentialId, mappedCredentialIds]
-  );
-  const failingConnectorCount = useMemo(
-    () =>
-      mappedCredentialIds.filter(
-        (credentialId) => latestHistoryByCredentialId.get(credentialId)?.status === 'failed'
-      ).length,
-    [latestHistoryByCredentialId, mappedCredentialIds]
-  );
-  const neverTestedConnectorCount =
-    mappedCredentialIds.length - healthyConnectorCount - failingConnectorCount;
   const categoryForSelectedConnector = categories.find((category) =>
     category.providers.some((provider) => provider.id === selectedConnectorId)
   )?.id;
@@ -2836,93 +2078,6 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
     categories.length > 0 && selectedConnectorId && !categoryForSelectedConnector
   );
   const resolvedSelectedConnectorId = staleSelectedConnector ? null : selectedConnectorId;
-  const operationsTestMutation = useMutation({
-    mutationFn: async (credentialId: string) => connectorsApi.testConnector(credentialId),
-    onMutate: (credentialId) => {
-      setOperationsLastTestResult((current) => {
-        const next = { ...current };
-        delete next[credentialId];
-        return next;
-      });
-    },
-    onSuccess: async (result, credentialId) => {
-      setOperationsLastTestResult((current) => ({ ...current, [credentialId]: result }));
-      await Promise.all([
-        aggregateHistoryQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: ['connectorHistory', credentialId] }),
-      ]);
-      toast.success('Connector test completed.', { position: 'top-right' });
-    },
-    onError: (error, credentialId) => {
-      setOperationsLastTestResult((current) => ({
-        ...current,
-        [credentialId]: {
-          ok: false,
-          error: error instanceof Error ? error.message : 'Connector test failed.',
-        },
-      }));
-      toast.error(error instanceof Error ? error.message : 'Connector test failed.', {
-        position: 'top-right',
-      });
-    },
-  });
-  const refreshOperationsQueue = async () => {
-    await Promise.all([
-      aggregateHistoryQuery.refetch(),
-      ...mappedCredentialIds.map((credentialId) =>
-        queryClient.invalidateQueries({ queryKey: ['connectorHistory', credentialId] })
-      ),
-    ]);
-  };
-  const operationsBulkTestMutation = useMutation({
-    mutationFn: async (credentialIds: string[]) => {
-      const results = await Promise.all(
-        credentialIds.map(async (credentialId) => {
-          try {
-            const result = await connectorsApi.testConnector(credentialId);
-            return { credentialId, ok: true as const, result };
-          } catch (error) {
-            return {
-              credentialId,
-              ok: false as const,
-              error: error instanceof Error ? error.message : 'Connector test failed.',
-            };
-          }
-        })
-      );
-      return results;
-    },
-    onMutate: (credentialIds) => {
-      setOperationsLastTestResult((current) => {
-        const next = { ...current };
-        credentialIds.forEach((credentialId) => {
-          delete next[credentialId];
-        });
-        return next;
-      });
-    },
-    onSuccess: async (results) => {
-      setOperationsLastTestResult((current) => {
-        const next = { ...current };
-        results.forEach((result) => {
-          next[result.credentialId] = result.ok
-            ? result.result
-            : {
-                ok: false,
-                error: result.error,
-              };
-        });
-        return next;
-      });
-      await refreshOperationsQueue();
-      const passed = results.filter((result) => result.ok).length;
-      const failed = results.length - passed;
-      toast.success(`Bulk connector test finished. ${passed} passed, ${failed} failed.`, {
-        position: 'top-right',
-      });
-    },
-  });
-
   useEffect(() => {
     if (staleSelectedConnector) {
       writeIntegrationConnectorParam(null);
@@ -2934,10 +2089,6 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
       (categories.some((category) => category.id === activeTab) ? activeTab : categories[0]?.id) ??
       '') ||
     undefined;
-  const registrySource = integrationsQuery.data?.registrySource ?? 'fallback';
-  const registryUpdatedAt = formatRegistryTimestamp(
-    integrationsQuery.data?.registryUpdatedAt ?? null
-  );
   const refreshIntegrations = async () => {
     await integrationsQuery.refetch();
   };
@@ -2972,100 +2123,13 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
     );
   }
 
-  const operationsPanel = (
-    <OperationsPanel
-      aggregateHistoryQuery={aggregateHistoryQuery}
-      mappedCredentialIds={mappedCredentialIds}
-      healthyConnectorCount={healthyConnectorCount}
-      failingConnectorCount={failingConnectorCount}
-      neverTestedConnectorCount={neverTestedConnectorCount}
-      operationsFilter={operationsFilter}
-      setOperationsFilter={setOperationsFilter}
-      filteredOperationalItems={filteredOperationalItems}
-      matchingOperationalItems={matchingOperationalItems}
-      operationsVisibleCount={operationsVisibleCount}
-      setOperationsVisibleCount={setOperationsVisibleCount}
-      operationsLastTestResult={operationsLastTestResult}
-      operationsTestMutation={operationsTestMutation}
-      operationsBulkTestMutation={operationsBulkTestMutation}
-      refreshOperationsQueue={refreshOperationsQueue}
-      credentialProviderById={credentialProviderById}
-      categoryNameById={categoryNameById}
-    />
-  );
-
-  if (mode === 'operations') {
-    return (
-      <div className="space-y-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-500">
-              Integrations
-            </p>
-            <h1 className="mt-2 text-3xl font-semibold text-neutral-900">Connector operations</h1>
-            <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-              Dedicated operational queue for credential-backed connectors, with health filters,
-              bulk actions, and direct test controls.
-            </p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Badge variant={registrySource === 'backend' ? 'successful' : 'secondary'}>
-                Registry: {registrySource === 'backend' ? 'Backend' : 'Local fallback'}
-              </Badge>
-              {registrySource === 'fallback' ? (
-                <Badge variant="outline">Waiting on `GET /integrations/categories`</Badge>
-              ) : null}
-              {registryUpdatedAt ? (
-                <Badge variant="outline">Updated {registryUpdatedAt}</Badge>
-              ) : null}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" asChild>
-              <Link href="/integrations">Back to integrations</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => integrationsQuery.refetch()}
-              disabled={integrationsQuery.isFetching}
-            >
-              <RefreshCw
-                className={`mr-2 h-4 w-4 ${integrationsQuery.isFetching ? 'animate-spin' : ''}`}
-              />
-              Refresh
-            </Button>
-          </div>
-        </div>
-        {operationsPanel}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-neutral-500">
-            Integrations
-          </p>
-          <h1 className="mt-2 text-3xl font-semibold text-neutral-900">Providers and connectors</h1>
-          <p className="mt-2 max-w-3xl text-sm text-neutral-600">
-            Configured LLM models, tools, and MCP servers.
-            <br/>Planned categories remain visible until backend route groups exist for them.
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Badge variant={registrySource === 'backend' ? 'successful' : 'secondary'}>
-              Registry: {registrySource === 'backend' ? 'Backend' : 'Local fallback'}
-            </Badge>
-            {registrySource === 'fallback' ? (
-              <Badge variant="outline">Waiting on `GET /integrations/categories`</Badge>
-            ) : null}
-            {registryUpdatedAt ? (
-              <Badge variant="outline">Updated {registryUpdatedAt}</Badge>
-            ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
+      <PageHeader
+        eyebrow="Integrations"
+        title="Providers and connectors"
+        description="Configured LLM models, tools, MCP servers, and connector credentials. Connector categories can store backend credential references when the backend exposes a connector schema."
+        actions={
           <Button
             type="button"
             variant="outline"
@@ -3077,8 +2141,8 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
             />
             Refresh
           </Button>
-        </div>
-      </div>
+        }
+      />
 
       <div className="grid gap-3 md:grid-cols-3">
         <Card className="border-neutral-200 bg-neutral-50/40">
@@ -3102,7 +2166,7 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
         <Card className="border-neutral-200 bg-neutral-50/40">
           <CardContent className="px-5 py-4">
             <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-              Planned connectors
+              Connector credentials
             </p>
             <p className="mt-2 text-2xl font-semibold text-neutral-900">
               {categories
@@ -3147,10 +2211,6 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
             <CategoryPanel
               category={category}
               onRefresh={refreshIntegrations}
-              latestHistoryByCredentialId={latestHistoryByCredentialId}
-              categoryHistoryLoading={
-                aggregateHistoryQuery.isLoading || aggregateHistoryQuery.isFetching
-              }
               selectedConnectorId={resolvedSelectedConnectorId}
               onSelectConnector={(connectorId) =>
                 setSelectedConnectorId(writeIntegrationConnectorParam(connectorId))

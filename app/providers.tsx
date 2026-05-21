@@ -1,4 +1,5 @@
 'use client';
+import { SessionProvider } from 'next-auth/react';
 import { isServer, QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 // * react-query set-up: https://tanstack.com/query/latest/docs/framework/react/guides/advanced-ssr#initial-setup
@@ -32,8 +33,8 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   const queryClient = getQueryClient();
 
   return (
-    <QueryClientProvider client={queryClient}>
-      {children}
-    </QueryClientProvider>
+    <SessionProvider>
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    </SessionProvider>
   );
 }

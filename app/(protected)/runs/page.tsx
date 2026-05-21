@@ -1,5 +1,10 @@
 import { RunsWorkspace } from '@/components/runs';
+import { Suspense } from 'react';
 
 export default function RunsPage() {
-  return <RunsWorkspace />;
+  return (
+    <Suspense fallback={null}>
+      <RunsWorkspace />
+    </Suspense>
+  );
 }

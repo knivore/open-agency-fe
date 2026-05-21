@@ -24,7 +24,7 @@ import type {
   ExecutionEventRecord,
   WorkflowDefinition,
 } from '@/lib/api/backend/types';
-import WorkflowRunActionButton from '@/components/workflow-app/WorkflowRunActionButton';
+import WorkflowRunActionButton from '@/components/workflow/WorkflowRunActionButton';
 import { toast } from 'sonner';
 import { localUser } from '@/lib/identity/localUser';
 

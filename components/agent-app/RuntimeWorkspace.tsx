@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { runtimeAdaptersApi } from '@/lib/api/backend';
 import { queryKeys } from '@/lib/react-query/queryKeys';
@@ -21,6 +20,7 @@ import { Input } from '../library/shadcn/input';
 import { Textarea } from '../library/shadcn/textarea';
 import { Plus, RefreshCw, Trash2, Wrench } from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import PageHeader from '@/components/app-shell/PageHeader';
 import { toast } from 'sonner';
 
 const RUNTIME_ADAPTER_TYPES = [
@@ -233,7 +233,7 @@ function CreateRuntimeAdapterCard({ onCreated }: { onCreated: () => Promise<void
       >
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>New runtime adapter [WIP]</DialogTitle>
+            <DialogTitle>New runtime adapter</DialogTitle>
             <DialogDescription>
               Create a custom runtime adapter definition. Built-in adapters are seeded by the
               backend.
@@ -244,7 +244,14 @@ function CreateRuntimeAdapterCard({ onCreated }: { onCreated: () => Promise<void
             {error ? <p className="text-xs text-red-600">{error}</p> : null}
           </div>
           <DialogFooter>
-
+            <Button
+              type="button"
+              className="agency-gradient text-white hover:brightness-105"
+              disabled={isPending || !form.name.trim()}
+              onClick={handleCreate}
+            >
+              {isPending ? 'Creating...' : 'Create adapter'}
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -447,30 +454,29 @@ export default function RuntimeWorkspace() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-neutral-900">Runtime</h1>
-          <p className="text-sm text-neutral-500">
-            Runtime adapters, capabilities, and backend execution surfaces.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <CreateRuntimeAdapterCard onCreated={refreshAll} />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void refreshAll();
-            }}
-            disabled={adaptersQuery.isFetching}
-          >
-            <RefreshCw
-              className={`mr-2 h-4 w-4 ${adaptersQuery.isFetching ? 'animate-spin' : ''}`}
-            />
-            Refresh
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Runtime"
+        title="Runtime"
+        description="Runtime adapters, capabilities, and backend execution surfaces."
+        actions={
+          <>
+            <CreateRuntimeAdapterCard onCreated={refreshAll} />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void refreshAll();
+              }}
+              disabled={adaptersQuery.isFetching}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${adaptersQuery.isFetching ? 'animate-spin' : ''}`}
+              />
+              Refresh
+            </Button>
+          </>
+        }
+      />
 
       <div className="grid gap-4 xl:grid-cols-[2fr,1fr]">
         <Card>
