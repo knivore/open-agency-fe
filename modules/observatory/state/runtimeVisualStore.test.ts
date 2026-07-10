@@ -78,7 +78,7 @@ describe('observatory pixel runtime visual store', () => {
           type: 'TASK_COMPLETED',
         }),
       ],
-      0,
+      0
     );
 
     expect(frame.event?.id).toBe('evt:start');

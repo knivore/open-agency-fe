@@ -1,6 +1,9 @@
 'use client';
 
-import type { ObservatoryRuntimeEntityStatus, ObservatoryRuntimeVisualState } from '@/modules/observatory/runtime/visualState';
+import type {
+  ObservatoryRuntimeEntityStatus,
+  ObservatoryRuntimeVisualState,
+} from '@/modules/observatory/runtime/visualState';
 
 import styles from './RuntimeStateSummary.module.css';
 
@@ -8,21 +11,35 @@ export interface RuntimeStateSummaryProps {
   state: ObservatoryRuntimeVisualState;
 }
 
-const statusLabels: ObservatoryRuntimeEntityStatus[] = ['working', 'blocked', 'error', 'complete', 'idle', 'unknown'];
+const statusLabels: ObservatoryRuntimeEntityStatus[] = [
+  'working',
+  'blocked',
+  'error',
+  'complete',
+  'idle',
+  'unknown',
+];
 
 export default function RuntimeStateSummary({ state }: RuntimeStateSummaryProps) {
-  const agents = Object.values(state.agentsById).sort((left, right) => left.id.localeCompare(right.id));
+  const agents = Object.values(state.agentsById).sort((left, right) =>
+    left.id.localeCompare(right.id)
+  );
   const activeTasks = Object.values(state.tasksById)
     .filter((task) => task.status !== 'complete')
     .sort((left, right) => right.lastUpdatedAt.localeCompare(left.lastUpdatedAt));
-  const workflows = Object.values(state.workflowsById).sort((left, right) => right.lastUpdatedAt.localeCompare(left.lastUpdatedAt));
+  const workflows = Object.values(state.workflowsById).sort((left, right) =>
+    right.lastUpdatedAt.localeCompare(left.lastUpdatedAt)
+  );
 
   return (
     <aside className={styles.panel} aria-label="Observatory runtime state summary">
       <div className={styles.header}>
         <div>
           <h2 className={styles.title}>Runtime State</h2>
-          <p className={styles.description}>Current reducer output driving movement, room highlights, progress bars, and outcome rings.</p>
+          <p className={styles.description}>
+            Current reducer output driving movement, room highlights, progress bars, and outcome
+            rings.
+          </p>
         </div>
         <span className={styles.badge}>{state.eventHistory.length} events</span>
       </div>
@@ -35,7 +52,10 @@ export default function RuntimeStateSummary({ state }: RuntimeStateSummaryProps)
 
       <div className={styles.statusRow}>
         {statusLabels.map((status) => (
-          <span key={status} className={`${styles.statusPill} ${styles[`status${capitalizeStatus(status)}`]}`}>
+          <span
+            key={status}
+            className={`${styles.statusPill} ${styles[`status${capitalizeStatus(status)}`]}`}
+          >
             {status}: {agents.filter((agent) => agent.status === status).length}
           </span>
         ))}
@@ -67,7 +87,10 @@ export default function RuntimeStateSummary({ state }: RuntimeStateSummaryProps)
         ) : (
           <div className={styles.roomGrid}>
             {workflows.map((workflow) => (
-              <span key={workflow.id} className={`${styles.roomToken} ${styles[`status${capitalizeStatus(workflow.status)}`]}`}>
+              <span
+                key={workflow.id}
+                className={`${styles.roomToken} ${styles[`status${capitalizeStatus(workflow.status)}`]}`}
+              >
                 {workflow.id} {'->'} {workflow.roomId ?? 'unplaced'}
               </span>
             ))}
@@ -87,14 +110,28 @@ function SummaryStat({ label, value }: { label: string; value: number }) {
   );
 }
 
-function ProgressMeter({ progress, status }: { progress: number | undefined; status: ObservatoryRuntimeEntityStatus }) {
+function ProgressMeter({
+  progress,
+  status,
+}: {
+  progress: number | undefined;
+  status: ObservatoryRuntimeEntityStatus;
+}) {
   const safeProgress = Math.max(0, Math.min(1, progress ?? 0));
 
   return (
-    <div className={styles.progressWrap} aria-label={`${status} ${Math.round(safeProgress * 100)} percent`}>
-      <span className={`${styles.progressStatus} ${styles[`status${capitalizeStatus(status)}`]}`}>{status}</span>
+    <div
+      className={styles.progressWrap}
+      aria-label={`${status} ${Math.round(safeProgress * 100)} percent`}
+    >
+      <span className={`${styles.progressStatus} ${styles[`status${capitalizeStatus(status)}`]}`}>
+        {status}
+      </span>
       <span className={styles.progressTrack}>
-        <span className={styles.progressFill} style={{ width: `${Math.max(4, safeProgress * 100)}%` }} />
+        <span
+          className={styles.progressFill}
+          style={{ width: `${Math.max(4, safeProgress * 100)}%` }}
+        />
       </span>
       <span className={styles.progressValue}>{Math.round(safeProgress * 100)}%</span>
     </div>

@@ -12,6 +12,7 @@ type UseWorkflowKickoffProps = {
   agentConfigs?: WorkflowExecutionStartPayload['agentConfigs'] | null;
   runtimeAdapterId?: string | null;
   executionHost?: ExecutionHost | null;
+  goalId?: string | null;
   onError?: (error: Error) => void;
   onSuccess?: () => void;
   enableDetailedLogs?: boolean;
@@ -36,6 +37,7 @@ export default function useWorkflowKickoff({
   agentConfigs,
   runtimeAdapterId,
   executionHost,
+  goalId,
   onError,
   enableDetailedLogs = false,
 }: UseWorkflowKickoffProps): UseWorkflowKickoffReturn {
@@ -52,7 +54,8 @@ export default function useWorkflowKickoff({
       taskOrder,
       agentConfigs ?? {},
       runtimeAdapterId,
-      executionHost
+      executionHost,
+      goalId
     ),
     onMutate: () => {
       setOutput(null);

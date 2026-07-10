@@ -35,11 +35,36 @@ export interface ObservatoryRuntimeDemoFixture {
 const demoTimestamp = '2026-05-11T01:00:00.000Z';
 
 const baseDemoAgents: ObservatoryRuntimeDemoAgent[] = [
-  { id: 'agent:atlas', name: 'Atlas', role: 'main-agent', description: 'Coordinates workflow execution and final review.' },
-  { id: 'agent:byte', name: 'Byte', role: 'builder', description: 'Implements code and runtime tasks.' },
-  { id: 'agent:clio', name: 'Clio', role: 'planner', description: 'Plans, reviews, and writes execution notes.' },
-  { id: 'agent:delta', name: 'Delta', role: 'qa', description: 'Runs regression checks and investigates failures.' },
-  { id: 'agent:echo', name: 'Echo', role: 'ops', description: 'Handles deployment, approvals, and operational checks.' },
+  {
+    id: 'agent:atlas',
+    name: 'Atlas',
+    role: 'main-agent',
+    description: 'Coordinates workflow execution and final review.',
+  },
+  {
+    id: 'agent:byte',
+    name: 'Byte',
+    role: 'builder',
+    description: 'Implements code and runtime tasks.',
+  },
+  {
+    id: 'agent:clio',
+    name: 'Clio',
+    role: 'planner',
+    description: 'Plans, reviews, and writes execution notes.',
+  },
+  {
+    id: 'agent:delta',
+    name: 'Delta',
+    role: 'qa',
+    description: 'Runs regression checks and investigates failures.',
+  },
+  {
+    id: 'agent:echo',
+    name: 'Echo',
+    role: 'ops',
+    description: 'Handles deployment, approvals, and operational checks.',
+  },
 ];
 
 export const observatoryRuntimeDemoFixtures: ObservatoryRuntimeDemoFixture[] = [
@@ -135,7 +160,9 @@ function createDemoContext({
   workflowId: string;
   workflowName: string;
 }): ObservatoryRuntimeDemoContext {
-  const agents = agentIds.map((agentId) => baseDemoAgents.find((agent) => agent.id === agentId) ?? baseDemoAgents[0]).filter(Boolean);
+  const agents = agentIds
+    .map((agentId) => baseDemoAgents.find((agent) => agent.id === agentId) ?? baseDemoAgents[0])
+    .filter(Boolean);
 
   return {
     events: agents.flatMap((agent, index) => [

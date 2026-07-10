@@ -2,7 +2,14 @@ import { describe, expect, it } from 'vitest';
 
 import { observatoryRuntimeDemoFixtures } from '@/modules/observatory/runtime/demoFixtures';
 
-const activeStatuses = new Set(['created', 'queued', 'running', 'waiting_for_approval', 'paused', 'cancelling']);
+const activeStatuses = new Set([
+  'created',
+  'queued',
+  'running',
+  'waiting_for_approval',
+  'paused',
+  'cancelling',
+]);
 
 describe('observatory pixel runtime demo fixtures', () => {
   it('provide active visual contexts with agents, events, and logs', () => {
@@ -22,11 +29,13 @@ describe('observatory pixel runtime demo fixtures', () => {
   });
 
   it('includes an overflow fixture large enough to require generated floors', () => {
-    const overflowFixture = observatoryRuntimeDemoFixtures.find((fixture) => fixture.id === 'overflow-load');
+    const overflowFixture = observatoryRuntimeDemoFixtures.find(
+      (fixture) => fixture.id === 'overflow-load'
+    );
 
     expect(overflowFixture?.runtimeContext.length).toBeGreaterThanOrEqual(10);
-    expect(new Set(overflowFixture?.runtimeContext.map((context) => context.run.workflowId)).size).toBe(
-      overflowFixture?.runtimeContext.length
-    );
+    expect(
+      new Set(overflowFixture?.runtimeContext.map((context) => context.run.workflowId)).size
+    ).toBe(overflowFixture?.runtimeContext.length);
   });
 });

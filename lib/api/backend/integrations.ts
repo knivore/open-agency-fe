@@ -4,15 +4,16 @@ import { providersApi } from '@/lib/api/backend/providers';
 import { toolsApi } from '@/lib/api/backend/tools';
 import { isApiError } from '@/lib/api/errors';
 import { buildIntegrationCatalog } from '@/lib/integrations/catalog';
-import type { CrudListResponse, IntegrationCatalogPayload } from '@/lib/api/backend/types';
+import type { CrudListResponse } from '@/types/api';
+import type { IntegrationCatalogPayload } from '@/types/integrations';
 
 function isCrudListResponse<T>(value: unknown): value is CrudListResponse<T> {
   return Boolean(
-    value
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && 'items' in value
-    && Array.isArray((value as { items?: unknown }).items)
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'items' in value &&
+    Array.isArray((value as { items?: unknown }).items)
   );
 }
 
@@ -43,7 +44,15 @@ async function loadOptional<T>(loader: () => Promise<T>, fallback: T): Promise<T
 
 export const integrationsApi = {
   async listCategories(): Promise<IntegrationCatalogPayload> {
-    const [credentials, registry, modelProviders, modelProfiles, tools, mcpServers, runtimeAdapters] = await Promise.all([
+    const [
+      credentials,
+      registry,
+      modelProviders,
+      modelProfiles,
+      tools,
+      mcpServers,
+      runtimeAdapters,
+    ] = await Promise.all([
       loadOptional(() => credentialsApi.listCredentials(), { items: [] }),
       connectorRegistryApi.listCategories(),
       loadOptional(() => providersApi.listModelProviders(), { items: [] }),

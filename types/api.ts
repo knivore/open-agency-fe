@@ -6,6 +6,12 @@ export interface JsonObject {
 
 export interface CrudListResponse<T> {
   items: T[];
+  filters?: JsonObject;
+  total?: number;
+  filtered_count?: number;
+  limit?: number;
+  offset?: number;
+  counts?: JsonObject;
 }
 
 export interface DeleteResponse {

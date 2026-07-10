@@ -1,7 +1,16 @@
-import type { ObservatoryGridPoint, ObservatoryGridRect, ObservatoryGridSize } from '@/modules/observatory/engine/world/grid';
-import type { ObservatoryLayoutIssue, ObservatoryMap, ObservatoryObject, ObservatoryRoom } from '@/modules/observatory/engine/world/layoutTypes';
+import type {
+  ObservatoryGridPoint,
+  ObservatoryGridRect,
+  ObservatoryGridSize,
+} from '@/modules/observatory/engine/world/grid';
+import type {
+  ObservatoryLayoutIssue,
+  ObservatoryMap,
+  ObservatoryObject,
+  ObservatoryRoom,
+} from '@/modules/observatory/engine/world/layoutTypes';
 
-export const OBSERVATORY_DOOR_ASSET_ID = 'floor:office-gray';
+export const OBSERVATORY_DOOR_ASSET_ID = 'decor:open-door';
 export const OBSERVATORY_DEFAULT_DESK_SPACING = 1;
 
 export interface ObservatoryProceduralValidationResult {
@@ -11,7 +20,7 @@ export interface ObservatoryProceduralValidationResult {
 
 export function validateObservatoryDeskSpacing(
   map: ObservatoryMap,
-  minSpacing = OBSERVATORY_DEFAULT_DESK_SPACING,
+  minSpacing = OBSERVATORY_DEFAULT_DESK_SPACING
 ): ObservatoryProceduralValidationResult {
   const desks = map.objects.filter(isDeskObject);
   const issues: ObservatoryLayoutIssue[] = [];
@@ -40,17 +49,27 @@ export function validateObservatoryDeskSpacing(
 export function generateObservatoryDoorObjects(map: ObservatoryMap): ObservatoryObject[] {
   return map.rooms
     .filter((room) => !room.id.startsWith('room:corridor'))
-    .map((room) => createDoorObjectForRoom(room, map.objects.map((object) => object.id)));
+    .map((room) =>
+      createDoorObjectForRoom(
+        room,
+        map.objects.map((object) => object.id)
+      )
+    );
 }
 
-export function validateObservatoryWalkability(map: ObservatoryMap): ObservatoryProceduralValidationResult {
+export function validateObservatoryWalkability(
+  map: ObservatoryMap
+): ObservatoryProceduralValidationResult {
   const issues: ObservatoryLayoutIssue[] = [];
-  const blocked = createBlockedCellSet(map.objects.filter((object) => object.blocksMovement !== false));
-  const roomTargets = map.rooms.map((room) => findWalkablePointInRoom(room, map, blocked) ?? roomCenter(room));
-  const targets = [
-    ...roomTargets,
-    ...map.agents.map((agent) => agent.position),
-  ].filter((point) => pointInMap(point, map));
+  const blocked = createBlockedCellSet(
+    map.objects.filter((object) => object.blocksMovement !== false)
+  );
+  const roomTargets = map.rooms.map(
+    (room) => findWalkablePointInRoom(room, map, blocked) ?? roomCenter(room)
+  );
+  const targets = [...roomTargets, ...map.agents.map((agent) => agent.position)].filter((point) =>
+    pointInMap(point, map)
+  );
   const start = targets.find((point) => !blocked.has(pointKey(point)));
 
   if (!start) {
@@ -65,7 +84,10 @@ export function validateObservatoryWalkability(map: ObservatoryMap): Observatory
   targets.forEach((target, index) => {
     if (blocked.has(pointKey(target)) || !reachable.has(pointKey(target))) {
       issues.push({
-        path: index < map.rooms.length ? `rooms.${map.rooms[index]?.id ?? index}` : `agents.${map.agents[index - map.rooms.length]?.id ?? index}`,
+        path:
+          index < map.rooms.length
+            ? `rooms.${map.rooms[index]?.id ?? index}`
+            : `agents.${map.agents[index - map.rooms.length]?.id ?? index}`,
         reason: `target ${target.x},${target.y} is not walkable`,
       });
     }
@@ -77,7 +99,7 @@ export function validateObservatoryWalkability(map: ObservatoryMap): Observatory
 export function findObservatoryCollisionSafePlacement(
   map: ObservatoryMap,
   size: ObservatoryGridSize,
-  preferred?: ObservatoryGridPoint,
+  preferred?: ObservatoryGridPoint
 ): ObservatoryGridPoint | undefined {
   const normalizedSize = normalizeSize(size);
 
@@ -97,7 +119,9 @@ export function findObservatoryCollisionSafePlacement(
   return undefined;
 }
 
-export function validateObservatoryCollisionSafety(map: ObservatoryMap): ObservatoryProceduralValidationResult {
+export function validateObservatoryCollisionSafety(
+  map: ObservatoryMap
+): ObservatoryProceduralValidationResult {
   const blockingObjects = map.objects.filter((object) => object.blocksMovement !== false);
   const issues: ObservatoryLayoutIssue[] = [];
 
@@ -118,7 +142,9 @@ export function validateObservatoryCollisionSafety(map: ObservatoryMap): Observa
   return { issues, valid: issues.length === 0 };
 }
 
-export function validateObservatoryGeneratedLayout(map: ObservatoryMap): ObservatoryProceduralValidationResult {
+export function validateObservatoryGeneratedLayout(
+  map: ObservatoryMap
+): ObservatoryProceduralValidationResult {
   const validations = [
     validateObservatoryDeskSpacing(map),
     validateObservatoryCollisionSafety(map),
@@ -129,7 +155,10 @@ export function validateObservatoryGeneratedLayout(map: ObservatoryMap): Observa
   return { issues, valid: issues.length === 0 };
 }
 
-function createDoorObjectForRoom(room: ObservatoryRoom, existingObjectIds: string[]): ObservatoryObject {
+function createDoorObjectForRoom(
+  room: ObservatoryRoom,
+  existingObjectIds: string[]
+): ObservatoryObject {
   const idBase = `object:door-${room.id.replace(/^room:/, '')}`;
   const id = uniqueId(idBase, existingObjectIds);
 
@@ -151,7 +180,12 @@ function isDeskObject(object: ObservatoryObject) {
 }
 
 function isCollisionSafeRect(rect: ObservatoryGridRect, map: ObservatoryMap) {
-  if (rect.x < 0 || rect.y < 0 || rect.x + rect.width > map.size.width || rect.y + rect.height > map.size.height) {
+  if (
+    rect.x < 0 ||
+    rect.y < 0 ||
+    rect.x + rect.width > map.size.width ||
+    rect.y + rect.height > map.size.height
+  ) {
     return false;
   }
 
@@ -184,7 +218,12 @@ function expandRect(rect: ObservatoryGridRect, amount: number): ObservatoryGridR
 }
 
 function rectsOverlap(first: ObservatoryGridRect, second: ObservatoryGridRect) {
-  return first.x < second.x + second.width && first.x + first.width > second.x && first.y < second.y + second.height && first.y + first.height > second.y;
+  return (
+    first.x < second.x + second.width &&
+    first.x + first.width > second.x &&
+    first.y < second.y + second.height &&
+    first.y + first.height > second.y
+  );
 }
 
 function createBlockedCellSet(objects: ObservatoryObject[]) {
@@ -202,7 +241,11 @@ function createBlockedCellSet(objects: ObservatoryObject[]) {
   return blocked;
 }
 
-function floodFillWalkableCells(map: ObservatoryMap, blocked: Set<string>, start: ObservatoryGridPoint) {
+function floodFillWalkableCells(
+  map: ObservatoryMap,
+  blocked: Set<string>,
+  start: ObservatoryGridPoint
+) {
   const reachable = new Set<string>();
   const queue = [start];
   reachable.add(pointKey(start));
@@ -235,7 +278,11 @@ function roomCenter(room: ObservatoryRoom): ObservatoryGridPoint {
   };
 }
 
-function findWalkablePointInRoom(room: ObservatoryRoom, map: ObservatoryMap, blocked: Set<string>): ObservatoryGridPoint | undefined {
+function findWalkablePointInRoom(
+  room: ObservatoryRoom,
+  map: ObservatoryMap,
+  blocked: Set<string>
+): ObservatoryGridPoint | undefined {
   for (let y = room.bounds.y; y < room.bounds.y + room.bounds.height; y += 1) {
     for (let x = room.bounds.x; x < room.bounds.x + room.bounds.width; x += 1) {
       const point = { x, y };

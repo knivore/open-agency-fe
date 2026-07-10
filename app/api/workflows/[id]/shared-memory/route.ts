@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendWorkflowsApi } from '@/lib/api/backend';
+import { backendWorkflowsApi } from '@/lib/api/backend/workflows';
 import {
   getAuthenticatedUser,
   getInternalApiKey,

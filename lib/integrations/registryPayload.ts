@@ -1,5 +1,5 @@
 import { plannedIntegrationRegistry } from '@/lib/integrations/registry';
-import type { IntegrationRegistryPayload } from '@/types';
+import type { IntegrationRegistryPayload } from '@/types/integrations';
 
 export function buildPlannedIntegrationRegistryPayload(): IntegrationRegistryPayload {
   return {

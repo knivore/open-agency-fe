@@ -38,31 +38,34 @@ function inferValueType(value: unknown): MetadataValueType {
 }
 
 function serializeMetadataFields(fields: MetadataField[]) {
-  const nextObject = fields.reduce<Record<string, string | number | boolean | null>>((accumulator, field) => {
-    const normalizedKey = field.key.trim();
-    if (!normalizedKey) {
-      return accumulator;
-    }
+  const nextObject = fields.reduce<Record<string, string | number | boolean | null>>(
+    (accumulator, field) => {
+      const normalizedKey = field.key.trim();
+      if (!normalizedKey) {
+        return accumulator;
+      }
 
-    if (field.valueType === 'null') {
-      accumulator[normalizedKey] = null;
-      return accumulator;
-    }
+      if (field.valueType === 'null') {
+        accumulator[normalizedKey] = null;
+        return accumulator;
+      }
 
-    if (field.valueType === 'boolean') {
-      accumulator[normalizedKey] = field.value === 'true';
-      return accumulator;
-    }
+      if (field.valueType === 'boolean') {
+        accumulator[normalizedKey] = field.value === 'true';
+        return accumulator;
+      }
 
-    if (field.valueType === 'number') {
-      const parsedNumber = Number(field.value);
-      accumulator[normalizedKey] = Number.isFinite(parsedNumber) ? parsedNumber : 0;
-      return accumulator;
-    }
+      if (field.valueType === 'number') {
+        const parsedNumber = Number(field.value);
+        accumulator[normalizedKey] = Number.isFinite(parsedNumber) ? parsedNumber : 0;
+        return accumulator;
+      }
 
-    accumulator[normalizedKey] = field.value;
-    return accumulator;
-  }, {});
+      accumulator[normalizedKey] = field.value;
+      return accumulator;
+    },
+    {}
+  );
 
   return Object.keys(nextObject).length > 0 ? JSON.stringify(nextObject, null, 2) : '';
 }
@@ -86,7 +89,9 @@ function getStructuredMetadataState(metadataJson: string) {
     }
 
     const entries = Object.entries(parsed);
-    const hasComplexValue = entries.some(([, value]) => value !== null && typeof value === 'object');
+    const hasComplexValue = entries.some(
+      ([, value]) => value !== null && typeof value === 'object'
+    );
     if (hasComplexValue) {
       return {
         mode: 'complex' as const,
@@ -135,7 +140,9 @@ export default function WorkflowEdgeMetadataEditor({
       return;
     }
 
-    onChange(serializeMetadataFields(structuredMetadata.fields.filter((field) => field.id !== fieldId)));
+    onChange(
+      serializeMetadataFields(structuredMetadata.fields.filter((field) => field.id !== fieldId))
+    );
   };
 
   const addField = () => {
@@ -160,24 +167,30 @@ export default function WorkflowEdgeMetadataEditor({
     <div className="space-y-3">
       <div className="space-y-1">
         <Label htmlFor={`${idPrefix}-metadata-json`}>Metadata</Label>
-        <p className="text-xs text-neutral-500">
-          Use structured top-level fields for normal metadata. Raw JSON remains available for nested or advanced cases.
+        <p className="text-xs text-neutral-500 dark:text-slate-400">
+          Use structured top-level fields for normal metadata. Raw JSON remains available for nested
+          or advanced cases.
         </p>
       </div>
 
       {structuredMetadata.mode === 'flat' ? (
-        <div className="space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+        <div className="space-y-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/4">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-neutral-900">Structured Fields</p>
+            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+              Structured Fields
+            </p>
             <Button type="button" variant="outline" size="sm" onClick={addField}>
               Add Field
             </Button>
           </div>
           {structuredMetadata.fields.length === 0 ? (
-            <p className="text-xs text-neutral-500">No metadata fields yet.</p>
+            <p className="text-xs text-neutral-500 dark:text-slate-400">No metadata fields yet.</p>
           ) : (
             structuredMetadata.fields.map((field) => (
-              <div key={field.id} className="grid gap-2 md:grid-cols-[minmax(0,1.2fr)_140px_minmax(0,1fr)_auto]">
+              <div
+                key={field.id}
+                className="grid gap-2 md:grid-cols-[minmax(0,1.2fr)_140px_minmax(0,1fr)_auto]"
+              >
                 <Input
                   value={field.key}
                   onChange={(event) => updateField(field.id, { key: event.target.value })}
@@ -191,7 +204,7 @@ export default function WorkflowEdgeMetadataEditor({
                       value: event.target.value === 'boolean' ? 'false' : '',
                     })
                   }
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100"
                 >
                   <option value="string">string</option>
                   <option value="number">number</option>
@@ -202,13 +215,13 @@ export default function WorkflowEdgeMetadataEditor({
                   <select
                     value={field.value || 'false'}
                     onChange={(event) => updateField(field.id, { value: event.target.value })}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100"
                   >
                     <option value="true">true</option>
                     <option value="false">false</option>
                   </select>
                 ) : field.valueType === 'null' ? (
-                  <div className="flex h-10 items-center rounded-md border border-dashed border-neutral-300 px-3 text-sm text-neutral-500">
+                  <div className="flex h-10 items-center rounded-md border border-dashed border-neutral-300 px-3 text-sm text-neutral-500 dark:border-white/10 dark:text-slate-400">
                     null
                   </div>
                 ) : (
@@ -218,7 +231,12 @@ export default function WorkflowEdgeMetadataEditor({
                     placeholder={field.valueType === 'number' ? '0' : 'Value'}
                   />
                 )}
-                <Button type="button" variant="outline" size="sm" onClick={() => removeField(field.id)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => removeField(field.id)}
+                >
                   Remove
                 </Button>
               </div>
@@ -226,7 +244,7 @@ export default function WorkflowEdgeMetadataEditor({
           )}
         </div>
       ) : (
-        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
           {structuredMetadata.mode === 'complex'
             ? 'Structured fields are only available for flat top-level metadata. This edge currently contains nested JSON, so edit it in raw JSON mode below.'
             : 'Structured fields are unavailable until the metadata JSON is valid.'}
@@ -242,7 +260,9 @@ export default function WorkflowEdgeMetadataEditor({
           placeholder='Edge metadata JSON, e.g. {"priority":"high"}'
           className={`min-h-28 ${metadataError ? 'border-red-500' : ''}`}
         />
-        {metadataError ? <p className="text-xs text-red-600">Metadata {metadataError}</p> : null}
+        {metadataError ? (
+          <p className="text-xs text-red-600 dark:text-red-300">Metadata {metadataError}</p>
+        ) : null}
       </div>
     </div>
   );

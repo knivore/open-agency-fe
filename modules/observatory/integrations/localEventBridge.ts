@@ -3,7 +3,10 @@ import type {
   ObservatoryEventValidationIssue,
   ObservatoryNormalizedOfficeEvent,
 } from '@/modules/observatory/runtime/events';
-import { reduceObservatoryRuntimeEvent, type ObservatoryRuntimeVisualState } from '@/modules/observatory/runtime/visualState';
+import {
+  type ObservatoryRuntimeVisualState,
+  reduceObservatoryRuntimeEvent,
+} from '@/modules/observatory/runtime/visualState';
 
 export interface ObservatoryLocalEventBridgeResult {
   event?: ObservatoryNormalizedOfficeEvent;
@@ -13,7 +16,7 @@ export interface ObservatoryLocalEventBridgeResult {
 
 export function pushObservatoryLocalRuntimeEvent(
   state: ObservatoryRuntimeVisualState,
-  rawEvent: unknown,
+  rawEvent: unknown
 ): ObservatoryLocalEventBridgeResult {
   const normalization = normalizeObservatoryRuntimeEvent(rawEvent);
 

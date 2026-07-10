@@ -24,13 +24,17 @@ const externalToNormalizedType: Record<string, ObservatoryNormalizedEventType> =
   workflow_transitioned: 'WORKFLOW_TRANSITIONED',
 };
 
-const defaultLevelsByType: Partial<Record<ObservatoryNormalizedEventType, ObservatoryRuntimeLevel>> = {
+const defaultLevelsByType: Partial<
+  Record<ObservatoryNormalizedEventType, ObservatoryRuntimeLevel>
+> = {
   TASK_COMPLETED: 'success',
   TASK_FAILED: 'error',
   TOOL_FAILED: 'error',
 };
 
-export function normalizeObservatoryRuntimeEvent(rawEvent: unknown): ObservatoryEventNormalizationResult {
+export function normalizeObservatoryRuntimeEvent(
+  rawEvent: unknown
+): ObservatoryEventNormalizationResult {
   const validation = validateObservatoryExternalRuntimeEvent(rawEvent);
 
   if (!validation.event) {
@@ -41,7 +45,7 @@ export function normalizeObservatoryRuntimeEvent(rawEvent: unknown): Observatory
 }
 
 export function normalizeValidatedObservatoryRuntimeEvent(
-  event: ObservatoryExternalRuntimeEvent,
+  event: ObservatoryExternalRuntimeEvent
 ): ObservatoryEventNormalizationResult {
   const normalizedType = externalToNormalizedType[event.type];
 
@@ -59,7 +63,7 @@ export function normalizeValidatedObservatoryRuntimeEvent(
 
 function toNormalizedEvent(
   event: ObservatoryExternalRuntimeEvent,
-  normalizedType: ObservatoryNormalizedEventType,
+  normalizedType: ObservatoryNormalizedEventType
 ): ObservatoryNormalizedOfficeEvent {
   return {
     id: event.id,

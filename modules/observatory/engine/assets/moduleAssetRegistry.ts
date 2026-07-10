@@ -12,13 +12,13 @@ import opsWorkstationFront from '@/modules/observatory/assets/furnitures/1_Moder
 import wallTiles from '@/modules/observatory/assets/walls/Walls_1.png';
 import {
   OBSERVATORY_ASSET_REGISTRY_VERSION,
-  validateObservatoryAssetRegistry,
   type ObservatoryAssetDefinition,
-  type ObservatoryCharacterActionDefinition,
-  type ObservatoryCharacterDirection,
-  type ObservatoryCharacterActionName,
   type ObservatoryAssetRegistry,
+  type ObservatoryCharacterActionDefinition,
+  type ObservatoryCharacterActionName,
+  type ObservatoryCharacterDirection,
   type ObservatoryValidatedAssetRegistry,
+  validateObservatoryAssetRegistry,
 } from '@/modules/observatory/engine/assets/assetRegistry';
 import { observatoryRuntimeFurnitureAssets } from '@/modules/observatory/engine/assets/runtimeFurnitureAssets';
 
@@ -51,6 +51,16 @@ const officeFloorSheet1Names = [
   'Teal Lattice',
   'Slate Diamond',
   'Ivory Diamond',
+];
+const officeFloorSheet2Names = [
+  'Light Concrete Slab',
+  'White Brick',
+  'Khaki Basketweave',
+  'Ash Basketweave',
+  'Rose Basketweave',
+  'Olive Mosaic',
+  'Silver Mosaic',
+  'Dusty Rose Mosaic',
 ];
 const officeWallSheetNames = [
   'Lavender Stone Wall',
@@ -213,6 +223,19 @@ function buildRuntimeCuratedAssets(
 export function normalizeGeneratedRegistryAsset(
   asset: ObservatoryAssetDefinition
 ): ObservatoryAssetDefinition {
+  if (asset.catalogPath === 'floors/Floors_2.png' && asset.source.kind === 'spritesheet') {
+    return {
+      ...asset,
+      autotile: asset.autotile ?? {
+        columns: 16,
+        kind: 'rpgmaker-a2-ground',
+        set: { x: 0, y: 0, width: 2, height: 3 },
+        tileSize: asset.source.frameWidth ?? 48,
+      },
+      tags: Array.from(new Set([...(asset.tags ?? []), 'rpgmaker-a2', 'builder-hidden'])),
+    };
+  }
+
   if (asset.catalogPath === 'walls/Walls_1.png' && asset.source.kind === 'spritesheet') {
     return {
       ...asset,
@@ -265,6 +288,9 @@ export function buildObservedSurfaceVariants(
   const floorSheet1 = assets.find(
     (asset) => asset.catalogPath === 'floors/Floors_1.png' && asset.category === 'floor'
   );
+  const floorSheet2 = assets.find(
+    (asset) => asset.catalogPath === 'floors/Floors_2.png' && asset.category === 'floor'
+  );
   const wallSheet = assets.find(
     (asset) => asset.catalogPath === 'walls/Walls_1.png' && asset.category === 'wall'
   );
@@ -276,6 +302,17 @@ export function buildObservedSurfaceVariants(
         'office-floors-1',
         observedFloorPositions(17),
         officeFloorSheet1Names
+      )
+    );
+  }
+
+  if (floorSheet2) {
+    variants.push(
+      ...createObservedFloorVariants(
+        floorSheet2,
+        'office-floors-2',
+        observedFloorPositions(8),
+        officeFloorSheet2Names
       )
     );
   }
@@ -412,6 +449,34 @@ export const observatoryModuleAssetRegistry: ObservatoryAssetRegistry = {
   assetPackVersion: 'observatory-office-pack-v1',
   assets: buildRuntimeCuratedAssets([
     ...observatoryRuntimeFurnitureAssets,
+    {
+      id: 'decor:thinking-emote',
+      category: 'decor',
+      label: 'Open Thinking Emote',
+      source: {
+        kind: 'image',
+        uri: '/observatory-assets/thinking-emote.svg',
+      },
+      width: 48,
+      height: 48,
+      anchor: { x: 0.5, y: 0.5 },
+      semanticId: 'decor:overlay:thinking-emote',
+      tags: ['open-agency', 'open-asset', 'runtime-overlay', 'thinking'],
+    },
+    {
+      id: 'decor:open-door',
+      category: 'decor',
+      label: 'Open Office Door',
+      source: {
+        kind: 'image',
+        uri: '/observatory-assets/open-door.svg',
+      },
+      width: 48,
+      height: 48,
+      anchor: { x: 0, y: 0 },
+      semanticId: 'decor:office:open-door',
+      tags: ['open-agency', 'open-asset', 'door', 'office'],
+    },
     {
       id: 'floor:office-blue',
       catalogPath: 'floors/Floors_1.png',
@@ -566,6 +631,50 @@ export const observatoryModuleAssetRegistry: ObservatoryAssetRegistry = {
       anchor: { x: 0, y: 0 },
       semanticId: 'decor:workstation:agent-laptop',
       tags: ['office-pack', 'dynamic', 'laptop', 'work-device'],
+    },
+    {
+      id: 'decor:runtime-screens',
+      category: 'decor',
+      label: 'Open Runtime Screens',
+      source: {
+        kind: 'image',
+        uri: '/observatory-assets/runtime-screens.svg',
+      },
+      width: 192,
+      height: 144,
+      anchor: { x: 0, y: 0 },
+      collision: { width: 4, height: 2, offsetY: 1 },
+      semanticId: 'decor:monitor:runtime-screens',
+      tags: ['open-agency', 'open-asset', 'runtime', 'monitor'],
+    },
+    {
+      id: 'decor:runtime-server',
+      category: 'decor',
+      label: 'Open Runtime Server',
+      source: {
+        kind: 'image',
+        uri: '/observatory-assets/runtime-server.svg',
+      },
+      width: 48,
+      height: 144,
+      anchor: { x: 0, y: 0 },
+      collision: { width: 1, height: 2 },
+      semanticId: 'decor:server:runtime-rack',
+      tags: ['open-agency', 'open-asset', 'runtime', 'server'],
+    },
+    {
+      id: 'decor:coffee-loop',
+      category: 'decor',
+      label: 'Open Coffee Station',
+      source: {
+        kind: 'image',
+        uri: '/observatory-assets/coffee-station.svg',
+      },
+      width: 48,
+      height: 96,
+      anchor: { x: 0, y: 0 },
+      semanticId: 'decor:commons:coffee-loop',
+      tags: ['open-agency', 'open-asset', 'commons', 'coffee'],
     },
     {
       id: 'human:atlas',

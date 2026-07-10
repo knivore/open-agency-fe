@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   applyObservatoryProceduralLayoutRules,
   createBlankObservatoryLayout,
-  createObservatoryRoom,
   createObservatoryCorridor,
+  createObservatoryRoom,
   deleteObservatoryObject,
   moveObservatoryObject,
   moveObservatoryRoom,
@@ -44,7 +44,7 @@ describe('observatory pixel layout editing', () => {
 
   it('places an object and infers the containing room', () => {
     const result = placeObservatoryObject(layout(), 'map:main-office', {
-      assetId: 'furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station',
+      assetId: 'decor:runtime-screens',
       position: { x: 2, y: 9 },
       size: { width: 4, height: 3 },
     });
@@ -52,7 +52,7 @@ describe('observatory pixel layout editing', () => {
     expect(result.changed).toBe(true);
     expect(result.selectedObjectId).toBe('object:manual-5');
     expect(result.layout.world.maps[0]?.objects.at(-1)).toMatchObject({
-      assetId: 'furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station',
+      assetId: 'decor:runtime-screens',
       id: 'object:manual-5',
       roomId: 'room:runtime-floor',
     });
@@ -398,7 +398,7 @@ describe('observatory pixel layout editing', () => {
 
   it('relocates manual objects to a collision-safe placement', () => {
     const result = placeObservatoryObject(layout(), 'map:main-office', {
-      assetId: 'furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower',
+      assetId: 'decor:runtime-server',
       position: { x: 4, y: 5 },
       size: { height: 1, width: 1 },
     });

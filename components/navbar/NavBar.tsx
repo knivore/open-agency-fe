@@ -33,14 +33,14 @@ function Logo() {
   return (
     <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity">
       <Image
-        src="/images/agency.svg"
-        alt="Agency Logo"
+        src="/images/open-agency.svg"
+        alt="Open Agency logo"
         width={32}
         height={32}
         className="w-8 h-8"
         priority
       />
-      <span className="agency-gradient-text text-2xl font-bold lg:text-3xl">agency</span>
+      <span className="agency-gradient-text text-2xl font-bold lg:text-3xl">Open Agency</span>
     </Link>
   );
 }

@@ -1,8 +1,8 @@
 # Observatory
 
-`observatory` is the isolated observability and visualization pixel module for Agency FE.
+`observatory` is the isolated observability and visualization pixel module for Open Agency FE.
 It renders agent/workflow/runtime activity as a Phaser-powered pixel office. It is a visual
-surface only: it displays runtime state from Agency or external sources, but it must not
+surface only: it displays runtime state from Open Agency or external sources, but it must not
 execute backend work itself.
 
 This module is self-contained and should not depend on legacy rendering modules.
@@ -12,7 +12,7 @@ This module is self-contained and should not depend on legacy rendering modules.
 - Canvas-only runtime viewer for product pages.
 - Developer builder for editing layouts, inspecting runtime state, and reviewing assets.
 - Repo-backed published layout JSON for lift-and-shift use.
-- Generated asset pipeline for the retained office-focused image set.
+- Generated asset pipeline for hundreds of images.
 - Runtime event contracts, reducers, replay helpers, and frontend-safe stream adapters.
 - Curated pixel asset registry with generated fallbacks and reviewed overrides.
 
@@ -38,6 +38,7 @@ modules/observatory/
   generation/          Prompt/layout generation and procedural helpers
   integrations/        WebSocket/SSE/local SDK/platform adapters
   layouts/             Repo-backed published layouts
+  marketplace/         Package/readiness metadata drafts
   runtime/             Event contracts, reducer, visual behavior mapping
   scripts/             Asset/layout/package maintenance scripts
   state/               Frontend store helpers
@@ -46,15 +47,13 @@ modules/observatory/
 
 ## Use It In A Project
 
-Import from the module barrel:
+Import from the owning module files:
 
 ```ts
-import {
-  ObservatoryRuntimeSurface,
-  createObservatoryLocalSdkClient,
-  createObservatorySseAdapter,
-  createObservatoryWebSocketAdapter,
-} from '@/modules/observatory';
+import ObservatoryRuntimeSurface from '@/modules/observatory/app/ObservatoryRuntimeSurface';
+import { createObservatoryLocalSdkClient } from '@/modules/observatory/integrations/localSdkClient';
+import { createObservatorySseAdapter } from '@/modules/observatory/integrations/sseAdapter';
+import { createObservatoryWebSocketAdapter } from '@/modules/observatory/integrations/webSocketAdapter';
 ```
 
 Mount a product viewer:
@@ -116,7 +115,7 @@ Runtime behavior:
 
 ## Asset Workflow
 
-The module uses a staged asset pipeline for the retained Observatory assets.
+Do not review hundreds of images manually upfront. The module uses a staged asset pipeline.
 
 Source assets live here:
 
@@ -142,10 +141,10 @@ What each file does:
 - `assetCatalog.ts`: TypeScript view of the generated catalog.
 - `generatedAssetRegistry.ts`: TypeScript runtime registry candidates with imported asset URLs.
 
-Reviewed office furniture/decor images are handled as cleaned 48px-ish single PNGs under:
+Reviewed furniture/decor images are now handled as cleaned 48px-ish single PNG packs under:
 
 ```text
-modules/observatory/assets/furnitures/1_Modern_Office_Singles_48x48/*.png
+modules/observatory/assets/furnitures/<pack-folder>/*.png
 ```
 
 Generate the furniture manifest and VLM contact sheets:
@@ -203,10 +202,14 @@ To review a single pack:
 /Users/kehchinleong/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/bin/node modules/observatory/scripts/generate-furniture-manifest.mjs --folder=1_Modern_Office_Singles_48x48 --contact-sheets
 ```
 
-The canvas can consume the generated manifest directly for browsing/search, while curated runtime
-IDs still live in `moduleAssetRegistry.ts`.
+The canvas consumes `getObservatoryFullModuleAssetRegistry()` and filters it to the active map,
+so layout-critical furniture can come from the generated manifest-backed registry without adding
+each id to `moduleAssetRegistry.ts`. Keep `moduleAssetRegistry.ts` for hand-authored semantics,
+animations, collision overrides, and stable curated aliases.
+
 - `registry.overrides.json`: reviewed corrections and promotion notes.
-- `moduleAssetRegistry.ts`: live curated registry entries with stable semantic IDs, collisions, retained floor variants, and character action metadata.
+- `moduleAssetRegistry.ts`: live curated registry entries with stable semantic IDs, collisions, animations, and
+  character action metadata.
 
 When adding or changing assets:
 
@@ -222,7 +225,8 @@ node modules/observatory/scripts/generate-asset-catalog.mjs --registry-candidate
 
 3. Open `/observatory/builder`.
 4. Open the Asset Pack debug drawer.
-5. Review the high-priority queue first. It shows thumbnails, guessed frame size, frame count, semantic tags, and review reasons.
+5. Review the high-priority queue first. It shows thumbnails, guessed frame size, frame count, semantic tags, and review
+   reasons.
 6. Promote only layout-critical assets into `registry.overrides.json`.
 7. Add or update `moduleAssetRegistry.ts` only when the asset needs a stable ID or hand-authored metadata.
 
@@ -287,10 +291,11 @@ Prefer importing from the barrel instead of deep module paths. It exports:
 
 ## Current Status
 
-Observatory is source-ready inside `agency-fe`, but it remains an in-repo module. The `/runs`
+Observatory is source-ready inside `open-agency-fe`, but it remains an in-repo module. The `/runs`
 inspector now reads backend-loaded run events/log previews through the same adapter contract
 as layout/demo metadata. The repo-published layout uses a `48px` logical grid for 48x48
-furniture assets and fits the `/runs` viewer through the Phaser camera. Remaining production work is mainly direct backend
+furniture assets and fits the `/runs` viewer through the Phaser camera. Remaining production work is mainly direct
+backend
 endpoint expansion and broader asset curation as assets become layout-critical.
 
 ## More Docs

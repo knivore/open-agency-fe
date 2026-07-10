@@ -20,7 +20,22 @@ const ACRONYMS = new Set([
   'yaml',
 ]);
 
-const LOWERCASE_WORDS = new Set(['a', 'an', 'and', 'as', 'by', 'for', 'from', 'in', 'of', 'on', 'or', 'the', 'to', 'with']);
+const LOWERCASE_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'as',
+  'by',
+  'for',
+  'from',
+  'in',
+  'of',
+  'on',
+  'or',
+  'the',
+  'to',
+  'with',
+]);
 
 export function formatToolDisplayName(value: string): string {
   const words = value

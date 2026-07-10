@@ -1,6 +1,6 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
-import type { DatabaseHealthResponse, HealthResponse, RootInfoResponse } from '@/lib/api/backend/types';
+import type { DatabaseHealthResponse, HealthResponse, RootInfoResponse } from '@/types/api';
 
 export const healthApi = {
   getRootInfo() {
@@ -13,4 +13,3 @@ export const healthApi = {
     return agencyApiClient.get<DatabaseHealthResponse>(backendRoutes.health.db());
   },
 };
-

@@ -1,4 +1,4 @@
-import { appApiClient } from '@/lib/api';
+import { appApiClient } from '@/lib/api/clientInstances';
 import type {
   ExecutionHost,
   WorkflowExecutionStartPayload,
@@ -18,7 +18,8 @@ export const startWorkflowById = async (
   taskOrder: string[] | null,
   agentConfigs?: WorkflowExecutionStartPayload['agentConfigs'],
   runtimeAdapterId?: string | null,
-  executionHost?: ExecutionHost | null
+  executionHost?: ExecutionHost | null,
+  goalId?: string | null
 ): Promise<WorkflowRunResponse> => {
   const bodyData: Record<string, unknown> = {
     inputs: inputs || {},
@@ -35,6 +36,10 @@ export const startWorkflowById = async (
 
   if (executionHost) {
     bodyData.executionHost = executionHost;
+  }
+
+  if (goalId) {
+    bodyData.goalId = goalId;
   }
 
   return appApiClient.post<WorkflowRunResponse>(`/api/workflows/run/${id}`, bodyData);

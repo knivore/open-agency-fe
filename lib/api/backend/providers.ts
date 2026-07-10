@@ -1,13 +1,13 @@
 import { mcpServersApi } from '@/lib/api/backend/mcpServers';
 import { modelProfilesApi, modelProvidersApi } from '@/lib/api/backend/models';
 import { runtimeAdaptersApi } from '@/lib/api/backend/runtimeAdapters';
+import type { CrudListResponse } from '@/types/api';
 import type {
-  CrudListResponse,
   MCPServerDefinition,
   ModelProfileDefinition,
   ModelProviderDefinition,
-  RuntimeAdapterDefinition,
-} from '@/lib/api/backend/types';
+} from '@/types/integrations';
+import type { RuntimeAdapterDefinition } from '@/types/runtime';
 
 export const providersApi = {
   listModelProviders(): Promise<CrudListResponse<ModelProviderDefinition>> {

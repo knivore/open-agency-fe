@@ -3,8 +3,20 @@
 import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import type { RunSessionSummary } from '@/types/runtime';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/library/shadcn/card';
-import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/library/shadcn/table';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/library/shadcn/card';
+import {
+  Table,
+  TableBody,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/library/shadcn/table';
 import { Button } from '@/components/library/shadcn/button';
 import RunSessionRow from '@/components/runs/components/RunSessionRow';
 
@@ -35,7 +47,9 @@ export default function RunSessionsTable({
     <Card>
       <CardHeader>
         <CardTitle>Execution Runs</CardTitle>
-        <CardDescription>Select a run to inspect its full execution detail, logs, events, timeline, and artifacts.</CardDescription>
+        <CardDescription>
+          Select a run to inspect its full execution detail, logs, events, timeline, and artifacts.
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <Table>
@@ -55,9 +69,7 @@ export default function RunSessionsTable({
               <RunSessionRow
                 key={run.id}
                 execution={run}
-                workflowName={
-                  run.workflowId ? workflowNamesById?.get(run.workflowId) : undefined
-                }
+                workflowName={run.workflowId ? workflowNamesById?.get(run.workflowId) : undefined}
               />
             ))}
           </TableBody>

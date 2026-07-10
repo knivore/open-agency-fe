@@ -13,8 +13,8 @@ import {
   gridRectToWorldRect,
   gridToWorld,
   gridToWorldCenter,
-  pointInGridRect,
   type ObservatoryGridConfig,
+  pointInGridRect,
 } from '@/modules/observatory/engine/world/grid';
 import type {
   ObservatoryAgent,
@@ -22,9 +22,9 @@ import type {
   ObservatoryMap,
   ObservatoryObject,
   ObservatoryRoom,
+  ObservatoryRoomKind,
   ObservatoryRoomWallCellKind,
   ObservatoryRoomWallSide,
-  ObservatoryRoomKind,
 } from '@/modules/observatory/engine/world/layoutTypes';
 import type {
   ObservatoryAgentVisualState,
@@ -36,10 +36,10 @@ import {
   resolveObservatoryGridPath,
 } from '@/modules/observatory/engine/rendering/agentBehaviorTargets';
 import {
-  RPG_MAKER_A4_WALL_BRICK_BLOCK_INDEX,
-  RpgMakerA4WallAutotileRenderer,
   resolveA4WallSolidFaceQuadrants,
   resolveObservatoryFloorAutotileFrame,
+  RPG_MAKER_A4_WALL_BRICK_BLOCK_INDEX,
+  RpgMakerA4WallAutotileRenderer,
 } from '@/modules/observatory/engine/rendering/rpgMakerAutotiles';
 
 export interface ObservatoryOfficeMapRendererOptions {
@@ -99,7 +99,7 @@ interface RenderedAgentHandle {
   agent: ObservatoryAgent;
   asset?: ObservatoryAssetDefinition;
   attention?: ObservatoryAgentVisualState['attention'];
-  attentionSprite?: Phaser.GameObjects.Text;
+  attentionSprite?: Phaser.GameObjects.Sprite;
   badge: Phaser.GameObjects.Arc;
   currentAction?: ObservatoryCharacterActionName;
   currentDirection?: ObservatoryCharacterDirection;
@@ -178,13 +178,13 @@ const roomWallBorderStripDepth = 5.75;
 const roomWallStripColor = 0xffffff;
 const roomWallStripSize = 5;
 
-const attentionMarkerText: Record<
+const attentionEmoteAnimationKeys: Record<
   NonNullable<ObservatoryAgentVisualState['attention']>,
   string
 > = {
-  approval: 'OK',
-  error: '!',
-  thinking: '...',
+  approval: 'decor:thinking-emote:approval',
+  error: 'decor:thinking-emote:error',
+  thinking: 'decor:thinking-emote:thinking',
 };
 
 const agentWalkTileDurationMs = 540;
@@ -1369,7 +1369,7 @@ function renderRoomFloor(
     for (let x = minX; x < maxX; x += 1) {
       const point = { x, y };
 
-      if (!isRoomFloorCellVisible(room, point, assetsById)) {
+      if (!isRoomFloorCellVisible(room, point)) {
         continue;
       }
 
@@ -1392,22 +1392,14 @@ function renderRoomFloor(
   return nodes;
 }
 
-function isRoomFloorCellVisible(
-  room: ObservatoryRoom,
-  point: { x: number; y: number },
-  assetsById: Map<string, ObservatoryAssetDefinition>
-) {
+function isRoomFloorCellVisible(room: ObservatoryRoom, point: { x: number; y: number }) {
   // White perimeter strips overlay the floor. The north wall is different:
   // it is a two-row Section B face strip, so both occupied grid cells must
   // suppress the room floor underneath.
-  return !isRoomWallFaceStackCell(room, point, assetsById);
+  return !isRoomWallFaceStackCell(room, point);
 }
 
-function isRoomWallFaceStackCell(
-  room: ObservatoryRoom,
-  point: { x: number; y: number },
-  _assetsById: Map<string, ObservatoryAssetDefinition>
-) {
+function isRoomWallFaceStackCell(room: ObservatoryRoom, point: { x: number; y: number }) {
   const topWallPoint = { x: point.x, y: room.bounds.y };
 
   if (
@@ -1530,8 +1522,6 @@ function renderRoomWalls(
             point,
           });
         }
-
-        continue;
       }
     }
   }
@@ -1803,7 +1793,7 @@ function renderWallEditPreviewCell(
 
 function renderFloorEditPreviewCell(
   scene: Phaser.Scene,
-  map: ObservatoryMap,
+  _map: ObservatoryMap,
   room: ObservatoryRoom,
   point: { x: number; y: number },
   grid: ObservatoryGridConfig,
@@ -2560,22 +2550,20 @@ function updateAgentAttention(
 
   if (!handle.attentionSprite) {
     handle.attentionSprite = scene.add
-      .text(center.x + 18, center.y - 34, '', {
-        align: 'center',
-        backgroundColor: '#ffffff',
-        color: '#0f172a',
-        fontFamily: 'monospace',
-        fontSize: '10px',
-        fontStyle: '700',
-        padding: { x: 4, y: 2 },
-      })
-      .setOrigin(0.5, 0.5)
+      .sprite(center.x + 18, center.y - 34, 'decor:thinking-emote', 0)
+      .setDisplaySize(24, 24)
       .setDepth(56);
   }
 
   handle.attention = attention;
   handle.attentionSprite.clearTint().setVisible(true);
-  handle.attentionSprite.setText(attentionMarkerText[attention]);
+
+  const animationKey = attentionEmoteAnimationKeys[attention];
+  if (scene.anims.exists(animationKey)) {
+    handle.attentionSprite.play(animationKey, true);
+  } else {
+    handle.attentionSprite.setFrame(0);
+  }
 
   placeAgentHandleAtCenter(handle, center);
 }

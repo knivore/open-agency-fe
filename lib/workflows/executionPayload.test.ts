@@ -63,4 +63,63 @@ describe('execution payload workflow normalization', () => {
       system_prompt: 'Agent One',
     });
   });
+
+  it('omits read-only operator payloads from execution workflow definitions', () => {
+    const workflow: WorkflowDefinition = {
+      id: 'workflow-1',
+      name: 'Workflow One',
+      agent_definitions: [],
+      task_definitions: [],
+      metadata: {},
+      monitoring: {
+        enabled: true,
+        level: 'standard',
+        exempted: false,
+        reason: null,
+        visible_to_main_agent: true,
+        mutable_by_main_agent: true,
+        default_enabled: true,
+        is_main_agent_default_workflow: false,
+        status_label: 'standard_monitoring',
+        controls: {
+          enabled: true,
+          level: 'standard',
+          store_run_summaries: false,
+          store_failure_summaries: false,
+          allow_improvement_proposals: false,
+          allow_evaluation_agent_review: false,
+          allow_self_monitoring: false,
+          safe_to_summarize: false,
+          route_improvement_proposals_to_approval: false,
+          approval_conversation_id: null,
+        },
+      },
+      runtime_governance: {
+        workflow_id: 'workflow-1',
+        token_budget: {
+          configured: true,
+          run_total_tokens: 100000,
+          workflow_total_tokens: null,
+          agent_total_tokens: null,
+          warn_ratio: 0.8,
+          hard_ratio: 1,
+          action: 'compact_context',
+        },
+        context_compaction: {
+          enabled: true,
+          persist_context_pack: false,
+          persist_context_pack_source: 'workflow',
+          preserve_recent_messages: 3,
+          oversized_message_tokens: 600,
+          min_estimated_tokens_saved: 50,
+          max_summary_chars: 5000,
+        },
+      },
+    };
+
+    const executionWorkflow = buildExecutionWorkflowDefinition(workflow);
+
+    expect(executionWorkflow).not.toHaveProperty('monitoring');
+    expect(executionWorkflow).not.toHaveProperty('runtime_governance');
+  });
 });

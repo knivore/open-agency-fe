@@ -1,29 +1,35 @@
-import { NextResponse, type NextRequest } from 'next/server';
+import { NextRequest } from 'next/server';
+import { handlers } from '@/auth';
 
-type AuthRouteContext = {
-  params: Promise<{
-    nextauth?: string[];
-  }>;
-};
+function normalizeLocalDevAuthHost(request: NextRequest) {
+  const headers = new Headers(request.headers);
+  const forwardedHost = headers.get('x-forwarded-host');
+  const host = headers.get('host');
+  const url = new URL(request.url);
 
-async function authResponse(_request: NextRequest, context: AuthRouteContext) {
-  const { nextauth = [] } = await context.params;
-  const action = nextauth[0];
-
-  if (action === 'session') {
-    return NextResponse.json(null);
+  if (host && forwardedHost?.replace(/:\d+$/, '') === '0.0.0.0') {
+    headers.set('x-forwarded-host', host);
   }
 
-  if (action === 'providers') {
-    return NextResponse.json({});
+  if (host && url.hostname === '0.0.0.0') {
+    url.host = host;
   }
 
-  if (action === 'csrf') {
-    return NextResponse.json({ csrfToken: '' });
-  }
+  const init: ConstructorParameters<typeof NextRequest>[1] = {
+    method: request.method,
+    headers,
+    body: request.body,
+    // Required by Node's Request implementation when forwarding a streamed body.
+    duplex: 'half',
+  };
 
-  return NextResponse.json({});
+  return new NextRequest(url, init);
 }
 
-export const GET = authResponse;
-export const POST = authResponse;
+export function GET(request: NextRequest) {
+  return handlers.GET(normalizeLocalDevAuthHost(request));
+}
+
+export function POST(request: NextRequest) {
+  return handlers.POST(normalizeLocalDevAuthHost(request));
+}

@@ -5,13 +5,18 @@ const { appPostMock } = vi.hoisted(() => ({
   appPostMock: vi.fn(),
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/lib/api/clientInstances', () => ({
   appApiClient: {
     post: appPostMock,
   },
 }));
 
-vi.mock('@/lib/api/backend', () => ({
+vi.mock('@/lib/api/backend/users', () => ({
+  backendUserToUser: vi.fn(),
+  usersApi: {},
+}));
+
+vi.mock('@/lib/api/backend/workflows', () => ({
   workflowsApi: {},
 }));
 

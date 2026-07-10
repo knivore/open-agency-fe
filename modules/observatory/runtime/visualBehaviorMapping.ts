@@ -7,17 +7,24 @@ import type {
   ObservatoryCharacterDirection,
 } from '@/modules/observatory/engine/assets/assetRegistry';
 import type { ObservatoryAgentStatus } from '@/modules/observatory/engine/world/layoutTypes';
-import type { ObservatoryRuntimeEntityStatus, ObservatoryRuntimeVisualState } from '@/modules/observatory/runtime/visualState';
+import type {
+  ObservatoryRuntimeEntityStatus,
+  ObservatoryRuntimeVisualState,
+} from '@/modules/observatory/runtime/visualState';
 
 export function mapRuntimeStateToAgentVisualStates(
-  state: ObservatoryRuntimeVisualState,
+  state: ObservatoryRuntimeVisualState
 ): ObservatoryAgentVisualState[] {
   return Object.values(state.agentsById).map((agent) => ({
     action: agent.visualAction ?? mapRuntimeAgentToAction(agent.status, agent.taskTitle),
     agentId: agent.id,
     attention: mapRuntimeStatusToAttention(agent.status),
-    direction: agent.visualDirection ?? mapRuntimeAgentToDirection(agent.id, agent.status, agent.taskTitle),
-    movementKey: agent.currentRoomId && agent.currentTaskId ? `${agent.currentRoomId}:${agent.currentTaskId}` : undefined,
+    direction:
+      agent.visualDirection ?? mapRuntimeAgentToDirection(agent.id, agent.status, agent.taskTitle),
+    movementKey:
+      agent.currentRoomId && agent.currentTaskId
+        ? `${agent.currentRoomId}:${agent.currentTaskId}`
+        : undefined,
     speechMessage: agent.speechBubble?.message,
     status: mapRuntimeStatusToAgentStatus(agent.status),
     targetRoomId: agent.currentRoomId,
@@ -32,7 +39,7 @@ export function mapRuntimeStateToAgentVisualStates(
 }
 
 export function mapRuntimeStateToRoomVisualStates(
-  state: ObservatoryRuntimeVisualState,
+  state: ObservatoryRuntimeVisualState
 ): ObservatoryRoomVisualState[] {
   return Object.values(state.workflowsById).flatMap((workflow) => {
     if (!workflow.roomId || workflow.status === 'unknown' || workflow.status === 'idle') {
@@ -51,11 +58,13 @@ export function mapRuntimeStateToRoomVisualStates(
 
 function mapRuntimeAgentToAction(
   status: ObservatoryRuntimeEntityStatus,
-  taskTitle: string | undefined,
+  taskTitle: string | undefined
 ): ObservatoryCharacterActionName {
   if (status === 'working') {
     const normalizedTaskTitle = taskTitle?.toLowerCase() ?? '';
-    if (/(review|read|plan|design|spec|architect|scope|brief|whiteboard)/.test(normalizedTaskTitle)) {
+    if (
+      /(review|read|plan|design|spec|architect|scope|brief|whiteboard)/.test(normalizedTaskTitle)
+    ) {
       return 'reading';
     }
 
@@ -68,11 +77,14 @@ function mapRuntimeAgentToAction(
 function mapRuntimeAgentToDirection(
   agentId: string,
   status: ObservatoryRuntimeEntityStatus,
-  taskTitle: string | undefined,
+  taskTitle: string | undefined
 ): ObservatoryCharacterDirection {
   const normalizedTaskTitle = taskTitle?.toLowerCase() ?? '';
 
-  if (status === 'blocked' || /(plan|design|spec|architect|scope|brief|whiteboard)/.test(normalizedTaskTitle)) {
+  if (
+    status === 'blocked' ||
+    /(plan|design|spec|architect|scope|brief|whiteboard)/.test(normalizedTaskTitle)
+  ) {
     return 'up';
   }
 
@@ -85,7 +97,9 @@ function mapRuntimeAgentToDirection(
   return directions[hashString(`${agentId}:${status}`) % directions.length] ?? 'down';
 }
 
-function mapRuntimeStatusToAttention(status: ObservatoryRuntimeEntityStatus): ObservatoryAgentVisualState['attention'] {
+function mapRuntimeStatusToAttention(
+  status: ObservatoryRuntimeEntityStatus
+): ObservatoryAgentVisualState['attention'] {
   if (status === 'working') {
     return 'thinking';
   }
@@ -101,7 +115,9 @@ function mapRuntimeStatusToAttention(status: ObservatoryRuntimeEntityStatus): Ob
   return undefined;
 }
 
-function mapRuntimeStatusToAgentStatus(status: ObservatoryRuntimeEntityStatus): ObservatoryAgentStatus {
+function mapRuntimeStatusToAgentStatus(
+  status: ObservatoryRuntimeEntityStatus
+): ObservatoryAgentStatus {
   if (status === 'unknown') {
     return 'idle';
   }

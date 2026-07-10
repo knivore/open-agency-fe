@@ -1,17 +1,15 @@
-'use client';
-
 import { Alert, AlertDescription, AlertTitle } from '@/components/library/shadcn/alert';
 import { Button } from '@/components/library/shadcn/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/library/shadcn/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/library/shadcn/card';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-export function RunsLoadingCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function RunsLoadingCard({ title, description }: { title: string; description: string }) {
   return (
     <Card>
       <CardHeader>

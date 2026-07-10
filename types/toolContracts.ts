@@ -16,6 +16,8 @@ export type ToolContract = {
   name: string;
   version: string;
   description?: string | null;
+  riskLabels?: string[];
+  risk_labels?: string[];
   inputs: JsonSchema;
   outputs: JsonSchema;
 };

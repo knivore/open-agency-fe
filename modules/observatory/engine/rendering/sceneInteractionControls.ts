@@ -1,13 +1,13 @@
 import type Phaser from 'phaser';
 
 import type { ObservatoryCanvasGridClick } from '@/modules/observatory/engine/selection';
+import type { ObservatoryGridRect } from '@/modules/observatory/engine/world/grid';
 import {
+  type ObservatoryGridConfig,
   pointInGridRect,
   worldToGrid,
-  type ObservatoryGridConfig,
 } from '@/modules/observatory/engine/world/grid';
 import type { ObservatoryMap } from '@/modules/observatory/engine/world/layoutTypes';
-import type { ObservatoryGridRect } from '@/modules/observatory/engine/world/grid';
 import type { ObservatoryRenderedOfficeMap } from '@/modules/observatory/engine/rendering/officeMapRenderer';
 
 export interface ObservatorySceneInteractionOptions {

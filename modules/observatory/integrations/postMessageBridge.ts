@@ -27,7 +27,9 @@ export interface ObservatoryPostMessageReceiverOptions {
   targetWindow?: Window;
 }
 
-export function isObservatoryPostMessagePayload(value: unknown): value is ObservatoryPostMessagePayload {
+export function isObservatoryPostMessagePayload(
+  value: unknown
+): value is ObservatoryPostMessagePayload {
   if (!value || typeof value !== 'object') {
     return false;
   }

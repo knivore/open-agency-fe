@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { executionsApi } from '@/lib/api/backend';
+import { executionsApi } from '@/lib/api/backend/executions';
 import {
   getAuthenticatedUser,
   getInternalApiKey,
@@ -14,11 +14,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ process_
   const { process_id: processId } = await params;
   const url = new URL(req.url);
   const type = url.searchParams.get('type');
-  console.log(`Starting SSE artifacts connection for process ${processId}`);
 
   if (type === 'images') {
     try {
-      console.log(`Streaming images for process ${processId}`);
       const response = await executionsApi.streamArtifactImages(processId, user, getInternalApiKey());
 
       if (!response.ok) {

@@ -20,7 +20,11 @@ function layout(): ObservatoryLayoutDocument {
 
 describe('observatory pixel prompt-to-layout generation', () => {
   it('parses prompt keywords into room template intent', () => {
-    expect(parseObservatoryLayoutPrompt('Create an engineering pod, finance room, and approval review gate')).toMatchObject({
+    expect(
+      parseObservatoryLayoutPrompt(
+        'Create an engineering pod, finance room, and approval review gate'
+      )
+    ).toMatchObject({
       includeCorridor: true,
       includeDoors: true,
       templateIds: ['engineering-pod', 'finance-room', 'approval-room'],
@@ -34,18 +38,32 @@ describe('observatory pixel prompt-to-layout generation', () => {
   });
 
   it('generates valid editable office layout JSON from a prompt', () => {
-    const result = generateObservatoryLayoutFromPrompt(layout(), 'Build a full operations office with research, audit, approvals, and meetings');
+    const result = generateObservatoryLayoutFromPrompt(
+      layout(),
+      'Build a full operations office with research, audit, approvals, and meetings'
+    );
 
     expect(result.issues).toEqual([]);
     expect(result.valid).toBe(true);
     expect(result.layout?.world.maps[0]?.rooms.map((room) => room.name)).toEqual(
-      expect.arrayContaining(['Research Room', 'Audit Workspace', 'Approval Room', 'Meeting Room', 'Main Corridor']),
+      expect.arrayContaining([
+        'Research Room',
+        'Audit Workspace',
+        'Approval Room',
+        'Meeting Room',
+        'Main Corridor',
+      ])
     );
-    expect(result.layout?.world.maps[0]?.objects.some((object) => object.id.startsWith('object:door-'))).toBe(true);
+    expect(
+      result.layout?.world.maps[0]?.objects.some((object) => object.id.startsWith('object:door-'))
+    ).toBe(true);
   });
 
   it('validates generated layouts with schema and procedural rules', () => {
-    const result = generateObservatoryLayoutFromPrompt(layout(), 'engineering and ops command center');
+    const result = generateObservatoryLayoutFromPrompt(
+      layout(),
+      'engineering and ops command center'
+    );
 
     expect(result.issues).toEqual([]);
     expect(result.valid).toBe(true);
@@ -56,7 +74,7 @@ describe('observatory pixel prompt-to-layout generation', () => {
   it('reports invalid prompt layouts', () => {
     const invalidLayout = layout();
     invalidLayout.world.maps[0]!.objects.push({
-      assetId: 'furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower',
+      assetId: 'decor:runtime-server',
       blocksMovement: true,
       id: 'object:bad-overlap',
       position: { x: 4, y: 5 },

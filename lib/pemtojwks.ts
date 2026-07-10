@@ -1,16 +1,18 @@
-import * as jose from 'node-jose';
+import { createPrivateKey } from 'node:crypto';
 
-async function generateJWKS(PEMPair: string, x5t: string): Promise<any> {
-  const keystore: jose.JWK.KeyStore = jose.JWK.createKeyStore();
+type PrivateJWK = JsonWebKey & {
+  x5t?: string;
+};
 
-  const jwks: any = await keystore.add(PEMPair, 'pem').then((_) => {
-    return keystore.toJSON(true);
-  });
+function normalizePem(pem: string): string {
+  return pem.includes('\\n') ? pem.replace(/\\n/g, '\n') : pem;
+}
 
-  if (jwks.keys && jwks.keys.length > 0) {
-    jwks.keys[0].x5t = x5t;
-  }
-  return JSON.stringify(jwks, null, 4);
+async function generateJWKS(PEMPair: string, x5t: string): Promise<string> {
+  const privateKey = createPrivateKey(normalizePem(PEMPair));
+  const jwk = privateKey.export({ format: 'jwk' }) as PrivateJWK;
+
+  return JSON.stringify({ keys: [{ ...jwk, x5t }] }, null, 4);
 }
 
 export default generateJWKS;

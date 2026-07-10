@@ -5,10 +5,10 @@ import {
 } from '@/modules/observatory/runtime/replayTimeline';
 import {
   createInitialObservatoryRuntimeVisualState,
-  reduceObservatoryRuntimeEvent,
-  reduceObservatoryRuntimeEvents,
   type ObservatoryRuntimeReducerOptions,
   type ObservatoryRuntimeVisualState,
+  reduceObservatoryRuntimeEvent,
+  reduceObservatoryRuntimeEvents,
 } from '@/modules/observatory/runtime/visualState';
 
 export type ObservatoryRuntimeVisualStoreListener = () => void;

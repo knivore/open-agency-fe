@@ -1,28 +1,27 @@
-import { agencyApiClient } from '@/lib/api';
-import { backendRoutes } from '@/lib/api/backend/routes';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { toAgentRun, toRunSessionSummary } from '@/lib/api/backend/agentTransforms';
+import { currentUserHeaders } from '@/lib/api/backend/identity';
+import { backendRoutes } from '@/lib/api/backend/routes';
 import type {
   ApprovalRequestPayload,
   AgentRun,
   CreateExecutionPayload,
-  CrudListResponse,
+  ExecutionApprovalRequest,
+  ExecutionContextUsageResponse,
   ExecutionEventRecord,
   ExecutionDetailResponse,
   ExecutionArtifact,
   ExecutionRecord,
-} from '@/lib/api/backend/types';
+  ExecutionUsageResponse,
+} from '@/types/runtime';
+import type { CrudListResponse } from '@/types/api';
 import type { AuthUser } from '@/types/auth';
 
-function currentUserHeaders(user: AuthUser, internalApiKey?: string | null): HeadersInit {
-  return {
-    'x-agency-user-id': user.id,
-    'x-agency-user-email': user.email,
-    'x-agency-user-name': user.name,
-    'x-agency-auth-provider': user.authMode === 'dev' ? 'dev-auth' : 'nextauth',
-    'x-agency-provider-subject': user.id,
-    'x-agency-provider-account-id': user.email,
-    ...(internalApiKey ? { 'x-agency-internal-api-key': internalApiKey } : {}),
-  };
+export interface ExecutionListQuery {
+  limit?: number;
+  offset?: number;
+  status?: string;
+  workflow_id?: string;
 }
 
 function backendExecutionPayload(payload: Omit<CreateExecutionPayload, 'workflowId'>) {
@@ -36,11 +35,21 @@ function backendExecutionPayload(payload: Omit<CreateExecutionPayload, 'workflow
 }
 
 export const executionsApi = {
-  listExecutions() {
-    return agencyApiClient.get<CrudListResponse<ExecutionRecord>>(backendRoutes.executions.list());
+  listExecutions(user?: AuthUser, internalApiKey?: string | null, query: ExecutionListQuery = {}) {
+    return agencyApiClient.get<CrudListResponse<ExecutionRecord>>(backendRoutes.executions.list(), {
+      headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      query: {
+        limit: query.limit,
+        offset: query.offset,
+        status: query.status || undefined,
+        workflow_id: query.workflow_id || undefined,
+      },
+    });
   },
   listActiveExecutions() {
-    return agencyApiClient.get<CrudListResponse<ExecutionRecord>>(backendRoutes.executions.active());
+    return agencyApiClient.get<CrudListResponse<ExecutionRecord>>(
+      backendRoutes.executions.active()
+    );
   },
   createExecution(payload: CreateExecutionPayload) {
     const { workflowId, ...rest } = payload;
@@ -72,21 +81,68 @@ export const executionsApi = {
     );
   },
   getExecution(executionId: string, user?: AuthUser, internalApiKey?: string | null) {
-    return agencyApiClient.get<ExecutionDetailResponse>(backendRoutes.executions.byId(executionId), {
-      headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
-    });
+    return agencyApiClient.get<ExecutionDetailResponse>(
+      backendRoutes.executions.byId(executionId),
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
   },
   updateExecution(executionId: string, patch: Record<string, unknown>) {
     return agencyApiClient.put<ExecutionRecord>(backendRoutes.executions.byId(executionId), patch);
   },
   startExecution(executionId: string) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.executions.start(executionId), {});
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.start(executionId),
+      {}
+    );
   },
-  pauseExecution(executionId: string) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.executions.pause(executionId), {});
+  pauseExecution(executionId: string, user?: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.pause(executionId),
+      {},
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
   },
-  resumeExecution(executionId: string) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.executions.resume(executionId), {});
+  resumeExecution(executionId: string, user?: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.resume(executionId),
+      {},
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
+  },
+  retryExecutionTask(
+    executionId: string,
+    taskId: string,
+    reason?: string,
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.retryTask(executionId, taskId),
+      { reason },
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
+  },
+  resumeExecutionFromCheckpoint(
+    executionId: string,
+    reason?: string,
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.resumeFromCheckpoint(executionId),
+      { reason },
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
   },
   cancelExecution(executionId: string, user?: AuthUser, internalApiKey?: string | null) {
     return agencyApiClient.post<Record<string, unknown>>(
@@ -97,37 +153,95 @@ export const executionsApi = {
       }
     );
   },
-  approveExecution(executionId: string, payload: ApprovalRequestPayload) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.executions.approve(executionId), payload);
+  approveExecution(
+    executionId: string,
+    payload: ApprovalRequestPayload,
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.approve(executionId),
+      payload,
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
   },
-  rejectExecution(executionId: string, payload: ApprovalRequestPayload) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.executions.reject(executionId), payload);
+  rejectExecution(
+    executionId: string,
+    payload: ApprovalRequestPayload,
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.reject(executionId),
+      payload,
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
   },
-  listExecutionEvents(executionId: string, afterSequence = 0) {
+  listExecutionEvents(
+    executionId: string,
+    afterSequence = 0,
+    eventTypes: string[] = [],
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
     return agencyApiClient.get<CrudListResponse<ExecutionEventRecord>>(
       backendRoutes.executions.events(executionId),
-      { query: { after_sequence: afterSequence } }
+      {
+        query: {
+          after_sequence: afterSequence,
+          event_type: eventTypes.length > 0 ? eventTypes : undefined,
+        },
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
+  },
+  listExecutionApprovals(executionId: string) {
+    return agencyApiClient.get<CrudListResponse<ExecutionApprovalRequest>>(
+      backendRoutes.executions.approvals(executionId)
+    );
+  },
+  getExecutionUsage(executionId: string) {
+    return agencyApiClient.get<ExecutionUsageResponse>(backendRoutes.executions.usage(executionId));
+  },
+  getExecutionContextUsage(executionId: string) {
+    return agencyApiClient.get<ExecutionContextUsageResponse>(
+      backendRoutes.executions.contextUsage(executionId)
     );
   },
   listExecutionArtifacts(executionId: string, user?: AuthUser, internalApiKey?: string | null) {
-    return agencyApiClient.get<CrudListResponse<ExecutionArtifact>>(backendRoutes.executions.artifacts(executionId), {
-      headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
-    });
+    return agencyApiClient.get<CrudListResponse<ExecutionArtifact>>(
+      backendRoutes.executions.artifacts(executionId),
+      {
+        headers: user ? currentUserHeaders(user, internalApiKey) : undefined,
+      }
+    );
   },
   streamArtifactImages(executionId: string, user?: AuthUser, internalApiKey?: string | null) {
-    return agencyApiClient.get<Response>(backendRoutes.executions.artifactImagesStream(executionId), {
-      cache: 'no-store',
-      headers: {
-        ...(user ? currentUserHeaders(user, internalApiKey) : {}),
-        Accept: 'multipart/x-mixed-replace',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        Pragma: 'no-cache',
-        Connection: 'keep-alive',
-      },
-      responseType: 'raw',
-    });
+    return agencyApiClient.get<Response>(
+      backendRoutes.executions.artifactImagesStream(executionId),
+      {
+        cache: 'no-store',
+        headers: {
+          ...(user ? currentUserHeaders(user, internalApiKey) : {}),
+          Accept: 'multipart/x-mixed-replace',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          Pragma: 'no-cache',
+          Connection: 'keep-alive',
+        },
+        responseType: 'raw',
+      }
+    );
   },
-  streamExecutionEvents(executionId: string, afterSequence = 0, user?: AuthUser, internalApiKey?: string | null) {
+  streamExecutionEvents(
+    executionId: string,
+    afterSequence = 0,
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
     return agencyApiClient.get<Response>(backendRoutes.executions.stream(executionId), {
       query: { after_sequence: afterSequence },
       headers: {
@@ -149,7 +263,12 @@ export const executionsApi = {
       responseType: 'raw',
     });
   },
-  replyToHumanLoop(executionId: string, reply: string, user?: AuthUser, internalApiKey?: string | null) {
+  replyToHumanLoop(
+    executionId: string,
+    reply: string,
+    user?: AuthUser,
+    internalApiKey?: string | null
+  ) {
     return agencyApiClient.post<{ message?: string }>(
       backendRoutes.executions.hitlReply(executionId),
       { reply },

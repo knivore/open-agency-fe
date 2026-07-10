@@ -1,5 +1,11 @@
-import type { ObservatoryGridPoint, ObservatoryGridSize } from '@/modules/observatory/engine/world/grid';
-import type { ObservatoryObject, ObservatoryRoomKind } from '@/modules/observatory/engine/world/layoutTypes';
+import type {
+  ObservatoryGridPoint,
+  ObservatoryGridSize,
+} from '@/modules/observatory/engine/world/grid';
+import type {
+  ObservatoryObject,
+  ObservatoryRoomKind,
+} from '@/modules/observatory/engine/world/layoutTypes';
 
 export type ObservatoryRoomTemplateId =
   | 'engineering-pod'
@@ -38,11 +44,7 @@ export const observatoryRoomTemplates = [
     id: 'engineering-pod',
     kind: 'workspace',
     label: 'Engineering pod',
-    objects: [
-      workstation({ x: 1, y: 1 }),
-      workstation({ x: 4, y: 1 }),
-      screens({ x: 2, y: 2 }),
-    ],
+    objects: [workstation({ x: 1, y: 1 }), workstation({ x: 4, y: 1 }), screens({ x: 2, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
@@ -51,11 +53,7 @@ export const observatoryRoomTemplates = [
     id: 'research-room',
     kind: 'workspace',
     label: 'Research room',
-    objects: [
-      screens({ x: 1, y: 1 }),
-      screens({ x: 4, y: 1 }),
-      coffee({ x: 3, y: 2 }),
-    ],
+    objects: [screens({ x: 1, y: 1 }), screens({ x: 4, y: 1 }), coffee({ x: 3, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
@@ -64,11 +62,7 @@ export const observatoryRoomTemplates = [
     id: 'finance-room',
     kind: 'workspace',
     label: 'Finance room',
-    objects: [
-      workstation({ x: 1, y: 1 }),
-      workstation({ x: 4, y: 1 }),
-      server({ x: 3, y: 2 }),
-    ],
+    objects: [workstation({ x: 1, y: 1 }), workstation({ x: 4, y: 1 }), server({ x: 3, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
@@ -77,11 +71,7 @@ export const observatoryRoomTemplates = [
     id: 'audit-workspace',
     kind: 'runtime',
     label: 'Audit workspace',
-    objects: [
-      server({ x: 1, y: 1 }),
-      screens({ x: 3, y: 1 }),
-      workstation({ x: 5, y: 2 }),
-    ],
+    objects: [server({ x: 1, y: 1 }), screens({ x: 3, y: 1 }), workstation({ x: 5, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
@@ -90,11 +80,7 @@ export const observatoryRoomTemplates = [
     id: 'meeting-room',
     kind: 'commons',
     label: 'Meeting room',
-    objects: [
-      workstation({ x: 1, y: 1 }),
-      workstation({ x: 4, y: 1 }),
-      coffee({ x: 3, y: 2 }),
-    ],
+    objects: [workstation({ x: 1, y: 1 }), workstation({ x: 4, y: 1 }), coffee({ x: 3, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
@@ -103,11 +89,7 @@ export const observatoryRoomTemplates = [
     id: 'ops-center',
     kind: 'runtime',
     label: 'Ops center',
-    objects: [
-      screens({ x: 1, y: 1 }),
-      server({ x: 4, y: 1 }),
-      workstation({ x: 2, y: 2 }),
-    ],
+    objects: [screens({ x: 1, y: 1 }), server({ x: 4, y: 1 }), workstation({ x: 2, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
@@ -116,26 +98,24 @@ export const observatoryRoomTemplates = [
     id: 'approval-room',
     kind: 'workspace',
     label: 'Approval room',
-    objects: [
-      screens({ x: 1, y: 1 }),
-      workstation({ x: 4, y: 1 }),
-      coffee({ x: 5, y: 2 }),
-    ],
+    objects: [screens({ x: 1, y: 1 }), workstation({ x: 4, y: 1 }), coffee({ x: 5, y: 2 })],
     size: { height: 4, width: 7 },
     wallAssetId: 'wall:office-partition',
   },
 ] satisfies ObservatoryRoomTemplate[];
 
-export function getObservatoryRoomTemplate(templateId: string): ObservatoryRoomTemplate | undefined {
+export function getObservatoryRoomTemplate(
+  templateId: string
+): ObservatoryRoomTemplate | undefined {
   return observatoryRoomTemplates.find((template) => template.id === templateId);
 }
 
 export function createObservatoryTemplateObject(
-  template: ObservatoryRoomTemplate,
+  _template: ObservatoryRoomTemplate,
   object: ObservatoryRoomTemplateObject,
   roomId: string,
   objectId: string,
-  origin: ObservatoryGridPoint,
+  origin: ObservatoryGridPoint
 ): ObservatoryObject {
   return {
     assetId: object.assetId,
@@ -161,7 +141,7 @@ function workstation(offset: ObservatoryGridPoint): ObservatoryRoomTemplateObjec
 
 function screens(offset: ObservatoryGridPoint): ObservatoryRoomTemplateObject {
   return {
-    assetId: 'furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station',
+    assetId: 'decor:runtime-screens',
     blocksMovement: false,
     offset,
     size: { height: 1, width: 2 },
@@ -170,7 +150,7 @@ function screens(offset: ObservatoryGridPoint): ObservatoryRoomTemplateObject {
 
 function server(offset: ObservatoryGridPoint): ObservatoryRoomTemplateObject {
   return {
-    assetId: 'furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower',
+    assetId: 'decor:runtime-server',
     blocksMovement: true,
     offset,
     size: { height: 1, width: 1 },
@@ -179,7 +159,7 @@ function server(offset: ObservatoryGridPoint): ObservatoryRoomTemplateObject {
 
 function coffee(offset: ObservatoryGridPoint): ObservatoryRoomTemplateObject {
   return {
-    assetId: 'furniture:1-modern-office-singles-48x48:office-water-cooler',
+    assetId: 'decor:coffee-loop',
     blocksMovement: false,
     offset,
     size: { height: 1, width: 1 },

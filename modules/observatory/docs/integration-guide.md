@@ -36,11 +36,13 @@ iframe.contentWindow?.postMessage(
 
 Use `createObservatoryWebSocketAdapter` when an external producer streams JSON events directly to the browser.
 
-The adapter validates and normalizes each event before reducing it into visual state. It reports status snapshots and reconnects with bounded attempts.
+The adapter validates and normalizes each event before reducing it into visual state. It reports status snapshots and
+reconnects with bounded attempts.
 
 ## SSE
 
-Use `createObservatorySseAdapter` for Server-Sent Events. The SSE `data` payload should be one `ExternalRuntimeEvent` JSON object or an array of events.
+Use `createObservatorySseAdapter` for Server-Sent Events. The SSE `data` payload should be one `ExternalRuntimeEvent`
+JSON object or an array of events.
 
 ## Safety Rules
 

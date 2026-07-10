@@ -1,4 +1,4 @@
-import { executionsApi } from '@/lib/api/backend';
+import { executionsApi } from '@/lib/api/backend/executions';
 import { serializeExecutionResult } from '@/lib/workflows/executionPayload';
 import { NextResponse } from 'next/server';
 import {

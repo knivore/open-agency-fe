@@ -1,4 +1,4 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
 
 export interface PresignedUrlPayload {

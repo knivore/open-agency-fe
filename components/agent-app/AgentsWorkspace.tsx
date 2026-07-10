@@ -2,11 +2,22 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { agentsApi, behaviorProfilesApi, conversationsApi, toolsApi } from '@/lib/api/backend';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
+import { agentsApi } from '@/lib/api/backend/agents';
+import { behaviorProfilesApi } from '@/lib/api/backend/behaviorProfiles';
+import { conversationsApi } from '@/lib/api/backend/conversations';
+import { personasApi } from '@/lib/api/backend/personas';
+import { toolsApi } from '@/lib/api/backend/tools';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { toolDisplayName } from '@/lib/tools/displayName';
 import type { Agent, AgentConfig, BehaviorTuningProfile } from '@/types/agents';
 import type { ToolDefinition } from '@/types/tools';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '../library/shadcn/accordion';
 import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
@@ -21,11 +32,38 @@ import {
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
-import { ChevronDown, ChevronUp, FileText, Pencil, RefreshCw, Save, Trash2 } from 'lucide-react';
+import {
+  AlertTriangle,
+  Bot,
+  ChevronDown,
+  ChevronUp,
+  FileText,
+  HelpCircle,
+  Pencil,
+  RefreshCw,
+  Save,
+  Sparkles,
+  Trash2,
+  Upload,
+} from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../library/shadcn/tooltip';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import PageHeader from '@/components/app-shell/PageHeader';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
+import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import type {
+  AgentImportHandoffSuggestion,
+  AgentImportProposal,
+  AgentImportToolSuggestion,
+} from '@/types/agents';
+import type { PersonaDefinition } from '@/types/personas';
 
 interface ToolCategory {
   id: string;
@@ -103,7 +141,9 @@ const toolCategories: ToolCategory[] = [
 ];
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 function agentConfigOrDefaults(agent: Agent): AgentConfig {
@@ -183,6 +223,51 @@ function categoryForTool(tool: ToolDefinition) {
   return bestCategory;
 }
 
+function personaSlugForAgent(agent: Agent) {
+  const metadata = agentConfigOrDefaults(agent).metadata;
+  const slug = metadata?.persona_slug;
+  const generatedFromPersonaFactory = metadata?.generated_from_persona_factory === true;
+  return typeof slug === 'string' && slug.trim()
+    ? slug.trim()
+    : generatedFromPersonaFactory
+      ? agent.name
+      : null;
+}
+
+function personaIdForAgent(agent: Agent) {
+  const value = agentConfigOrDefaults(agent).metadata?.persona_id;
+  return typeof value === 'string' ? value : '';
+}
+
+function isGeneratedPersonaAgent(agent: Agent) {
+  return agentConfigOrDefaults(agent).metadata?.generated_from_persona_factory === true;
+}
+
+function agentCardTone(agent: Agent, isMainAgent: boolean) {
+  if (isMainAgent) {
+    return {
+      accent: 'bg-linear-to-r from-success-500 via-primary-500 to-secondary-500',
+      avatar: 'border-success-300 bg-white text-success-800 ring-4 ring-success-100',
+      badge: 'border-success-300 bg-success-50 text-success-900',
+      selected: 'border-success-400 ring-success-200/90',
+    };
+  }
+  if (personaSlugForAgent(agent)) {
+    return {
+      accent: 'bg-secondary-500',
+      avatar: 'border-secondary-200 bg-secondary-50 text-secondary-800',
+      badge: 'border-secondary-200 bg-secondary-50 text-secondary-800',
+      selected: 'border-secondary-300 ring-secondary-200/80',
+    };
+  }
+  return {
+    accent: 'bg-primary-500',
+    avatar: 'border-primary-200 bg-primary-50 text-primary-800',
+    badge: 'border-primary-200 bg-primary-50 text-primary-800',
+    selected: 'border-primary-300 ring-primary-200/80',
+  };
+}
+
 function sortToolsByAssignmentAndName(toolIds: string[]) {
   const selectedIds = new Set(toolIds);
 
@@ -246,104 +331,129 @@ function ToolAssignmentControls({
   }
 
   return (
-    <section className="space-y-4 rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-semibold text-neutral-900">Tool assignment</h3>
-          <p className="mt-1 text-xs text-neutral-500">
-            {toolIds.length} of {tools.length} tools assigned. Groups are sorted with selected tools
-            first, then alphabetically.
-          </p>
-        </div>
-        <div className="grid min-w-72 flex-1 gap-2 sm:max-w-xl sm:grid-cols-3">
-          <Button
-            type="button"
-            variant={assignmentMode === 'none' ? 'default' : 'outline'}
-            disabled={disabled}
-            onClick={() => onChange([])}
-          >
-            No tools
-          </Button>
-          <Button
-            type="button"
-            variant={assignmentMode === 'selected' ? 'default' : 'outline'}
-            disabled={disabled}
-            onClick={() => onChange(toolIds)}
-          >
-            Selected tools
-          </Button>
-          <Button
-            type="button"
-            variant={assignmentMode === 'all' ? 'default' : 'outline'}
-            disabled={disabled}
-            onClick={() => onChange(allToolIds)}
-          >
-            All tools
-          </Button>
-        </div>
-      </div>
+    <section className="rounded-lg border border-neutral-200 bg-neutral-50 dark:border-white/10 dark:bg-slate-950/72">
+      <Accordion type="single" collapsible>
+        <AccordionItem value="tool-assignment" className="border-0 px-4">
+          <AccordionTrigger className="gap-3 py-3 text-left hover:no-underline">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
+                  Tool assignment
+                </p>
+                <Badge variant="secondary">
+                  {toolIds.length} / {tools.length}
+                </Badge>
+              </div>
+              <p className="mt-1 text-xs font-normal leading-5 text-neutral-500 dark:text-slate-400">
+                Tools are optional. Open this section to choose individual tools or whole groups.
+              </p>
+            </div>
+          </AccordionTrigger>
 
-      <div className="space-y-3">
-        {groupedTools.map((category) => (
-          <div key={category.id} className="rounded-lg border border-neutral-200 bg-white p-3">
-            <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="text-sm font-semibold text-neutral-900">{category.label}</p>
-                  <Badge variant="secondary">
-                    {category.assignedCount} / {category.tools.length}
-                  </Badge>
-                </div>
-                <p className="mt-1 text-xs text-neutral-500">{category.description}</p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={disabled || category.assignedCount === category.tools.length}
-                  onClick={() => selectCategory(category.tools.map((tool) => tool.id))}
-                >
-                  Select group
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={disabled || category.assignedCount === 0}
-                  onClick={() => clearCategory(category.tools.map((tool) => tool.id))}
-                >
-                  Clear group
-                </Button>
-              </div>
+          <AccordionContent className="space-y-4 pb-4 pt-0">
+            <div className="grid gap-2 sm:grid-cols-3">
+              <Button
+                type="button"
+                variant={assignmentMode === 'none' ? 'default' : 'outline'}
+                disabled={disabled}
+                onClick={() => onChange([])}
+              >
+                No tools
+              </Button>
+              <Button
+                type="button"
+                variant={assignmentMode === 'selected' ? 'default' : 'outline'}
+                disabled={disabled}
+                onClick={() => onChange(toolIds)}
+              >
+                Selected tools
+              </Button>
+              <Button
+                type="button"
+                variant={assignmentMode === 'all' ? 'default' : 'outline'}
+                disabled={disabled}
+                onClick={() => onChange(allToolIds)}
+              >
+                All tools
+              </Button>
             </div>
-            <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-              {category.tools.map((tool) => (
-                <label
-                  key={tool.id}
-                  className="flex min-w-0 items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700"
+
+            <Accordion type="multiple" className="space-y-3">
+              {groupedTools.map((category) => (
+                <AccordionItem
+                  key={category.id}
+                  value={category.id}
+                  className="rounded-lg border border-neutral-200 bg-white px-3 dark:border-white/10 dark:bg-slate-950/78"
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedToolIds.has(tool.id)}
-                    onChange={(event) => toggleTool(tool.id, event.target.checked)}
-                    disabled={disabled}
-                    className="mt-1"
-                  />
-                  <span className="min-w-0">
-                    <span className="block font-medium text-neutral-900">
-                      {toolDisplayName(tool)}
-                    </span>
-                    <span className="line-clamp-3 block text-xs leading-5 text-neutral-500">
-                      {tool.description}
-                    </span>
-                  </span>
-                </label>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <AccordionTrigger className="min-w-64 flex-1 justify-start gap-2 py-3 text-left hover:no-underline">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
+                            {category.label}
+                          </p>
+                          <Badge variant="secondary">
+                            {category.assignedCount} / {category.tools.length}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs font-normal leading-5 text-neutral-500 dark:text-slate-400">
+                          {category.description}
+                        </p>
+                      </div>
+                    </AccordionTrigger>
+                    <div className="flex flex-wrap gap-2 py-3">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disabled || category.assignedCount === category.tools.length}
+                        onClick={() => selectCategory(category.tools.map((tool) => tool.id))}
+                      >
+                        Select group
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={disabled || category.assignedCount === 0}
+                        onClick={() => clearCategory(category.tools.map((tool) => tool.id))}
+                      >
+                        Clear group
+                      </Button>
+                    </div>
+                  </div>
+                  <AccordionContent className="pb-3 pt-0">
+                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                      {category.tools.map((tool) => (
+                        <label
+                          key={tool.id}
+                          className="flex min-w-0 items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:border-white/10 dark:bg-white/4 dark:text-slate-300"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedToolIds.has(tool.id)}
+                            onChange={(event) => toggleTool(tool.id, event.target.checked)}
+                            disabled={disabled}
+                            className="mt-1"
+                          />
+                          <span className="min-w-0">
+                            <span className="block font-medium text-neutral-900 dark:text-slate-100">
+                              {toolDisplayName(tool)}
+                            </span>
+                            <span className="line-clamp-3 block text-xs leading-5 text-neutral-500 dark:text-slate-400">
+                              {tool.description}
+                            </span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                  </AccordionContent>
+                </AccordionItem>
               ))}
-            </div>
-          </div>
-        ))}
-      </div>
+            </Accordion>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </section>
   );
 }
@@ -356,16 +466,16 @@ function AgentInstructionPreview({ instructions }: { instructions: string }) {
   const isLongPrompt = displayInstructions.length > 360 || lineCount > 4;
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-neutral-50/80">
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2">
+    <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+      <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2 dark:border-white/10">
         <div className="flex min-w-0 items-center gap-2">
           <FileText className="h-4 w-4 shrink-0 text-primary-700" />
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Prompt
           </p>
         </div>
         <span
-          className="shrink-0 text-xs text-neutral-500"
+          className="shrink-0 text-xs text-neutral-500 dark:text-slate-400"
           title={`${displayInstructions.length.toLocaleString()} chars`}
         >
           {formatPromptLength(displayInstructions.length)}
@@ -373,18 +483,18 @@ function AgentInstructionPreview({ instructions }: { instructions: string }) {
       </div>
       <div className="relative">
         <p
-          className={`whitespace-pre-wrap break-words px-3 py-3 text-sm leading-6 text-neutral-700 ${
+          className={`whitespace-pre-wrap wrap-break-word px-3 py-3 text-sm leading-6 text-neutral-700 dark:text-slate-300 ${
             isLongPrompt && !isExpanded ? 'max-h-28 overflow-hidden' : ''
           }`}
         >
           {displayInstructions}
         </p>
         {isLongPrompt && !isExpanded ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-neutral-50 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-neutral-50 to-transparent dark:from-[#09111f]" />
         ) : null}
       </div>
       {isLongPrompt ? (
-        <div className="border-t border-neutral-200 px-3 py-2">
+        <div className="border-t border-neutral-200 px-3 py-2 dark:border-white/10">
           <Button
             type="button"
             variant="ghost"
@@ -424,12 +534,12 @@ function AssignedToolsSummary({
   tools: ToolDefinition[];
 }) {
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-3">
+    <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
           Assigned tools
         </p>
-        <span className="text-xs text-neutral-500">
+        <span className="text-xs text-neutral-500 dark:text-slate-400">
           {toolCount} / {tools.length}
         </span>
       </div>
@@ -442,37 +552,675 @@ function AssignedToolsSummary({
           ))}
         </div>
       ) : (
-        <p className="text-xs text-neutral-500">No tools assigned.</p>
+        <p className="text-xs text-neutral-500 dark:text-slate-400">No tools assigned.</p>
       )}
       {tools.length === 0 ? (
-        <p className="mt-2 text-xs text-amber-700">No assignable tools loaded from the backend.</p>
+        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+          No assignable tools loaded from the backend.
+        </p>
       ) : null}
     </div>
+  );
+}
+
+function suggestionToolLabel(suggestion: AgentImportToolSuggestion, tools: ToolDefinition[]) {
+  const tool = tools.find((candidate) => candidate.id === suggestion.tool_id);
+  return tool ? toolDisplayName(tool) : suggestion.tool_id;
+}
+
+function suggestionHandoffLabel(suggestion: AgentImportHandoffSuggestion, agents: Agent[]) {
+  const matchedId = suggestion.matched_agent_id ?? suggestion.agent_id;
+  const agent = agents.find((candidate) => candidate.id === matchedId);
+  return agent ? agent.name : suggestion.agent_id;
+}
+
+const highRiskImportWarningCodes = new Set([
+  'prompt_injection_detected',
+  'secret_like_value_detected',
+  'shell_snippet_detected',
+  'tool_grant_instruction_detected',
+]);
+
+function proposalAgentKind(proposal: AgentImportProposal) {
+  const value = proposal.agent.metadata?.agent_kind;
+  return typeof value === 'string' ? value : null;
+}
+
+function proposalRequiresIndividualReview(proposal: AgentImportProposal) {
+  return (
+    proposalAgentKind(proposal) === 'orchestrator' ||
+    proposal.suggested_tool_ids.some((item) => item.high_risk) ||
+    proposal.warnings.some(
+      (item) => item.severity === 'error' || highRiskImportWarningCodes.has(item.code)
+    )
+  );
+}
+
+function ImportAgentCard({
+  agents,
+  onImported,
+  profiles,
+  tools,
+}: {
+  agents: Agent[];
+  onImported: () => Promise<void> | void;
+  profiles: BehaviorTuningProfile[];
+  tools: ToolDefinition[];
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [sourceMode, setSourceMode] = useState<'paste' | 'file' | 'url'>('paste');
+  const [markdownText, setMarkdownText] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [files, setFiles] = useState<File[]>([]);
+  const [proposals, setProposals] = useState<AgentImportProposal[]>([]);
+  const [selectedProposalIndex, setSelectedProposalIndex] = useState(0);
+  const [batchErrors, setBatchErrors] = useState<Array<{ code: string; message: string }>>([]);
+  const [conflictStrategy, setConflictStrategy] = useState<
+    'create_only' | 'update_existing' | 'duplicate_as_new'
+  >('create_only');
+  const [modelProfileId, setModelProfileId] = useState('');
+  const [enabled, setEnabled] = useState(false);
+  const [approvedToolIds, setApprovedToolIds] = useState<string[]>([]);
+  const [approvedHandoffIds, setApprovedHandoffIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
+  const proposal = proposals[selectedProposalIndex] ?? null;
+  const safeBatchProposals = proposals.filter((item) => !proposalRequiresIndividualReview(item));
+  const riskyBatchProposals = proposals.filter(proposalRequiresIndividualReview);
+
+  const reset = () => {
+    setSourceMode('paste');
+    setMarkdownText('');
+    setSourceUrl('');
+    setFiles([]);
+    setProposals([]);
+    setSelectedProposalIndex(0);
+    setBatchErrors([]);
+    setConflictStrategy('create_only');
+    setModelProfileId('');
+    setEnabled(false);
+    setApprovedToolIds([]);
+    setApprovedHandoffIds([]);
+    setError(null);
+  };
+
+  const previewDisabled =
+    isPending ||
+    (sourceMode === 'paste' && !markdownText.trim()) ||
+    (sourceMode === 'file' && files.length === 0) ||
+    (sourceMode === 'url' && !sourceUrl.trim());
+
+  const applyProposalDefaults = (nextProposal: AgentImportProposal | null) => {
+    setConflictStrategy(nextProposal?.conflicts.length ? 'update_existing' : 'create_only');
+    setModelProfileId(nextProposal?.agent.model_profile_id ?? '');
+    setEnabled(false);
+    setApprovedToolIds([]);
+    setApprovedHandoffIds([]);
+  };
+
+  const handlePreview = () => {
+    setError(null);
+    startTransition(() => {
+      void (async () => {
+        try {
+          const next =
+            sourceMode === 'file'
+              ? await agentsApi.previewAgentImportFiles(files)
+              : {
+                  proposals: [
+                    await agentsApi.previewAgentImport({
+                      markdownText: sourceMode === 'paste' ? markdownText : undefined,
+                      sourceUrl: sourceMode === 'url' ? sourceUrl.trim() : undefined,
+                    }),
+                  ],
+                  errors: [],
+                };
+          setProposals(next.proposals);
+          setBatchErrors(next.errors);
+          setSelectedProposalIndex(0);
+          applyProposalDefaults(next.proposals[0] ?? null);
+        } catch (previewError) {
+          setError(
+            previewError instanceof Error ? previewError.message : 'Failed to preview agent import.'
+          );
+        }
+      })();
+    });
+  };
+
+  const selectProposal = (index: number) => {
+    setSelectedProposalIndex(index);
+    applyProposalDefaults(proposals[index] ?? null);
+  };
+
+  const handleCommit = () => {
+    if (!proposal) {
+      return;
+    }
+    setError(null);
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await agentsApi.commitAgentImport({
+            proposal,
+            conflictStrategy,
+            approvedToolIds,
+            approvedHandoffAgentIds: approvedHandoffIds,
+            modelProfileId,
+            enabled,
+          });
+          await onImported();
+          toast.success(`Agent ${result.status}.`, { position: 'top-right' });
+          reset();
+          setIsOpen(false);
+        } catch (commitError) {
+          setError(commitError instanceof Error ? commitError.message : 'Failed to import agent.');
+        }
+      })();
+    });
+  };
+
+  const handleCommitAll = () => {
+    if (safeBatchProposals.length === 0) {
+      return;
+    }
+    setError(null);
+    startTransition(() => {
+      void (async () => {
+        try {
+          const result = await agentsApi.commitAgentImportBatch(
+            safeBatchProposals.map((item) => ({
+              proposal: item,
+              conflictStrategy: item.conflicts.length > 0 ? 'update_existing' : 'create_only',
+              approvedToolIds: [],
+              approvedHandoffAgentIds: [],
+              modelProfileId: item.agent.model_profile_id ?? null,
+              enabled: false,
+            }))
+          );
+          const skippedRiskyImports = riskyBatchProposals.map((item) => ({
+            code: 'requires_individual_review',
+            message: `${item.agent.name} requires individual review before commit.`,
+          }));
+          await onImported();
+          toast.success(
+            `Imported ${result.results.length} agent${result.results.length === 1 ? '' : 's'}.`,
+            { position: 'top-right' }
+          );
+          if (result.errors.length > 0 || skippedRiskyImports.length > 0) {
+            setBatchErrors([...skippedRiskyImports, ...result.errors]);
+            setError(
+              `${result.errors.length + skippedRiskyImports.length} import${
+                result.errors.length + skippedRiskyImports.length === 1 ? '' : 's'
+              } need review or failed.`
+            );
+            return;
+          }
+          reset();
+          setIsOpen(false);
+        } catch (commitError) {
+          setError(commitError instanceof Error ? commitError.message : 'Failed to import agents.');
+        }
+      })();
+    });
+  };
+
+  const toggleId = (ids: string[], id: string, checked: boolean) =>
+    checked ? Array.from(new Set([...ids, id])) : ids.filter((value) => value !== id);
+
+  return (
+    <Card className="min-w-0 overflow-hidden border-primary-100 bg-white dark:border-white/10 dark:bg-white/5">
+      <div className="h-1 bg-primary-400" />
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary-200 bg-primary-50 text-primary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
+              <Upload className="h-5 w-5" />
+            </span>
+            <div>
+              <CardTitle className="text-lg">Import Markdown agent</CardTitle>
+              <CardDescription>
+                Preview external agent markdown files before creating Agency agent definitions.
+              </CardDescription>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              setError(null);
+              setIsOpen(true);
+            }}
+          >
+            <Upload className="mr-2 h-4 w-4" />
+            Import agent
+          </Button>
+        </div>
+      </CardHeader>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open && !isPending) {
+            reset();
+          }
+        }}
+      >
+        <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import Markdown agent</DialogTitle>
+            <DialogDescription>
+              Review parsed instructions, conflicts, tools, and handoffs before committing.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-3">
+                {(['paste', 'file', 'url'] as const).map((mode) => (
+                  <Button
+                    key={mode}
+                    type="button"
+                    variant={sourceMode === mode ? 'default' : 'outline'}
+                    disabled={isPending}
+                    onClick={() => {
+                      setSourceMode(mode);
+                      setProposals([]);
+                      setBatchErrors([]);
+                      setSelectedProposalIndex(0);
+                      setError(null);
+                    }}
+                  >
+                    {mode === 'paste' ? 'Paste' : mode === 'file' ? 'Upload' : 'URL'}
+                  </Button>
+                ))}
+              </div>
+
+              {sourceMode === 'paste' ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-import-markdown">Markdown</Label>
+                  <Textarea
+                    id="agent-import-markdown"
+                    value={markdownText}
+                    onChange={(event) => {
+                      setMarkdownText(event.target.value);
+                      setProposals([]);
+                      setBatchErrors([]);
+                    }}
+                    disabled={isPending}
+                    className="min-h-72"
+                  />
+                </div>
+              ) : null}
+
+              {sourceMode === 'file' ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-import-file">Markdown files</Label>
+                  <Input
+                    id="agent-import-file"
+                    type="file"
+                    multiple
+                    accept=".md,.markdown,text/markdown,text/plain"
+                    disabled={isPending}
+                    onChange={(event) => {
+                      setFiles(Array.from(event.target.files ?? []));
+                      setProposals([]);
+                      setBatchErrors([]);
+                    }}
+                  />
+                  <p className="text-xs text-neutral-500">
+                    {files.length > 0
+                      ? `${files.length} file${files.length === 1 ? '' : 's'} selected.`
+                      : 'No files selected.'}
+                  </p>
+                </div>
+              ) : null}
+
+              {sourceMode === 'url' ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="agent-import-url">Source URL</Label>
+                  <Input
+                    id="agent-import-url"
+                    value={sourceUrl}
+                    onChange={(event) => {
+                      setSourceUrl(event.target.value);
+                      setProposals([]);
+                      setBatchErrors([]);
+                    }}
+                    disabled={isPending}
+                    placeholder="https://raw.githubusercontent.com/..."
+                  />
+                </div>
+              ) : null}
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button type="button" disabled={previewDisabled} onClick={handlePreview}>
+                  {isPending && !proposal ? 'Previewing...' : 'Preview import'}
+                </Button>
+                {proposal ? (
+                  <Button
+                    type="button"
+                    className="agency-gradient text-white hover:brightness-105"
+                    disabled={isPending}
+                    onClick={handleCommit}
+                  >
+                    <Save className="mr-2 h-4 w-4" />
+                    {isPending ? 'Importing...' : 'Import reviewed agent'}
+                  </Button>
+                ) : null}
+              </div>
+
+              {error ? <p className="text-xs text-red-600">{error}</p> : null}
+              {batchErrors.length > 0 ? (
+                <div className="space-y-1 rounded-md border border-red-200 bg-red-50 p-3">
+                  {batchErrors.map((item) => (
+                    <p key={`${item.code}-${item.message}`} className="text-xs text-red-700">
+                      {item.message}
+                    </p>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="space-y-4">
+              {proposals.length > 1 ? (
+                <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                    Batch preview
+                  </p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {proposals.map((item, index) => (
+                      <Button
+                        key={`${item.source.sha256}-${item.agent.id}`}
+                        type="button"
+                        variant={index === selectedProposalIndex ? 'default' : 'outline'}
+                        size="sm"
+                        disabled={isPending}
+                        onClick={() => selectProposal(index)}
+                      >
+                        {item.agent.name}
+                        {proposalRequiresIndividualReview(item) ? (
+                          <AlertTriangle className="ml-2 h-3.5 w-3.5" />
+                        ) : null}
+                      </Button>
+                    ))}
+                  </div>
+                  {riskyBatchProposals.length > 0 ? (
+                    <p className="mt-3 text-xs text-amber-700">
+                      {riskyBatchProposals.length} import
+                      {riskyBatchProposals.length === 1 ? '' : 's'} require individual review.
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+
+              {proposal ? (
+                <>
+                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                          Preview
+                        </p>
+                        <h3 className="mt-1 text-lg font-semibold text-neutral-900">
+                          {proposal.agent.name}
+                        </h3>
+                        <p className="mt-1 text-sm text-neutral-600">
+                          {proposal.agent.description ||
+                            proposal.agent.role ||
+                            'No description parsed.'}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">{proposal.detected_format}</Badge>
+                    </div>
+                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                      <div>
+                        <dt className="text-xs uppercase tracking-[0.14em] text-neutral-500">ID</dt>
+                        <dd className="mt-1 break-all text-neutral-800">{proposal.agent.id}</dd>
+                      </div>
+                      <div>
+                        <dt className="text-xs uppercase tracking-[0.14em] text-neutral-500">
+                          Source
+                        </dt>
+                        <dd className="mt-1 break-all text-neutral-800">
+                          {proposal.source.filename ||
+                            proposal.source.url ||
+                            proposal.source.source_type}
+                        </dd>
+                      </div>
+                    </dl>
+                  </div>
+
+                  {proposal.warnings.length > 0 || proposal.conflicts.length > 0 ? (
+                    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                      <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                        <AlertTriangle className="h-4 w-4" />
+                        Review required
+                      </div>
+                      {[
+                        ...proposal.conflicts.map((item) => item.message),
+                        ...proposal.warnings.map((item) => item.message),
+                      ].map((message) => (
+                        <p key={message} className="text-xs leading-5 text-amber-800">
+                          {message}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="agent-import-conflict-strategy">Commit mode</Label>
+                      <select
+                        id="agent-import-conflict-strategy"
+                        value={conflictStrategy}
+                        onChange={(event) =>
+                          setConflictStrategy(
+                            event.target.value as
+                              | 'create_only'
+                              | 'update_existing'
+                              | 'duplicate_as_new'
+                          )
+                        }
+                        disabled={isPending}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="create_only">Create only</option>
+                        <option value="update_existing">Update existing</option>
+                        <option value="duplicate_as_new">Duplicate as new</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="agent-import-model-profile">Model profile</Label>
+                      <select
+                        id="agent-import-model-profile"
+                        value={modelProfileId}
+                        onChange={(event) => setModelProfileId(event.target.value)}
+                        disabled={isPending}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">No profile</option>
+                        {profiles.map((profile) => (
+                          <option key={profile.id} value={profile.id}>
+                            {profile.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-sm text-neutral-700">
+                    <input
+                      type="checkbox"
+                      checked={enabled}
+                      onChange={(event) => setEnabled(event.target.checked)}
+                      disabled={isPending}
+                    />
+                    Enable after import
+                  </label>
+
+                  <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''} />
+
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                        Suggested tools
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {proposal.suggested_tool_ids.length > 0 ? (
+                          proposal.suggested_tool_ids.map((suggestion) => (
+                            <label
+                              key={suggestion.tool_id}
+                              className="flex items-start gap-2 text-sm text-neutral-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={approvedToolIds.includes(suggestion.tool_id)}
+                                disabled={isPending || !suggestion.exists}
+                                onChange={(event) =>
+                                  setApprovedToolIds((current) =>
+                                    toggleId(current, suggestion.tool_id, event.target.checked)
+                                  )
+                                }
+                                className="mt-1"
+                              />
+                              <span>
+                                <span className="font-medium text-neutral-900">
+                                  {suggestionToolLabel(suggestion, tools)}
+                                </span>
+                                <span className="block text-xs leading-5 text-neutral-500">
+                                  {suggestion.reason}
+                                </span>
+                              </span>
+                            </label>
+                          ))
+                        ) : (
+                          <p className="text-xs text-neutral-500">No tool suggestions.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                        Suggested handoffs
+                      </p>
+                      <div className="mt-3 space-y-2">
+                        {proposal.suggested_handoff_agent_ids.length > 0 ? (
+                          proposal.suggested_handoff_agent_ids.map((suggestion) => {
+                            const handoffId = suggestion.matched_agent_id ?? suggestion.agent_id;
+                            return (
+                              <label
+                                key={`${suggestion.agent_id}-${handoffId}`}
+                                className="flex items-start gap-2 text-sm text-neutral-700"
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={approvedHandoffIds.includes(handoffId)}
+                                  disabled={isPending || !suggestion.exists}
+                                  onChange={(event) =>
+                                    setApprovedHandoffIds((current) =>
+                                      toggleId(current, handoffId, event.target.checked)
+                                    )
+                                  }
+                                  className="mt-1"
+                                />
+                                <span>
+                                  <span className="font-medium text-neutral-900">
+                                    {suggestionHandoffLabel(suggestion, agents)}
+                                  </span>
+                                  <span className="block text-xs leading-5 text-neutral-500">
+                                    {suggestion.reason}
+                                  </span>
+                                </span>
+                              </label>
+                            );
+                          })
+                        ) : (
+                          <p className="text-xs text-neutral-500">No handoff suggestions.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
+                  Preview a Markdown agent to review its Agency mapping.
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter>
+            {proposals.length > 1 ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isPending || safeBatchProposals.length === 0}
+                onClick={handleCommitAll}
+              >
+                {isPending
+                  ? 'Importing batch...'
+                  : riskyBatchProposals.length > 0
+                    ? 'Commit safe imports'
+                    : 'Commit all without tools'}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              className="agency-gradient text-white hover:brightness-105"
+              disabled={isPending || !proposal}
+              onClick={handleCommit}
+            >
+              {isPending && proposal ? 'Importing...' : 'Commit import'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isPending}
+              onClick={() => {
+                reset();
+                setIsOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 }
 
 function AgentCard({
   agent,
   isMainAgent,
+  isSelected,
   mainAgent,
+  onSelect,
   onRefresh,
+  personas,
   profiles,
   tools,
 }: {
   agent: Agent;
   isMainAgent: boolean;
+  isSelected: boolean;
   mainAgent: {
     name?: string | null;
     description?: string | null;
     default_model_profile_id?: string | null;
   } | null;
+  onSelect: () => void;
   onRefresh: () => void | Promise<void>;
+  personas: PersonaDefinition[];
   profiles: BehaviorTuningProfile[];
   tools: ToolDefinition[];
 }) {
   const config = agentConfigOrDefaults(agent);
   const toolCount = config.toolIds.length;
   const handoffCount = config.handoffAgentIds.length;
+  const personaSlug = personaSlugForAgent(agent);
+  const generatedPersonaAgent = isGeneratedPersonaAgent(agent);
   const instructionSummary = config.instructions ?? '';
   const assignedTools = config.toolIds.map((toolId) => {
     const tool = tools.find((candidate) => candidate.id === toolId);
@@ -487,6 +1235,7 @@ function AgentCard({
   const [instructions, setInstructions] = useState(config.instructions ?? '');
   const [role, setRole] = useState(mainAgent?.description ?? agent.role ?? '');
   const [modelProfileId, setModelProfileId] = useState(config.modelProfileId ?? '');
+  const [personaId, setPersonaId] = useState(personaIdForAgent(agent));
   const [toolIds, setToolIds] = useState<string[]>(config.toolIds);
   const [error, setError] = useState<string | null>(null);
   const [deleteMode, setDeleteMode] = useState(false);
@@ -494,6 +1243,7 @@ function AgentCard({
   const displayName = isMainAgent
     ? name.trim() || mainAgent?.name?.trim() || agent.name
     : agent.name;
+  const tone = agentCardTone(agent, isMainAgent);
   const cardDescription = isMainAgent
     ? role.trim() ||
       mainAgent?.description?.trim() ||
@@ -508,6 +1258,7 @@ function AgentCard({
     setInstructions(config.instructions ?? '');
     setRole(mainAgent?.description ?? agent.role ?? '');
     setModelProfileId(config.modelProfileId ?? '');
+    setPersonaId(personaIdForAgent(agent));
     setToolIds(config.toolIds);
     setError(null);
     setDeleteMode(false);
@@ -525,6 +1276,20 @@ function AgentCard({
         try {
           const normalizedName = name.trim();
           const normalizedRole = role.trim();
+          const selectedPersona = personas.find((persona) => persona.id === personaId);
+          const metadata = { ...(config.metadata ?? {}) } as Record<string, unknown>;
+
+          if (selectedPersona) {
+            metadata.persona_id = selectedPersona.id;
+            metadata.persona_slug = selectedPersona.slug;
+            metadata.persona_name = selectedPersona.name;
+            metadata.persona_status = selectedPersona.status;
+          } else if (!personaId) {
+            delete metadata.persona_id;
+            delete metadata.persona_slug;
+            delete metadata.persona_name;
+            delete metadata.persona_status;
+          }
 
           if (isMainAgent) {
             const mainAgentPatch: Record<string, unknown> = {};
@@ -558,6 +1323,7 @@ function AgentCard({
             role: normalizedRole || null,
             model_profile_id: normalizedModelProfileId || null,
             tool_ids: toolIds,
+            metadata,
           });
           await onRefresh();
           toast.success('Agent updated.', { position: 'top-right' });
@@ -586,42 +1352,132 @@ function AgentCard({
 
   return (
     <>
-      <Card className="min-w-0 border-neutral-200">
+      <Card
+        role="group"
+        aria-label={`${displayName} agent`}
+        tabIndex={0}
+        onClick={onSelect}
+        onFocus={onSelect}
+        className={cn(
+          'group relative min-w-0 overflow-hidden border-neutral-200 bg-white outline-none transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md hover:shadow-primary/10 focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/20 dark:hover:shadow-cyan-950/30',
+          isMainAgent &&
+            'border-success-300 bg-linear-to-br from-success-50 via-white to-primary-50 shadow-md shadow-success-200/50 hover:border-success-400 hover:shadow-lg hover:shadow-success-200/70 dark:border-emerald-400/20 dark:bg-linear-to-br dark:from-emerald-950/30 dark:via-slate-950 dark:to-cyan-950/30 dark:shadow-emerald-950/30',
+          isSelected && 'ring-2',
+          isSelected && tone.selected
+        )}
+      >
+        <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
         <CardHeader className="space-y-3">
-          <div className="min-w-0 space-y-2">
-            <div>
-              <div className="flex flex-wrap items-center gap-2">
-                <CardTitle className="text-lg leading-6">{displayName}</CardTitle>
-                {isMainAgent ? (
-                  <Badge className="agency-gradient text-white hover:brightness-105">
-                    Main agent
-                  </Badge>
-                ) : null}
+          <div className="flex min-w-0 gap-3">
+            <span
+              className={cn(
+                'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border shadow-sm',
+                tone.avatar
+              )}
+            >
+              {isMainAgent ? <Sparkles className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
+            </span>
+            <div className="min-w-0 space-y-2">
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <CardTitle className="text-lg leading-6">{displayName}</CardTitle>
+                  {isMainAgent ? (
+                    <Badge
+                      variant="successful"
+                      className="border-success-300 bg-white/80 dark:border-emerald-400/20 dark:bg-slate-950/80"
+                    >
+                      Main orchestrator
+                    </Badge>
+                  ) : null}
+                  {personaSlug ? (
+                    <Badge variant="outline" className={tone.badge}>
+                      Persona @{personaSlug}
+                    </Badge>
+                  ) : null}
+                  {generatedPersonaAgent ? (
+                    <Badge variant="secondary">Managed persona agent</Badge>
+                  ) : null}
+                </div>
+                <CardDescription className="mt-1 line-clamp-2">{cardDescription}</CardDescription>
               </div>
-              <CardDescription className="mt-1 line-clamp-2">{cardDescription}</CardDescription>
+              <Badge
+                variant={config.modelProfileId ? 'secondary' : 'outline'}
+                className={cn(
+                  'max-w-full shrink-0 whitespace-normal text-left',
+                  !config.modelProfileId && 'border-warning-200 bg-warning-50 text-warning-900'
+                )}
+              >
+                {profiles.find((profile) => profile.id === config.modelProfileId)?.name ||
+                  config.modelProfileId ||
+                  'No profile'}
+              </Badge>
             </div>
-            <Badge variant="secondary" className="max-w-full shrink-0 whitespace-normal text-left">
-              {profiles.find((profile) => profile.id === config.modelProfileId)?.name ||
-                config.modelProfileId ||
-                'No profile'}
-            </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-neutral-600">
+        <CardContent className="space-y-3 text-sm text-neutral-600 dark:text-slate-300">
           <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">
+            <Badge
+              variant="outline"
+              className={
+                toolCount
+                  ? 'border-primary-200 bg-primary-50 text-primary-800'
+                  : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+              }
+            >
               {toolCount} assigned tool{toolCount === 1 ? '' : 's'}
             </Badge>
-            <Badge variant="outline">
-              {handoffCount} handoff{handoffCount === 1 ? '' : 's'}
-            </Badge>
+            <TooltipProvider delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span
+                    tabIndex={0}
+                    aria-label={`${handoffCount} configured agent handoff${handoffCount === 1 ? '' : 's'}`}
+                    className="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-primary/25"
+                  >
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        'gap-1.5',
+                        handoffCount
+                          ? 'border-secondary-200 bg-secondary-50 text-secondary-800'
+                          : 'border-neutral-200 bg-neutral-50 text-neutral-600'
+                      )}
+                    >
+                      {handoffCount} handoff{handoffCount === 1 ? '' : 's'}
+                      <HelpCircle className="h-3.5 w-3.5 text-neutral-400" aria-hidden="true" />
+                    </Badge>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-72 text-xs leading-5">
+                  Handoffs are configured target agents this agent can delegate work to. This count
+                  is configuration, not runtime history.
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
+          {generatedPersonaAgent ? (
+            <div className="rounded-md border border-secondary-200 bg-secondary-50/80 p-3 text-xs leading-5 text-secondary-900">
+              Generated from Persona Factory. Publish a new persona version to change persona
+              behavior, then refresh workflow snapshots that should use the newer version.
+            </div>
+          ) : null}
           <AgentInstructionPreview instructions={instructionSummary} />
           <AssignedToolsSummary assignedTools={assignedTools} toolCount={toolCount} tools={tools} />
+          <UploadedDocumentsList
+            scope="user"
+            agentId={agent.id}
+            tagFilter={`agent:${agent.id}`}
+            title="Agent documents"
+            description="Files currently attached to this agent's retrieval context."
+            emptyMessage="No documents attached."
+            limit={3}
+            showActions={false}
+          />
           <Button
             type="button"
             variant="outline"
             onClick={() => {
+              onSelect();
               resetForm();
               setIsEditing(true);
             }}
@@ -641,10 +1497,10 @@ function AgentCard({
           }
         }}
       >
-        <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
+        <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(10,16,30,0.98),rgba(8,18,31,0.98))] dark:text-slate-100">
           <DialogHeader>
-            <DialogTitle>Edit {displayName}</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="dark:text-slate-100">Edit {displayName}</DialogTitle>
+            <DialogDescription className="dark:text-slate-400">
               Update the agent definition, assigned tools, and retrieval documents.
             </DialogDescription>
           </DialogHeader>
@@ -696,6 +1552,33 @@ function AgentCard({
                 </select>
               </div>
               <div className="space-y-1.5">
+                <Label htmlFor={`${agent.id}-persona`}>Persona</Label>
+                <select
+                  id={`${agent.id}-persona`}
+                  value={personaId}
+                  onChange={(event) => setPersonaId(event.target.value)}
+                  disabled={isPending || generatedPersonaAgent}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {personaId && !personas.some((persona) => persona.id === personaId) ? (
+                    <option value={personaId}>
+                      {personaSlug ? `Persona @${personaSlug}` : 'Linked persona'}
+                    </option>
+                  ) : null}
+                  {!generatedPersonaAgent ? <option value="">No persona</option> : null}
+                  {personas.map((persona) => (
+                    <option key={persona.id} value={persona.id}>
+                      {persona.name} (@{persona.slug})
+                    </option>
+                  ))}
+                </select>
+                <p className="text-xs text-neutral-500">
+                  {generatedPersonaAgent
+                    ? 'This is a managed persona agent. Change persona behavior in Persona Factory, then refresh workflows that should use the newer persona version.'
+                    : 'Binding a persona tags this agent with reusable identity and expertise.'}
+                </p>
+              </div>
+              <div className="space-y-1.5">
                 <Label htmlFor={`${agent.id}-instructions`}>Instructions</Label>
                 <Textarea
                   id={`${agent.id}-instructions`}
@@ -707,7 +1590,7 @@ function AgentCard({
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-3 rounded-xl border border-transparent dark:border-sky-300/12 dark:bg-[linear-gradient(180deg,rgba(15,29,44,0.92),rgba(9,21,35,0.94))] dark:p-3">
               <DocumentIngestionControl
                 frame="inline"
                 title="Agent documents"
@@ -715,9 +1598,17 @@ function AgentCard({
                 scope="user"
                 lockedScope
                 lockedAgent
+                purpose="agent"
                 agentId={agent.id}
                 agents={[{ id: agent.id, label: displayName }]}
                 defaultTags={['agent-rag', `agent:${agent.id}`]}
+              />
+              <UploadedDocumentsList
+                scope="user"
+                agentId={agent.id}
+                tagFilter={`agent:${agent.id}`}
+                title="Attached documents"
+                description="Files currently attached to this agent's retrieval context."
               />
             </div>
           </div>
@@ -729,11 +1620,13 @@ function AgentCard({
             tools={tools}
           />
 
-          {error ? <p className="text-xs text-red-600">{error}</p> : null}
+          {error ? <p className="text-xs text-red-600 dark:text-red-300">{error}</p> : null}
 
           <DialogFooter className="items-center gap-2 sm:justify-between sm:space-x-0">
             {isMainAgent ? (
-              <span className="text-xs text-neutral-500">Main agent cannot be deleted here.</span>
+              <span className="text-xs text-neutral-500 dark:text-slate-400">
+                Main agent cannot be deleted here.
+              </span>
             ) : deleteMode ? (
               <div className="flex flex-wrap gap-2">
                 <Button
@@ -848,15 +1741,21 @@ function CreateAgentCard({
   };
 
   return (
-    <Card className="min-w-0 border-dashed border-neutral-300 bg-neutral-50">
+    <Card className="min-w-0 overflow-hidden border-dashed border-secondary-300 bg-secondary-50/40 dark:border-cyan-400/20 dark:bg-cyan-400/6">
+      <div className="h-1 bg-secondary-400" />
       <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg">Create agent</CardTitle>
-            <CardDescription>
-              Add a canonical agent definition that can later be bound into workflows and assistant
-              behavior.
-            </CardDescription>
+          <div className="flex min-w-0 gap-3">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-secondary-200 bg-white text-secondary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
+              <Bot className="h-5 w-5" />
+            </span>
+            <div>
+              <CardTitle className="text-lg">Create agent</CardTitle>
+              <CardDescription>
+                Add a standalone runtime agent. Published personas create managed persona agents
+                automatically; edit those from Persona Factory when changing persona behavior.
+              </CardDescription>
+            </div>
           </div>
           <Button
             type="button"
@@ -980,12 +1879,16 @@ function CreateAgentCard({
 
 export default function AgentsWorkspace() {
   const agentsQuery = useQuery({
-    queryKey: queryKeys.backendAgents(),
+    queryKey: queryKeys.backendAgentCatalog(),
     queryFn: () => agentsApi.listAgentCatalog(),
   });
   const profilesQuery = useQuery({
     queryKey: queryKeys.backendBehaviorProfiles(),
     queryFn: () => behaviorProfilesApi.listProfiles(),
+  });
+  const personasQuery = useQuery({
+    queryKey: queryKeys.backendPersonas(),
+    queryFn: () => personasApi.listPersonas(),
   });
   const toolsQuery = useQuery({
     queryKey: queryKeys.tools(),
@@ -1001,12 +1904,85 @@ export default function AgentsWorkspace() {
 
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
   const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
+  const personas = useMemo(() => personasQuery.data?.items ?? [], [personasQuery.data?.items]);
   const tools = useMemo(() => toolsQuery.data ?? [], [toolsQuery.data]);
   const activeMainAgentId = mainAgentQuery.data?.agent_id ?? null;
   const activeMainAgent = mainAgentQuery.data ?? null;
+  const displayedAgents = useMemo(() => {
+    if (!activeMainAgentId) {
+      return agents;
+    }
+
+    return [...agents].sort((left, right) => {
+      if (left.id === activeMainAgentId) {
+        return -1;
+      }
+      if (right.id === activeMainAgentId) {
+        return 1;
+      }
+      return 0;
+    });
+  }, [activeMainAgentId, agents]);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const selectedAgent = useMemo(
+    () =>
+      agents.find((agent) => agent.id === selectedAgentId) ??
+      agents.find((agent) => agent.id === activeMainAgentId) ??
+      agents[0] ??
+      null,
+    [activeMainAgentId, agents, selectedAgentId]
+  );
   const mainAgentLookupMessage = mainAgentQuery.isError
     ? 'The active main-agent lookup is currently unavailable.'
     : null;
+
+  const assistantPageContext = useMemo(
+    () => ({
+      surface: 'agent.list' as const,
+      title: 'Agents',
+      description: 'AI agents and their definitions.',
+      entities: selectedAgent
+        ? [
+            {
+              type: 'agent',
+              id: selectedAgent.id,
+              name:
+                selectedAgent.id === activeMainAgentId
+                  ? (activeMainAgent?.name ?? selectedAgent.name)
+                  : selectedAgent.name,
+            },
+          ]
+        : undefined,
+      selection: {
+        agentId: selectedAgent?.id ?? null,
+      },
+      summary: {
+        agentCount: agents.length,
+        modelProfileCount: profiles.length,
+        toolCount: tools.length,
+        mainAgentLookupAvailable: !mainAgentQuery.isError,
+        selectedAgentName: selectedAgent?.name ?? null,
+        selectedAgentIsMain: selectedAgent?.id === activeMainAgentId,
+      },
+      allowedActions: [
+        'agent.inspect',
+        'agent.propose_update',
+        'agent.apply_update',
+        'agent.configure_main_agent',
+        'agent.assign_tools',
+      ],
+    }),
+    [
+      activeMainAgent?.name,
+      activeMainAgentId,
+      agents.length,
+      mainAgentQuery.isError,
+      profiles.length,
+      selectedAgent,
+      tools.length,
+    ]
+  );
+  useRegisterAssistantPageContext(assistantPageContext);
   const refreshAgents = async () => {
     await agentsQuery.refetch();
     await mainAgentQuery.refetch();
@@ -1049,9 +2025,10 @@ export default function AgentsWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Agents"
+        icon={Bot}
+        tone="agent"
         title="Agents"
-        description="AI Agents and their definitions"
+        description="Runtime actors used by chat and workflows. Persona-backed agents are generated from published personas."
         meta={
           mainAgentLookupMessage ? (
             <p className="text-sm text-amber-700">{mainAgentLookupMessage}</p>
@@ -1070,14 +2047,22 @@ export default function AgentsWorkspace() {
         }
       />
 
-      <CreateAgentCard
-        onCreated={async () => {
-          await refreshAgents();
-          toast.success('Agent created.', { position: 'top-right' });
-        }}
-        profiles={profiles}
-        tools={tools}
-      />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <CreateAgentCard
+          onCreated={async () => {
+            await refreshAgents();
+            toast.success('Agent created.', { position: 'top-right' });
+          }}
+          profiles={profiles}
+          tools={tools}
+        />
+        <ImportAgentCard
+          agents={agents}
+          onImported={refreshAgents}
+          profiles={profiles}
+          tools={tools}
+        />
+      </div>
 
       {agents.length === 0 ? (
         <EmptyCard
@@ -1088,13 +2073,16 @@ export default function AgentsWorkspace() {
         />
       ) : (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {agents.map((agent) => (
+          {displayedAgents.map((agent) => (
             <AgentCard
               key={agent.id}
               agent={agent}
               isMainAgent={agent.id === activeMainAgentId}
+              isSelected={selectedAgent?.id === agent.id}
               mainAgent={agent.id === activeMainAgentId ? activeMainAgent : null}
+              onSelect={() => setSelectedAgentId(agent.id)}
               onRefresh={refreshAgents}
+              personas={personas}
               profiles={profiles}
               tools={tools}
             />

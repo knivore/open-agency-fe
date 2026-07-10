@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { WorkflowExecutionStartPayload } from '@/types/workflows';
-import { executionsApi, workflowsApi } from '@/lib/api/backend';
+import { executionsApi } from '@/lib/api/backend/executions';
+import { workflowsApi } from '@/lib/api/backend/workflows';
 import { toAgentRun } from '@/lib/api/backend/agentTransforms';
 import { isApiError } from '@/lib/api/errors';
 import {
@@ -23,6 +24,7 @@ interface RequestBody {
   agentConfigs?: WorkflowExecutionStartPayload['agentConfigs'];
   runtimeAdapterId?: string | null;
   executionHost?: string | null;
+  goalId?: string | null;
   [key: string]: unknown;
 }
 
@@ -47,6 +49,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const inputs = body.inputs ?? {};
     const tasks = body.taskOrder ?? [];
     const agentConfigs = body.agentConfigs;
+    const goalId = typeof body.goalId === 'string' && body.goalId.trim() ? body.goalId.trim() : null;
 
     const workflow = await workflowsApi.getWorkflow(id);
     const preferredRuntimeAdapterId = preferredWorkflowRuntimeAdapterId(
@@ -56,6 +59,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const runtimeAdapterId = (body.runtimeAdapterId ?? preferredRuntimeAdapterId) || null;
     const executionHost = normalizeExecutionHost(body.executionHost) ?? resolveWorkflowExecutionHost(workflow);
     const startExecution = (nextRuntimeAdapterId: string | null) => {
+      // This BFF route exists to attach frontend-authenticated user context and
+      // launch defaults. The backend still owns execution creation and runtime
+      // policy once the request crosses into `executionsApi.startWorkflowExecution`.
       const workflowDefinition = buildExecutionWorkflowDefinition(workflow, {
         taskOrder: tasks,
         agentConfigs,
@@ -70,14 +76,17 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
             inputs,
             taskOrder: tasks,
             agentConfigs: agentConfigs ?? {},
+            ...(goalId ? { goal_id: goalId } : {}),
           },
           trigger: {
             type: 'manual',
             requested_by: user.id,
             execution_host: executionHost,
+            ...(goalId ? { goal_id: goalId } : {}),
           },
           runtimeAdapterId: nextRuntimeAdapterId ?? undefined,
           executionHost,
+          ...(goalId ? { goal_id: goalId } : {}),
           workflow_definition: workflowDefinition,
         },
         user,

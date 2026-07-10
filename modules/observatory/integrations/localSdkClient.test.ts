@@ -7,7 +7,9 @@ import {
   type ObservatoryRuntimeVisualState,
 } from '@/modules/observatory/runtime/visualState';
 
-function rawEvent(overrides: Partial<ObservatoryExternalRuntimeEvent> = {}): ObservatoryExternalRuntimeEvent {
+function rawEvent(
+  overrides: Partial<ObservatoryExternalRuntimeEvent> = {}
+): ObservatoryExternalRuntimeEvent {
   return {
     id: 'evt:local-sdk-test',
     source: 'local-sdk-test',

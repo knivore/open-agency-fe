@@ -1,5 +1,8 @@
 import type { ObservatoryGridRect } from '@/modules/observatory/engine/world/grid';
-import type { ObservatoryMap, ObservatoryRoom } from '@/modules/observatory/engine/world/layoutTypes';
+import type {
+  ObservatoryMap,
+  ObservatoryRoom,
+} from '@/modules/observatory/engine/world/layoutTypes';
 
 export interface ObservatoryCorridorGenerationOptions {
   floorAssetId?: string;
@@ -11,7 +14,7 @@ export interface ObservatoryCorridorGenerationOptions {
 
 export function generateObservatoryCorridorRoom(
   map: ObservatoryMap,
-  options: ObservatoryCorridorGenerationOptions = {},
+  options: ObservatoryCorridorGenerationOptions = {}
 ): ObservatoryRoom {
   const bounds = generateObservatoryCorridorBounds(map, options.y);
 
@@ -25,13 +28,12 @@ export function generateObservatoryCorridorRoom(
   };
 }
 
-export function generateObservatoryCorridorBounds(map: ObservatoryMap, preferredY?: number): ObservatoryGridRect {
+export function generateObservatoryCorridorBounds(
+  map: ObservatoryMap,
+  preferredY?: number
+): ObservatoryGridRect {
   const width = Math.max(1, map.size.width - 2);
-  const y = clamp(
-    preferredY ?? findFirstOpenCorridorY(map),
-    0,
-    Math.max(0, map.size.height - 1),
-  );
+  const y = clamp(preferredY ?? findFirstOpenCorridorY(map), 0, Math.max(0, map.size.height - 1));
 
   return {
     height: 1,
@@ -43,7 +45,9 @@ export function generateObservatoryCorridorBounds(map: ObservatoryMap, preferred
 
 function findFirstOpenCorridorY(map: ObservatoryMap) {
   for (let y = 0; y < map.size.height; y += 1) {
-    const overlapsRoom = map.rooms.some((room) => y >= room.bounds.y && y < room.bounds.y + room.bounds.height);
+    const overlapsRoom = map.rooms.some(
+      (room) => y >= room.bounds.y && y < room.bounds.y + room.bounds.height
+    );
     if (!overlapsRoom) {
       return y;
     }

@@ -2,10 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { runsApi, runtimeAdaptersApi, workflowsApi } from '@/lib/api/backend';
+import { runsApi } from '@/lib/api/backend/runs';
+import { runtimeAdaptersApi } from '@/lib/api/backend/runtimeAdapters';
+import { workflowsApi } from '@/lib/api/backend/workflows';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { resolveWorkflowExecutionHost } from '@/lib/workflows/executionPayload';
-import { preferredRunRuntimeAdapterId, resolveRunnableAdapters } from '@/lib/workflows/runtimeAdapterSelection';
+import {
+  preferredRunRuntimeAdapterId,
+  resolveRunnableAdapters,
+} from '@/lib/workflows/runtimeAdapterSelection';
 import type { CrudListResponse } from '@/types/api';
 import type { RuntimeAdapterDefinition } from '@/types/runtime';
 import type { ExecutionHost, WorkflowDefinition } from '@/types/workflows';
@@ -20,7 +25,11 @@ interface UseWorkflowRunLauncherOptions<TRun extends WorkflowRunRecord = Workflo
   runtimeAdapters?: RuntimeAdapterDefinition[];
   getWorkflow?: (workflowId: string) => Promise<WorkflowDefinition>;
   listRuntimeAdapters?: () => Promise<CrudListResponse<RuntimeAdapterDefinition>>;
-  executeWorkflow?: (workflowId: string, runtimeAdapterId?: string | null, executionHost?: ExecutionHost | null) => Promise<TRun>;
+  executeWorkflow?: (
+    workflowId: string,
+    runtimeAdapterId?: string | null,
+    executionHost?: ExecutionHost | null
+  ) => Promise<TRun>;
   redirectTo?: (runId: string) => string;
   additionalInvalidationKeys?: (run: TRun) => readonly (readonly unknown[])[];
 }
@@ -58,36 +67,47 @@ export function useWorkflowRunLauncher<TRun extends WorkflowRunRecord = Workflow
   const runnableRuntimeAdapters = resolveRunnableAdapters(
     resolvedRuntimeAdapters,
     resolvedWorkflow?.allowed_runtime_adapter_ids,
-    resolvedWorkflow?.default_runtime_adapter_id,
+    resolvedWorkflow?.default_runtime_adapter_id
   );
   const preferredRuntimeAdapterId = preferredRunRuntimeAdapterId(
     runnableRuntimeAdapters,
-    resolvedWorkflow?.default_runtime_adapter_id,
+    resolvedWorkflow?.default_runtime_adapter_id
   );
 
   const launchMutation = useMutation({
     mutationFn: async (
-      options?: string | null | { runtimeAdapterId?: string | null; executionHost?: ExecutionHost | null }
+      options?:
+        | string
+        | null
+        | { runtimeAdapterId?: string | null; executionHost?: ExecutionHost | null }
     ) => {
       if (!workflowId) {
         throw new Error('Workflow id is required to start a run.');
       }
 
-      const nextWorkflow = resolvedWorkflow ?? await getWorkflow(workflowId);
-      const nextRuntimeAdapters = resolvedRuntimeAdapters.length > 0
-        ? resolvedRuntimeAdapters
-        : (await listRuntimeAdapters()).items ?? [];
+      const nextWorkflow = resolvedWorkflow ?? (await getWorkflow(workflowId));
+      const nextRuntimeAdapters =
+        resolvedRuntimeAdapters.length > 0
+          ? resolvedRuntimeAdapters
+          : ((await listRuntimeAdapters()).items ?? []);
       const nextRunnableAdapters = resolveRunnableAdapters(
         nextRuntimeAdapters,
         nextWorkflow.allowed_runtime_adapter_ids,
-        nextWorkflow.default_runtime_adapter_id,
+        nextWorkflow.default_runtime_adapter_id
       );
-      const requestedRuntimeAdapterId = options && typeof options === 'object' ? options.runtimeAdapterId : options;
-      const requestedExecutionHost = options && typeof options === 'object' ? options.executionHost : null;
-      const nextRuntimeAdapterId = requestedRuntimeAdapterId
-        || preferredRunRuntimeAdapterId(nextRunnableAdapters, nextWorkflow.default_runtime_adapter_id)
-        || null;
-      const nextExecutionHost = requestedExecutionHost ?? resolveWorkflowExecutionHost(nextWorkflow);
+      const requestedRuntimeAdapterId =
+        options && typeof options === 'object' ? options.runtimeAdapterId : options;
+      const requestedExecutionHost =
+        options && typeof options === 'object' ? options.executionHost : null;
+      const nextRuntimeAdapterId =
+        requestedRuntimeAdapterId ||
+        preferredRunRuntimeAdapterId(
+          nextRunnableAdapters,
+          nextWorkflow.default_runtime_adapter_id
+        ) ||
+        null;
+      const nextExecutionHost =
+        requestedExecutionHost ?? resolveWorkflowExecutionHost(nextWorkflow);
 
       const run = await executeWorkflow(workflowId, nextRuntimeAdapterId, nextExecutionHost);
       const invalidationKeys: Array<readonly unknown[]> = [
@@ -100,7 +120,9 @@ export function useWorkflowRunLauncher<TRun extends WorkflowRunRecord = Workflow
         invalidationKeys.push(...additionalInvalidationKeys(run));
       }
 
-      await Promise.all(invalidationKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey })));
+      await Promise.all(
+        invalidationKeys.map((queryKey) => queryClient.invalidateQueries({ queryKey }))
+      );
 
       if (redirectTo) {
         router.push(redirectTo(run.id));

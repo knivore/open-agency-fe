@@ -1,4 +1,4 @@
-import { RunDetailWorkspace } from '@/components/runs';
+import RunDetailWorkspace from '@/components/runs/components/RunDetailWorkspace';
 
 interface RunDetailPageProps {
   params: Promise<{ id: string }>;

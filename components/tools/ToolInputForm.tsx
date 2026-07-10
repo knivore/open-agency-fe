@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import { Button } from '@/components/library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/library/shadcn/card';
@@ -84,7 +82,7 @@ export default function ToolInputForm({
         </CardHeader>
         <CardContent className="space-y-3">
           <Textarea
-            className="min-h-[220px] font-mono text-xs"
+            className="min-h-55 font-mono text-xs"
             value={jsonPayload}
             onChange={(event) => setJsonPayload(event.target.value)}
             disabled={isPending}
@@ -138,7 +136,7 @@ export default function ToolInputForm({
           <label htmlFor="sandbox-patch" className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">Unified diff</label>
           <Textarea
             id="sandbox-patch"
-            className="min-h-[240px] font-mono text-xs"
+            className="min-h-60 font-mono text-xs"
             value={sandboxForm.patch}
             onChange={(event) => setSandboxForm((current) => ({ ...current, patch: event.target.value }))}
             disabled={isPending}

@@ -10,7 +10,7 @@ They are untrusted until validated and sanitized.
 Expected fields:
 
 - `id`
-- optional `schemaVersion` (`agency.runtime-event.v1` for Agency backend streams)
+- optional `schemaVersion` (`agency.runtime-event.v1` for Open Agency backend streams)
 - `source`
 - `sourceType`
 - `type`

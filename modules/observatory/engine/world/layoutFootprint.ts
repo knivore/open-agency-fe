@@ -1,18 +1,21 @@
-import type { ObservatoryLayoutDocument, ObservatoryMap } from '@/modules/observatory/engine/world/layoutTypes';
+import type {
+  ObservatoryLayoutDocument,
+  ObservatoryMap,
+} from '@/modules/observatory/engine/world/layoutTypes';
 import type { ObservatoryGridRect } from '@/modules/observatory/engine/world/grid';
 
 const footprintPaddingTiles = 2;
 
 export function getObservatoryLayoutFootprint(
   layout: ObservatoryLayoutDocument | null | undefined,
-  mapId?: string | null,
+  mapId?: string | null
 ): ObservatoryGridRect | null {
   if (!layout) {
     return null;
   }
 
   const map = mapId
-    ? layout.world.maps.find((candidate) => candidate.id === mapId) ?? layout.world.maps[0]
+    ? (layout.world.maps.find((candidate) => candidate.id === mapId) ?? layout.world.maps[0])
     : layout.world.maps[0];
 
   if (!map) {

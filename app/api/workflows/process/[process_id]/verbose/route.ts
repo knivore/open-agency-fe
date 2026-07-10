@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { executionsApi } from '@/lib/api/backend';
+import { executionsApi } from '@/lib/api/backend/executions';
 import {
   getAuthenticatedUser,
   getInternalApiKey,

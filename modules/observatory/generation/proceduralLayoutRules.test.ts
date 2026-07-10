@@ -45,7 +45,7 @@ describe('observatory pixel procedural layout rules', () => {
   it('generates one non-blocking door object per non-corridor room', () => {
     expect(generateObservatoryDoorObjects(map())).toMatchObject([
       {
-        assetId: 'floor:office-gray',
+        assetId: 'decor:open-door',
         blocksMovement: false,
         id: 'object:door-runtime-floor-5',
         roomId: 'room:runtime-floor',
@@ -68,10 +68,12 @@ describe('observatory pixel procedural layout rules', () => {
   it('finds a collision-safe placement and reports blocking overlaps', () => {
     const testMap = map();
 
-    expect(findObservatoryCollisionSafePlacement(testMap, { height: 1, width: 2 }, { x: 4, y: 5 })).toEqual({ x: 0, y: 0 });
+    expect(
+      findObservatoryCollisionSafePlacement(testMap, { height: 1, width: 2 }, { x: 4, y: 5 })
+    ).toEqual({ x: 0, y: 0 });
 
     testMap.objects.push({
-      assetId: 'furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower',
+      assetId: 'decor:runtime-server',
       blocksMovement: true,
       id: 'object:overlap',
       position: { x: 4, y: 5 },

@@ -1,9 +1,9 @@
 import type { ObservatoryNormalizedOfficeEvent } from '@/modules/observatory/runtime/events';
 import {
   createInitialObservatoryRuntimeVisualState,
-  reduceObservatoryRuntimeEvents,
   type ObservatoryRuntimeReducerOptions,
   type ObservatoryRuntimeVisualState,
+  reduceObservatoryRuntimeEvents,
 } from '@/modules/observatory/runtime/visualState';
 
 export interface ObservatoryReplayTimelineEvent {
@@ -26,7 +26,7 @@ export interface ObservatoryReplayFrame {
 }
 
 export function createObservatoryReplayTimeline(
-  events: ObservatoryNormalizedOfficeEvent[],
+  events: ObservatoryNormalizedOfficeEvent[]
 ): ObservatoryReplayTimeline {
   const sortedEvents = events
     .map((event, insertionIndex) => ({ event, insertionIndex }))
@@ -50,7 +50,7 @@ export function createObservatoryReplayTimeline(
 export function createObservatoryReplayFrame(
   events: ObservatoryNormalizedOfficeEvent[],
   cursor: number,
-  options: ObservatoryRuntimeReducerOptions = {},
+  options: ObservatoryRuntimeReducerOptions = {}
 ): ObservatoryReplayFrame {
   const timeline = createObservatoryReplayTimeline(events);
   const clampedCursor = clampObservatoryReplayCursor(cursor, timeline.totalEvents);
@@ -61,7 +61,7 @@ export function createObservatoryReplayFrame(
   const state = reduceObservatoryRuntimeEvents(
     createInitialObservatoryRuntimeVisualState(),
     replayEvents,
-    options,
+    options
   );
 
   return {
@@ -77,7 +77,7 @@ export function createObservatoryReplayFrame(
 export function createObservatoryReplayFrameAtTimestamp(
   events: ObservatoryNormalizedOfficeEvent[],
   timestamp: string,
-  options: ObservatoryRuntimeReducerOptions = {},
+  options: ObservatoryRuntimeReducerOptions = {}
 ): ObservatoryReplayFrame {
   const timeline = createObservatoryReplayTimeline(events);
   const timestampMs = Date.parse(timestamp);
@@ -92,7 +92,7 @@ export function createObservatoryReplayFrameAtTimestamp(
   return createObservatoryReplayFrame(
     timeline.events.map((timelineEvent) => timelineEvent.event),
     cursor,
-    options,
+    options
   );
 }
 

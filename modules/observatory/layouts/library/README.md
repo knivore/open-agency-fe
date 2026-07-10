@@ -4,7 +4,7 @@ This directory stores named repo-backed layout snapshots created from the builde
 `Layout management` section.
 
 Each JSON file is a valid `ObservatoryLayoutDocument` draft snapshot. The active runtime
-deployment target remains [publishedLayout.json](/Users/kehchinleong/Documents/Personal/Agency/agency-fe/modules/observatory/layouts/publishedLayout.json).
+deployment target remains [publishedLayout.json](/modules/observatory/layouts/publishedLayout.json).
 
 Recommended flow:
 

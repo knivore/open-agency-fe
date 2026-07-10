@@ -1,31 +1,43 @@
+import type { Agent } from '@/types/agents';
 import type {
-  Agent,
   ApprovalRequest,
   Conversation,
   ConversationMessage,
-  CrudListResponse,
+  MainAgent,
+} from '@/types/conversations';
+import type { CrudListResponse } from '@/types/api';
+import type {
+  ExecutionApprovalRequest,
+  ExecutionContextUsageResponse,
   ExecutionArtifact,
   ExecutionEventRecord,
   ExecutionTimelineResponse,
+  ExecutionUsageResponse,
   RuntimeAdapterDefinition,
   RunLogEntry,
   RunSessionDetail,
   RunSessionSummary,
-  WorkflowDefinition,
-  MainAgent,
-} from '@/lib/api/backend/types';
+} from '@/types/runtime';
+import type { WorkflowDefinition } from '@/types/workflows';
 import type { ExecutionHost } from '@/types/workflows';
 
 export interface RunsModuleApi {
   runSessions: {
     listRunSessions(): Promise<RunSessionSummary[]>;
     getRunSession(runId: string): Promise<RunSessionDetail>;
+    listRunApprovals(runId: string): Promise<CrudListResponse<ExecutionApprovalRequest>>;
+    getRunUsage(runId: string): Promise<ExecutionUsageResponse>;
+    getRunContextUsage(runId: string): Promise<ExecutionContextUsageResponse>;
     listRunArtifacts(runId: string): Promise<CrudListResponse<ExecutionArtifact>>;
     getRunLogs(runId: string, tailLines?: number): Promise<RunLogEntry>;
   };
   logs: {
     getRunTimeline(runId: string): Promise<ExecutionTimelineResponse>;
-    listRunEvents(runId: string, afterSequence?: number): Promise<CrudListResponse<ExecutionEventRecord>>;
+    listRunEvents(
+      runId: string,
+      afterSequence?: number,
+      eventTypes?: string[]
+    ): Promise<CrudListResponse<ExecutionEventRecord>>;
   };
   conversations: {
     getMainAgent(): Promise<MainAgent>;
@@ -34,8 +46,18 @@ export interface RunsModuleApi {
       messages: ConversationMessage[];
       approvals: ApprovalRequest[];
     }>;
-    approveApprovalRequest(approvalRequestId: string, payload: { user_id: string; reason?: string | null }): Promise<unknown>;
-    rejectApprovalRequest(approvalRequestId: string, payload: { user_id: string; reason?: string | null }): Promise<unknown>;
+    approveApprovalRequest(
+      approvalRequestId: string,
+      payload: {
+        user_id: string;
+        reason?: string | null;
+        steering_parameters?: Record<string, unknown> | null;
+      }
+    ): Promise<unknown>;
+    rejectApprovalRequest(
+      approvalRequestId: string,
+      payload: { user_id: string; reason?: string | null }
+    ): Promise<unknown>;
   };
   runs: {
     executeWorkflow(
@@ -46,6 +68,8 @@ export interface RunsModuleApi {
     pauseRun(runId: string): Promise<unknown>;
     resumeRun(runId: string): Promise<unknown>;
     cancelRun(runId: string): Promise<unknown>;
+    approveRun(runId: string, toolId: string, reason?: string): Promise<unknown>;
+    rejectRun(runId: string, toolId: string, reason?: string): Promise<unknown>;
   };
   runtimeAdapters: {
     listRuntimeAdapters(): Promise<{ items: RuntimeAdapterDefinition[] }>;
@@ -70,6 +94,10 @@ export interface RunsModuleQueryKeys {
   runSession(runId: string): readonly unknown[];
   runTimeline(runId: string): readonly unknown[];
   runEvents(runId: string): readonly unknown[];
+  runGovernanceEvents(runId: string): readonly unknown[];
+  runApprovals(runId: string): readonly unknown[];
+  runUsage(runId: string): readonly unknown[];
+  runContextUsage(runId: string): readonly unknown[];
   runArtifacts(runId: string): readonly unknown[];
   runLogs(runId: string): readonly unknown[];
   runConversation(runId: string): readonly unknown[];

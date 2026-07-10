@@ -1,38 +1,89 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
+import { usePathname, useRouter } from 'next/navigation';
 import {
+  Activity,
+  Bot,
+  BotMessageSquare,
+  BrainCircuit,
+  BrainCog,
+  ChartNetwork,
+  CircleHelp,
+  CircleUserRound,
   Menu,
+  MessagesSquare,
+  Moon,
   PanelLeftClose,
   PanelLeftOpen,
-  Wrench,
-  Workflow,
-  Bot,
-  Activity,
-  SlidersHorizontal,
-  Cpu,
   Plug,
-  MessageSquareText,
+  Radar,
+  Router,
+  SlidersHorizontal,
+  Stethoscope,
+  Sun,
+  TabletSmartphone,
+  UserRoundCog,
+  Workflow,
 } from 'lucide-react';
-import { IconType } from 'react-icons';
-import BackendHealthIndicator from './BackendHealthIndicator';
+import type { IconType } from 'react-icons';
+import { useQuery } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
+
+import { useAgencyTheme } from '@/app/providers';
+import {
+  AssistantPageContextProvider,
+  useAssistantPageContextMetadata,
+} from '@/components/assistant/AssistantPageContext';
 import ConversationWorkspace from '@/components/conversations/ConversationWorkspace';
+import { Badge } from '@/components/library/shadcn/badge';
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogTitle,
 } from '@/components/library/shadcn/dialog';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/library/shadcn/tooltip';
+import UserAvatar from '@/components/navbar/UserAvatar';
+import { conversationsApi } from '@/lib/api/backend/conversations';
+import { physicalDevicesApi } from '@/lib/api/backend/physicalDevices';
+import { smartHomeApi } from '@/lib/api/backend/smartHome';
+import { useAgencyUserPreferences } from '@/lib/userPreferences';
+import { queryKeys } from '@/lib/react-query/queryKeys';
+import { cn } from '@/lib/utils';
+
+import BackendHealthIndicator from './BackendHealthIndicator';
 
 interface NavItem {
   name: string;
   path: string;
   icon: React.ComponentType<{ className?: string }> | IconType;
   description: string;
+  tone:
+    | 'agent'
+    | 'assistant'
+    | 'graph'
+    | 'help'
+    | 'integration'
+    | 'memory'
+    | 'model'
+    | 'monitor'
+    | 'persona'
+    | 'profile'
+    | 'run'
+    | 'workflow';
   badge?: string;
+  requiresDiagnosticsOptIn?: boolean;
+  requiresPhysicalDevices?: boolean;
+  requiresSmartHome?: boolean;
+  requiresDeviceOperations?: boolean;
 }
 
 interface NavSection {
@@ -49,154 +100,349 @@ const navSections: NavSection[] = [
         path: '/workflows',
         icon: Workflow,
         description: 'Canonical workflows and execution',
+        tone: 'workflow',
       },
       {
         name: 'Agents',
         path: '/agents',
         icon: Bot,
-        description: 'Canonical Agent definitions',
+        description: 'Canonical agent definitions',
+        tone: 'agent',
+      },
+      {
+        name: 'Persona',
+        path: '/persona',
+        icon: UserRoundCog,
+        description: 'Distill reusable identity and expertise',
+        tone: 'persona',
       },
       {
         name: 'Runs',
         path: '/runs',
         icon: Activity,
         description: 'Live runs and execution history',
+        tone: 'run',
       },
       {
-        name: 'Runtime',
-        path: '/runtime',
-        icon: Cpu,
-        description: 'Runtime adapters',
-      },
-      {
-        name: 'LLM Models',
-        path: '/behavior-profiles',
-        icon: SlidersHorizontal,
+        name: 'Models',
+        path: '/models',
+        icon: BrainCog,
         description: 'LLM connections and profiles',
+        tone: 'model',
       },
       {
         name: 'Integrations',
         path: '/integrations',
         icon: Plug,
-        description: 'MCP servers, Tools, and Adapter',
+        description: 'Connect models, MCP servers, and services',
+        tone: 'integration',
       },
       {
         name: 'Assistant',
         path: '/assistant',
-        icon: MessageSquareText,
-        description: 'Main-agent chat and approvals',
+        icon: MessagesSquare,
+        description: 'Ask the Main Agent for help and approvals',
+        tone: 'assistant',
       },
       {
-        name: 'Observatory Builder',
-        path: '/observatory/builder',
-        icon: Wrench,
-        description: 'Edit and publish pixel layouts',
-        badge: 'Dev',
+        name: 'Agency Graph',
+        path: '/memory-graph',
+        icon: ChartNetwork,
+        description: 'Operations and knowledge graph',
+        tone: 'graph',
+      },
+    ],
+  },
+  {
+    title: 'Account',
+    items: [
+      {
+        name: 'Profile',
+        path: '/profile',
+        icon: CircleUserRound,
+        description: 'Identity, session, and API tokens',
+        tone: 'profile',
+      },
+      {
+        name: 'FAQ',
+        path: '/help/faq',
+        icon: CircleHelp,
+        description: 'Essential answers for using this install',
+        tone: 'help',
+      },
+    ],
+  },
+  {
+    title: 'Setup',
+    items: [
+      {
+        name: 'Smart Home',
+        path: '/integrations/smart-home',
+        icon: Plug,
+        description: 'Connect and verify home devices',
+        tone: 'integration',
+        requiresSmartHome: true,
+      },
+      {
+        name: 'Physical Devices',
+        path: '/operations/physical-devices',
+        icon: Router,
+        description: 'Enable audited device operations',
+        tone: 'monitor',
+        requiresPhysicalDevices: true,
+      },
+    ],
+  },
+  {
+    title: 'Advanced',
+    items: [
+      {
+        name: 'Memory Ops',
+        path: '/operations/memory',
+        icon: BrainCircuit,
+        description: 'Memory inspection and controls',
+        tone: 'memory',
+      },
+      {
+        name: 'Monitor',
+        path: '/operations/main-agent-monitor',
+        icon: Radar,
+        description: 'Main-agent workflow supervision',
+        tone: 'monitor',
+      },
+      {
+        name: 'Diagnostics',
+        path: '/operations/diagnostics',
+        icon: Stethoscope,
+        description: 'System health and observability',
+        tone: 'run',
+        requiresDiagnosticsOptIn: true,
+      },
+      {
+        name: 'Devices',
+        path: '/operations/devices',
+        icon: TabletSmartphone,
+        description: 'Smart Home and physical device operations',
+        tone: 'integration',
+        requiresDeviceOperations: true,
       },
     ],
   },
 ];
 
-function Logo() {
+function isNavItemActive(pathname: string, path: string) {
+  return pathname === path || pathname.startsWith(`${path}/`);
+}
+
+function useVisibleNavSections() {
+  const {
+    preferences: { showDiagnostics },
+  } = useAgencyUserPreferences();
+  const physicalDevicesAvailabilityQuery = useQuery({
+    queryKey: queryKeys.backendPhysicalDevicesAvailability(),
+    queryFn: () => physicalDevicesApi.getAvailability(),
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const smartHomeAvailabilityQuery = useQuery({
+    queryKey: queryKeys.backendSmartHomeAvailability(),
+    queryFn: () => smartHomeApi.getAvailability(),
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const physicalDevicesAvailable = physicalDevicesAvailabilityQuery.data?.available === true;
+  const smartHomeAvailable = smartHomeAvailabilityQuery.data?.available === true;
+  const deviceOperationsAvailable = physicalDevicesAvailable || smartHomeAvailable;
+
+  return useMemo(
+    () =>
+      navSections
+        .map((section) => ({
+          ...section,
+          items: section.items.filter(
+            (item) =>
+              (!item.requiresDiagnosticsOptIn || showDiagnostics) &&
+              (!item.requiresPhysicalDevices || physicalDevicesAvailable) &&
+              (!item.requiresSmartHome || smartHomeAvailable) &&
+              (!item.requiresDeviceOperations || deviceOperationsAvailable)
+          ),
+        }))
+        .filter((section) => section.items.length > 0),
+    [deviceOperationsAvailable, physicalDevicesAvailable, showDiagnostics, smartHomeAvailable]
+  );
+}
+
+function Logo({ compact = false }: { compact?: boolean }) {
   return (
-    <Link href="/" className="flex items-center gap-3 hover:opacity-90">
-      <Image
-        src="/images/agency.svg"
-        alt="Agency Logo"
-        width={36}
-        height={36}
-        className="h-9 w-9"
-        priority
-      />
-      <div>
-        <p className="agency-gradient-text text-lg font-semibold tracking-tight">Agency</p>
-      </div>
+    <Link
+      href="/"
+      className="flex items-center gap-3 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <Image src="/images/open-agency.svg" alt="Open Agency" width={32} height={32} priority />
+      {compact ? null : (
+        <span className="text-[1.05rem] font-semibold tracking-[-0.025em] text-(--agency-shell-text)">
+          Open Agency
+        </span>
+      )}
     </Link>
   );
 }
 
-function NavigationItem({ item, onClick }: { item: NavItem; onClick?: () => void }) {
+function NavigationItem({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
   const pathname = usePathname();
-  const router = useRouter();
   const Icon = item.icon;
-  const isActive = useMemo(() => pathname === item.path, [pathname, item.path]);
+  const isActive = isNavItemActive(pathname, item.path);
 
   return (
-    <button
-      type="button"
-      onClick={() => {
-        router.push(item.path);
-        onClick?.();
-      }}
-      className={`group relative w-full overflow-hidden rounded-lg border px-3 py-3 text-left transition ${
-        isActive
-          ? 'border-primary-200 bg-white text-primary-950 shadow-sm shadow-primary/10'
-          : 'border-transparent bg-transparent text-neutral-700 hover:border-primary-100 hover:bg-white/80 hover:text-neutral-950'
-      }`}
-    >
-      {isActive ? (
-        <span className="agency-gradient absolute inset-y-2 left-0 w-1 rounded-r-full" />
-      ) : null}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div
-            className={`flex h-9 w-9 items-center justify-center rounded-lg transition ${
-              isActive
-                ? 'agency-gradient text-white shadow-sm shadow-primary/20'
-                : 'bg-primary-50 text-primary-800 group-hover:bg-primary-100'
-            }`}
+    <TooltipProvider delayDuration={500}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link
+            href={item.path}
+            onClick={onNavigate}
+            aria-current={isActive ? 'page' : undefined}
+            data-tone={item.tone}
+            className={cn(
+              'agency-nav-item group relative flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-(--agency-shell-muted) outline-none transition-colors',
+              'hover:bg-(--agency-row-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring',
+              isActive && 'bg-(--agency-active-bg) text-(--agency-shell-text)'
+            )}
           >
-            <Icon className="h-4 w-4" />
-          </div>
-          <div>
-            <p className="text-sm font-semibold">{item.name}</p>
-            <p className="text-xs text-neutral-500">{item.description}</p>
-          </div>
-        </div>
-        {item.badge ? (
-          <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
-            {item.badge}
-          </span>
-        ) : null}
-      </div>
-    </button>
+            {isActive ? (
+              <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-(--agency-nav-tone)" />
+            ) : null}
+            <span className="agency-nav-icon flex size-7 shrink-0 items-center justify-center rounded-md">
+              <Icon className="size-[1.05rem] stroke-[1.75]" />
+            </span>
+            <span className="min-w-0 flex-1 truncate">{item.name}</span>
+            {item.badge ? <Badge variant="outline">{item.badge}</Badge> : null}
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right">{item.description}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 
 function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+  const visibleNavSections = useVisibleNavSections();
+
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border px-5 py-5">
+      <div className="flex h-[72px] shrink-0 items-center border-b border-(--agency-shell-border) px-5">
         <Logo />
       </div>
-
-      <div className="flex-1 space-y-6 overflow-y-auto px-4 py-5">
-        {navSections.map((section) => (
-          <div key={section.title}>
-            <p className="px-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500">
+      <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-5" aria-label="Primary">
+        {visibleNavSections.map((section) => (
+          <section key={section.title} className="flex flex-col gap-1">
+            <h2 className="px-3 pb-1.5 text-[0.67rem] font-semibold uppercase tracking-[0.14em] text-(--agency-shell-muted)">
               {section.title}
-            </p>
-            <div className="mt-3 space-y-2">
-              {section.items.map((item) => (
-                <NavigationItem key={item.path} item={item} onClick={onNavigate} />
-              ))}
-            </div>
-          </div>
+            </h2>
+            {section.items.map((item) => (
+              <NavigationItem key={item.path} item={item} onNavigate={onNavigate} />
+            ))}
+          </section>
         ))}
+      </nav>
+      <div className="shrink-0 border-t border-(--agency-shell-border) p-3">
+        <TooltipProvider delayDuration={250}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/observatory/builder"
+                onClick={onNavigate}
+                data-tone="graph"
+                className="agency-nav-item group flex items-center gap-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-control-bg) px-2.5 py-2.5 text-sm font-medium text-(--agency-shell-text) outline-none transition-colors hover:bg-(--agency-control-bg-hover) focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="agency-nav-icon flex size-7 shrink-0 items-center justify-center rounded-md">
+                  <SlidersHorizontal className="size-[1.05rem] stroke-[1.75]" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block truncate">Customize Observatory</span>
+                  <span className="block truncate text-[0.68rem] font-normal text-(--agency-shell-muted)">
+                    Design the live run view
+                  </span>
+                </span>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Build your own Observatory layout</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
     </div>
   );
 }
 
-function AssistantLauncher({ compact = false, onOpen }: { compact?: boolean; onOpen: () => void }) {
+function IconButton({
+  children,
+  label,
+  onClick,
+  className,
+}: {
+  children: React.ReactNode;
+  label: string;
+  onClick: () => void;
+  className?: string;
+}) {
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={onClick}
+            aria-label={label}
+            className={cn(
+              'inline-flex size-9 items-center justify-center rounded-lg border border-(--agency-control-border) bg-(--agency-control-bg) text-(--agency-shell-muted) shadow-(--agency-outline-shadow) outline-none transition-colors',
+              'hover:bg-(--agency-control-bg-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring',
+              className
+            )}
+          >
+            {children}
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{label}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+function ThemeToggleButton() {
+  const { theme, toggleTheme } = useAgencyTheme();
+  const isDark = theme === 'dark';
+  const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+
+  return (
+    <button
+      type="button"
+      onClick={toggleTheme}
+      aria-label={label}
+      title={label}
+      className="group inline-flex h-9 items-center rounded-full border border-(--agency-control-border) bg-(--agency-control-bg) p-0.5 shadow-(--agency-outline-shadow) outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <span
+        className={cn(
+          'inline-flex size-7 items-center justify-center rounded-full transition-colors',
+          !isDark && 'bg-background text-primary shadow-sm'
+        )}
+      >
+        <Sun className="size-4 stroke-[1.75]" />
+      </span>
+      <span
+        className={cn(
+          'inline-flex size-7 items-center justify-center rounded-full transition-colors',
+          isDark && 'bg-accent text-foreground shadow-sm'
+        )}
+      >
+        <Moon className="size-4 stroke-[1.75]" />
+      </span>
+    </button>
+  );
+}
+
+function AssistantLauncher({ label, onOpen }: { label: string; onOpen: () => void }) {
   const pathname = usePathname();
-  const isAssistantRoute = pathname === '/assistant';
-
-  if (isAssistantRoute) {
-    return null;
-  }
-
-  if (compact) {
+  if (pathname === '/assistant') {
     return null;
   }
 
@@ -204,140 +450,188 @@ function AssistantLauncher({ compact = false, onOpen }: { compact?: boolean; onO
     <button
       type="button"
       onClick={onOpen}
-      className="fixed bottom-6 right-6 z-20 inline-flex items-center gap-3 rounded-lg border border-primary-200 bg-white px-4 py-3 text-sm font-semibold text-neutral-900 shadow-lg shadow-primary/15 transition hover:-translate-y-0.5 hover:border-primary-300 hover:bg-primary-50"
+      aria-label={`Open ${label}`}
+      title={`Open ${label}`}
+      className="group fixed bottom-5 right-5 z-20 inline-flex size-14 items-center justify-center rounded-full bg-background p-[2px] shadow-[0_10px_30px_rgba(15,23,42,0.18)] outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring sm:bottom-7 sm:right-7"
     >
-      <span className="agency-gradient flex h-10 w-10 items-center justify-center rounded-lg text-white shadow-sm shadow-primary/20">
-        <MessageSquareText className="h-5 w-5" />
+      <span className="agency-gradient flex size-full items-center justify-center rounded-full text-white">
+        <BotMessageSquare className="size-5 stroke-[1.75] transition-transform group-hover:scale-105" />
       </span>
-      <span className="hidden sm:inline">Ask the assistant</span>
     </button>
   );
 }
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
+  const pathname = usePathname();
+  const visibleNavSections = useVisibleNavSections();
+
+  return (
+    <div className="flex h-full flex-col items-center">
+      <div className="flex h-[72px] w-full items-center justify-center border-b border-(--agency-shell-border)">
+        <Logo compact />
+      </div>
+      <div className="flex w-full justify-center py-3">
+        <IconButton label="Expand sidebar" onClick={onExpand}>
+          <PanelLeftOpen className="size-4" />
+        </IconButton>
+      </div>
+      <nav className="flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto px-2 pb-4">
+        {visibleNavSections
+          .flatMap((section) => section.items)
+          .map((item) => {
+            const Icon = item.icon;
+            const isActive = isNavItemActive(pathname, item.path);
+            return (
+              <TooltipProvider key={item.path} delayDuration={150}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={item.path}
+                      aria-current={isActive ? 'page' : undefined}
+                      data-tone={item.tone}
+                      className={cn(
+                        'agency-nav-item flex size-10 items-center justify-center rounded-lg text-(--agency-shell-muted) outline-none transition-colors hover:bg-(--agency-row-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring',
+                        isActive && 'bg-(--agency-active-bg) text-primary'
+                      )}
+                    >
+                      <Icon className="size-[1.1rem] stroke-[1.75]" />
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{item.name}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            );
+          })}
+      </nav>
+      <div className="border-t border-(--agency-shell-border) py-3">
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                href="/observatory/builder"
+                data-tone="graph"
+                aria-label="Customize Observatory"
+                className="agency-nav-item flex size-10 items-center justify-center rounded-lg text-(--agency-shell-muted) outline-none transition-colors hover:bg-(--agency-row-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <SlidersHorizontal className="size-[1.1rem] stroke-[1.75]" />
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Customize Observatory</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+    </div>
+  );
+}
+
+function AppShellChrome({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const getAssistantContextMetadata = useAssistantPageContextMetadata();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const { data: session } = useSession();
+  const user = session?.user;
   const assistantDialogOpen = assistantOpen && pathname !== '/assistant';
+  const mainAgentQuery = useQuery({
+    queryKey: queryKeys.backendMainAgent(),
+    queryFn: () => conversationsApi.getMainAgent(),
+    staleTime: 60 * 1000,
+    retry: 1,
+  });
+  const assistantLabel = mainAgentQuery.data?.name?.trim() || 'Main Agent';
 
   return (
-    <div className="h-screen overflow-hidden agency-gradient-soft">
+    <div className="h-dvh overflow-hidden bg-(--agency-shell-bg) text-(--agency-shell-text)">
       {mobileOpen ? (
         <div className="fixed inset-0 z-50 lg:hidden">
-          <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-sm"
+          <button
+            type="button"
+            className="absolute inset-0 size-full bg-slate-950/45 backdrop-blur-sm"
+            aria-label="Close navigation menu"
             onClick={() => setMobileOpen(false)}
           />
-          <div className="absolute left-0 top-0 h-full w-[88%] max-w-sm overflow-y-auto border-r border-primary-100 bg-white/95 shadow-xl">
+          <aside className="absolute inset-y-0 left-0 w-[min(88vw,18rem)] border-r border-(--agency-shell-border) bg-(--agency-sidebar-bg) shadow-2xl backdrop-blur-xl">
             <SidebarContent onNavigate={() => setMobileOpen(false)} />
-          </div>
+          </aside>
         </div>
       ) : null}
 
       <div className="flex h-full">
         <aside
-          className={`hidden h-full overflow-y-auto border-r border-primary-100 bg-white/85 backdrop-blur transition-all lg:block ${
-            desktopCollapsed ? 'w-[96px]' : 'w-[320px]'
-          }`}
+          className={cn(
+            'relative hidden h-full shrink-0 border-r border-(--agency-shell-border) bg-(--agency-sidebar-bg) backdrop-blur-xl transition-[width] duration-200 lg:block',
+            desktopCollapsed ? 'w-[72px]' : 'w-[272px]'
+          )}
         >
           {desktopCollapsed ? (
-            <div className="flex h-full flex-col items-center gap-4 px-3 py-5">
-              <button
-                type="button"
-                onClick={() => setDesktopCollapsed(false)}
-                className="rounded-lg border border-primary-100 bg-white p-2 text-neutral-600 shadow-sm shadow-primary/5 hover:border-primary-300 hover:text-primary-900"
-              >
-                <PanelLeftOpen className="h-4 w-4" />
-              </button>
-              <Link
-                href="/"
-                className="rounded-lg border border-primary-100 bg-white p-3 shadow-sm shadow-primary/5"
-              >
-                <Image
-                  src="/images/agency.svg"
-                  alt="Agency Logo"
-                  width={36}
-                  height={36}
-                  className="h-9 w-9"
-                />
-              </Link>
-              <div className="mt-2 space-y-3">
-                {navSections
-                  .flatMap((section) => section.items)
-                  .map((item) => {
-                    const Icon = item.icon;
-                    const isActive = pathname === item.path;
-
-                    return (
-                      <Link
-                        key={item.path}
-                        href={item.path}
-                        className={`flex h-11 w-11 items-center justify-center rounded-lg border ${
-                          isActive
-                            ? 'border-primary-200 bg-primary-50 text-primary-900 shadow-sm shadow-primary/10'
-                            : 'border-transparent bg-white text-neutral-600 hover:border-primary-200 hover:text-primary-900'
-                        }`}
-                        title={item.name}
-                      >
-                        <Icon className="h-4 w-4" />
-                      </Link>
-                    );
-                  })}
-              </div>
-            </div>
+            <CollapsedSidebar onExpand={() => setDesktopCollapsed(false)} />
           ) : (
-            <div className="relative h-full">
-              <button
-                type="button"
-                onClick={() => setDesktopCollapsed(true)}
-                className="absolute right-4 top-4 z-10 rounded-lg border border-primary-100 bg-white p-2 text-neutral-600 shadow-sm shadow-primary/5 hover:border-primary-300 hover:text-primary-900"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
+            <>
               <SidebarContent />
-            </div>
+              <IconButton
+                label="Collapse sidebar"
+                onClick={() => setDesktopCollapsed(true)}
+                className="absolute right-4 top-[18px]"
+              >
+                <PanelLeftClose className="size-4" />
+              </IconButton>
+            </>
           )}
         </aside>
 
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="sticky top-0 z-30 border-b border-primary-100 bg-white/85 backdrop-blur">
-            <div className="flex items-center justify-between gap-4 px-4 py-4 sm:px-6">
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  className="rounded-lg border border-primary-100 bg-white p-2 text-neutral-600 lg:hidden"
-                  onClick={() => setMobileOpen(true)}
-                >
-                  <Menu className="h-5 w-5" />
-                </button>
+        <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+          <header className="z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-(--agency-shell-border) bg-(--agency-shell-panel) px-4 backdrop-blur-xl sm:px-6">
+            <div className="flex items-center gap-3">
+              <div className="lg:hidden">
+                <IconButton label="Open navigation menu" onClick={() => setMobileOpen(true)}>
+                  <Menu className="size-4" />
+                </IconButton>
               </div>
+              <div className="lg:hidden">
+                <Logo />
+              </div>
+            </div>
 
-              <div className="flex items-center gap-3">
-                <AssistantLauncher compact onOpen={() => setAssistantOpen(true)} />
-                <BackendHealthIndicator compact />
+            <div className="flex items-center gap-2 sm:gap-3">
+              <ThemeToggleButton />
+              <div className="hidden sm:block">
+                <BackendHealthIndicator compact showRefresh={false} />
+              </div>
+              <div className="hidden h-7 w-px bg-(--agency-shell-border) sm:block" />
+              <div className="hidden items-center gap-2 sm:flex">
+                <div className="max-w-36 text-right">
+                  <p className="truncate text-sm font-medium text-(--agency-shell-text)">
+                    {user?.name || 'Developer'}
+                  </p>
+                </div>
+                <UserAvatar />
+              </div>
+              <div className="sm:hidden">
+                <UserAvatar />
               </div>
             </div>
           </header>
 
-          <main className="min-h-0 min-w-0 flex-1 overflow-y-auto bg-transparent">
-            <div className="mx-auto w-full max-w-[1600px] px-4 py-6 sm:px-6">{children}</div>
+          <main className="agency-workspace-background min-h-0 min-w-0 flex-1 overflow-y-auto bg-(--agency-shell-bg)">
+            <div className="mx-auto w-full max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 sm:pb-10 sm:pt-8 xl:px-9">
+              {children}
+            </div>
           </main>
         </div>
       </div>
-      <AssistantLauncher onOpen={() => setAssistantOpen(true)} />
+
+      <AssistantLauncher label={assistantLabel} onOpen={() => setAssistantOpen(true)} />
       <Dialog open={assistantDialogOpen} onOpenChange={setAssistantOpen}>
-        <DialogContent
-          className="flex h-[min(85vh,760px)] max-w-5xl flex-col overflow-hidden border border-primary-100 bg-white p-0 shadow-xl shadow-primary/10"
-          hideCloseButton={false}
-        >
-          <DialogTitle className="sr-only">Ask the assistant</DialogTitle>
+        <DialogContent className="flex h-[min(85dvh,760px)] max-w-5xl flex-col overflow-hidden border-(--agency-shell-border) bg-(--agency-shell-panel-strong) p-0 text-(--agency-shell-text) shadow-2xl">
+          <DialogTitle className="sr-only">Ask {assistantLabel}</DialogTitle>
           <DialogDescription className="sr-only">
             Popup assistant conversation window.
           </DialogDescription>
           <ConversationWorkspace
             mode="popup"
+            contextMetadata={getAssistantContextMetadata}
             onOpenFullPage={() => {
               setAssistantOpen(false);
               router.push('/assistant');
@@ -346,5 +640,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function AppShell({ children }: { children: React.ReactNode }) {
+  return (
+    <AssistantPageContextProvider>
+      <AppShellChrome>{children}</AppShellChrome>
+    </AssistantPageContextProvider>
   );
 }

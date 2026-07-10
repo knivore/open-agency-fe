@@ -5,15 +5,15 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25 focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
         default:
-          'agency-gradient text-white shadow-sm shadow-primary/25 hover:brightness-105 hover:shadow-md hover:shadow-primary/25',
+          'agency-gradient text-white shadow-sm hover:-translate-y-px hover:brightness-105 hover:shadow-md',
         destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
         outline:
-          'border border-primary-200 bg-white text-foreground shadow-sm shadow-primary/5 hover:border-primary-400 hover:bg-primary-50',
+          'border border-(--agency-control-border) bg-(--agency-control-bg) text-(--agency-control-text) shadow-(--agency-outline-shadow) hover:bg-(--agency-control-bg-hover)',
         secondary:
           'bg-secondary text-secondary-foreground shadow-sm shadow-secondary/15 hover:bg-secondary-800',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
@@ -21,9 +21,9 @@ const buttonVariants = cva(
       },
       size: {
         default: 'h-10 px-4 py-2',
-        sm: 'h-9 rounded-md px-3',
-        lg: 'h-11 rounded-md px-8',
-        icon: 'h-10 w-10',
+        sm: 'h-9 px-3',
+        lg: 'h-11 px-6',
+        icon: 'size-10',
       },
     },
     defaultVariants: {
@@ -39,10 +39,20 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ...props }, ref) => {
+  ({ className, variant, size, asChild = false, title, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
+    const inferredTitle =
+      title ??
+      (size === 'icon' && typeof props['aria-label'] === 'string'
+        ? props['aria-label']
+        : undefined);
     return (
-      <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props} />
+      <Comp
+        className={cn(buttonVariants({ variant, size, className }))}
+        ref={ref}
+        title={inferredTitle}
+        {...props}
+      />
     );
   }
 );

@@ -9,7 +9,7 @@ export function cn(...inputs: ClassValue[]) {
 // https://docs.crewai.com/quickstart#build-your-first-crewai-agent
 export function extractInterpolationVariables(texts: string[]): string[] {
   const matches = texts.map(
-    (text) => text.match(/\{([^}]+)\}/g)?.map((match) => match.slice(1, -1)) || [],
+    (text) => text.match(/\{([^}]+)\}/g)?.map((match) => match.slice(1, -1)) || []
   );
 
   // Use Set to remove duplicates and convert back to array

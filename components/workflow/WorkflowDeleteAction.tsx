@@ -1,9 +1,10 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { workflowsApi } from '@/lib/api/backend';
+import { workflowsApi } from '@/lib/api/backend/workflows';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import {
   AlertDialog,
@@ -25,6 +26,9 @@ interface WorkflowDeleteActionProps {
   variant?: 'outline' | 'destructive';
   size?: 'default' | 'sm';
   label?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  trigger?: ReactNode | null;
 }
 
 export default function WorkflowDeleteAction({
@@ -34,6 +38,9 @@ export default function WorkflowDeleteAction({
   variant = 'outline',
   size = 'sm',
   label = 'Delete',
+  open,
+  onOpenChange,
+  trigger,
 }: WorkflowDeleteActionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -62,18 +69,22 @@ export default function WorkflowDeleteAction({
   };
 
   return (
-    <AlertDialog>
-      <AlertDialogTrigger asChild>
-        <Button type="button" variant={variant} size={size}>
-          {label}
-        </Button>
-      </AlertDialogTrigger>
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      {trigger !== null ? (
+        <AlertDialogTrigger asChild>
+          {trigger ?? (
+            <Button type="button" variant={variant} size={size}>
+              {label}
+            </Button>
+          )}
+        </AlertDialogTrigger>
+      ) : null}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Delete workflow</AlertDialogTitle>
           <AlertDialogDescription>
-            This will remove <span className="font-medium text-foreground">{workflowName}</span> from the canonical
-            workflow catalog.
+            This will remove <span className="font-medium text-foreground">{workflowName}</span>{' '}
+            from the canonical workflow catalog.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

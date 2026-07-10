@@ -1,4 +1,5 @@
-import type { MainAgent, RunSessionSummary } from '@/types';
+import type { MainAgent } from '@/types/conversations';
+import type { RunSessionSummary } from '@/types/runtime';
 
 export const MAIN_AGENT_SYNTHETIC_RUN_ID = 'main-agent-presence';
 
@@ -36,15 +37,15 @@ export function buildSyntheticMainAgentRun(params: {
   now?: number;
 }): RunSessionSummary {
   const { mainAgent, workflowName, hasActiveWorkflowRun, now = Date.now() } = params;
-  const hasRecentChatActivity = isRecentActivity(mainAgent.updated_at ?? mainAgent.created_at ?? null, now);
+  const hasRecentChatActivity = isRecentActivity(
+    mainAgent.updated_at ?? mainAgent.created_at ?? null,
+    now
+  );
   const isWorking = hasActiveWorkflowRun || hasRecentChatActivity;
   const recentLabel = toRecentLabel(mainAgent.updated_at ?? mainAgent.created_at ?? null);
   const mainAgentName = mainAgent.name?.trim() || 'Main Agent';
   const workflowLabel = workflowName?.trim() || mainAgentName;
-  const agentStatus =
-    hasActiveWorkflowRun ? 'running'
-      : hasRecentChatActivity ? 'seen'
-      : 'idle';
+  const agentStatus = hasActiveWorkflowRun ? 'running' : hasRecentChatActivity ? 'seen' : 'idle';
 
   return {
     id: MAIN_AGENT_SYNTHETIC_RUN_ID,
@@ -61,17 +62,20 @@ export function buildSyntheticMainAgentRun(params: {
       office_href: '/assistant',
       office_presence: 'synthetic',
       office_presence_kind: isWorking ? 'main_agent' : 'ambient_agent',
-      office_state_label:
-        hasActiveWorkflowRun ? 'Leading workflow execution'
-          : hasRecentChatActivity ? 'Handling assistant chat'
+      office_state_label: hasActiveWorkflowRun
+        ? 'Leading workflow execution'
+        : hasRecentChatActivity
+          ? 'Handling assistant chat'
           : 'Moving through office',
-      office_runtime_label:
-        hasActiveWorkflowRun ? 'Executive room · workflow lead'
-          : hasRecentChatActivity ? 'Executive room · active conversation'
+      office_runtime_label: hasActiveWorkflowRun
+        ? 'Executive room · workflow lead'
+        : hasRecentChatActivity
+          ? 'Executive room · active conversation'
           : 'Agent presence · roaming',
-      office_activity:
-        hasActiveWorkflowRun ? 'typing'
-          : hasRecentChatActivity ? 'reading'
+      office_activity: hasActiveWorkflowRun
+        ? 'typing'
+        : hasRecentChatActivity
+          ? 'reading'
           : 'walking',
       office_motion_phase: isWorking ? 0 : Math.abs(Math.floor(now / 15000)) % 6,
       office_worker_count: 1,
@@ -80,29 +84,33 @@ export function buildSyntheticMainAgentRun(params: {
       office_active_agent_names: isWorking ? [mainAgentName] : [],
       office_task_names: [],
       office_focus_task_names: [],
-      office_agent_entities: [{
-        recentActivity: [],
-        name: mainAgentName,
-        agentId: mainAgent.agent_id ?? null,
-        status: agentStatus,
-        lastEventLabel: hasActiveWorkflowRun
-          ? 'workflow.execution'
-          : hasRecentChatActivity ? 'assistant.message'
-          : null,
-        lastEventAt: mainAgent.updated_at ?? mainAgent.created_at ?? null,
-        role: mainAgent.description ?? null,
-        toolCount: null,
-        handoffCount: null,
-        eventCount: 0,
-        linkedTaskNames: [],
-        pendingApprovalCount: 0,
-      }],
+      office_agent_entities: [
+        {
+          recentActivity: [],
+          name: mainAgentName,
+          agentId: mainAgent.agent_id ?? null,
+          status: agentStatus,
+          lastEventLabel: hasActiveWorkflowRun
+            ? 'workflow.execution'
+            : hasRecentChatActivity
+              ? 'assistant.message'
+              : null,
+          lastEventAt: mainAgent.updated_at ?? mainAgent.created_at ?? null,
+          role: mainAgent.description ?? null,
+          toolCount: null,
+          handoffCount: null,
+          eventCount: 0,
+          linkedTaskNames: [],
+          pendingApprovalCount: 0,
+        },
+      ],
       office_task_entities: [],
       office_pending_approval_count: 0,
       office_pending_approvals: [],
-      office_recent_event_label:
-        hasActiveWorkflowRun ? 'workflow.execution'
-          : hasRecentChatActivity ? 'assistant.message'
+      office_recent_event_label: hasActiveWorkflowRun
+        ? 'workflow.execution'
+        : hasRecentChatActivity
+          ? 'assistant.message'
           : undefined,
       main_agent_id: mainAgent.agent_id ?? null,
     },

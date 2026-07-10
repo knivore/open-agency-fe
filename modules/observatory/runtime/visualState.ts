@@ -3,8 +3,8 @@ import type {
   ObservatoryCharacterDirection,
 } from '@/modules/observatory/engine/assets/assetRegistry';
 import type {
-  ObservatoryNormalizedOfficeEvent,
   ObservatoryNormalizedEventType,
+  ObservatoryNormalizedOfficeEvent,
   ObservatoryRuntimeLevel,
 } from '@/modules/observatory/runtime/events';
 
@@ -12,7 +12,13 @@ export const OBSERVATORY_DEFAULT_MAX_FEED_ENTRIES = 1_000;
 export const OBSERVATORY_DEFAULT_MAX_EVENT_HISTORY = 1_000;
 export const OBSERVATORY_DEFAULT_MAX_SPEECH_CHARS = 160;
 
-export type ObservatoryRuntimeEntityStatus = 'idle' | 'working' | 'blocked' | 'complete' | 'error' | 'unknown';
+export type ObservatoryRuntimeEntityStatus =
+  | 'idle'
+  | 'working'
+  | 'blocked'
+  | 'complete'
+  | 'error'
+  | 'unknown';
 
 export interface ObservatoryRuntimeAgentState {
   id: string;
@@ -97,18 +103,23 @@ export function createInitialObservatoryRuntimeVisualState(): ObservatoryRuntime
 export function reduceObservatoryRuntimeEvent(
   state: ObservatoryRuntimeVisualState,
   event: ObservatoryNormalizedOfficeEvent,
-  options: ObservatoryRuntimeReducerOptions = {},
+  options: ObservatoryRuntimeReducerOptions = {}
 ): ObservatoryRuntimeVisualState {
   const maxEventHistory = options.maxEventHistory ?? OBSERVATORY_DEFAULT_MAX_EVENT_HISTORY;
   const maxFeedEntries = options.maxFeedEntries ?? OBSERVATORY_DEFAULT_MAX_FEED_ENTRIES;
   const maxSpeechChars = options.maxSpeechChars ?? OBSERVATORY_DEFAULT_MAX_SPEECH_CHARS;
   const timestampMs = Date.parse(event.timestamp);
-  const latestMs = state.latestEventTimestamp ? Date.parse(state.latestEventTimestamp) : Number.NEGATIVE_INFINITY;
+  const latestMs = state.latestEventTimestamp
+    ? Date.parse(state.latestEventTimestamp)
+    : Number.NEGATIVE_INFINITY;
   const isGloballyStale = Number.isFinite(timestampMs) && timestampMs < latestMs;
   const feedSequence = state.nextFeedSequence;
   const nextState: ObservatoryRuntimeVisualState = {
     ...state,
-    activityFeed: trimEntries(insertFeedEntry(state.activityFeed, toFeedEntry(event, feedSequence)), maxFeedEntries),
+    activityFeed: trimEntries(
+      insertFeedEntry(state.activityFeed, toFeedEntry(event, feedSequence)),
+      maxFeedEntries
+    ),
     eventHistory: trimEntries(insertEventHistory(state.eventHistory, event), maxEventHistory),
     latestEventTimestamp: isGloballyStale ? state.latestEventTimestamp : event.timestamp,
     nextFeedSequence: feedSequence + 1,
@@ -141,17 +152,23 @@ export function reduceObservatoryRuntimeEvent(
 export function reduceObservatoryRuntimeEvents(
   state: ObservatoryRuntimeVisualState,
   events: ObservatoryNormalizedOfficeEvent[],
-  options: ObservatoryRuntimeReducerOptions = {},
+  options: ObservatoryRuntimeReducerOptions = {}
 ): ObservatoryRuntimeVisualState {
-  return events.reduce((nextState, event) => reduceObservatoryRuntimeEvent(nextState, event, options), state);
+  return events.reduce(
+    (nextState, event) => reduceObservatoryRuntimeEvent(nextState, event, options),
+    state
+  );
 }
 
 function updateAgentState(
   state: ObservatoryRuntimeVisualState,
   event: ObservatoryNormalizedOfficeEvent,
-  maxSpeechChars: number,
+  maxSpeechChars: number
 ): ObservatoryRuntimeVisualState {
-  if (!event.agentId || isEntityEventStale(state.agentsById[event.agentId]?.lastUpdatedAt, event.timestamp)) {
+  if (
+    !event.agentId ||
+    isEntityEventStale(state.agentsById[event.agentId]?.lastUpdatedAt, event.timestamp)
+  ) {
     return { ...state, droppedStaleEventCount: state.droppedStaleEventCount + 1 };
   }
 
@@ -174,7 +191,8 @@ function updateAgentState(
     taskProgress: resolveAgentTaskProgress(event, existing?.taskProgress),
     taskTitle: event.title ?? existing?.taskTitle,
     visualAction: coerceVisualAction(event.metadata?.visualAction) ?? existing?.visualAction,
-    visualDirection: coerceVisualDirection(event.metadata?.visualDirection) ?? existing?.visualDirection,
+    visualDirection:
+      coerceVisualDirection(event.metadata?.visualDirection) ?? existing?.visualDirection,
   };
 
   return {
@@ -188,9 +206,12 @@ function updateAgentState(
 
 function updateTaskState(
   state: ObservatoryRuntimeVisualState,
-  event: ObservatoryNormalizedOfficeEvent,
+  event: ObservatoryNormalizedOfficeEvent
 ): ObservatoryRuntimeVisualState {
-  if (!event.taskId || isEntityEventStale(state.tasksById[event.taskId]?.lastUpdatedAt, event.timestamp)) {
+  if (
+    !event.taskId ||
+    isEntityEventStale(state.tasksById[event.taskId]?.lastUpdatedAt, event.timestamp)
+  ) {
     return { ...state, droppedStaleEventCount: state.droppedStaleEventCount + 1 };
   }
 
@@ -215,9 +236,12 @@ function updateTaskState(
 
 function updateWorkflowState(
   state: ObservatoryRuntimeVisualState,
-  event: ObservatoryNormalizedOfficeEvent,
+  event: ObservatoryNormalizedOfficeEvent
 ): ObservatoryRuntimeVisualState {
-  if (!event.workflowId || isEntityEventStale(state.workflowsById[event.workflowId]?.lastUpdatedAt, event.timestamp)) {
+  if (
+    !event.workflowId ||
+    isEntityEventStale(state.workflowsById[event.workflowId]?.lastUpdatedAt, event.timestamp)
+  ) {
     return { ...state, droppedStaleEventCount: state.droppedStaleEventCount + 1 };
   }
 
@@ -240,12 +264,14 @@ function updateWorkflowState(
 }
 
 function isEntityEventStale(existingTimestamp: string | undefined, nextTimestamp: string) {
-  return existingTimestamp !== undefined && Date.parse(nextTimestamp) < Date.parse(existingTimestamp);
+  return (
+    existingTimestamp !== undefined && Date.parse(nextTimestamp) < Date.parse(existingTimestamp)
+  );
 }
 
 function agentStatusFromEvent(
   event: ObservatoryNormalizedOfficeEvent,
-  fallback: ObservatoryRuntimeEntityStatus = 'unknown',
+  fallback: ObservatoryRuntimeEntityStatus = 'unknown'
 ): ObservatoryRuntimeEntityStatus {
   if (event.type === 'AGENT_STATUS_CHANGED' && typeof event.metadata?.status === 'string') {
     return coerceStatus(event.metadata.status);
@@ -263,7 +289,11 @@ function agentStatusFromEvent(
     return 'complete';
   }
 
-  if (event.type === 'TASK_STARTED' || event.type === 'TASK_PROGRESS' || event.type === 'TOOL_STARTED') {
+  if (
+    event.type === 'TASK_STARTED' ||
+    event.type === 'TASK_PROGRESS' ||
+    event.type === 'TOOL_STARTED'
+  ) {
     return 'working';
   }
 
@@ -272,7 +302,7 @@ function agentStatusFromEvent(
 
 function taskStatusFromEvent(
   event: ObservatoryNormalizedOfficeEvent,
-  fallback: ObservatoryRuntimeEntityStatus = 'unknown',
+  fallback: ObservatoryRuntimeEntityStatus = 'unknown'
 ): ObservatoryRuntimeEntityStatus {
   if (event.type === 'TASK_STARTED') {
     return 'working';
@@ -299,13 +329,17 @@ function taskStatusFromEvent(
 
 function workflowStatusFromEvent(
   event: ObservatoryNormalizedOfficeEvent,
-  fallback: ObservatoryRuntimeEntityStatus = 'unknown',
+  fallback: ObservatoryRuntimeEntityStatus = 'unknown'
 ): ObservatoryRuntimeEntityStatus {
   if (event.type === 'APPROVAL_REQUIRED') {
     return 'blocked';
   }
 
-  if (event.type === 'TASK_STARTED' || event.type === 'TASK_PROGRESS' || event.type === 'WORKFLOW_TRANSITIONED') {
+  if (
+    event.type === 'TASK_STARTED' ||
+    event.type === 'TASK_PROGRESS' ||
+    event.type === 'WORKFLOW_TRANSITIONED'
+  ) {
     return 'working';
   }
 
@@ -321,7 +355,13 @@ function workflowStatusFromEvent(
 }
 
 function coerceStatus(status: string): ObservatoryRuntimeEntityStatus {
-  if (status === 'idle' || status === 'working' || status === 'blocked' || status === 'complete' || status === 'error') {
+  if (
+    status === 'idle' ||
+    status === 'working' ||
+    status === 'blocked' ||
+    status === 'complete' ||
+    status === 'error'
+  ) {
     return status;
   }
 
@@ -365,7 +405,10 @@ function coerceVisualDirection(value: unknown): ObservatoryCharacterDirection | 
   return undefined;
 }
 
-function resolveAgentTaskProgress(event: ObservatoryNormalizedOfficeEvent, fallback: number | undefined) {
+function resolveAgentTaskProgress(
+  event: ObservatoryNormalizedOfficeEvent,
+  fallback: number | undefined
+) {
   if (event.type === 'TASK_STARTED') {
     return event.progress ?? 0;
   }
@@ -381,7 +424,10 @@ function resolveAgentTaskProgress(event: ObservatoryNormalizedOfficeEvent, fallb
   return fallback;
 }
 
-function resolveTaskProgress(event: ObservatoryNormalizedOfficeEvent, fallback: number | undefined) {
+function resolveTaskProgress(
+  event: ObservatoryNormalizedOfficeEvent,
+  fallback: number | undefined
+) {
   if (event.type === 'TASK_STARTED') {
     return event.progress ?? 0;
   }
@@ -393,11 +439,17 @@ function resolveTaskProgress(event: ObservatoryNormalizedOfficeEvent, fallback: 
   return event.progress ?? fallback;
 }
 
-function insertFeedEntry(entries: ObservatoryActivityFeedEntry[], entry: ObservatoryActivityFeedEntry) {
+function insertFeedEntry(
+  entries: ObservatoryActivityFeedEntry[],
+  entry: ObservatoryActivityFeedEntry
+) {
   return [...entries, entry].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 }
 
-function insertEventHistory(entries: ObservatoryNormalizedOfficeEvent[], event: ObservatoryNormalizedOfficeEvent) {
+function insertEventHistory(
+  entries: ObservatoryNormalizedOfficeEvent[],
+  event: ObservatoryNormalizedOfficeEvent
+) {
   return [...entries, event].sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 }
 
@@ -405,7 +457,10 @@ function trimEntries<T>(entries: T[], maxEntries: number) {
   return entries.slice(0, Math.max(0, maxEntries));
 }
 
-function toFeedEntry(event: ObservatoryNormalizedOfficeEvent, sequence: number): ObservatoryActivityFeedEntry {
+function toFeedEntry(
+  event: ObservatoryNormalizedOfficeEvent,
+  sequence: number
+): ObservatoryActivityFeedEntry {
   return {
     agentId: event.agentId,
     eventId: event.id,

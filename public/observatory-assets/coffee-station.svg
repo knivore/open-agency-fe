@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 96" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Open Agency coffee station</title>
+  <path fill="#67e8f9" d="M16 10h4v14h-4zm12 0h4v14h-4z"/>
+  <path fill="#a78bfa" d="M20 6h4v14h-4zm12 2h4v14h-4z"/>
+  <rect x="8" y="32" width="32" height="48" fill="#172554"/>
+  <rect x="12" y="36" width="24" height="10" fill="#334155"/>
+  <rect x="14" y="50" width="20" height="18" fill="#f8fafc"/>
+  <rect x="18" y="54" width="12" height="10" fill="#78350f"/>
+  <rect x="34" y="54" width="4" height="8" fill="#f8fafc"/>
+  <rect x="10" y="80" width="28" height="6" fill="#0f172a"/>
+</svg>

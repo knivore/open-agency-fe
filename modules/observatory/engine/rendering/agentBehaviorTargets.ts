@@ -26,7 +26,7 @@ export interface ObservatoryAgentBehaviorTargetOptions {
 
 export function pickObservatoryAgentBehaviorTargetPoint(
   map: ObservatoryMap,
-  options: ObservatoryAgentBehaviorTargetOptions,
+  options: ObservatoryAgentBehaviorTargetOptions
 ) {
   const room = map.rooms.find((candidate) => candidate.id === options.targetRoomId);
 
@@ -66,7 +66,7 @@ export function pickObservatoryObjectAdjacentWalkablePoint(
     assetsById?: Map<string, ObservatoryAssetDefinition>;
     fromPoint?: { x: number; y: number };
     seed?: number | string;
-  } = {},
+  } = {}
 ) {
   const bounds = objectCollisionGridRect(object, options.assetsById);
   const candidates = createObjectInteractionCandidates(bounds, options.seed ?? object.id);
@@ -78,7 +78,7 @@ export function resolveObservatoryGridPath(
   map: ObservatoryMap,
   from: { x: number; y: number },
   to: { x: number; y: number },
-  assetsById?: Map<string, ObservatoryAssetDefinition>,
+  assetsById?: Map<string, ObservatoryAssetDefinition>
 ) {
   if (from.x === to.x && from.y === to.y) {
     return [];
@@ -138,7 +138,7 @@ export function pickObservatoryRoomRoamPoint(
     assetsById?: Map<string, ObservatoryAssetDefinition>;
     fromPoint?: { x: number; y: number };
     seed?: number | string;
-  } = {},
+  } = {}
 ) {
   const { minX, maxX, minY, maxY } = observatoryRoomInteriorBounds(room);
   const width = Math.max(1, maxX - minX + 1);
@@ -154,7 +154,10 @@ export function pickObservatoryRoomRoamPoint(
 
     if (
       isObservatoryGridWalkable(map, candidate, options.assetsById) &&
-      (!options.fromPoint || isSameGridPoint(options.fromPoint, candidate) || resolveObservatoryGridPath(map, options.fromPoint, candidate, options.assetsById).length > 0)
+      (!options.fromPoint ||
+        isSameGridPoint(options.fromPoint, candidate) ||
+        resolveObservatoryGridPath(map, options.fromPoint, candidate, options.assetsById).length >
+          0)
     ) {
       return candidate;
     }
@@ -166,7 +169,7 @@ export function pickObservatoryRoomRoamPoint(
 export function isObservatoryGridWalkable(
   map: ObservatoryMap,
   point: { x: number; y: number },
-  assetsById?: Map<string, ObservatoryAssetDefinition>,
+  assetsById?: Map<string, ObservatoryAssetDefinition>
 ) {
   if (point.x < 0 || point.y < 0 || point.x >= map.size.width || point.y >= map.size.height) {
     return false;
@@ -194,7 +197,7 @@ export function isObservatoryGridWalkable(
 
 export function isObservatoryPointInsideRoomNetwork(
   map: ObservatoryMap,
-  point: { x: number; y: number },
+  point: { x: number; y: number }
 ) {
   return map.rooms.some((room) => {
     const interior = observatoryRoomInteriorBounds(room);
@@ -219,7 +222,7 @@ function isObservatoryRoomTransitionPoint(room: ObservatoryRoom, point: { x: num
   return transitionPoints.some(
     (transitionPoint) =>
       isSameGridPoint(transitionPoint, point) ||
-      isSameGridPoint(getRoomTransitionThresholdPoint(room, transitionPoint), point),
+      isSameGridPoint(getRoomTransitionThresholdPoint(room, transitionPoint), point)
   );
 }
 
@@ -265,7 +268,7 @@ export function observatoryRoomInteriorBounds(room: ObservatoryRoom) {
 
 export function classifyObservatoryObjectBehaviorRole(
   objectOrAssetId: ObservatoryObject | string,
-  assetsById?: Map<string, ObservatoryAssetDefinition>,
+  assetsById?: Map<string, ObservatoryAssetDefinition>
 ): ObservatoryBehaviorTargetRole {
   const assetId = typeof objectOrAssetId === 'string' ? objectOrAssetId : objectOrAssetId.assetId;
   const asset = assetsById?.get(assetId);
@@ -276,7 +279,9 @@ export function classifyObservatoryObjectBehaviorRole(
     asset?.label,
     asset?.semanticId,
     ...(asset?.tags ?? []),
-  ].join(' ').toLowerCase();
+  ]
+    .join(' ')
+    .toLowerCase();
 
   if (/(coffee|water|pantry|bottle|fridge|kitchen|tea|sink|counter)/.test(text)) {
     return 'pantry';
@@ -290,7 +295,11 @@ export function classifyObservatoryObjectBehaviorRole(
     return 'runtime';
   }
 
-  if (/(workstation|workbench|computer|laptop|monitor|screen|printer|keyboard|mouse|projector|office-machine)/.test(text)) {
+  if (
+    /(workstation|workbench|computer|laptop|monitor|screen|printer|keyboard|mouse|projector|office-machine)/.test(
+      text
+    )
+  ) {
     return 'computer';
   }
 
@@ -310,14 +319,20 @@ export function classifyObservatoryObjectBehaviorRole(
 }
 
 export function isObservatoryAmbientObjectRole(role: ObservatoryBehaviorTargetRole) {
-  return role === 'pantry' || role === 'planning' || role === 'seating' || role === 'storage' || role === 'surface';
+  return (
+    role === 'pantry' ||
+    role === 'planning' ||
+    role === 'seating' ||
+    role === 'storage' ||
+    role === 'surface'
+  );
 }
 
 function pickBehaviorTargetObject(
   map: ObservatoryMap,
   room: ObservatoryRoom,
   agent: ObservatoryAgent | undefined,
-  options: ObservatoryAgentBehaviorTargetOptions,
+  options: ObservatoryAgentBehaviorTargetOptions
 ) {
   const behavior = agent?.runtime?.behavior ?? statusToBehavior(agent?.status);
   const preferredRoles = behaviorToPreferredRoles(behavior);
@@ -326,7 +341,10 @@ function pickBehaviorTargetObject(
     .filter((object) => object.roomId === room.id)
     .filter((object) => {
       if (workflowId && object.runtime?.workflowId === workflowId) {
-        return object.runtime.behavior === behavior || preferredRoles.has(classifyObservatoryObjectBehaviorRole(object, options.assetsById));
+        return (
+          object.runtime.behavior === behavior ||
+          preferredRoles.has(classifyObservatoryObjectBehaviorRole(object, options.assetsById))
+        );
       }
 
       if (object.runtime?.behavior === behavior) {
@@ -345,7 +363,9 @@ function pickBehaviorTargetObject(
   return objects[seed % objects.length];
 }
 
-function behaviorToPreferredRoles(behavior: NonNullable<ObservatoryAgent['runtime']>['behavior'] | undefined) {
+function behaviorToPreferredRoles(
+  behavior: NonNullable<ObservatoryAgent['runtime']>['behavior'] | undefined
+) {
   if (behavior === 'planning' || behavior === 'approval') {
     return new Set<ObservatoryBehaviorTargetRole>(['planning', 'surface']);
   }
@@ -354,10 +374,18 @@ function behaviorToPreferredRoles(behavior: NonNullable<ObservatoryAgent['runtim
     return new Set<ObservatoryBehaviorTargetRole>(['computer', 'runtime', 'surface']);
   }
 
-  return new Set<ObservatoryBehaviorTargetRole>(['pantry', 'planning', 'seating', 'storage', 'surface']);
+  return new Set<ObservatoryBehaviorTargetRole>([
+    'pantry',
+    'planning',
+    'seating',
+    'storage',
+    'surface',
+  ]);
 }
 
-function statusToBehavior(status: ObservatoryAgent['status'] | undefined): NonNullable<ObservatoryAgent['runtime']>['behavior'] {
+function statusToBehavior(
+  status: ObservatoryAgent['status'] | undefined
+): NonNullable<ObservatoryAgent['runtime']>['behavior'] {
   if (status === 'blocked') {
     return 'approval';
   }
@@ -369,7 +397,10 @@ function statusToBehavior(status: ObservatoryAgent['status'] | undefined): NonNu
   return 'ambient';
 }
 
-function objectCollisionGridRect(object: ObservatoryObject, assetsById?: Map<string, ObservatoryAssetDefinition>) {
+function objectCollisionGridRect(
+  object: ObservatoryObject,
+  assetsById?: Map<string, ObservatoryAssetDefinition>
+) {
   const collision = assetsById?.get(object.assetId)?.collision;
   const size = collision ?? object.size;
 
@@ -385,15 +416,18 @@ function pickWalkableCandidate(
   map: ObservatoryMap,
   candidates: Array<{ x: number; y: number }>,
   assetsById?: Map<string, ObservatoryAssetDefinition>,
-  fromPoint?: { x: number; y: number },
+  fromPoint?: { x: number; y: number }
 ) {
-  const walkableCandidates = dedupeGridPoints(candidates).filter((candidate) => isObservatoryGridWalkable(map, candidate, assetsById));
+  const walkableCandidates = dedupeGridPoints(candidates).filter((candidate) =>
+    isObservatoryGridWalkable(map, candidate, assetsById)
+  );
 
   if (fromPoint) {
-    const reachableCandidate = walkableCandidates.find((candidate) => (
-      isSameGridPoint(fromPoint, candidate) ||
-      resolveObservatoryGridPath(map, fromPoint, candidate, assetsById).length > 0
-    ));
+    const reachableCandidate = walkableCandidates.find(
+      (candidate) =>
+        isSameGridPoint(fromPoint, candidate) ||
+        resolveObservatoryGridPath(map, fromPoint, candidate, assetsById).length > 0
+    );
 
     if (reachableCandidate) {
       return reachableCandidate;
@@ -405,22 +439,23 @@ function pickWalkableCandidate(
 
 function createObjectInteractionCandidates(
   bounds: { height: number; width: number; x: number; y: number },
-  seed: number | string,
+  seed: number | string
 ) {
   const centerX = bounds.x + Math.floor((bounds.width - 1) / 2);
   const centerY = bounds.y + Math.floor((bounds.height - 1) / 2);
   const horizontal = centerOutRange(bounds.x - 1, bounds.x + bounds.width, centerX);
   const vertical = centerOutRange(bounds.y - 1, bounds.y + bounds.height, centerY);
   const sideOffset = hashString(String(seed)) % 2;
-  const sideGroups = sideOffset === 0
-    ? [
-        vertical.map((y) => ({ x: bounds.x + bounds.width, y })),
-        vertical.map((y) => ({ x: bounds.x - 1, y })),
-      ]
-    : [
-        vertical.map((y) => ({ x: bounds.x - 1, y })),
-        vertical.map((y) => ({ x: bounds.x + bounds.width, y })),
-      ];
+  const sideGroups =
+    sideOffset === 0
+      ? [
+          vertical.map((y) => ({ x: bounds.x + bounds.width, y })),
+          vertical.map((y) => ({ x: bounds.x - 1, y })),
+        ]
+      : [
+          vertical.map((y) => ({ x: bounds.x - 1, y })),
+          vertical.map((y) => ({ x: bounds.x + bounds.width, y })),
+        ];
 
   return [
     ...horizontal.map((x) => ({ x, y: bounds.y + bounds.height })),

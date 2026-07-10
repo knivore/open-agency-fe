@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { buildSyntheticMainAgentRun, MAIN_AGENT_SYNTHETIC_RUN_ID } from '@/components/runs/lib/mainAgentPresence';
+import {
+  buildSyntheticMainAgentRun,
+  MAIN_AGENT_SYNTHETIC_RUN_ID,
+} from '@/components/runs/lib/mainAgentPresence';
 
 describe('buildSyntheticMainAgentRun', () => {
   it('keeps the main agent visible without a default workflow and lets it roam when idle', () => {

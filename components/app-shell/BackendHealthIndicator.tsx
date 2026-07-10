@@ -1,6 +1,12 @@
 'use client';
 
-import { healthApi } from '@/lib/api/backend';
+import { healthApi } from '@/lib/api/backend/health';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/library/shadcn/tooltip';
 import { useQuery } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 
@@ -10,7 +16,7 @@ type BackendHealthIndicatorProps = {
 };
 
 function StatusDot({ className }: { className: string }) {
-  return <span className={`inline-block h-2.5 w-2.5 rounded-full ${className}`} />;
+  return <span className={`inline-block size-2 rounded-full ${className}`} />;
 }
 
 export default function BackendHealthIndicator({
@@ -26,23 +32,23 @@ export default function BackendHealthIndicator({
     retry: 1,
   });
 
-  let label = 'Checking backend';
-  let toneClass = 'text-amber-700';
+  let label = compact ? 'Checking' : 'Checking backend';
+  let toneClass = 'text-(--agency-shell-muted)';
   let dotClass = 'bg-amber-500';
 
   if (healthQuery.isSuccess && healthQuery.data.ok) {
-    label = 'Backend online';
-    toneClass = 'text-emerald-700';
+    label = compact ? 'Online' : 'Backend online';
+    toneClass = 'text-(--agency-shell-text)';
     dotClass = 'bg-emerald-500';
   } else if (healthQuery.isError) {
-    label = 'Backend offline';
-    toneClass = 'text-rose-700';
+    label = compact ? 'Offline' : 'Backend offline';
+    toneClass = 'text-(--agency-shell-text)';
     dotClass = 'bg-rose-500';
   }
 
   const containerClass = compact
-    ? 'inline-flex items-center gap-2 rounded-lg border border-primary-100 bg-white px-3 py-1.5 text-xs font-medium shadow-sm shadow-primary/5'
-    : 'flex items-center justify-between rounded-lg border border-primary-100 bg-white px-4 py-3 shadow-sm shadow-primary/5';
+    ? 'inline-flex h-9 items-center gap-2 px-2 text-xs font-medium'
+    : 'flex items-center justify-between rounded-xl border border-(--agency-control-border) bg-(--agency-control-bg) px-4 py-3 shadow-(--agency-outline-shadow)';
 
   return (
     <div className={containerClass}>
@@ -54,15 +60,24 @@ export default function BackendHealthIndicator({
       </div>
 
       {showRefresh ? (
-        <button
-          type="button"
-          onClick={() => healthQuery.refetch()}
-          disabled={healthQuery.isFetching}
-          className="inline-flex items-center gap-1 text-xs font-medium text-neutral-500 hover:text-neutral-800 disabled:opacity-60"
-        >
-          <RefreshCw className={`h-3.5 w-3.5 ${healthQuery.isFetching ? 'animate-spin' : ''}`} />
-          {!compact ? 'Refresh' : null}
-        </button>
+        <TooltipProvider delayDuration={150}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => healthQuery.refetch()}
+                disabled={healthQuery.isFetching}
+                aria-label="Refresh backend health"
+                title="Refresh backend health"
+                className="inline-flex items-center gap-1 text-xs font-medium text-(--agency-shell-muted) hover:text-(--agency-shell-text) disabled:opacity-60"
+              >
+                <RefreshCw className={`size-3.5 ${healthQuery.isFetching ? 'animate-spin' : ''}`} />
+                {!compact ? 'Refresh' : null}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent>Refresh backend health</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       ) : null}
     </div>
   );

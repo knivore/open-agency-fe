@@ -29,7 +29,13 @@ describe('observatory pixel corridor generation', () => {
   });
 
   it('creates a valid commons corridor room with default floor metadata', () => {
-    expect(generateObservatoryCorridorRoom(map(), { id: 'room:corridor-main', wallAssetId: 'wall:office-partition', y: 13 })).toEqual({
+    expect(
+      generateObservatoryCorridorRoom(map(), {
+        id: 'room:corridor-main',
+        wallAssetId: 'wall:office-partition',
+        y: 13,
+      })
+    ).toEqual({
       bounds: { height: 1, width: 40, x: 1, y: 13 },
       floorAssetId: 'floor:office-blue',
       id: 'room:corridor-main',

@@ -1,6 +1,6 @@
 # Streaming
 
-Observatory supports direct-to-frontend stream adapters and Agency backend runtime streams.
+Observatory supports direct-to-frontend stream adapters and Open Agency backend runtime streams.
 
 ## Implemented
 
@@ -13,9 +13,9 @@ Observatory supports direct-to-frontend stream adapters and Agency backend runti
 - Reconnect with bounded attempts.
 - Source status callbacks.
 
-## Agency Backend Streams
+## Open Agency Backend Streams
 
-The Agency backend stream track is implemented in the `agency` repository:
+The Open Agency backend stream track is implemented in the `open-agency` repository:
 
 - Backend runtime event model.
 - Runtime event schema version: `agency.runtime-event.v1`.
@@ -33,4 +33,5 @@ The direct stream ingestion default is:
 OBSERVATORY_DEFAULT_MAX_STREAM_PAYLOAD_BYTES = 64 * 1024;
 ```
 
-Hosts can override `maxPayloadBytes` when creating WebSocket or SSE adapters, but should not raise it without a concrete performance and security reason.
+Hosts can override `maxPayloadBytes` when creating WebSocket or SSE adapters, but should not raise it without a concrete
+performance and security reason.

@@ -69,47 +69,103 @@ export interface ManualLayoutEditorPanelProps {
 }
 
 export default function ManualLayoutEditorPanel({
-  canvasEditResult,
-  canvasWallEditEnabled = false,
-  canvasWallEditRoom = null,
-  canvasWallEditTool = 'opening',
   canvasSelection,
   disabled = false,
   layout,
-  onCanvasWallEditEnabledChange,
-  onCanvasWallEditRoomChange,
-  onCanvasWallEditToolChange,
   onCanvasSelectionClear,
   onPaletteSelectionChange,
   onResetBlank,
-  onOpenAssetPack,
   onLayoutChange,
   onPublishedLayout,
 }: ManualLayoutEditorPanelProps) {
   const map = layout.world.maps[0];
-  const [selectedObjectId, setSelectedObjectId] = useState(map?.objects[0]?.id ?? '');
   const [selectedRoomId, setSelectedRoomId] = useState(map?.rooms[0]?.id ?? '');
   const [assetSearch, setAssetSearch] = useState('');
-  const [assetTheme, setAssetTheme] = useState<ObservatoryPaletteThemeId>('all');
+  // The builder opens on the default Observatory office, so start the large catalog
+  // on office-fit assets while leaving the full 5k+ palette one filter change away.
+  const [assetTheme, setAssetTheme] = useState<ObservatoryPaletteThemeId>('office');
   const [assetRole, setAssetRole] = useState<ObservatoryPaletteRoleId>('all');
   const [assetSort, setAssetSort] = useState<ObservatoryPaletteSortId>('recommended');
   const [includeUnreviewedAssets, setIncludeUnreviewedAssets] = useState(false);
   const [selectedPaletteAssetId, setSelectedPaletteAssetId] = useState('');
-  const [assetTargetRoomId, setAssetTargetRoomId] = useState('');
-  const [expandedAssetGroups, setExpandedAssetGroups] = useState<Record<string, boolean>>({});
+  const expandedAssetGroupsKey = JSON.stringify({
+    assetRole,
+    assetSearch,
+    assetSort,
+    assetTheme,
+    includeUnreviewedAssets,
+  });
+  const [expandedAssetGroupsState, setExpandedAssetGroupsState] = useState<{
+    groups: Record<string, boolean>;
+    key: string;
+  }>({ groups: {}, key: expandedAssetGroupsKey });
+  const expandedAssetGroups =
+    expandedAssetGroupsState.key === expandedAssetGroupsKey ? expandedAssetGroupsState.groups : {};
+  const setExpandedAssetGroups = (
+    nextGroups:
+      | Record<string, boolean>
+      | ((currentGroups: Record<string, boolean>) => Record<string, boolean>)
+  ) => {
+    setExpandedAssetGroupsState((currentState) => {
+      const currentGroups = currentState.key === expandedAssetGroupsKey ? currentState.groups : {};
+      return {
+        groups: typeof nextGroups === 'function' ? nextGroups(currentGroups) : nextGroups,
+        key: expandedAssetGroupsKey,
+      };
+    });
+  };
   const [layoutPrompt, setLayoutPrompt] = useState(
     'Generate a walkable engineering pod, ops center, meeting room, and approval room with doors.'
   );
   const [layoutLibrary, setLayoutLibrary] = useState<ObservatoryLayoutLibraryEntry[]>([]);
   const [layoutLibraryLoading, setLayoutLibraryLoading] = useState(false);
-  const [layoutName, setLayoutName] = useState(layout.metadata?.name ?? layout.world.name);
-  const [layoutNotes, setLayoutNotes] = useState(layout.metadata?.notes ?? '');
+  const layoutMetadataKey = JSON.stringify({
+    name: layout.metadata?.name ?? layout.world.name,
+    notes: layout.metadata?.notes ?? '',
+    worldId: layout.world.id,
+  });
+  const defaultLayoutMetadataDraft = {
+    key: layoutMetadataKey,
+    name: layout.metadata?.name ?? layout.world.name,
+    notes: layout.metadata?.notes ?? '',
+  };
+  const [layoutMetadataDraft, setLayoutMetadataDraft] = useState(defaultLayoutMetadataDraft);
+  const activeLayoutMetadataDraft =
+    layoutMetadataDraft.key === layoutMetadataKey
+      ? layoutMetadataDraft
+      : defaultLayoutMetadataDraft;
+  const layoutName = activeLayoutMetadataDraft.name;
+  const layoutNotes = activeLayoutMetadataDraft.notes;
+  const setLayoutName = (name: string) => {
+    setLayoutMetadataDraft((currentDraft) => ({
+      ...(currentDraft.key === layoutMetadataKey ? currentDraft : defaultLayoutMetadataDraft),
+      key: layoutMetadataKey,
+      name,
+    }));
+  };
+  const setLayoutNotes = (notes: string) => {
+    setLayoutMetadataDraft((currentDraft) => ({
+      ...(currentDraft.key === layoutMetadataKey ? currentDraft : defaultLayoutMetadataDraft),
+      key: layoutMetadataKey,
+      notes,
+    }));
+  };
   const [selectedManagedLayoutId, setSelectedManagedLayoutId] = useState('');
-  const [managedLayoutActionId, setManagedLayoutActionId] = useState('');
+  const [managedLayoutActionStateId, setManagedLayoutActionId] = useState('');
   const [lastPublishedAt, setLastPublishedAt] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ObservatoryLayoutEditResult | null>(null);
+  const canvasSelectedObject =
+    canvasSelection?.kind === 'object'
+      ? map.objects.find((object) => object.id === canvasSelection.id)
+      : null;
   const effectiveSelectedRoomId =
-    canvasSelection?.kind === 'room' ? canvasSelection.id : selectedRoomId;
+    canvasSelection?.kind === 'room'
+      ? canvasSelection.id
+      : (canvasSelectedObject?.roomId ??
+        (selectedRoomId && map.rooms.some((room) => room.id === selectedRoomId)
+          ? selectedRoomId
+          : (map.rooms[0]?.id ?? '')));
+  const assetTargetRoomId = effectiveSelectedRoomId || map.rooms[0]?.id || '';
 
   const selectedRoom = map?.rooms.find((room) => room.id === effectiveSelectedRoomId);
   const registryAssetsById = useMemo(
@@ -135,79 +191,20 @@ export default function ManualLayoutEditorPanel({
     () => layoutLibrary.map((entry) => summarizeObservatoryLayoutLibraryEntry(entry)),
     [layoutLibrary]
   );
+  const selectedManagedStillExists = selectedManagedLayoutId
+    ? layoutLibrary.some((entry) => entry.fileId === selectedManagedLayoutId)
+    : false;
+  const managedLayoutActionId = selectedManagedStillExists
+    ? selectedManagedLayoutId
+    : layoutLibrary.some((entry) => entry.fileId === managedLayoutActionStateId)
+      ? managedLayoutActionStateId
+      : (layoutLibrary[0]?.fileId ?? '');
   const selectedManagedLibraryEntry =
     layoutLibrary.find((entry) => entry.fileId === managedLayoutActionId) ?? null;
   const selectedManagedLibrarySummary =
     layoutLibrarySummaries.find((entry) => entry.fileId === managedLayoutActionId) ?? null;
   const selectedPaletteAsset =
     paletteAssets.find((asset) => asset.assetId === selectedPaletteAssetId) ?? paletteAssets[0];
-
-  useEffect(() => {
-    setExpandedAssetGroups({});
-  }, [assetRole, assetSearch, assetSort, assetTheme, includeUnreviewedAssets]);
-
-  useEffect(() => {
-    if (effectiveSelectedRoomId) {
-      setAssetTargetRoomId(effectiveSelectedRoomId);
-      return;
-    }
-
-    setAssetTargetRoomId(map.rooms[0]?.id ?? '');
-  }, [effectiveSelectedRoomId, map.rooms]);
-
-  useEffect(() => {
-    setLayoutName(layout.metadata?.name ?? layout.world.name);
-    setLayoutNotes(layout.metadata?.notes ?? '');
-  }, [layout]);
-
-  useEffect(() => {
-    if (canvasSelection?.kind === 'object') {
-      setSelectedObjectId(canvasSelection.id);
-      const selectedCanvasObject = map.objects.find((object) => object.id === canvasSelection.id);
-      if (selectedCanvasObject?.roomId) {
-        setSelectedRoomId(selectedCanvasObject.roomId);
-      }
-      return;
-    }
-
-    if (canvasSelection?.kind === 'room') {
-      setSelectedRoomId(canvasSelection.id);
-    }
-  }, [canvasSelection, map.objects]);
-
-  useEffect(() => {
-    if (selectedObjectId && !map.objects.some((object) => object.id === selectedObjectId)) {
-      setSelectedObjectId(map.objects[0]?.id ?? '');
-    }
-
-    if (selectedRoomId && !map.rooms.some((room) => room.id === selectedRoomId)) {
-      setSelectedRoomId(map.rooms[0]?.id ?? '');
-    }
-  }, [map.objects, map.rooms, selectedObjectId, selectedRoomId]);
-
-  useEffect(() => {
-    if (layoutLibrary.length === 0) {
-      if (managedLayoutActionId) {
-        setManagedLayoutActionId('');
-      }
-      return;
-    }
-
-    const selectedManagedStillExists = selectedManagedLayoutId
-      ? layoutLibrary.some((entry) => entry.fileId === selectedManagedLayoutId)
-      : false;
-
-    if (selectedManagedStillExists && managedLayoutActionId !== selectedManagedLayoutId) {
-      setManagedLayoutActionId(selectedManagedLayoutId);
-      return;
-    }
-
-    if (!layoutLibrary.some((entry) => entry.fileId === managedLayoutActionId)) {
-      setManagedLayoutActionId(
-        selectedManagedStillExists ? selectedManagedLayoutId : (layoutLibrary[0]?.fileId ?? '')
-      );
-    }
-  }, [layoutLibrary, managedLayoutActionId, selectedManagedLayoutId]);
 
   useEffect(() => {
     onPaletteSelectionChange?.(
@@ -257,7 +254,7 @@ export default function ManualLayoutEditorPanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [layout]);
 
   if (!map) {
     return null;
@@ -265,10 +262,6 @@ export default function ManualLayoutEditorPanel({
 
   const applyEdit = (result: ObservatoryLayoutEditResult) => {
     setLastResult(result);
-
-    if (result.selectedObjectId) {
-      setSelectedObjectId(result.selectedObjectId);
-    }
 
     if (result.selectedRoomId) {
       setSelectedRoomId(result.selectedRoomId);
@@ -517,7 +510,6 @@ export default function ManualLayoutEditorPanel({
       })
     );
     setSelectedRoomId(targetRoom.id);
-    setAssetTargetRoomId('');
   };
 
   const createRoom = () => {
@@ -577,7 +569,6 @@ export default function ManualLayoutEditorPanel({
       return;
     }
 
-    setSelectedObjectId('');
     setSelectedRoomId('');
     setSelectedManagedLayoutId('');
     onCanvasSelectionClear?.();
@@ -605,7 +596,6 @@ export default function ManualLayoutEditorPanel({
     const nextLayout = cloneObservatoryLayout(validation.layout);
     const nextMap = nextLayout.world.maps[0];
     setSelectedManagedLayoutId('');
-    setSelectedObjectId(nextMap?.objects[0]?.id ?? '');
     setSelectedRoomId(nextMap?.rooms[0]?.id ?? '');
     setLastResult({
       changed: true,
@@ -984,7 +974,6 @@ export default function ManualLayoutEditorPanel({
                       disabled={disabled || map.rooms.length === 0}
                       onChange={(event) => {
                         const roomId = event.target.value;
-                        setAssetTargetRoomId(roomId);
 
                         if (roomId) {
                           placeObjectInRoom(roomId);
@@ -1010,7 +999,7 @@ export default function ManualLayoutEditorPanel({
             <details
               className={styles.assetGroup}
               key={group.id}
-              open={group.id === 'furniture'}
+              open={group.id === 'furniture' || group.id === 'animations'}
             >
               <summary className={styles.assetGroupSummary}>
                 {group.label} <span>{group.assets.length}</span>

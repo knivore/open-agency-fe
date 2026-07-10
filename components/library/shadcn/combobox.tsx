@@ -1,6 +1,5 @@
-'use client';
 import { cn } from '@/lib/utils';
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Button } from '../shadcn/button';
 import { Check, ChevronsUpDown, X, LucideIcon } from 'lucide-react';
 import {

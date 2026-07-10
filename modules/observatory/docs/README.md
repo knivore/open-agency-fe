@@ -14,4 +14,5 @@ Maintained docs:
 - [Embed](embed.md)
 - [Guardrails](guardrails.md)
 
-Phase plans, public API audits, package extraction notes, and granular implementation-increment docs are intentionally excluded from the maintained docs set.
+Phase plans, marketplace drafts, public API audits, package extraction notes, and granular implementation-increment docs
+are intentionally excluded from the maintained docs set.

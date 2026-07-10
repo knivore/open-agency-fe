@@ -2,14 +2,26 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { runtimeAdaptersApi, workflowsApi } from '@/lib/api/backend';
+import { useMemo, useRef, useState } from 'react';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
+import { behaviorProfilesApi } from '@/lib/api/backend/behaviorProfiles';
+import { runtimeAdaptersApi } from '@/lib/api/backend/runtimeAdapters';
+import { schedulesApi } from '@/lib/api/backend/schedules';
+import { toolsApi } from '@/lib/api/backend/tools';
+import { workflowsApi } from '@/lib/api/backend/workflows';
 import { queryKeys } from '@/lib/react-query/queryKeys';
+import {
+  createWorkflowDefinitionFromExportPackage,
+  parseWorkflowExportPackageJson,
+  type WorkflowExportPackage,
+} from '@/lib/workflows/workflowExport';
+import { workflowAssignedToolIds } from '@/lib/workflows/workflowToolCounts';
 import type { RuntimeAdapterDefinition } from '@/types/runtime';
+import type { BehaviorTuningProfile } from '@/types/agents';
+import type { ToolDefinition } from '@/types/tools';
 import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
 import {
   Dialog,
   DialogContent,
@@ -20,10 +32,20 @@ import {
 } from '../library/shadcn/dialog';
 import { Input } from '../library/shadcn/input';
 import { Textarea } from '../library/shadcn/textarea';
-import { Plus, RefreshCw, Workflow } from 'lucide-react';
+import {
+  ChevronRight,
+  CircleHelp,
+  CircleUserRound,
+  ListChecks,
+  Plus,
+  RefreshCw,
+  Upload,
+  Workflow,
+  Wrench,
+} from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import PageHeader from '@/components/app-shell/PageHeader';
-import WorkflowDeleteAction from '@/components/workflow/WorkflowDeleteAction';
+import type { ScheduleDefinition } from '@/types/runtime';
 import { toast } from 'sonner';
 
 type CreateWorkflowFormState = {
@@ -32,8 +54,92 @@ type CreateWorkflowFormState = {
   runtimeAdapterId: string;
 };
 
+type ImportMappings = {
+  modelProfileMappings: Record<string, string>;
+  toolMappings: Record<string, string>;
+};
+
 function preferredRuntimeAdapterId(adapters: RuntimeAdapterDefinition[]) {
   return adapters.find((adapter) => adapter.id === 'native')?.id ?? adapters[0]?.id ?? '';
+}
+
+function formatCount(count: number, singular: string, plural = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : plural}`;
+}
+
+function formatScheduleDateTime(value?: string | null) {
+  if (!value) {
+    return 'No upcoming run scheduled.';
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date);
+}
+
+function summarizeWorkflowSchedule(
+  schedules: ScheduleDefinition[] | undefined,
+  isLoading: boolean,
+  isError: boolean
+) {
+  if (isError) {
+    return {
+      label: 'Schedule status unavailable',
+      detail: 'Unable to load schedule data for this workflow.',
+      tone: 'error' as const,
+    };
+  }
+
+  if (isLoading) {
+    return {
+      label: 'Loading schedule status...',
+      detail: 'Checking upcoming runs for this workflow.',
+      tone: 'loading' as const,
+    };
+  }
+
+  const workflowSchedules = schedules ?? [];
+  const enabledSchedules = workflowSchedules.filter((schedule) => schedule.enabled !== false);
+  const nextFireAt = enabledSchedules
+    .map((schedule) => schedule.next_fire_at)
+    .filter((value): value is string => typeof value === 'string' && value.length > 0)
+    .sort((left, right) => new Date(left).getTime() - new Date(right).getTime())[0];
+
+  if (workflowSchedules.length === 0) {
+    return {
+      label: 'No schedule',
+      detail: 'This workflow does not have any schedules configured.',
+      tone: 'neutral' as const,
+    };
+  }
+
+  if (enabledSchedules.length === 0) {
+    return {
+      label: 'Disabled',
+      detail: 'All configured schedules are disabled.',
+      tone: 'paused' as const,
+    };
+  }
+
+  if (nextFireAt) {
+    return {
+      label: enabledSchedules.length > 1 ? 'Upcoming run' : 'Next run',
+      detail: formatScheduleDateTime(nextFireAt),
+      tone: 'scheduled' as const,
+    };
+  }
+
+  return {
+    label: 'Enabled',
+    detail: `${formatCount(enabledSchedules.length, 'active schedule')} with no next run set.`,
+    tone: 'scheduled' as const,
+  };
 }
 
 function toCreateWorkflowPayload(form: CreateWorkflowFormState) {
@@ -54,7 +160,6 @@ function toCreateWorkflowPayload(form: CreateWorkflowFormState) {
     versioning: {
       version: '1.0.0',
       revision: 1,
-      is_published: false,
       labels: ['draft'],
     },
     metadata: {
@@ -102,8 +207,8 @@ function CreateWorkflowDialog({
   return (
     <>
       <Button type="button" onClick={() => setIsOpen(true)}>
-        <Plus className="mr-2 h-4 w-4" />
-        New workflow
+        <Plus data-icon="inline-start" />
+        Create workflow
       </Button>
       <Dialog
         open={isOpen}
@@ -116,10 +221,10 @@ function CreateWorkflowDialog({
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>New workflow</DialogTitle>
+            <DialogTitle>Create workflow</DialogTitle>
             <DialogDescription>
-              Create a canonical workflow. Native is the default execution path; add other adapters
-              only when you want explicit alternate runtimes.
+              Give the workflow a clear name. Keep the Native runtime unless you already know that
+              you need a different execution environment.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -216,6 +321,483 @@ function CreateWorkflowDialog({
   );
 }
 
+function importedWorkflowPayload(
+  pkg: WorkflowExportPackage,
+  profiles: BehaviorTuningProfile[],
+  tools: ToolDefinition[],
+  mappings: ImportMappings
+) {
+  const importedAt = new Date().toISOString();
+  const report = buildImportReport(pkg, profiles, tools, mappings);
+  const workflow = createWorkflowDefinitionFromExportPackage(pkg, {
+    importedWorkflowId: `workflow-${crypto.randomUUID()}`,
+    availableModelProfiles: profiles,
+    availableTools: tools,
+    modelProfileMappings: mappings.modelProfileMappings,
+    toolMappings: mappings.toolMappings,
+  });
+
+  return {
+    ...workflow,
+    versioning: {
+      ...(workflow.versioning ?? { version: '1.0.0', revision: 1 }),
+      labels: Array.from(new Set([...(workflow.versioning?.labels ?? []), 'draft', 'imported'])),
+    },
+    metadata: {
+      ...(workflow.metadata ?? {}),
+      imported_at: importedAt,
+      imported_from_workflow_id: pkg.workflow.id,
+      imported_schema_version: pkg.schemaVersion,
+      workflow_import_report: {
+        ...report,
+        imported_at: importedAt,
+      },
+    },
+  };
+}
+
+function buildImportReport(
+  pkg: WorkflowExportPackage,
+  profiles: BehaviorTuningProfile[],
+  tools: ToolDefinition[],
+  mappings: ImportMappings
+) {
+  const localProfileIds = new Set(profiles.map((profile) => profile.id));
+  const localToolIds = new Set(tools.map((tool) => tool.id));
+  const missingModelProfileIds = pkg.dependencies.modelProfiles
+    .map((profile) => profile.id)
+    .filter(
+      (profileId) =>
+        !localProfileIds.has(profileId) &&
+        !(
+          mappings.modelProfileMappings[profileId] &&
+          localProfileIds.has(mappings.modelProfileMappings[profileId])
+        )
+    );
+  const mappedModelProfiles = Object.fromEntries(
+    Object.entries(mappings.modelProfileMappings).filter(([, mappedProfileId]) =>
+      localProfileIds.has(mappedProfileId)
+    )
+  );
+  const bundledToolIds = pkg.dependencies.tools
+    .filter((tool) => tool.implementation)
+    .map((tool) => tool.id);
+  const skippedToolIds = pkg.dependencies.tools
+    .filter(
+      (tool) =>
+        !tool.implementation &&
+        !localToolIds.has(tool.id) &&
+        !(mappings.toolMappings[tool.id] && localToolIds.has(mappings.toolMappings[tool.id]))
+    )
+    .map((tool) => tool.id);
+  const mappedTools = Object.fromEntries(
+    Object.entries(mappings.toolMappings).filter(([, mappedToolId]) =>
+      localToolIds.has(mappedToolId)
+    )
+  );
+  const messages = [
+    ...missingModelProfileIds.map(
+      (profileId) =>
+        `Model profile "${profileId}" was not found and must be selected before running affected agents.`
+    ),
+    ...skippedToolIds.map(
+      (toolId) => `Tool "${toolId}" was not found and was skipped during import.`
+    ),
+    ...Object.entries(mappedModelProfiles).map(
+      ([sourceId, targetId]) => `Model profile "${sourceId}" was mapped to "${targetId}".`
+    ),
+    ...Object.entries(mappedTools).map(
+      ([sourceId, targetId]) => `Tool "${sourceId}" was mapped to "${targetId}".`
+    ),
+    ...bundledToolIds.map((toolId) => `Custom tool "${toolId}" was imported from the package.`),
+  ];
+
+  return {
+    action_required: missingModelProfileIds.length > 0 || skippedToolIds.length > 0,
+    messages,
+    missing_model_profile_ids: missingModelProfileIds,
+    skipped_tool_ids: skippedToolIds,
+    mapped_model_profiles: mappedModelProfiles,
+    mapped_tools: mappedTools,
+    bundled_tool_ids: bundledToolIds,
+  };
+}
+
+function ImportWorkflowDialog({
+  profiles,
+  tools,
+  onImported,
+}: {
+  profiles: BehaviorTuningProfile[];
+  tools: ToolDefinition[];
+  onImported: (workflowId: string) => Promise<void>;
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [isOpen, setIsOpen] = useState(false);
+  const [fileName, setFileName] = useState('');
+  const [selectedPackage, setSelectedPackage] = useState<WorkflowExportPackage | null>(null);
+  const [parseError, setParseError] = useState<string | null>(null);
+  const [mappings, setMappings] = useState<ImportMappings>({
+    modelProfileMappings: {},
+    toolMappings: {},
+  });
+  const importReport = selectedPackage
+    ? buildImportReport(selectedPackage, profiles, tools, mappings)
+    : null;
+
+  const resetImportState = () => {
+    setFileName('');
+    setSelectedPackage(null);
+    setParseError(null);
+    setMappings({
+      modelProfileMappings: {},
+      toolMappings: {},
+    });
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const importMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedPackage) {
+        throw new Error('Choose a workflow export package first.');
+      }
+
+      const workflow = await workflowsApi.createWorkflow(
+        importedWorkflowPayload(selectedPackage, profiles, tools, mappings)
+      );
+      const createdWorkflow =
+        workflow && typeof workflow === 'object' && !Array.isArray(workflow)
+          ? (workflow as Record<string, unknown>)
+          : null;
+      if (!createdWorkflow || typeof createdWorkflow.id !== 'string') {
+        throw new Error('Workflow import response did not include an ID.');
+      }
+      return createdWorkflow.id;
+    },
+    onSuccess: async (workflowId) => {
+      setIsOpen(false);
+      resetImportState();
+      await onImported(workflowId);
+    },
+  });
+
+  const handleFileChange = async (file: File | undefined) => {
+    if (!file) {
+      return;
+    }
+
+    setFileName(file.name);
+    setSelectedPackage(null);
+    setParseError(null);
+    setMappings({
+      modelProfileMappings: {},
+      toolMappings: {},
+    });
+
+    try {
+      const text = await file.text();
+      const pkg = parseWorkflowExportPackageJson(text);
+      setSelectedPackage(pkg);
+    } catch (error) {
+      setParseError(
+        error instanceof Error ? error.message : 'Failed to read workflow export package.'
+      );
+    }
+  };
+  const localProfileById = new Map(profiles.map((profile) => [profile.id, profile]));
+  const localToolById = new Map(tools.map((tool) => [tool.id, tool]));
+  const modelProfileRows =
+    selectedPackage?.dependencies.modelProfiles.map((profile) => ({
+      profile,
+      localProfile: localProfileById.get(profile.id) ?? null,
+      mappedProfileId: mappings.modelProfileMappings[profile.id] ?? '',
+    })) ?? [];
+  const toolRows =
+    selectedPackage?.dependencies.tools.map((tool) => ({
+      tool,
+      localTool: localToolById.get(tool.id) ?? null,
+      mappedToolId: mappings.toolMappings[tool.id] ?? '',
+      hasBundledImplementation: Boolean(tool.implementation),
+    })) ?? [];
+
+  return (
+    <>
+      <Button type="button" variant="outline" onClick={() => setIsOpen(true)}>
+        <Upload data-icon="inline-start" />
+        Import workflow
+      </Button>
+      <Dialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          if (importMutation.isPending) {
+            return;
+          }
+          setIsOpen(open);
+          if (!open) {
+            resetImportState();
+          }
+        }}
+      >
+        <DialogContent className="max-h-[85vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Import workflow</DialogTitle>
+            <DialogDescription>Import a workflow package exported from Agency.</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4">
+            <div className="rounded-md border border-dashed border-border bg-muted/30 p-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json,application/json"
+                className="sr-only"
+                onChange={(event) => {
+                  void handleFileChange(event.target.files?.[0]);
+                }}
+                disabled={importMutation.isPending}
+              />
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {fileName || 'No package selected'}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Use a `.workflow.json` export package. Review missing model profiles and tools
+                    before importing.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={importMutation.isPending}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  Choose file
+                </Button>
+              </div>
+            </div>
+            {parseError ? (
+              <div className="rounded-md border border-destructive/25 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {parseError}
+              </div>
+            ) : null}
+            {selectedPackage ? (
+              <div className="rounded-md border border-border bg-background p-3 text-sm">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {selectedPackage.workflow.name || selectedPackage.workflow.id}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {selectedPackage.workflow.description || 'No workflow description.'}
+                    </p>
+                  </div>
+                  <Badge variant="outline">{selectedPackage.schemaVersion}</Badge>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <Badge variant="outline">
+                    {selectedPackage.workflow.agent_definitions?.length ?? 0} agents
+                  </Badge>
+                  <Badge variant="outline">
+                    {selectedPackage.workflow.task_definitions?.length ?? 0} tasks
+                  </Badge>
+                  <Badge variant="outline">
+                    {selectedPackage.dependencies.tools.length} tool references
+                  </Badge>
+                  <Badge variant="outline">
+                    {selectedPackage.dependencies.modelProfiles.length} model refs
+                  </Badge>
+                </div>
+                {selectedPackage.importNotes.length > 0 ? (
+                  <div className="mt-3 flex flex-col gap-1 text-xs text-muted-foreground">
+                    {selectedPackage.importNotes.slice(0, 4).map((note) => (
+                      <p key={note}>{note}</p>
+                    ))}
+                    {selectedPackage.importNotes.length > 4 ? (
+                      <p>{selectedPackage.importNotes.length - 4} more import notes.</p>
+                    ) : null}
+                  </div>
+                ) : null}
+                <div className="mt-4 space-y-3">
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                        Model profiles
+                      </p>
+                      <Badge
+                        variant={
+                          modelProfileRows.some((row) => !row.localProfile)
+                            ? 'outline'
+                            : 'secondary'
+                        }
+                      >
+                        {modelProfileRows.filter((row) => !row.localProfile).length} need review
+                      </Badge>
+                    </div>
+                    {modelProfileRows.length === 0 ? (
+                      <p className="text-xs text-neutral-500">No model profile references.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {modelProfileRows.map(({ profile, localProfile, mappedProfileId }) => (
+                          <div
+                            key={profile.id}
+                            className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50/70 p-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {profile.name || profile.id}
+                              </p>
+                              <p className="truncate text-xs text-muted-foreground">{profile.id}</p>
+                            </div>
+                            {localProfile ? (
+                              <Badge variant="secondary" className="justify-self-start">
+                                Available locally
+                              </Badge>
+                            ) : (
+                              <select
+                                aria-label={`Map model profile ${profile.id}`}
+                                value={mappedProfileId}
+                                onChange={(event) =>
+                                  setMappings((current) => ({
+                                    ...current,
+                                    modelProfileMappings: {
+                                      ...current.modelProfileMappings,
+                                      [profile.id]: event.target.value,
+                                    },
+                                  }))
+                                }
+                                className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                              >
+                                <option value="">Leave empty - action required</option>
+                                {profiles.map((localProfileOption) => (
+                                  <option key={localProfileOption.id} value={localProfileOption.id}>
+                                    {localProfileOption.name}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                        Tools
+                      </p>
+                      <Badge
+                        variant={
+                          toolRows.some((row) => !row.localTool && !row.hasBundledImplementation)
+                            ? 'outline'
+                            : 'secondary'
+                        }
+                      >
+                        {
+                          toolRows.filter((row) => !row.localTool && !row.hasBundledImplementation)
+                            .length
+                        }{' '}
+                        need review
+                      </Badge>
+                    </div>
+                    {toolRows.length === 0 ? (
+                      <p className="text-xs text-neutral-500">No tool references.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {toolRows.map(
+                          ({ tool, localTool, mappedToolId, hasBundledImplementation }) => (
+                            <div
+                              key={tool.id}
+                              className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50/70 p-2 md:grid-cols-[minmax(0,1fr)_minmax(14rem,18rem)]"
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-sm font-medium text-foreground">
+                                  {tool.display_name || tool.name || tool.id}
+                                </p>
+                                <p className="truncate text-xs text-muted-foreground">{tool.id}</p>
+                              </div>
+                              {localTool ? (
+                                <Badge variant="secondary" className="justify-self-start">
+                                  Available locally
+                                </Badge>
+                              ) : hasBundledImplementation ? (
+                                <Badge variant="secondary" className="justify-self-start">
+                                  Custom tool will import
+                                </Badge>
+                              ) : (
+                                <select
+                                  aria-label={`Map tool ${tool.id}`}
+                                  value={mappedToolId}
+                                  onChange={(event) =>
+                                    setMappings((current) => ({
+                                      ...current,
+                                      toolMappings: {
+                                        ...current.toolMappings,
+                                        [tool.id]: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                  className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
+                                >
+                                  <option value="">Skip tool - action required</option>
+                                  {tools.map((localToolOption) => (
+                                    <option key={localToolOption.id} value={localToolOption.id}>
+                                      {localToolOption.display_name ||
+                                        localToolOption.name ||
+                                        localToolOption.id}
+                                    </option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+                          )
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {importReport && importReport.action_required ? (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                      Import will create the workflow, but some references need action after import.
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              disabled={importMutation.isPending || !selectedPackage}
+              onClick={() => {
+                void toast.promise(importMutation.mutateAsync(), {
+                  loading: 'Importing workflow...',
+                  success: 'Workflow imported.',
+                  error: (error) =>
+                    error instanceof Error ? error.message : 'Failed to import workflow.',
+                  position: 'top-right',
+                });
+              }}
+            >
+              {importMutation.isPending ? 'Importing...' : 'Import workflow'}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={importMutation.isPending}
+              onClick={() => setIsOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 export default function WorkflowListWorkspace() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -227,19 +809,112 @@ export default function WorkflowListWorkspace() {
     queryKey: queryKeys.backendRuntimeAdapters(),
     queryFn: () => runtimeAdaptersApi.listRuntimeAdapters(),
   });
-
+  const profilesQuery = useQuery({
+    queryKey: queryKeys.backendBehaviorProfiles(),
+    queryFn: () => behaviorProfilesApi.listProfiles(),
+  });
+  const toolsQuery = useQuery({
+    queryKey: queryKeys.tools(),
+    queryFn: async () => {
+      const response = await toolsApi.listTools();
+      return response.items;
+    },
+  });
+  const schedulesQuery = useQuery({
+    queryKey: ['backendSchedules'] as const,
+    queryFn: async () => {
+      const response = await schedulesApi.listSchedules();
+      return response.items;
+    },
+  });
   const runtimeAdapters = adaptersQuery.data?.items ?? [];
+  const behaviorProfiles = profilesQuery.data ?? [];
+  const tools = toolsQuery.data ?? [];
+  // Schedules live behind a separate API, so the list view groups them here instead of
+  // assuming the workflow list payload already carries next-fire metadata.
+  const schedulesByWorkflowId = useMemo(() => {
+    const groupedSchedules = new Map<string, ScheduleDefinition[]>();
+    (schedulesQuery.data ?? []).forEach((schedule) => {
+      if (!schedule.workflow_id) {
+        return;
+      }
+
+      const existingSchedules = groupedSchedules.get(schedule.workflow_id) ?? [];
+      existingSchedules.push(schedule);
+      groupedSchedules.set(schedule.workflow_id, existingSchedules);
+    });
+
+    return groupedSchedules;
+  }, [schedulesQuery.data]);
+  const workflows = useMemo(() => workflowsQuery.data?.items ?? [], [workflowsQuery.data?.items]);
+  const personaNoticeQueries = useQueries({
+    queries: workflows.map((workflow) => ({
+      queryKey: queryKeys.backendWorkflowPersonaVersionNotices(workflow.id),
+      queryFn: () => workflowsApi.listWorkflowPersonaVersionNotices(workflow.id),
+      enabled: Boolean(workflow.id),
+    })),
+  });
+  const personaNoticeCountByWorkflowId = useMemo(() => {
+    const counts = new Map<string, number>();
+    personaNoticeQueries.forEach((query, index) => {
+      const workflowId = workflows[index]?.id;
+      if (!workflowId) {
+        return;
+      }
+      counts.set(
+        workflowId,
+        (query.data?.items ?? []).filter((notice) => notice.status === 'outdated').length
+      );
+    });
+    return counts;
+  }, [personaNoticeQueries, workflows]);
+
+  const assistantPageContext = useMemo(
+    () => ({
+      surface: 'workflow.list' as const,
+      title: 'Workflows',
+      description: 'Canonical workflow definitions.',
+      summary: {
+        workflowCount: workflows.length,
+        runtimeAdapterCount: runtimeAdapters.length,
+        modelProfileCount: behaviorProfiles.length,
+        toolCount: tools.length,
+        isLoading:
+          workflowsQuery.isLoading ||
+          adaptersQuery.isLoading ||
+          profilesQuery.isLoading ||
+          toolsQuery.isLoading,
+      },
+      allowedActions: ['workflow.create', 'workflow.import', 'workflow.search', 'workflow.open'],
+    }),
+    [
+      adaptersQuery.isLoading,
+      behaviorProfiles.length,
+      profilesQuery.isLoading,
+      runtimeAdapters.length,
+      tools.length,
+      toolsQuery.isLoading,
+      workflows.length,
+      workflowsQuery.isLoading,
+    ]
+  );
+  useRegisterAssistantPageContext(assistantPageContext);
 
   const handleCreated = async (workflowId: string) => {
     await queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() });
     router.push(`/workflows/${workflowId}`);
   };
 
-  if (workflowsQuery.isLoading || adaptersQuery.isLoading) {
+  if (
+    workflowsQuery.isLoading ||
+    adaptersQuery.isLoading ||
+    profilesQuery.isLoading ||
+    toolsQuery.isLoading
+  ) {
     return (
       <LoadingCard
         title="Workflows"
-        description="Loading canonical workflows from the transformed backend."
+        description="Loading workflow definitions and runtime catalog data."
       />
     );
   }
@@ -264,17 +939,41 @@ export default function WorkflowListWorkspace() {
     );
   }
 
-  const workflows = workflowsQuery.data?.items ?? [];
+  if (profilesQuery.isError) {
+    return (
+      <ErrorAlert
+        title="Failed to load model profiles"
+        message={profilesQuery.error.message}
+        onRetry={() => profilesQuery.refetch()}
+      />
+    );
+  }
+
+  if (toolsQuery.isError) {
+    return (
+      <ErrorAlert
+        title="Failed to load tools"
+        message={toolsQuery.error.message}
+        onRetry={() => toolsQuery.refetch()}
+      />
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-6">
       <PageHeader
-        eyebrow="Workflows"
+        icon={Workflow}
+        tone="workflow"
         title="Workflows"
-        description="Canonical workflow definitions."
+        description="Build, run, and manage your LLM workflows."
         actions={
           <>
             <CreateWorkflowDialog adapters={runtimeAdapters} onCreated={handleCreated} />
+            <ImportWorkflowDialog
+              profiles={behaviorProfiles}
+              tools={tools}
+              onImported={handleCreated}
+            />
             <Button
               type="button"
               variant="outline"
@@ -282,7 +981,8 @@ export default function WorkflowListWorkspace() {
               disabled={workflowsQuery.isFetching}
             >
               <RefreshCw
-                className={`mr-2 h-4 w-4 ${workflowsQuery.isFetching ? 'animate-spin' : ''}`}
+                data-icon="inline-start"
+                className={workflowsQuery.isFetching ? 'animate-spin' : undefined}
               />
               Refresh
             </Button>
@@ -299,58 +999,111 @@ export default function WorkflowListWorkspace() {
         />
       ) : null}
 
-      <div className="grid gap-4 xl:grid-cols-2">
-        {workflows.map((workflow) => (
-          <Card
-            key={workflow.id}
-            className="agency-card transition duration-200 hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-lg hover:shadow-primary/10"
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex min-w-0 gap-3">
-                  <div className="agency-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-white shadow-sm shadow-primary/20">
-                    <Workflow className="h-5 w-5" />
+      {workflows.length > 0 ? (
+        <section
+          aria-label="Workflow list"
+          className="overflow-hidden rounded-xl border border-(--agency-shell-border) bg-card"
+        >
+          <div className="hidden grid-cols-[minmax(17rem,1.45fr)_minmax(16rem,1fr)_minmax(13rem,0.7fr)_1.5rem] gap-6 border-b border-(--agency-shell-border) bg-muted/30 px-5 py-3 text-[0.68rem] font-semibold uppercase tracking-[0.11em] text-(--agency-shell-muted) md:grid">
+            <span>Workflow</span>
+            <span>Agents / tasks / tools</span>
+            <span>Schedule</span>
+            <span className="sr-only">Open</span>
+          </div>
+
+          <div className="divide-y divide-(--agency-shell-border)">
+            {workflows.map((workflow) => {
+              const outdatedPersonaCount = personaNoticeCountByWorkflowId.get(workflow.id) ?? 0;
+              const assignedToolCount = workflowAssignedToolIds(workflow).length;
+              const bundledToolCount = workflow.tool_definitions?.length ?? 0;
+              const toolCount = assignedToolCount > 0 ? assignedToolCount : bundledToolCount;
+              const scheduleSummary = summarizeWorkflowSchedule(
+                schedulesByWorkflowId.get(workflow.id),
+                schedulesQuery.isLoading,
+                schedulesQuery.isError
+              );
+
+              return (
+                <Link
+                  key={workflow.id}
+                  href={`/workflows/${workflow.id}`}
+                  className="group grid gap-5 px-5 py-5 outline-none transition-colors hover:bg-(--agency-row-hover) focus-visible:bg-(--agency-row-hover) focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:grid-cols-[minmax(17rem,1.45fr)_minmax(16rem,1fr)_minmax(13rem,0.7fr)_1.5rem] md:items-center md:gap-6 md:py-6"
+                >
+                  <div className="flex min-w-0 items-start gap-4">
+                    <span className="flex size-11 shrink-0 items-center justify-center rounded-lg border border-(--agency-shell-border) bg-background text-(--agency-shell-muted) transition-colors group-hover:text-primary">
+                      <Workflow className="size-5 stroke-[1.75]" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2
+                          className="truncate text-base font-semibold tracking-[-0.015em] text-(--agency-shell-text)"
+                          title={workflow.name}
+                        >
+                          {workflow.name}
+                        </h2>
+                        {outdatedPersonaCount > 0 ? (
+                          <Badge
+                            variant="outline"
+                            className="border-(--agency-warning-border) bg-(--agency-warning-bg) text-(--agency-warning-text)"
+                          >
+                            {outdatedPersonaCount} persona update
+                          </Badge>
+                        ) : null}
+                      </div>
+                      <p className="mt-1 line-clamp-2 text-sm leading-5 text-(--agency-shell-muted)">
+                        {workflow.description || 'No workflow description configured.'}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <CardTitle className="text-lg">
-                      <Link href={`/workflows/${workflow.id}`} className="hover:text-primary">
-                        {workflow.name}
-                      </Link>
-                    </CardTitle>
-                    <CardDescription>
-                      {workflow.description || 'No workflow description configured.'}
-                    </CardDescription>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-(--agency-shell-muted)">
+                    <span className="inline-flex items-center gap-1.5">
+                      <CircleUserRound className="size-4 stroke-[1.75]" />
+                      {formatCount(workflow.agent_definitions?.length ?? 0, 'agent')}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <ListChecks className="size-4 stroke-[1.75]" />
+                      {formatCount(workflow.task_definitions?.length ?? 0, 'task')}
+                    </span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Wrench className="size-4 stroke-[1.75]" />
+                      {formatCount(toolCount, 'tool')}
+                    </span>
                   </div>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant="secondary">{workflow.versioning?.version || 'v1'}</Badge>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm text-neutral-600">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="outline">{workflow.agent_definitions?.length ?? 0} agents</Badge>
-                <Badge variant="outline">{workflow.task_definitions?.length ?? 0} tasks</Badge>
-                <Badge variant="outline">{workflow.tool_definitions?.length ?? 0} tools</Badge>
-                <Badge variant="outline">{workflow.nodes?.length ?? 0} nodes</Badge>
-              </div>
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-xs text-neutral-500">
-                  Entrypoint: {workflow.entrypoint || 'Not set'}
-                </p>
-                <div className="flex items-center gap-2">
-                  <WorkflowDeleteAction workflowId={workflow.id} workflowName={workflow.name} />
-                  <Button asChild size="sm" variant="outline">
-                    <Link href={`/workflows/${workflow.id}`}>Builder</Link>
-                  </Button>
-                  <Button asChild size="sm">
-                    <Link href={`/workflows/${workflow.id}`}>Open</Link>
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+
+                  <div className="min-w-0 text-sm">
+                    <p
+                      data-tone={scheduleSummary.tone}
+                      className="workflow-schedule-status flex items-center gap-2 font-medium text-(--agency-shell-text)"
+                    >
+                      <span className="workflow-schedule-dot size-2 shrink-0 rounded-full" />
+                      {scheduleSummary.label}
+                    </p>
+                    <p
+                      className="mt-1 truncate text-(--agency-shell-muted)"
+                      title={scheduleSummary.detail}
+                    >
+                      {scheduleSummary.detail}
+                    </p>
+                  </div>
+
+                  <ChevronRight className="hidden size-4 text-(--agency-shell-muted) transition-transform group-hover:translate-x-0.5 md:block" />
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
+
+      <div className="flex flex-wrap items-center justify-center gap-2 py-2 text-sm text-(--agency-shell-muted)">
+        <CircleHelp className="size-4" aria-hidden="true" />
+        <span>Not sure where to start?</span>
+        <Link
+          href="/assistant"
+          className="font-medium text-primary underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Ask Assistant
+        </Link>
       </div>
     </div>
   );

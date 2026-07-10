@@ -1,6 +1,5 @@
 'use client';
 
-import { Badge } from '@/components/library/shadcn/badge';
 import {
   AccordionContent,
   AccordionItem,
@@ -8,14 +7,32 @@ import {
 } from '@/components/library/shadcn/accordion';
 import { Button } from '@/components/library/shadcn/button';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/library/shadcn/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/library/shadcn/tooltip';
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/library/shadcn/card';
+import {
+  WorkflowBooleanState,
+  WorkflowReadOnlySummaryField,
+  WorkflowSettingsSection,
+  WorkflowStateValue,
+} from '@/components/workflow/WorkflowSettingsPrimitives';
 import type { ScheduleDefinition } from '@/types/runtime';
-import { Pause, Pencil, Play, RefreshCw, Save, X, Zap } from 'lucide-react';
+import { MoreHorizontal, Pause, Pencil, Play, RefreshCw, Save, Trash2, X, Zap } from 'lucide-react';
 import { useState } from 'react';
 
 interface WorkflowSchedulesPanelProps {
@@ -33,6 +50,7 @@ interface WorkflowSchedulesPanelProps {
   isMutating?: boolean;
   onCreateSchedule?: (payload: Record<string, unknown>) => Promise<void> | void;
   onRefresh: () => void;
+  onDeleteSchedule: (schedule: ScheduleDefinition) => Promise<void> | void;
   onToggleSchedule: (schedule: ScheduleDefinition) => void;
   onTriggerNow: (schedule: ScheduleDefinition) => void;
   onUpdateSchedule: (
@@ -211,6 +229,7 @@ export default function WorkflowSchedulesPanel({
   isMutating = false,
   onCreateSchedule,
   onRefresh,
+  onDeleteSchedule,
   onToggleSchedule,
   onTriggerNow,
   onUpdateSchedule,
@@ -218,6 +237,7 @@ export default function WorkflowSchedulesPanel({
   const [isCreating, setIsCreating] = useState(false);
   const [createDraft, setCreateDraft] = useState<ScheduleDraft>({ cron: '0 7 * * *' });
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
+  const [pendingDeleteScheduleId, setPendingDeleteScheduleId] = useState<string | null>(null);
   const [draft, setDraft] = useState<ScheduleDraft | null>(null);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -235,6 +255,10 @@ export default function WorkflowSchedulesPanel({
     setEditingScheduleId(null);
     setDraft(null);
     setDraftError(null);
+  };
+
+  const cancelDelete = () => {
+    setPendingDeleteScheduleId(null);
   };
 
   const updateDraft = (patch: Partial<ScheduleDraft>) => {
@@ -279,14 +303,17 @@ export default function WorkflowSchedulesPanel({
 
     return (
       <form
-        className="grid flex-1 gap-4 rounded-md border border-neutral-200 bg-white p-4"
+        className="grid flex-1 gap-4 rounded-md border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/72"
         onSubmit={(event) => {
           event.preventDefault();
           void onSubmit();
         }}
       >
         <div className="grid gap-3">
-          <label className="text-sm font-medium text-neutral-900" htmlFor={inputId}>
+          <label
+            className="text-sm font-medium text-neutral-900 dark:text-slate-100"
+            htmlFor={inputId}
+          >
             Cron expression
           </label>
           <input
@@ -297,24 +324,28 @@ export default function WorkflowSchedulesPanel({
             placeholder="0 7 * * *"
             className="flex h-10 w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 font-mono text-sm"
           />
-          <div className="grid gap-2 text-sm text-neutral-700 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+          <div className="grid gap-2 text-sm text-neutral-700 dark:text-slate-300 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
             <p>
               {cronPreview ?? 'Enter five fields in this order: minute hour day month weekday.'}
               {timezone ? ` Timezone: ${timezone}.` : ''}
             </p>
-            <code className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700">
+            <code className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1 text-xs text-neutral-700 dark:border-white/10 dark:bg-white/4 dark:text-slate-300">
               minute hour day month weekday
             </code>
           </div>
           {cronParts.length === 5 ? (
-            <div className="grid gap-2 text-xs text-neutral-600 sm:grid-cols-5">
+            <div className="grid gap-2 text-xs text-neutral-600 dark:text-slate-400 sm:grid-cols-5">
               {['Minute', 'Hour', 'Day', 'Month', 'Weekday'].map((label, index) => (
                 <div
                   key={label}
-                  className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2"
+                  className="rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2 dark:border-white/10 dark:bg-white/4"
                 >
-                  <div className="font-medium uppercase text-neutral-500">{label}</div>
-                  <code className="mt-1 block text-sm text-neutral-900">{cronParts[index]}</code>
+                  <div className="font-medium uppercase text-neutral-500 dark:text-slate-400">
+                    {label}
+                  </div>
+                  <code className="mt-1 block text-sm text-neutral-900 dark:text-slate-100">
+                    {cronParts[index]}
+                  </code>
                 </div>
               ))}
             </div>
@@ -345,36 +376,40 @@ export default function WorkflowSchedulesPanel({
     );
   };
 
+  const headerActions = (
+    <div className="flex flex-wrap gap-2">
+      {editable && onCreateSchedule ? (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => setIsCreating(true)}
+          disabled={isMutating || isCreating}
+        >
+          <Pencil className="mr-2 h-4 w-4" />
+          Set schedule
+        </Button>
+      ) : null}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={onRefresh}
+        disabled={isLoading || isMutating}
+      >
+        <RefreshCw className="mr-2 h-4 w-4" />
+        Refresh
+      </Button>
+    </div>
+  );
+
   const header = (
     <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
       <div>
         <CardTitle className="text-base">{title}</CardTitle>
         <CardDescription>{headerDescription}</CardDescription>
       </div>
-      <div className="flex flex-wrap gap-2">
-        {editable && onCreateSchedule ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setIsCreating(true)}
-            disabled={isMutating || isCreating}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            Set schedule
-          </Button>
-        ) : null}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onRefresh}
-          disabled={isLoading || isMutating}
-        >
-          <RefreshCw className="mr-2 h-4 w-4" />
-          Refresh
-        </Button>
-      </div>
+      {headerActions}
     </div>
   );
 
@@ -385,8 +420,10 @@ export default function WorkflowSchedulesPanel({
         aria-hidden="true"
       />
       <div className="min-w-0 space-y-1">
-        <div className="text-base font-semibold text-neutral-900">{title}</div>
-        <p className="text-sm font-normal text-neutral-500">{headerDescription}</p>
+        <div className="text-base font-semibold text-neutral-900 dark:text-slate-100">{title}</div>
+        <p className="text-sm font-normal text-neutral-500 dark:text-slate-400">
+          {headerDescription}
+        </p>
       </div>
     </div>
   );
@@ -400,7 +437,7 @@ export default function WorkflowSchedulesPanel({
       ) : null}
 
       {isLoading ? (
-        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-white/10 dark:bg-white/4 dark:text-slate-400">
           Loading schedules...
         </div>
       ) : null}
@@ -431,7 +468,7 @@ export default function WorkflowSchedulesPanel({
       ) : null}
 
       {!isLoading && schedules.length === 0 && !isCreating ? (
-        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600">
+        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-600 dark:border-white/10 dark:bg-white/4 dark:text-slate-400">
           {editable
             ? 'No schedules are attached to this workflow. Use Set schedule to create one.'
             : 'No schedules are attached to this workflow.'}
@@ -443,7 +480,7 @@ export default function WorkflowSchedulesPanel({
           {schedules.map((schedule) => (
             <div
               key={schedule.id}
-              className="flex flex-col gap-4 rounded-md border border-neutral-200 p-4 lg:flex-row lg:items-start lg:justify-between"
+              className="flex flex-col gap-4 rounded-lg border border-neutral-200 bg-white/75 p-4 shadow-sm shadow-neutral-950/3 dark:border-white/10 dark:bg-slate-950/60 dark:shadow-none lg:flex-row lg:items-start lg:justify-between"
             >
               {editable && editingScheduleId === schedule.id && draft ? (
                 renderCronForm({
@@ -469,76 +506,140 @@ export default function WorkflowSchedulesPanel({
                 })
               ) : (
                 <div className="min-w-0 space-y-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={schedule.enabled ? 'default' : 'outline'}>
-                      {schedule.enabled ? 'Enabled' : 'Disabled'}
-                    </Badge>
-                    <Badge variant="outline">{formatTrigger(schedule)}</Badge>
-                    <Badge variant="secondary">{schedule.timezone || 'UTC'}</Badge>
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+                    <WorkflowBooleanState enabled={schedule.enabled === true} />
+                    <span className="text-neutral-600 dark:text-slate-300">
+                      {formatTrigger(schedule)}
+                    </span>
+                    <span className="text-neutral-500 dark:text-slate-400">
+                      {schedule.timezone || 'UTC'}
+                    </span>
                   </div>
                   <dl className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
-                    <div>
-                      <dt className="text-xs font-medium uppercase text-neutral-500">Next fire</dt>
-                      <dd className="mt-1 text-neutral-900">
+                    <WorkflowReadOnlySummaryField label="Next fire">
+                      <WorkflowStateValue>
                         {formatDateTime(schedule.next_fire_at, schedule.timezone)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium uppercase text-neutral-500">Last fire</dt>
-                      <dd className="mt-1 text-neutral-900">
+                      </WorkflowStateValue>
+                    </WorkflowReadOnlySummaryField>
+                    <WorkflowReadOnlySummaryField label="Last fire">
+                      <WorkflowStateValue>
                         {formatDateTime(schedule.last_fire_at, schedule.timezone)}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-medium uppercase text-neutral-500">
-                        Concurrency
-                      </dt>
-                      <dd className="mt-1 text-neutral-900">
+                      </WorkflowStateValue>
+                    </WorkflowReadOnlySummaryField>
+                    <WorkflowReadOnlySummaryField label="Concurrency">
+                      <WorkflowStateValue>
                         {schedule.max_concurrent_executions ?? 1}
-                      </dd>
-                    </div>
+                      </WorkflowStateValue>
+                    </WorkflowReadOnlySummaryField>
                   </dl>
                 </div>
               )}
               {editable ? (
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  {editingScheduleId === schedule.id || schedule.trigger_type !== 'cron' ? null : (
+                <>
+                  <div className="flex flex-wrap items-center gap-2 lg:justify-end">
+                    {editingScheduleId === schedule.id ||
+                    schedule.trigger_type !== 'cron' ? null : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => startEditing(schedule)}
+                        disabled={isMutating}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit cron
+                      </Button>
+                    )}
                     <Button
                       type="button"
                       variant="outline"
                       size="sm"
-                      onClick={() => startEditing(schedule)}
+                      onClick={() => onTriggerNow(schedule)}
                       disabled={isMutating}
                     >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit cron
+                      <Zap className="mr-2 h-4 w-4" />
+                      Trigger now
                     </Button>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onTriggerNow(schedule)}
-                    disabled={isMutating}
-                  >
-                    <Zap className="mr-2 h-4 w-4" />
-                    Trigger now
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={schedule.enabled ? 'secondary' : 'default'}
-                    size="sm"
-                    onClick={() => onToggleSchedule(schedule)}
-                    disabled={isMutating}
-                  >
-                    {schedule.enabled ? (
-                      <Pause className="mr-2 h-4 w-4" />
-                    ) : (
-                      <Play className="mr-2 h-4 w-4" />
-                    )}
-                    {schedule.enabled ? 'Disable' : 'Enable'}
-                  </Button>
-                </div>
+                    <Button
+                      type="button"
+                      variant={schedule.enabled ? 'secondary' : 'default'}
+                      size="sm"
+                      onClick={() => onToggleSchedule(schedule)}
+                      disabled={isMutating}
+                    >
+                      {schedule.enabled ? (
+                        <Pause className="mr-2 h-4 w-4" />
+                      ) : (
+                        <Play className="mr-2 h-4 w-4" />
+                      )}
+                      {schedule.enabled ? 'Disable' : 'Enable'}
+                    </Button>
+                    <DropdownMenu>
+                      <TooltipProvider delayDuration={150}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="shrink-0"
+                                aria-label={`Schedule actions for ${schedule.name || schedule.id}`}
+                                disabled={isMutating}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                          </TooltipTrigger>
+                          <TooltipContent>Schedule actions</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      <DropdownMenuContent align="end" className="w-56">
+                        <DropdownMenuItem
+                          className="text-red-700 focus:bg-red-50 focus:text-red-800"
+                          onSelect={() => {
+                            setPendingDeleteScheduleId(schedule.id);
+                          }}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove schedule
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  {pendingDeleteScheduleId === schedule.id ? (
+                    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+                      <div className="flex flex-wrap items-center justify-between gap-3">
+                        <p className="font-medium">
+                          Remove {schedule.name || schedule.id}? This cannot be undone.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              void onDeleteSchedule(schedule);
+                              setPendingDeleteScheduleId(null);
+                            }}
+                            disabled={isMutating}
+                          >
+                            Remove
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={cancelDelete}
+                            disabled={isMutating}
+                          >
+                            Cancel
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+                </>
               ) : null}
             </div>
           ))}
@@ -549,10 +650,15 @@ export default function WorkflowSchedulesPanel({
 
   if (frame === 'inline') {
     return (
-      <section className="space-y-4 rounded-md border border-neutral-200 bg-neutral-50/60 p-4">
-        {header}
+      <WorkflowSettingsSection
+        title={title}
+        description={headerDescription}
+        tone="amber"
+        actions={headerActions}
+        className="space-y-4 p-4"
+      >
         {content}
-      </section>
+      </WorkflowSettingsSection>
     );
   }
 
@@ -563,7 +669,7 @@ export default function WorkflowSchedulesPanel({
           {accordionTrigger}
         </AccordionTrigger>
         <AccordionContent className="space-y-4 px-1 pb-3 pt-1">
-          <section className="space-y-4 rounded-md border border-neutral-200 bg-neutral-50/60 p-4">
+          <section className="space-y-4 rounded-md border border-neutral-200 bg-neutral-50/60 p-4 dark:border-white/10 dark:bg-white/3">
             {header}
             {content}
           </section>

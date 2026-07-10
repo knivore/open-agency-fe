@@ -48,7 +48,9 @@ describe('observatory pixel layout persistence', () => {
     const writeResult = writeObservatoryLayoutToStorage(storage, layout());
 
     expect(writeResult.issues).toEqual([]);
-    expect(readObservatoryLayoutFromStorage(storage).layout?.world.id).toBe('world:observatory-mvp');
+    expect(readObservatoryLayoutFromStorage(storage).layout?.world.id).toBe(
+      'world:observatory-mvp'
+    );
 
     clearObservatoryLayoutStorage(storage);
     expect(readObservatoryLayoutFromStorage(storage)).toEqual({ issues: [] });
@@ -71,11 +73,19 @@ describe('observatory pixel layout persistence', () => {
     expect(draftResult.issues).toEqual([]);
     expect(publishResult.issues).toEqual([]);
     expect(readObservatoryDraftLayoutFromStorage(storage).layout?.metadata?.status).toBe('draft');
-    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.status).toBe('published');
-    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.publishedAt).toBeTruthy();
+    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.status).toBe(
+      'published'
+    );
+    expect(
+      readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.publishedAt
+    ).toBeTruthy();
     expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.version).toBe(1);
-    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.publishedBy).toBe('test-runner');
-    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.notes).toBe('First production layout');
+    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.publishedBy).toBe(
+      'test-runner'
+    );
+    expect(readObservatoryPublishedLayoutFromStorage(storage).layout?.metadata?.notes).toBe(
+      'First production layout'
+    );
   });
 
   it('exports and imports validated layout JSON as a draft by default', () => {
@@ -109,7 +119,9 @@ describe('observatory pixel layout persistence', () => {
     expect(readObservatoryViewerLayoutFromStorage(storage).hasPublishedLayout).toBe(false);
 
     publishObservatoryLayoutToStorage(storage, layout());
-    expect(readObservatoryViewerLayoutFromStorage(storage).layout?.metadata?.status).toBe('published');
+    expect(readObservatoryViewerLayoutFromStorage(storage).layout?.metadata?.status).toBe(
+      'published'
+    );
     expect(readObservatoryViewerLayoutFromStorage(storage).hasPublishedLayout).toBe(true);
   });
 });

@@ -8,6 +8,7 @@
 
 # testing
 /coverage
+/tmp/
 
 # next.js
 /.next/
@@ -26,8 +27,9 @@ yarn-debug.log*
 yarn-error.log*
 
 # local env files
-.env*.local
-.env.local
+.env
+.env.*
+!.env.example
 
 # vercel
 .vercel
@@ -37,5 +39,10 @@ yarn-error.log*
 next-env.d.ts
 
 .yarn/*
+venv/
 /.idea/
-/.env
+/modules/observatory/assets/furnitures/_review/
+/docs/*
+!/docs/workflow-monitoring.md
+!/docs/workflow-runtime-governance.md
+/test-results/

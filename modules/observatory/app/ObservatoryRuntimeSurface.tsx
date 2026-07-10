@@ -2,6 +2,7 @@
 
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
+import Link from 'next/link';
 import { Search } from 'lucide-react';
 
 import ObservatoryGameCanvas from '@/modules/observatory/components/ObservatoryGameCanvas';
@@ -196,7 +197,6 @@ export default function ObservatoryRuntimeSurface({
     useState<ObservatoryNormalizedOfficeEvent[]>(seededRuntimeEvents);
   const [replayCursor, setReplayCursor] = useState(seededRuntimeEvents.length - 1);
   const replayEventsRef = useRef<ObservatoryNormalizedOfficeEvent[]>(seededRuntimeEvents);
-  const activeRoomHudIdRef = useRef<string | null>(null);
   const ambientSocialStateRef = useRef<AmbientSocialState>(createAmbientSocialState());
   const [debugPanelOpen, setDebugPanelOpen] = useState(false);
   const [assetPackOpen, setAssetPackOpen] = useState(false);
@@ -219,13 +219,16 @@ export default function ObservatoryRuntimeSurface({
   const [builderRuntimeDemoId, setBuilderRuntimeDemoId] = useState('none');
   const [builderAgentVisibilityDefault, setBuilderAgentVisibilityDefault] =
     useState<ObservatoryAgentVisibilityMode>('workflow');
-  const [builderPaletteSelection, setBuilderPaletteSelection] = useState<{
+  const [, setBuilderPaletteSelection] = useState<{
     assetId: string;
     category: string;
     label: string;
   } | null>(null);
-  const [roomHudFloorAssetId, setRoomHudFloorAssetId] = useState<string | null>(null);
-  const [roomHudWallBrushAssetId, setRoomHudWallBrushAssetId] = useState<string | null>(null);
+  const [roomHudBrushState, setRoomHudBrushState] = useState<{
+    floorAssetId: string | null;
+    key: string;
+    wallBrushAssetId: string | null;
+  }>({ floorAssetId: null, key: '', wallBrushAssetId: null });
   const [viewerRoomFilter, setViewerRoomFilter] = useState<
     'all' | 'commons' | 'runtime' | 'workspace'
   >('all');
@@ -439,10 +442,50 @@ export default function ObservatoryRuntimeSurface({
   }, [layout, selectedCanvasObjectState]);
   const activeRoomHudState =
     selectedCanvasRoomState ?? (canvasWallEditEnabled ? activeWallEditRoomState : null);
-  const primaryInspectableSelection = useMemo(
-    () => createPrimaryInspectableSelection(renderedLayout),
-    [renderedLayout]
-  );
+  const nextDefaultRoomHudFloorAssetId =
+    activeRoomHudState?.floorAssetId ??
+    layout?.world.maps[0]?.defaultFloorAssetId ??
+    roomFloorOptions[0]?.value ??
+    null;
+  const activeRoomHudWallAssetId =
+    activeRoomHudState &&
+    roomWallOptions.some((option) => option.value === activeRoomHudState.wallAssetId)
+      ? activeRoomHudState.wallAssetId
+      : null;
+  const nextDefaultRoomHudWallBrushAssetId =
+    activeRoomHudWallAssetId ?? roomWallOptions[0]?.value ?? null;
+  const roomHudBrushKey = activeRoomHudState
+    ? JSON.stringify({
+        floorDefault: nextDefaultRoomHudFloorAssetId,
+        floorOptions: roomFloorOptions.map((option) => option.value),
+        roomId: activeRoomHudState.id,
+        wallDefault: nextDefaultRoomHudWallBrushAssetId,
+        wallOptions: roomWallOptions.map((option) => option.value),
+      })
+    : '';
+  const defaultRoomHudBrushState = {
+    floorAssetId: nextDefaultRoomHudFloorAssetId,
+    key: roomHudBrushKey,
+    wallBrushAssetId: nextDefaultRoomHudWallBrushAssetId,
+  };
+  const activeRoomHudBrushState =
+    roomHudBrushState.key === roomHudBrushKey ? roomHudBrushState : defaultRoomHudBrushState;
+  const roomHudFloorAssetId = activeRoomHudBrushState.floorAssetId;
+  const roomHudWallBrushAssetId = activeRoomHudBrushState.wallBrushAssetId;
+  const setRoomHudFloorAssetId = (floorAssetId: string | null) => {
+    setRoomHudBrushState((currentState) => ({
+      ...(currentState.key === roomHudBrushKey ? currentState : defaultRoomHudBrushState),
+      floorAssetId,
+      key: roomHudBrushKey,
+    }));
+  };
+  const setRoomHudWallBrushAssetId = (wallBrushAssetId: string | null) => {
+    setRoomHudBrushState((currentState) => ({
+      ...(currentState.key === roomHudBrushKey ? currentState : defaultRoomHudBrushState),
+      key: roomHudBrushKey,
+      wallBrushAssetId,
+    }));
+  };
   const inspectionLogAdapter = useMemo(() => {
     if (!renderedLayout) {
       return createObservatoryStaticRuntimeLogAdapter([]);
@@ -454,58 +497,6 @@ export default function ObservatoryRuntimeSurface({
     return createObservatoryStaticRuntimeLogAdapter([...runtimeEntries, ...layoutEntries]);
   }, [renderedLayout, selectedRuntimeContext]);
   const renderedAgentCount = renderedLayout?.world.maps[0]?.agents.length ?? 0;
-
-  useEffect(() => {
-    if (!activeRoomHudState) {
-      activeRoomHudIdRef.current = null;
-      return;
-    }
-
-    const nextDefaultFloorAssetId =
-      activeRoomHudState.floorAssetId ??
-      layout?.world.maps[0]?.defaultFloorAssetId ??
-      roomFloorOptions[0]?.value ??
-      null;
-    const activeRoomWallAssetId = roomWallOptions.some(
-      (option) => option.value === activeRoomHudState.wallAssetId
-    )
-      ? activeRoomHudState.wallAssetId
-      : null;
-    const nextDefaultWallAssetId = activeRoomWallAssetId ?? roomWallOptions[0]?.value ?? null;
-    const roomChanged = activeRoomHudIdRef.current !== activeRoomHudState.id;
-
-    if (roomChanged) {
-      activeRoomHudIdRef.current = activeRoomHudState.id;
-      setRoomHudFloorAssetId(nextDefaultFloorAssetId);
-      setRoomHudWallBrushAssetId(nextDefaultWallAssetId);
-      return;
-    }
-
-    if (
-      roomHudFloorAssetId &&
-      roomFloorOptions.some((option) => option.value === roomHudFloorAssetId)
-    ) {
-      // Keep the user's current floor brush while editing this room.
-    } else {
-      setRoomHudFloorAssetId(nextDefaultFloorAssetId);
-    }
-
-    if (
-      roomHudWallBrushAssetId &&
-      roomWallOptions.some((option) => option.value === roomHudWallBrushAssetId)
-    ) {
-      // Keep the user's current wall brush while editing this room.
-    } else {
-      setRoomHudWallBrushAssetId(nextDefaultWallAssetId);
-    }
-  }, [
-    activeRoomHudState,
-    layout,
-    roomFloorOptions,
-    roomHudFloorAssetId,
-    roomHudWallBrushAssetId,
-    roomWallOptions,
-  ]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => {
@@ -1309,14 +1300,14 @@ export default function ObservatoryRuntimeSurface({
     >
       {isViewerMode || isEmbedMode ? null : (
         <div className={`${styles.hero} ${compact ? styles.heroCompact : ''}`}>
-          <p className={styles.eyebrow}>Observatory Preview</p>
-          <h2 className={styles.title}>
+          <p className={styles.eyebrow}>Observatory layout</p>
+          <h1 className={styles.title}>
             {compact || isEmbedMode ? 'Observable runtime office' : 'Observatory Builder'}
-          </h2>
+          </h1>
           <p className={styles.description}>
             {compact || isEmbedMode
               ? 'Compact embed surface for same-origin postMessage runtime events.'
-              : 'Developer view for editing, validating, debugging, and publishing a layout snapshot. Published layouts render as canvas-only runtime views in host surfaces such as /runs.'}
+              : 'Design the live Observatory view used by Runs. Arrange rooms and agents, preview sample activity, then save or deploy the layout.'}
           </p>
           {readOnly ? <p className={styles.modeBadge}>Read-only embed mode</p> : null}
           {isBuilderMode ? (
@@ -1349,6 +1340,9 @@ export default function ObservatoryRuntimeSurface({
               >
                 Reset runtime state
               </button>
+              <Link className={`${styles.button} ${styles.buttonSecondary}`} href="/runs">
+                Back to Runs
+              </Link>
             </div>
           ) : null}
         </div>
@@ -1459,16 +1453,6 @@ export default function ObservatoryRuntimeSurface({
                 onMapChange={setViewerMapId}
                 selectedDemo={builderRuntimeDemo}
                 selectedMapId={selectedViewerMapId}
-                status={runtimeStatus}
-              />
-            ) : null}
-            {isViewerMode ? (
-              <RuntimeStatusStrip
-                onInspect={
-                  primaryInspectableSelection
-                    ? () => setCanvasSelection(primaryInspectableSelection)
-                    : undefined
-                }
                 status={runtimeStatus}
               />
             ) : null}
@@ -2153,44 +2137,6 @@ interface RuntimeStatusSummary {
   workflowCount: number;
 }
 
-function RuntimeStatusStrip({
-  onInspect,
-  status,
-}: {
-  onInspect?: () => void;
-  status: RuntimeStatusSummary;
-}) {
-  const hasLiveRuntime = status.mode === 'live' && status.activeRunCount > 0;
-  const hasHistoricalRuntime = status.mode === 'historical' && status.previewRunCount > 0;
-  const description = hasLiveRuntime
-    ? `${formatCount(status.selectedWorkflowCount, 'workflow')} on this floor, ${formatCount(status.selectedEventCount, 'event')}, ${formatCount(status.selectedLogCount, 'log')}.`
-    : hasHistoricalRuntime
-      ? `Historical preview from ${formatCount(status.previewRunCount, 'run')}; start or resume a workflow to switch back to live agent movement.`
-      : 'No active workflows are visualized right now. The floor remains inspectable; start a run or clear completed-only filters to see live grouped agents and logs.';
-
-  return null;
-  // (
-  // <section className={`${styles.runtimeStatusStrip} ${hasLiveRuntime ? styles.runtimeStatusLive : styles.runtimeStatusIdle}`}>
-  //   <div>
-  //     <p className={styles.runtimeStatusEyebrow}>
-  //       {hasLiveRuntime ? 'Live runtime canvas' : hasHistoricalRuntime ? 'Historical runtime preview' : 'Ambient canvas'}
-  //     </p>
-  //     <p className={styles.runtimeStatusDescription}>{description}</p>
-  //   </div>
-  //   <div className={styles.runtimeStatusMetrics} aria-label="Observatory runtime status">
-  //     <RuntimeStatusMetric label={status.mode === 'historical' ? 'Preview runs' : 'Live runs'} value={status.previewRunCount} />
-  //     <RuntimeStatusMetric label="Workflows" value={status.workflowCount} />
-  //     <RuntimeStatusMetric label="Events" value={status.eventCount} />
-  //     <RuntimeStatusMetric label="Logs" value={status.logCount} />
-  //     <RuntimeStatusMetric label="Agents" value={status.displayedAgentCount} />
-  //   </div>
-  //   <button className={`${styles.button} ${styles.buttonSecondary}`} disabled={!onInspect} onClick={onInspect} type="button">
-  //     Inspect room
-  //   </button>
-  // </section>
-  // );
-}
-
 function RuntimeStatusMetric({ label, value }: { label: string; value: number }) {
   return (
     <span className={styles.runtimeStatusMetric}>
@@ -2294,35 +2240,95 @@ function SelectionDrawer({
 
     return { kind: 'none' as const, query: {} };
   }, [agent, object, room]);
-  const [inspectionLogs, setInspectionLogs] = useState<ObservatoryInspectionLogResult>({
+  const inspectionLogsKey = JSON.stringify(inspectionQuery);
+  const defaultInspectionLogs: ObservatoryInspectionLogResult = {
     entries: [],
     query: inspectionQuery.query,
-    status: 'loading',
+    status: inspectionQuery.kind === 'none' ? 'empty' : 'loading',
+  };
+  const [inspectionLogsState, setInspectionLogsState] = useState({
+    key: inspectionLogsKey,
+    result: defaultInspectionLogs,
   });
-  const [objectRoomId, setObjectRoomId] = useState(object?.roomId ?? '');
-  const [gridX, setGridX] = useState(() => String(object?.position.x ?? 0));
-  const [gridY, setGridY] = useState(() => String(object?.position.y ?? 0));
-  const [offsetX, setOffsetX] = useState(() => String(object?.render?.offsetPx?.x ?? 0));
-  const [offsetY, setOffsetY] = useState(() => String(object?.render?.offsetPx?.y ?? 0));
-  const [sizeWidthPx, setSizeWidthPx] = useState(() =>
-    String(Math.round(object?.render?.sizePx?.width ?? 48))
-  );
-  const [sizeHeightPx, setSizeHeightPx] = useState(() =>
-    String(Math.round(object?.render?.sizePx?.height ?? 48))
-  );
-  const [roomOriginX, setRoomOriginX] = useState(() => String(room?.bounds.x ?? 0));
-  const [roomOriginY, setRoomOriginY] = useState(() => String(room?.bounds.y ?? 0));
-  const [roomWidth, setRoomWidth] = useState(() => String(room?.bounds.width ?? 1));
-  const [roomHeight, setRoomHeight] = useState(() => String(room?.bounds.height ?? 1));
+  const inspectionLogs =
+    inspectionLogsState.key === inspectionLogsKey
+      ? inspectionLogsState.result
+      : defaultInspectionLogs;
+  const objectDraftKey = object
+    ? JSON.stringify({
+        id: object.id,
+        offset: object.render?.offsetPx ?? null,
+        position: object.position,
+        roomId: object.roomId ?? '',
+        size: object.render?.sizePx ?? null,
+      })
+    : '';
+  const defaultObjectDraft = {
+    gridX: String(object?.position.x ?? 0),
+    gridY: String(object?.position.y ?? 0),
+    key: objectDraftKey,
+    offsetX: String(object?.render?.offsetPx?.x ?? 0),
+    offsetY: String(object?.render?.offsetPx?.y ?? 0),
+    roomId: object?.roomId ?? '',
+    sizeHeightPx: String(Math.round(object?.render?.sizePx?.height ?? 48)),
+    sizeWidthPx: String(Math.round(object?.render?.sizePx?.width ?? 48)),
+  };
+  const [objectDraft, setObjectDraft] = useState(defaultObjectDraft);
+  const activeObjectDraft = objectDraft.key === objectDraftKey ? objectDraft : defaultObjectDraft;
+  const updateObjectDraft = (patch: Partial<typeof defaultObjectDraft>) => {
+    setObjectDraft((currentDraft) => ({
+      ...(currentDraft.key === objectDraftKey ? currentDraft : defaultObjectDraft),
+      ...patch,
+      key: objectDraftKey,
+    }));
+  };
+  const objectRoomId = activeObjectDraft.roomId;
+  const gridX = activeObjectDraft.gridX;
+  const gridY = activeObjectDraft.gridY;
+  const offsetX = activeObjectDraft.offsetX;
+  const offsetY = activeObjectDraft.offsetY;
+  const sizeWidthPx = activeObjectDraft.sizeWidthPx;
+  const sizeHeightPx = activeObjectDraft.sizeHeightPx;
+  const setObjectRoomId = (roomId: string) => updateObjectDraft({ roomId });
+  const setGridX = (value: string) => updateObjectDraft({ gridX: value });
+  const setGridY = (value: string) => updateObjectDraft({ gridY: value });
+  const setOffsetX = (value: string) => updateObjectDraft({ offsetX: value });
+  const setOffsetY = (value: string) => updateObjectDraft({ offsetY: value });
+  const setSizeWidthPx = (value: string) => updateObjectDraft({ sizeWidthPx: value });
+  const setSizeHeightPx = (value: string) => updateObjectDraft({ sizeHeightPx: value });
+  const roomDraftKey = room
+    ? JSON.stringify({
+        bounds: room.bounds,
+        id: room.id,
+      })
+    : '';
+  const defaultRoomDraft = {
+    height: String(room?.bounds.height ?? 1),
+    key: roomDraftKey,
+    originX: String(room?.bounds.x ?? 0),
+    originY: String(room?.bounds.y ?? 0),
+    width: String(room?.bounds.width ?? 1),
+  };
+  const [roomDraft, setRoomDraft] = useState(defaultRoomDraft);
+  const activeRoomDraft = roomDraft.key === roomDraftKey ? roomDraft : defaultRoomDraft;
+  const updateRoomDraft = (patch: Partial<typeof defaultRoomDraft>) => {
+    setRoomDraft((currentDraft) => ({
+      ...(currentDraft.key === roomDraftKey ? currentDraft : defaultRoomDraft),
+      ...patch,
+      key: roomDraftKey,
+    }));
+  };
+  const roomOriginX = activeRoomDraft.originX;
+  const roomOriginY = activeRoomDraft.originY;
+  const roomWidth = activeRoomDraft.width;
+  const roomHeight = activeRoomDraft.height;
+  const setRoomOriginX = (value: string) => updateRoomDraft({ originX: value });
+  const setRoomOriginY = (value: string) => updateRoomDraft({ originY: value });
+  const setRoomWidth = (value: string) => updateRoomDraft({ width: value });
+  const setRoomHeight = (value: string) => updateRoomDraft({ height: value });
 
   useEffect(() => {
     let cancelled = false;
-
-    setInspectionLogs({
-      entries: [],
-      query: inspectionQuery.query,
-      status: inspectionQuery.kind === 'none' ? 'empty' : 'loading',
-    });
 
     async function loadLogs() {
       try {
@@ -2336,18 +2342,21 @@ function SelectionDrawer({
                 : { entries: [], query: inspectionQuery.query, status: 'empty' as const };
 
         if (!cancelled) {
-          setInspectionLogs(result);
+          setInspectionLogsState({ key: inspectionLogsKey, result });
         }
       } catch (caughtError) {
         if (!cancelled) {
-          setInspectionLogs({
-            entries: [],
-            error:
-              caughtError instanceof Error
-                ? caughtError.message
-                : 'Unable to load inspection logs.',
-            query: inspectionQuery.query,
-            status: 'error',
+          setInspectionLogsState({
+            key: inspectionLogsKey,
+            result: {
+              entries: [],
+              error:
+                caughtError instanceof Error
+                  ? caughtError.message
+                  : 'Unable to load inspection logs.',
+              query: inspectionQuery.query,
+              status: 'error',
+            },
           });
         }
       }
@@ -2358,32 +2367,8 @@ function SelectionDrawer({
     return () => {
       cancelled = true;
     };
-  }, [inspectionQuery, logAdapter]);
+  }, [inspectionLogsKey, inspectionQuery, logAdapter]);
 
-  useEffect(() => {
-    if (!object) {
-      return;
-    }
-
-    setObjectRoomId(object.roomId ?? '');
-    setGridX(String(object.position.x));
-    setGridY(String(object.position.y));
-    setOffsetX(String(object.render?.offsetPx?.x ?? 0));
-    setOffsetY(String(object.render?.offsetPx?.y ?? 0));
-    setSizeWidthPx(String(Math.round(object.render?.sizePx?.width ?? 48)));
-    setSizeHeightPx(String(Math.round(object.render?.sizePx?.height ?? 48)));
-  }, [object]);
-
-  useEffect(() => {
-    if (!room) {
-      return;
-    }
-
-    setRoomOriginX(String(room.bounds.x));
-    setRoomOriginY(String(room.bounds.y));
-    setRoomWidth(String(room.bounds.width));
-    setRoomHeight(String(room.bounds.height));
-  }, [room]);
   const title =
     agent?.name ??
     (object ? formatRuntimeEntityTitle(object.id) : null) ??
@@ -3280,37 +3265,6 @@ function summarizeRuntimeContext(
   };
 }
 
-function createPrimaryInspectableSelection(
-  renderedLayout: ObservatoryLayoutDocument | null | undefined
-): ObservatoryCanvasSelection | null {
-  const map = renderedLayout?.world.maps[0];
-
-  if (!map) {
-    return null;
-  }
-
-  const runtimeAgent = map.agents.find((agent) => agent.runtime?.workflowId);
-  if (runtimeAgent) {
-    return { id: runtimeAgent.id, kind: 'agent', label: runtimeAgent.name };
-  }
-
-  const runtimeRoom = map.rooms.find((room) => room.runtime?.workflowId);
-  if (runtimeRoom) {
-    return { id: runtimeRoom.id, kind: 'room', label: runtimeRoom.name };
-  }
-
-  const firstRoom = map.rooms[0];
-  if (firstRoom) {
-    return { id: firstRoom.id, kind: 'room', label: firstRoom.name };
-  }
-
-  return null;
-}
-
-function formatCount(value: number, singular: string) {
-  return `${value} ${singular}${value === 1 ? '' : 's'}`;
-}
-
 function ensureRuntimeOverflowMaps(layout: ObservatoryLayoutDocument, runs: RunSessionSummary[]) {
   const workflowIds = getRuntimeWorkflowIds(runs);
   const baseLayout = cloneObservatoryLayout(layout);
@@ -3419,7 +3373,7 @@ function createRuntimeOverflowMap(
       ),
       createRuntimeOverflowObject(
         `object:${suffix}-war-room-screens`,
-        'furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station',
+        'decor:runtime-screens',
         `room:${suffix}-war-room`,
         11,
         14,
@@ -3439,7 +3393,7 @@ function createRuntimeOverflowMap(
       ),
       createRuntimeOverflowObject(
         `object:${suffix}-pantry-coffee`,
-        'furniture:1-modern-office-singles-48x48:office-water-cooler',
+        'decor:coffee-loop',
         `room:${suffix}-pantry`,
         34,
         16,
@@ -3676,7 +3630,9 @@ function applyRuntimeAgentsToLayout(
         ? pickWorkflowStagingPoint(map, workflowRoom, agent.id, workflowAgentIndex)
         : targetPoint;
       const dynamicLaptopObject =
-        runtimeObjectOverlays && isWorkingBehavior(behavior) && !isTerminalRunStatus(runtimeRun.status)
+        runtimeObjectOverlays &&
+        isWorkingBehavior(behavior) &&
+        !isTerminalRunStatus(runtimeRun.status)
           ? ensureAgentLaptopObject(
               map,
               agent.id,

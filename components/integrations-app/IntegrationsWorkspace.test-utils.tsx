@@ -2,22 +2,43 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render } from '@testing-library/react';
 import { afterEach, beforeEach, vi } from 'vitest';
 import IntegrationsWorkspace from '@/components/integrations-app/IntegrationsWorkspace';
-import type { IntegrationCategory } from '@/types/integrations';
+import type {
+  ConnectorCapabilityDefinition,
+  ConnectorHealthHistoryItem,
+  IntegrationCategory,
+} from '@/types/integrations';
+import type { ComponentProps } from 'react';
 
 const apiMocks = vi.hoisted(() => ({
+  connectorsApi: {
+    listConnectorInstallations: vi.fn(),
+    deleteConnectorInstallation: vi.fn(),
+    completeConnectorInstallation: vi.fn(),
+    createConnectorSetupSession: vi.fn(),
+    testConnector: vi.fn(),
+    getConnectorHistory: vi.fn(),
+    getAggregateConnectorHistory: vi.fn(),
+  },
   credentialsApi: {
+    getConnectorCredentialCapabilities: vi.fn(),
     getConnectorCredentialSchema: vi.fn(),
     validateConnectorCredential: vi.fn(),
     createConnectorCredential: vi.fn(),
     updateConnectorCredential: vi.fn(),
+    deleteCredential: vi.fn(),
     getCredential: vi.fn(),
   },
   integrationsApi: {
     listCategories: vi.fn(),
   },
+  smartHomeApi: {
+    getAvailability: vi.fn(),
+    listEntities: vi.fn(),
+  },
   mcpServersApi: {
     createMcpServer: vi.fn(),
     deleteMcpServer: vi.fn(),
+    discover: vi.fn(),
   },
   profileApi: {
     getIntegrationCredentialCapability: vi.fn(() => ({
@@ -42,26 +63,71 @@ const clipboardMocks = vi.hoisted(() => ({
 }));
 
 export const {
+  connectorsApi,
   credentialsApi,
   integrationsApi,
   mcpServersApi,
   profileApi,
   providersApi,
+  smartHomeApi,
   toolsApi,
 } = apiMocks;
 
 export const { writeClipboardText } = clipboardMocks;
 
-vi.mock('@/lib/api/backend', () => ({
+vi.mock('@/lib/api/backend/connectors', () => ({
+  connectorsApi: apiMocks.connectorsApi,
+}));
+
+vi.mock('@/lib/api/backend/credentials', () => ({
   credentialsApi: apiMocks.credentialsApi,
+}));
+
+vi.mock('@/lib/api/backend/integrations', () => ({
   integrationsApi: apiMocks.integrationsApi,
+}));
+
+vi.mock('@/lib/api/backend/mcpServers', () => ({
   mcpServersApi: apiMocks.mcpServersApi,
+}));
+
+vi.mock('@/lib/api/backend/profile', () => ({
   profileApi: apiMocks.profileApi,
+}));
+
+vi.mock('@/lib/api/backend/providers', () => ({
   providersApi: apiMocks.providersApi,
+}));
+
+vi.mock('@/lib/api/backend/smartHome', () => ({
+  smartHomeApi: apiMocks.smartHomeApi,
+}));
+
+vi.mock('@/lib/api/backend/tools', () => ({
   toolsApi: apiMocks.toolsApi,
 }));
 
-export function renderWorkspace() {
+vi.mock('next/navigation', () => ({
+  useSearchParams: () => new URLSearchParams(window.location.search),
+}));
+
+vi.mock('next-auth/react', () => ({
+  useSession: () => ({
+    data: {
+      user: {
+        id: 'user-integrations',
+        email: 'integrations@example.com',
+        name: 'Integrations User',
+        image: null,
+        accessToken: null,
+        authMode: 'dev',
+      },
+    },
+    status: 'authenticated',
+  }),
+}));
+
+export function renderWorkspace(props?: ComponentProps<typeof IntegrationsWorkspace>) {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
@@ -72,9 +138,21 @@ export function renderWorkspace() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <IntegrationsWorkspace />
+      <IntegrationsWorkspace {...props} />
     </QueryClientProvider>
   );
+}
+
+export function connectorHistoryPayload(items: ConnectorHealthHistoryItem[] = []) {
+  return {
+    items,
+    total: items.length,
+    limit: items.length || 20,
+    offset: 0,
+    status: null,
+    startedAfter: null,
+    startedBefore: null,
+  };
 }
 
 export function setupIntegrationsWorkspaceTest() {
@@ -89,7 +167,7 @@ export function setupIntegrationsWorkspaceTest() {
 
     const llmCategory: IntegrationCategory = {
       id: 'llm-models',
-      name: 'LLM Models',
+      name: 'Models',
       description: 'Configured LLM connections and selectable runtime profiles.',
       status: 'supported',
       providers: [
@@ -167,14 +245,67 @@ export function setupIntegrationsWorkspaceTest() {
       registrySource: 'backend',
       registryUpdatedAt: null,
     });
-    credentialsApi.getConnectorCredentialSchema.mockResolvedValue({
-      backendKey: 'telegram-bot',
-      displayName: 'Telegram',
-      authModel: 'bot token',
-      providerAliases: ['telegram'],
-      healthSupported: true,
-      requiredMetadata: [],
-      supportedSecretRefSchemes: ['env://', 'env:'],
+    credentialsApi.getConnectorCredentialSchema.mockImplementation(
+      async (backendKey: string): Promise<ConnectorCapabilityDefinition> => {
+        const capabilities: Record<string, ConnectorCapabilityDefinition> = {
+          'telegram-bot': {
+            backendKey: 'telegram-bot',
+            displayName: 'Telegram',
+            authModel: 'bot token',
+            providerAliases: ['telegram'],
+            onecliTransportMode: 'direct',
+            healthSupported: true,
+            requiredMetadata: [],
+            instanceIdentityMetadata: [],
+            supportedSecretRefSchemes: ['onecli://', 'env://', 'env:'],
+          },
+          'discord-bot': {
+            backendKey: 'discord-bot',
+            displayName: 'Discord',
+            authModel: 'bot token',
+            providerAliases: ['discord'],
+            onecliTransportMode: 'direct',
+            healthSupported: false,
+            requiredMetadata: [],
+            instanceIdentityMetadata: [],
+            supportedSecretRefSchemes: ['onecli://', 'env://', 'env:'],
+          },
+          'whatsapp-cloud-api': {
+            backendKey: 'whatsapp-cloud-api',
+            displayName: 'WhatsApp Cloud API',
+            authModel: 'access token',
+            providerAliases: ['whatsapp', 'meta-whatsapp'],
+            onecliTransportMode: 'proxy',
+            healthSupported: false,
+            requiredMetadata: [
+              {
+                key: 'phone_number_id',
+                description:
+                  'WhatsApp Cloud API requires the Meta phone number id used for message delivery and health checks.',
+              },
+            ],
+            instanceIdentityMetadata: [],
+            supportedSecretRefSchemes: ['onecli://', 'env://', 'env:'],
+          },
+        };
+        return (
+          capabilities[backendKey] ?? {
+            backendKey,
+            displayName: backendKey,
+            authModel: 'credential',
+            providerAliases: [],
+            onecliTransportMode: 'proxy',
+            healthSupported: false,
+            requiredMetadata: [],
+            instanceIdentityMetadata: [],
+            supportedSecretRefSchemes: ['onecli://', 'env://', 'env:'],
+          }
+        );
+      }
+    );
+    credentialsApi.getConnectorCredentialCapabilities.mockResolvedValue({
+      connectors: {},
+      updated_at: null,
     });
     credentialsApi.validateConnectorCredential.mockResolvedValue({
       provider: 'telegram-bot',
@@ -202,6 +333,71 @@ export function setupIntegrationsWorkspaceTest() {
       provider: 'telegram-bot',
       secret_ref: 'env://TELEGRAM_BOT_TOKEN',
       metadata: {},
+    });
+    connectorsApi.listConnectorInstallations.mockResolvedValue({
+      items: [],
+    });
+    connectorsApi.createConnectorSetupSession.mockResolvedValue({
+      installation: {
+        id: 'connector-installation-telegram',
+        owner_user_id: 'user-integrations',
+        provider: 'telegram-bot',
+        name: 'Telegram Bot',
+        onecli_credential_ref:
+          'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
+        status: 'setup_pending',
+        setup_session_id: 'connector-installation-telegram',
+        metadata: {},
+      },
+      setup_url:
+        'http://onecli:10254/?agency_installation_id=connector-installation-telegram&agency_user_id=user-integrations&device_code=CONNECTOR&onecli_credential_ref=onecli%3A%2F%2Fusers%2Fuser-integrations%2Ftelegram-bot%2Fconnector-installation-telegram&provider=telegram-bot',
+      device_code: 'CONNECTOR',
+      onecli_credential_ref:
+        'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
+      expires_at: null,
+    });
+    connectorsApi.completeConnectorInstallation.mockResolvedValue({
+      id: 'connector-installation-telegram',
+      owner_user_id: 'user-integrations',
+      provider: 'telegram-bot',
+      name: 'Telegram Bot',
+      onecli_credential_ref:
+        'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
+      status: 'active',
+      setup_session_id: 'connector-installation-telegram',
+      metadata: {},
+    });
+    connectorsApi.testConnector.mockResolvedValue({
+      ok: true,
+      provider: 'telegram-bot',
+      audit_execution_id: 'connector-test-123',
+    });
+    connectorsApi.getConnectorHistory.mockResolvedValue(connectorHistoryPayload());
+    connectorsApi.getAggregateConnectorHistory.mockResolvedValue(connectorHistoryPayload());
+    apiMocks.smartHomeApi.getAvailability.mockResolvedValue({
+      available: true,
+      source: 'capabilities',
+    });
+    apiMocks.smartHomeApi.listEntities.mockResolvedValue({
+      count: 2,
+      items: [
+        {
+          entity_id: 'light.living_room_main',
+          state: 'on',
+          attributes: {
+            friendly_name: 'Living Room Main',
+            area_name: 'Living Room',
+          },
+        },
+        {
+          entity_id: 'sensor.entry_motion',
+          state: 'off',
+          attributes: {
+            friendly_name: 'Entry Motion',
+            area_name: 'Entry',
+          },
+        },
+      ],
     });
   });
 

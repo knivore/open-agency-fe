@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button } from '../library/shadcn/button';
 import HITL from '../human-in-the-loop/HITL';
 import WorkflowRunInputsDialog from '@/components/workflow/WorkflowRunInputsDialog';
+import GoalSelector from '@/components/goals/GoalSelector';
 import useWorkflowKickoff from '@/hooks/useWorkflowKickoff';
 import CopyToClipboardButton from '@/components/workflow/CopyToClipboardButton';
 import { Toaster } from 'sonner';
@@ -33,6 +34,9 @@ export default function WorkflowRunPanel({
     const parsedSavedInputs = savedInputs ? JSON.parse(savedInputs) : {};
     return parsedSavedInputs;
   });
+  const [selectedGoalId, setSelectedGoalId] = useState<string | null>(() =>
+    typeof window === 'undefined' ? null : localStorage.getItem(`workflow-goal-${workflowId}`)
+  );
   const effectiveInputs = useMemo(
     () => ({
       ...(workflowKickoffInputs || {}),
@@ -46,6 +50,14 @@ export default function WorkflowRunPanel({
       localStorage.setItem(`workflow-inputs-${workflowId}`, JSON.stringify(effectiveInputs));
     }
   }, [effectiveInputs, workflowId]);
+
+  useEffect(() => {
+    if (selectedGoalId) {
+      localStorage.setItem(`workflow-goal-${workflowId}`, selectedGoalId);
+    } else {
+      localStorage.removeItem(`workflow-goal-${workflowId}`);
+    }
+  }, [selectedGoalId, workflowId]);
 
   const {
     isAttemptingKickoff,
@@ -61,7 +73,7 @@ export default function WorkflowRunPanel({
     inputs: effectiveInputs,
     taskOrder,
     runtimeAdapterId,
-    onSuccess: () => console.log('Workflow kicked off successfully!'),
+    goalId: selectedGoalId,
     onError: (err) => console.error('Failed to kick off workflow:', err),
   });
 
@@ -77,6 +89,13 @@ export default function WorkflowRunPanel({
   return (
     <div className="flex flex-col items-center justify-end space-y-2">
       {processId && <HITL processId={processId} />}
+      <div className="w-full">
+        <GoalSelector
+          compact
+          selectedGoalId={selectedGoalId}
+          onGoalChange={(goalId) => setSelectedGoalId(goalId)}
+        />
+      </div>
 
       {Object.keys(effectiveInputs).length > 0 ? (
         <WorkflowRunInputsDialog

@@ -1,10 +1,17 @@
 .panel {
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 12% 12%, rgba(245, 158, 11, 0.16), transparent 30%),
-    linear-gradient(135deg, #fffaf0 0%, #f8fafc 100%);
+  background: radial-gradient(circle at 12% 12%, rgba(245, 158, 11, 0.16), transparent 30%),
+  linear-gradient(135deg, #fffaf0 0%, #f8fafc 100%);
   padding: 14px;
+}
+
+:global(.dark) .panel {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: radial-gradient(circle at 12% 12%, rgba(245, 158, 11, 0.08), transparent 30%),
+  linear-gradient(180deg, rgba(15, 23, 42, 0.92) 0%, rgba(18, 29, 48, 0.94) 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03),
+  0 18px 36px rgba(2, 8, 23, 0.28);
 }
 
 .header {
@@ -16,9 +23,13 @@
 
 .title {
   margin: 0;
-  color: #0f172a;
+  color: #111827;
   font-size: 14px;
   font-weight: 760;
+}
+
+:global(.dark) .title {
+  color: #f8fafc;
 }
 
 .description,
@@ -26,9 +37,16 @@
 .status,
 .issue {
   margin: 4px 0 0;
-  color: #64748b;
+  color: #607086;
   font-size: 12px;
   line-height: 1.4;
+}
+
+:global(.dark) .description,
+:global(.dark) .meta,
+:global(.dark) .status,
+:global(.dark) .issue {
+  color: #94a3b8;
 }
 
 .badge {
@@ -39,6 +57,11 @@
   font-weight: 800;
   padding: 5px 7px;
   white-space: nowrap;
+}
+
+:global(.dark) .badge {
+  background: rgba(245, 158, 11, 0.14);
+  color: #fcd34d;
 }
 
 .stats {
@@ -71,8 +94,13 @@
 .managementCard {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 14px;
-  background: rgba(248, 250, 252, 0.76);
+  background: rgba(255, 255, 255, 0.88);
   padding: 10px;
+}
+
+:global(.dark) .managementCard {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .managementCardHeader {
@@ -116,8 +144,13 @@
 .savedLayoutCard {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 14px;
-  background: rgba(248, 250, 252, 0.76);
+  background: rgba(255, 255, 255, 0.88);
   padding: 10px;
+}
+
+:global(.dark) .savedLayoutCard {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .savedLayoutHeader {
@@ -137,9 +170,17 @@
   font-size: 12px;
 }
 
+:global(.dark) .savedLayoutHeader strong {
+  color: #f8fafc;
+}
+
 .savedLayoutHeader span {
-  color: #64748b;
+  color: #607086;
   font-size: 11px;
+}
+
+:global(.dark) .savedLayoutHeader span {
+  color: #94a3b8;
 }
 
 .savedLayoutMetaRow {
@@ -168,8 +209,13 @@
   gap: 10px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.84);
+  background: rgba(255, 255, 255, 0.92);
   padding: 8px;
+}
+
+:global(.dark) .savedLayoutRow {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(8, 15, 30, 0.72);
 }
 
 .savedLayoutRowMain {
@@ -183,9 +229,17 @@
   font-size: 12px;
 }
 
+:global(.dark) .savedLayoutRowMain strong {
+  color: #f8fafc;
+}
+
 .savedLayoutRowMain span {
-  color: #64748b;
+  color: #607086;
   font-size: 11px;
+}
+
+:global(.dark) .savedLayoutRowMain span {
+  color: #94a3b8;
 }
 
 .savedLayoutRowActions {
@@ -198,17 +252,27 @@
 .stat {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.86);
+  background: rgba(255, 255, 255, 0.94);
   padding: 8px;
+}
+
+:global(.dark) .stat {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(8, 15, 30, 0.74);
 }
 
 .stat span,
 .field span {
   display: block;
-  color: #64748b;
+  color: #66768d;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+:global(.dark) .stat span,
+:global(.dark) .field span {
+  color: #94a3b8;
 }
 
 .stat strong {
@@ -216,6 +280,10 @@
   margin-top: 2px;
   color: #0f172a;
   font-size: 18px;
+}
+
+:global(.dark) .stat strong {
+  color: #f8fafc;
 }
 
 .controls {
@@ -260,11 +328,10 @@
   min-width: 52px;
   min-height: 32px;
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease;
+  transition: background-color 160ms ease,
+  border-color 160ms ease,
+  color 160ms ease,
+  box-shadow 160ms ease;
 }
 
 .floatingMoveUp {
@@ -314,9 +381,14 @@
 
 .iconButton {
   border: 1px solid rgba(15, 23, 42, 0.14);
-  background:
-    linear-gradient(180deg, rgba(252, 252, 253, 0.98), rgba(241, 245, 249, 0.98));
+  background: linear-gradient(180deg, rgba(252, 252, 253, 0.98), rgba(241, 245, 249, 0.98));
   color: #0f172a;
+}
+
+:global(.dark) .iconButton {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(30, 41, 59, 0.98));
+  color: #e2e8f0;
 }
 
 .positionBadge {
@@ -324,6 +396,12 @@
   background: rgba(248, 250, 252, 0.92);
   color: #0f172a;
   font-family: monospace;
+}
+
+:global(.dark) .positionBadge {
+  border-color: rgba(148, 163, 184, 0.18);
+  background: rgba(15, 23, 42, 0.78);
+  color: #cbd5e1;
 }
 
 .canvasHint,
@@ -334,11 +412,21 @@
   line-height: 1.4;
 }
 
+:global(.dark) .canvasHint,
+:global(.dark) .canvasResult {
+  color: #94a3b8;
+}
+
 .canvasResult {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.78);
+  background: rgba(255, 255, 255, 0.9);
   padding: 8px;
+}
+
+:global(.dark) .canvasResult {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(8, 15, 30, 0.72);
 }
 
 .field {
@@ -355,6 +443,10 @@
   font-weight: 700;
 }
 
+:global(.dark) .checkboxField {
+  color: #cbd5e1;
+}
+
 .input,
 .select,
 .textarea {
@@ -362,9 +454,17 @@
   border: 1px solid rgba(15, 23, 42, 0.14);
   border-radius: 10px;
   background: #ffffff;
-  color: #0f172a;
+  color: #111827;
   font-size: 12px;
   padding: 8px;
+}
+
+:global(.dark) .input,
+:global(.dark) .select,
+:global(.dark) .textarea {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(8, 15, 30, 0.8);
+  color: #f8fafc;
 }
 
 .textarea {
@@ -392,8 +492,13 @@
 .controlCard {
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 14px;
-  background: rgba(248, 250, 252, 0.76);
+  background: rgba(255, 255, 255, 0.88);
   padding: 10px;
+}
+
+:global(.dark) .controlCard {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(15, 23, 42, 0.78);
 }
 
 .controlCardHeader {
@@ -410,11 +515,19 @@
   font-weight: 850;
 }
 
+:global(.dark) .controlCardTitle {
+  color: #f8fafc;
+}
+
 .controlCardDescription {
   margin: 4px 0 0;
-  color: #64748b;
+  color: #607086;
   font-size: 11px;
   line-height: 1.35;
+}
+
+:global(.dark) .controlCardDescription {
+  color: #94a3b8;
 }
 
 .controlCardBadge {
@@ -422,12 +535,18 @@
   align-items: center;
   border: 1px solid rgba(148, 163, 184, 0.22);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.96);
   color: #475569;
   font-size: 10px;
   font-weight: 800;
   padding: 5px 8px;
   white-space: nowrap;
+}
+
+:global(.dark) .controlCardBadge {
+  border-color: rgba(148, 163, 184, 0.16);
+  background: rgba(8, 15, 30, 0.78);
+  color: #cbd5e1;
 }
 
 .controlSummaryRow {
@@ -457,8 +576,13 @@
   margin-top: 10px;
   border: 1px solid rgba(15, 23, 42, 0.1);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.82);
+  background: rgba(255, 255, 255, 0.92);
   padding: 8px;
+}
+
+:global(.dark) .selectedAssetCard {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(8, 15, 30, 0.76);
 }
 
 .selectedAssetCard strong,
@@ -471,11 +595,19 @@
   font-size: 13px;
 }
 
+:global(.dark) .selectedAssetCard strong {
+  color: #f8fafc;
+}
+
 .selectedAssetCard span {
   margin-top: 2px;
-  color: #64748b;
+  color: #607086;
   font-size: 11px;
   line-height: 1.35;
+}
+
+:global(.dark) .selectedAssetCard span {
+  color: #94a3b8;
 }
 
 .selectedAssetActions {
@@ -498,6 +630,10 @@
   padding-top: 8px;
 }
 
+:global(.dark) .surfaceSection {
+  border-top-color: rgba(148, 163, 184, 0.18);
+}
+
 .surfaceSection:first-child {
   border-top: 0;
   padding-top: 0;
@@ -511,16 +647,24 @@
   color: #0f172a;
 }
 
+:global(.dark) .surfaceSectionHeader {
+  color: #f8fafc;
+}
+
 .surfaceSectionHeader strong {
   font-size: 11px;
   font-weight: 850;
 }
 
 .surfaceSectionHeader span {
-  color: #64748b;
+  color: #607086;
   font-size: 10px;
   font-weight: 800;
   text-transform: uppercase;
+}
+
+:global(.dark) .surfaceSectionHeader span {
+  color: #94a3b8;
 }
 
 .assetGroup {
@@ -528,6 +672,11 @@
   border-radius: 12px;
   background: rgba(248, 250, 252, 0.72);
   padding: 0 8px 8px;
+}
+
+:global(.dark) .assetGroup {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: rgba(8, 15, 30, 0.72);
 }
 
 .assetGroup:not([open]) {
@@ -542,9 +691,17 @@
   padding: 9px 0;
 }
 
+:global(.dark) .assetGroupSummary {
+  color: #f8fafc;
+}
+
 .assetGroupSummary span {
   color: #64748b;
   font-weight: 800;
+}
+
+:global(.dark) .assetGroupSummary span {
+  color: #94a3b8;
 }
 
 .assetGrid {
@@ -580,6 +737,12 @@
   text-align: left;
 }
 
+:global(.dark) .assetButton {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.88);
+  color: #cbd5e1;
+}
+
 .assetButton span {
   display: block;
   font-size: 11px;
@@ -592,6 +755,11 @@
 .assetButtonActive {
   border-color: rgba(14, 165, 233, 0.62);
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.14);
+}
+
+:global(.dark) .assetButtonActive {
+  border-color: rgba(56, 189, 248, 0.52);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.16);
 }
 
 .assetPreview {
@@ -607,12 +775,23 @@
   image-rendering: pixelated;
 }
 
+:global(.dark) .assetPreview {
+  border-color: rgba(148, 163, 184, 0.12);
+  background-color: #1e293b;
+}
+
 .accordion {
   margin-top: 12px;
   border: 1px solid rgba(15, 23, 42, 0.08);
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.62);
   padding: 0 10px 10px;
+}
+
+:global(.dark) .accordion {
+  border-color: rgba(148, 163, 184, 0.12);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(8, 15, 30, 0.76));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 .accordion:not([open]) {
@@ -628,37 +807,41 @@
   padding: 10px 0;
 }
 
+:global(.dark) .summary {
+  color: #f8fafc;
+}
+
 .summary::marker {
   color: #92400e;
+}
+
+:global(.dark) .summary::marker {
+  color: #f59e0b;
 }
 
 .button {
   border: 1px solid rgba(148, 163, 184, 0.32);
   border-radius: 999px;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.98));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.98));
   color: #0f172a;
   cursor: pointer;
   font-size: 12px;
   font-weight: 800;
   padding: 8px 11px;
-  transition:
-    background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease,
-    box-shadow 160ms ease,
-    transform 160ms ease;
+  transition: background-color 160ms ease,
+  border-color 160ms ease,
+  color 160ms ease,
+  box-shadow 160ms ease,
+  transform 160ms ease;
 }
 
 .buttonSecondary {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.98));
   color: #0f172a;
 }
 
 .buttonDanger {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 242, 242, 0.98));
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(254, 242, 242, 0.98));
   border-color: rgba(248, 113, 113, 0.34);
   color: #991b1b;
 }
@@ -690,8 +873,7 @@
 .floatingMoveAnchor > .button:not(.buttonSecondary),
 .button[aria-pressed='true'] {
   border-color: rgba(37, 99, 235, 0.42);
-  background:
-    linear-gradient(180deg, rgba(219, 234, 254, 0.98), rgba(191, 219, 254, 0.98));
+  background: linear-gradient(180deg, rgba(219, 234, 254, 0.98), rgba(191, 219, 254, 0.98));
   color: #1d4ed8;
 }
 
@@ -749,4 +931,49 @@
   .managementGrid {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
   }
+}
+
+:global([data-agency-theme='dark']) .panel,
+:global([data-agency-theme='dark']) .managementCard,
+:global([data-agency-theme='dark']) .savedLayoutCard,
+:global([data-agency-theme='dark']) .savedLayoutRow,
+:global([data-agency-theme='dark']) .stat,
+:global([data-agency-theme='dark']) .canvasResult,
+:global([data-agency-theme='dark']) .controlCard,
+:global([data-agency-theme='dark']) .selectedAssetCard,
+:global([data-agency-theme='dark']) .controlCardBadge {
+  border-color: rgba(148, 163, 184, 0.14);
+  background: rgba(15, 23, 42, 0.72);
+  color: #e2e8f0;
+}
+
+:global([data-agency-theme='dark']) .title,
+:global([data-agency-theme='dark']) .savedLayoutHeader strong,
+:global([data-agency-theme='dark']) .savedLayoutRowMain strong,
+:global([data-agency-theme='dark']) .stat strong,
+:global([data-agency-theme='dark']) .controlCardTitle,
+:global([data-agency-theme='dark']) .selectedAssetCard strong,
+:global([data-agency-theme='dark']) .surfaceSectionHeader,
+:global([data-agency-theme='dark']) .iconButton,
+:global([data-agency-theme='dark']) .positionBadge,
+:global([data-agency-theme='dark']) .input,
+:global([data-agency-theme='dark']) .select,
+:global([data-agency-theme='dark']) .textarea {
+  color: #e2e8f0;
+}
+
+:global([data-agency-theme='dark']) .description,
+:global([data-agency-theme='dark']) .meta,
+:global([data-agency-theme='dark']) .status,
+:global([data-agency-theme='dark']) .issue,
+:global([data-agency-theme='dark']) .savedLayoutHeader span,
+:global([data-agency-theme='dark']) .savedLayoutRowMain span,
+:global([data-agency-theme='dark']) .controlCardDescription,
+:global([data-agency-theme='dark']) .selectedAssetCard span,
+:global([data-agency-theme='dark']) .surfaceSectionHeader span,
+:global([data-agency-theme='dark']) .canvasHint,
+:global([data-agency-theme='dark']) .canvasResult,
+:global([data-agency-theme='dark']) .field span,
+:global([data-agency-theme='dark']) .stat span {
+  color: #94a3b8;
 }

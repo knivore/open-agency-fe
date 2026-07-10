@@ -1,5 +1,5 @@
 import { getAzureProvider } from '@/lib/auth/azureProvider';
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { z, ZodError } from 'zod';
 
 const requestSchema = z.object({
@@ -23,29 +23,24 @@ export async function POST(req: Request) {
 
     const { userQuery, enum: enumOptions, systemPrompt } = requestSchema.parse(body);
 
-    const response = await generateObject({
+    const response = await generateText({
       model: azure(deploymentName),
-      output: 'enum',
-      enum: enumOptions,
+      output: Output.choice({ options: enumOptions }),
       prompt: `${systemPrompt}
         User input: ${userQuery}`,
     });
 
-    const { object } = response;
-
-    return new Response(JSON.stringify({ data: object }), { status: 200 });
+    return new Response(JSON.stringify({ data: response.output }), { status: 200 });
   } catch (error) {
-    console.error('Error fetching Azure OpenAI response:', error);
     if (error instanceof ZodError) {
-      console.log('ZodError', error);
       return new Response('Invalid input', { status: 400 });
     }
 
     if (error instanceof Error && error.name === 'AI_TypeValidationError') {
-      console.log('AI_TypeValidationError: Result must be in the enum');
       return new Response('Invalid AI response', { status: 500 });
     }
 
+    console.error('Error fetching Azure OpenAI response:', error);
     return new Response('Failed to fetch message stream', { status: 500 });
   }
 }

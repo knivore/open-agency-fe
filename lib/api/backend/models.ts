@@ -1,11 +1,7 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
-import type {
-  CrudListResponse,
-  DeleteResponse,
-  ModelProfileDefinition,
-  ModelProviderDefinition,
-} from '@/lib/api/backend/types';
+import type { CrudListResponse, DeleteResponse } from '@/types/api';
+import type { ModelProfileDefinition, ModelProviderDefinition } from '@/types/integrations';
 
 export type ProviderAuthorizeResponse = {
   auth_url: string;

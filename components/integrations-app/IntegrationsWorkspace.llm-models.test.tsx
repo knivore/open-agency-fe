@@ -19,9 +19,9 @@ describe('IntegrationsWorkspace LLM models', () => {
     expect(screen.getByText('gpt-4.1')).toBeInTheDocument();
     expect(screen.getByText('https://api.openai.com/v1')).toBeInTheDocument();
     expect(screen.getByText('1 preset')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: /Manage LLM models/i })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: /Manage models/i })).toHaveAttribute(
       'href',
-      '/behavior-profiles'
+      '/models'
     );
     expect(screen.queryByRole('button', { name: /Save Config/i })).not.toBeInTheDocument();
   });

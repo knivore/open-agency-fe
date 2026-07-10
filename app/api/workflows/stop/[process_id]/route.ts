@@ -1,4 +1,4 @@
-import { executionsApi } from '@/lib/api/backend';
+import { executionsApi } from '@/lib/api/backend/executions';
 import { NextResponse } from 'next/server';
 import {
   getAuthenticatedUser,

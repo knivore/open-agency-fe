@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import { NextResponse } from 'next/server';
-import { executionsApi } from '@/lib/api/backend';
+import { executionsApi } from '@/lib/api/backend/executions';
 import { ZodError } from 'zod';
 import {
   getAuthenticatedUser,
@@ -16,7 +16,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ process
   }
   const { process_id: processId } = await params;
   const headersList = await headers();
-  console.log(`Starting SSE connection for process ${processId}`);
 
   if (headersList.get('accept') !== 'text/event-stream') {
     return new NextResponse('This endpoint requires SSE.', { status: 400 });
@@ -59,7 +58,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ process
               controller.enqueue(encoder.encode(`${formattedEvent}\n\n`));
 
               if (formattedEvent.includes('event: close')) {
-                console.log('Stream closed by server.');
                 controller.close();
                 return;
               }
@@ -77,10 +75,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ process
         );
         controller.close();
       }
-    },
-
-    cancel() {
-      console.log('Client closed connection');
     },
   });
 

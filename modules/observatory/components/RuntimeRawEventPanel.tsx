@@ -2,7 +2,10 @@
 
 import { useState } from 'react';
 
-import type { ObservatoryEventValidationIssue, ObservatoryExternalRuntimeEvent } from '@/modules/observatory/runtime/events';
+import type {
+  ObservatoryEventValidationIssue,
+  ObservatoryExternalRuntimeEvent,
+} from '@/modules/observatory/runtime/events';
 
 import styles from './RuntimeRawEventPanel.module.css';
 
@@ -17,7 +20,12 @@ function formatEvent(event: ObservatoryExternalRuntimeEvent) {
   return JSON.stringify(event, null, 2);
 }
 
-export default function RuntimeRawEventPanel({ disabled, issues, onPushRawEvent, sampleEvent }: RuntimeRawEventPanelProps) {
+export default function RuntimeRawEventPanel({
+  disabled,
+  issues,
+  onPushRawEvent,
+  sampleEvent,
+}: RuntimeRawEventPanelProps) {
   const [draft, setDraft] = useState(() => formatEvent(sampleEvent));
   const [parseError, setParseError] = useState('');
 
@@ -36,7 +44,9 @@ export default function RuntimeRawEventPanel({ disabled, issues, onPushRawEvent,
       <div className={styles.header}>
         <div>
           <h2 className={styles.title}>Raw Event Injector</h2>
-          <p className={styles.description}>Paste one runtime event JSON object and push it directly into the preview reducer.</p>
+          <p className={styles.description}>
+            Paste one runtime event JSON object and push it directly into the preview reducer.
+          </p>
         </div>
         <span className={styles.badge}>json</span>
       </div>
@@ -65,7 +75,9 @@ export default function RuntimeRawEventPanel({ disabled, issues, onPushRawEvent,
       </div>
       {parseError ? <div className={styles.issue}>JSON parse error: {parseError}</div> : null}
       {issues.length > 0 ? (
-        <div className={styles.issue}>{issues.map((issue) => `${issue.path}: ${issue.reason}`).join('\n')}</div>
+        <div className={styles.issue}>
+          {issues.map((issue) => `${issue.path}: ${issue.reason}`).join('\n')}
+        </div>
       ) : null}
     </section>
   );

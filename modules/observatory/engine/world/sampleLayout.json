@@ -77,7 +77,7 @@
           },
           {
             "id": "object:workflow-desk-1",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station",
+            "assetId": "decor:runtime-screens",
             "roomId": "room:workflow-pod",
             "position": {
               "x": 19,
@@ -91,7 +91,7 @@
           },
           {
             "id": "object:commons-orb",
-            "assetId": "furniture:1-modern-office-singles-48x48:office-water-cooler",
+            "assetId": "decor:coffee-loop",
             "roomId": "room:commons",
             "position": {
               "x": 34,
@@ -105,7 +105,7 @@
           },
           {
             "id": "object:runtime-server-1",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
+            "assetId": "decor:runtime-server",
             "roomId": "room:runtime-floor",
             "position": {
               "x": 9,

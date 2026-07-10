@@ -1,21 +1,19 @@
+import type { Agent, AgentConfig, AgentDefinition, BehaviorTuningProfile } from '@/types/agents';
 import type {
-  Agent,
-  AgentConfig,
-  AgentDefinition,
   AgentRun,
-  BehaviorTuningProfile,
   ExecutionRecord,
   RunContainerInfo,
   RunReplacementDetails,
   RunRuntimeDetails,
   RunSessionDetail,
   RunSessionSummary,
-  Task,
-  TaskDefinition,
-} from '@/lib/api/backend/types';
+} from '@/types/runtime';
+import type { Task, TaskDefinition } from '@/types/workflows';
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 export function toAgentConfig(definition: AgentDefinition): AgentConfig {
@@ -25,10 +23,14 @@ export function toAgentConfig(definition: AgentDefinition): AgentConfig {
   };
 
   return {
-    instructions: definition.instructions ?? definition.objective ?? definition.system_prompt ?? null,
+    instructions:
+      definition.instructions ?? definition.objective ?? definition.system_prompt ?? null,
     systemPrompt: definition.system_prompt ?? definition.instructions ?? null,
     modelProfileId: definition.model_profile_id ?? null,
-    toolIds: stringArray(definition.tool_ids).length > 0 ? stringArray(definition.tool_ids) : stringArray(maybeCamelDefinition.toolIds),
+    toolIds:
+      stringArray(definition.tool_ids).length > 0
+        ? stringArray(definition.tool_ids)
+        : stringArray(maybeCamelDefinition.toolIds),
     handoffAgentIds:
       stringArray(definition.handoff_agent_ids).length > 0
         ? stringArray(definition.handoff_agent_ids)
@@ -61,6 +63,9 @@ export function toBehaviorTuningProfile(profile: {
   supports_structured_output?: boolean;
   supports_vision?: boolean;
   supports_streaming?: boolean;
+  fallback_strategy?: BehaviorTuningProfile['fallbackStrategy'];
+  fallback_models?: BehaviorTuningProfile['fallbackModels'];
+  fallback_policy?: BehaviorTuningProfile['fallbackPolicy'];
   parameters?: BehaviorTuningProfile['parameters'];
 }): BehaviorTuningProfile {
   return {
@@ -76,6 +81,9 @@ export function toBehaviorTuningProfile(profile: {
     supportsStructuredOutput: profile.supports_structured_output,
     supportsVision: profile.supports_vision,
     supportsStreaming: profile.supports_streaming,
+    fallbackStrategy: profile.fallback_strategy ?? 'auto',
+    fallbackModels: profile.fallback_models ?? [],
+    fallbackPolicy: profile.fallback_policy,
     parameters: profile.parameters,
   };
 }
@@ -116,9 +124,11 @@ export function toRunSessionSummary(record: ExecutionRecord): RunSessionSummary 
     createdBy: record.created_by ?? null,
     workerId: record.worker_id ?? null,
     lastHeartbeatAt: record.last_heartbeat_at ?? null,
+    currentNodeId: record.current_node_id ?? null,
     container: toRunContainerInfo(record),
     replacementOfExecutionId: record.replacement_of_execution_id ?? null,
     restartReason: record.restart_reason ?? null,
+    inputPayload: record.input_payload ?? null,
     outputPayload: record.output_payload ?? null,
     metadata: record.metadata,
     error: record.error ?? null,
@@ -155,7 +165,9 @@ function toReplacementSummary(record?: ExecutionRecord | null): RunSessionSummar
   return record ? toRunSessionSummary(record) : null;
 }
 
-function toReplacementDetails(replacement?: RunReplacementDetails | null): RunSessionDetail['replacement'] {
+function toReplacementDetails(
+  replacement?: RunReplacementDetails | null
+): RunSessionDetail['replacement'] {
   if (!replacement) {
     return undefined;
   }

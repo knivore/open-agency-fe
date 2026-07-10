@@ -4,6 +4,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '../shadcn/tooltip';
 import clsx from 'clsx';
 import Link from 'next/link';
 import {usePathname} from 'next/navigation';
+import React from 'react';
 
 export function NavItem({href, label, children, isDrawerOpen}: {
     href: string;

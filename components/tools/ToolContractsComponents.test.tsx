@@ -14,6 +14,7 @@ const sandboxContract: ToolContract = {
   name: 'sandbox-edit',
   version: '1.0',
   description: 'Safely propose code changes.',
+  riskLabels: ['filesystem', 'requires_approval', 'local_privileged_execution'],
   inputs: {
     type: 'object',
     required: ['repo', 'ref'],
@@ -54,6 +55,7 @@ describe('tool contract components', () => {
 
     expect(screen.getByText('sandbox-edit')).toBeInTheDocument();
     expect(screen.getByText('Safely propose code changes.')).toBeInTheDocument();
+    expect(screen.getByText('filesystem')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: /sandbox-edit/i }));
     expect(onSelect).toHaveBeenCalledWith('sandbox-edit');
   });
@@ -62,6 +64,8 @@ describe('tool contract components', () => {
     render(<ToolContractViewer contract={sandboxContract} />);
 
     expect(screen.getByText('Input schema')).toBeInTheDocument();
+    expect(screen.getByText('Risk labels')).toBeInTheDocument();
+    expect(screen.getAllByText('local_privileged_execution').length).toBeGreaterThan(0);
     expect(screen.getByText('Allowed local repository path.')).toBeInTheDocument();
     expect(screen.getByText('Output schema')).toBeInTheDocument();
     expect(screen.getByText(/"name": "sandbox-edit"/)).toBeInTheDocument();

@@ -7,7 +7,9 @@ import {
   reduceObservatoryRuntimeEvents,
 } from '@/modules/observatory/runtime/visualState';
 
-function event(overrides: Partial<ObservatoryNormalizedOfficeEvent>): ObservatoryNormalizedOfficeEvent {
+function event(
+  overrides: Partial<ObservatoryNormalizedOfficeEvent>
+): ObservatoryNormalizedOfficeEvent {
   return {
     id: 'evt:test',
     level: 'info',
@@ -60,7 +62,7 @@ describe('observatory pixel runtime visual state reducer', () => {
         event({ id: 'evt:2', timestamp: '2026-05-09T00:00:02.000Z' }),
         event({ id: 'evt:3', timestamp: '2026-05-09T00:00:03.000Z' }),
       ],
-      { maxEventHistory: 2, maxFeedEntries: 2 },
+      { maxEventHistory: 2, maxFeedEntries: 2 }
     );
 
     expect(state.activityFeed.map((entry) => entry.eventId)).toEqual(['evt:3', 'evt:2']);
@@ -73,9 +75,15 @@ describe('observatory pixel runtime visual state reducer', () => {
       timestamp: '2026-05-09T00:00:01.000Z',
       type: 'LOG_RECEIVED',
     });
-    const state = reduceObservatoryRuntimeEvents(createInitialObservatoryRuntimeVisualState(), [replayedEvent, replayedEvent]);
+    const state = reduceObservatoryRuntimeEvents(createInitialObservatoryRuntimeVisualState(), [
+      replayedEvent,
+      replayedEvent,
+    ]);
 
-    expect(state.activityFeed.map((entry) => entry.id)).toEqual(['feed:evt:replayable:0', 'feed:evt:replayable:1']);
+    expect(state.activityFeed.map((entry) => entry.id)).toEqual([
+      'feed:evt:replayable:0',
+      'feed:evt:replayable:1',
+    ]);
     expect(new Set(state.activityFeed.map((entry) => entry.id)).size).toBe(2);
     expect(state.nextFeedSequence).toBe(2);
   });
@@ -94,7 +102,7 @@ describe('observatory pixel runtime visual state reducer', () => {
         title: 'Ship regression check',
         type: 'TASK_FAILED',
         workflowId: 'workflow:runtime',
-      }),
+      })
     );
 
     expect(state.agentsById['agent:delta']?.status).toBe('error');
@@ -119,7 +127,7 @@ describe('observatory pixel runtime visual state reducer', () => {
         title: 'Deploy preview',
         type: 'APPROVAL_REQUIRED',
         workflowId: 'workflow:runtime',
-      }),
+      })
     );
 
     expect(state.agentsById['agent:echo']?.status).toBe('blocked');
@@ -140,7 +148,7 @@ describe('observatory pixel runtime visual state reducer', () => {
         },
         timestamp: '2026-05-09T00:00:05.000Z',
         type: 'AGENT_STATUS_CHANGED',
-      }),
+      })
     );
 
     expect(state.agentsById['agent:byte']?.visualAction).toBe('sit');
@@ -156,7 +164,7 @@ describe('observatory pixel runtime visual state reducer', () => {
         metadata: { status: 'working' },
         timestamp: '2026-05-09T00:00:10.000Z',
         type: 'AGENT_STATUS_CHANGED',
-      }),
+      })
     );
 
     const stale = reduceObservatoryRuntimeEvent(
@@ -167,7 +175,7 @@ describe('observatory pixel runtime visual state reducer', () => {
         metadata: { status: 'idle' },
         timestamp: '2026-05-09T00:00:01.000Z',
         type: 'AGENT_STATUS_CHANGED',
-      }),
+      })
     );
 
     expect(stale.agentsById['agent:atlas']?.lastEventId).toBe('evt:newer');

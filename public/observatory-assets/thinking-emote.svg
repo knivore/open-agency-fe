@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Open Agency thinking indicator</title>
+  <path fill="#0f172a" d="M8 8h32v24H25l-7 7v-7H8z"/>
+  <path fill="#67e8f9" d="M11 11h26v18H23l-2 2v-5H11z"/>
+  <rect x="15" y="17" width="4" height="4" fill="#0f172a"/>
+  <rect x="22" y="17" width="4" height="4" fill="#0f172a"/>
+  <rect x="29" y="17" width="4" height="4" fill="#0f172a"/>
+</svg>

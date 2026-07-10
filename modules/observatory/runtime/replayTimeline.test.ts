@@ -8,7 +8,9 @@ import {
   createObservatoryReplayTimeline,
 } from '@/modules/observatory/runtime/replayTimeline';
 
-function event(overrides: Partial<ObservatoryNormalizedOfficeEvent>): ObservatoryNormalizedOfficeEvent {
+function event(
+  overrides: Partial<ObservatoryNormalizedOfficeEvent>
+): ObservatoryNormalizedOfficeEvent {
   return {
     id: 'evt:test',
     level: 'info',
@@ -56,7 +58,7 @@ describe('observatory pixel replay timeline', () => {
           type: 'TASK_PROGRESS',
         }),
       ],
-      0,
+      0
     );
 
     expect(frame.cursor).toBe(0);
@@ -84,7 +86,7 @@ describe('observatory pixel replay timeline', () => {
           type: 'TASK_COMPLETED',
         }),
       ],
-      '2026-05-09T00:00:02.000Z',
+      '2026-05-09T00:00:02.000Z'
     );
 
     expect(frame.cursor).toBe(0);

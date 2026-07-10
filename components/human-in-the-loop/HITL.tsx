@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { HelpCircle } from 'lucide-react';
 import { sendWorkflowHumanReply } from '@/app/api/utils/workflows';
 import { Modal } from '../modal/Modal';
@@ -19,7 +19,7 @@ const HITL = ({ processId }: { processId: string }) => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const originalTitleRef = useRef<string>(document.title);
 
-  const clearTimeouts = () => {
+  const clearTimeouts = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
@@ -28,9 +28,9 @@ const HITL = ({ processId }: { processId: string }) => {
       clearInterval(intervalRef.current);
       intervalRef.current = null;
     }
-  };
+  }, []);
 
-  const startTimeout = () => {
+  const startTimeout = useCallback(() => {
     clearTimeouts();
 
     // Set initial time
@@ -38,7 +38,7 @@ const HITL = ({ processId }: { processId: string }) => {
 
     // Start countdown interval
     intervalRef.current = setInterval(() => {
-      setTimeRemaining(prev => Math.max(0, prev - 1000));
+      setTimeRemaining((prev) => Math.max(0, prev - 1000));
     }, 1000);
 
     // Set timeout to close modal
@@ -48,7 +48,7 @@ const HITL = ({ processId }: { processId: string }) => {
       setHumanResponse('');
       clearTimeouts();
     }, TIMEOUT_DURATION);
-  };
+  }, [clearTimeouts]);
 
   const handleNotifications = () => {
     // Store original title
@@ -61,11 +61,6 @@ const HITL = ({ processId }: { processId: string }) => {
     setTimeout(() => {
       document.title = originalTitleRef.current;
     }, 3000);
-
-    // Check if window is hidden and notifications are permitted
-    // const isHidden = document.visibilityState === 'hidden';
-    // console.log('Document visibility state:', document.visibilityState);
-    // console.log('Notification permission:', Notification.permission);
 
     if (Notification.permission === 'granted') {
       try {
@@ -87,7 +82,9 @@ const HITL = ({ processId }: { processId: string }) => {
       if (Notification.permission !== 'granted') {
         try {
           const permission = await Notification.requestPermission();
-          console.log('Notification permission status:', permission);
+          if (permission === 'denied') {
+            console.warn('Browser notifications were denied for HITL prompts.');
+          }
         } catch (error) {
           console.error('Error requesting notification permission:', error);
         }
@@ -106,14 +103,12 @@ const HITL = ({ processId }: { processId: string }) => {
         // Handle messages
         eventSource.onmessage = (event) => {
           try {
-            console.log('Received SSE message:', event.data);
             const messageText = event.data;
 
             setIsModalOpen(true);
             setAgentQuery(messageText); // Set agent's message to input
             startTimeout(); // Start timeout when receiving a new message
             handleNotifications();
-
           } catch (error) {
             console.error('Error parsing SSE message:', error);
           }
@@ -135,7 +130,6 @@ const HITL = ({ processId }: { processId: string }) => {
             eventSourceRef.current = null;
           }
         });
-
       } catch (error) {
         console.error('Error setting up EventSource:', error);
       }
@@ -154,7 +148,7 @@ const HITL = ({ processId }: { processId: string }) => {
       // Restore original title if component unmounts
       document.title = originalTitleRef.current;
     };
-  }, [processId]);
+  }, [clearTimeouts, processId, startTimeout]);
 
   const sendHumanInput = async () => {
     if (!processId) return;
@@ -176,40 +170,42 @@ const HITL = ({ processId }: { processId: string }) => {
   };
 
   return (
-    <Modal isOpen={isModalOpen} onClose={() => {
-      clearTimeouts();
-      setIsModalOpen(false);
-    }}>
+    <Modal
+      isOpen={isModalOpen}
+      onClose={() => {
+        clearTimeouts();
+        setIsModalOpen(false);
+      }}
+    >
       <div className="mb-6">
-        <div className="flex items-center">
-          <h2 className="text-2xl font-semibold text-gray-900">Agent Question</h2>
-          <div className="relative group ml-2 flex items-center">
-            <HelpCircle className="w-5 h-5 text-gray-500 cursor-pointer" />
-            <div
-              className="absolute transform -translate-x-1/4 bottom-full mb-2 hidden w-max bg-gray-800 text-white text-xs rounded-md p-2 shadow-lg group-hover:block">
-              Agent's question for you as they require more information to further the workflow.
-            </div>
-          </div>
+        <div className="flex items-center gap-2">
+          <h2 className="text-2xl font-semibold tracking-[-0.03em] text-(--agency-shell-text)">
+            Agent question
+          </h2>
+          <HelpCircle
+            className="size-4 text-(--agency-shell-muted)"
+            aria-label="The agent needs more information before it can continue the workflow."
+          />
         </div>
-        <div className="mt-2 text-sm text-gray-500">
+        <div className="mt-2 text-sm text-(--agency-shell-muted)">
           Time remaining: {formatTimeRemaining(timeRemaining)}
         </div>
       </div>
 
-      <div className="flex flex-col space-y-4">
-        <div className="space-y-2">
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
           <Textarea
             id="agent-query"
             value={agentQuery}
-            className="min-h-[100px] resize-none bg-muted"
+            className="min-h-25 resize-none bg-muted"
             readOnly
             disabled
           />
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="human-response">Your Response</Label>
-          <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="human-response">Your response</Label>
+          <div className="flex flex-col gap-2 sm:flex-row">
             <Input
               id="human-response"
               value={humanResponse}
@@ -217,11 +213,8 @@ const HITL = ({ processId }: { processId: string }) => {
               placeholder="Enter your response here..."
               className="flex-1"
             />
-            <Button
-              onClick={sendHumanInput}
-              className="whitespace-nowrap"
-            >
-              Submit Response
+            <Button onClick={sendHumanInput} className="whitespace-nowrap">
+              Submit response
             </Button>
           </div>
         </div>

@@ -1,5 +1,15 @@
 import type { AgentRun } from '@/types/runtime';
 
+const runDateTimeFormatter = new Intl.DateTimeFormat('en-SG', {
+  timeZone: 'Asia/Singapore',
+  year: 'numeric',
+  month: 'short',
+  day: 'numeric',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
 export function normalizeRunStatus(status?: string | null): AgentRun['status'] {
   switch (status) {
     case 'created':
@@ -19,4 +29,13 @@ export function normalizeRunStatus(status?: string | null): AgentRun['status'] {
 
 export function formatRunError(error?: string | null) {
   return error?.trim() || 'No runtime error reported.';
+}
+
+export function formatRunDateTime(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : runDateTimeFormatter.format(date);
 }

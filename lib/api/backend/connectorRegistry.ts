@@ -1,4 +1,4 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { isApiError } from '@/lib/api/errors';
 import { backendRoutes } from '@/lib/api/backend/routes';
 import { buildPlannedIntegrationRegistryPayload } from '@/lib/integrations/registryPayload';
@@ -6,7 +6,7 @@ import type {
   IntegrationRegistryCategoryDefinition,
   IntegrationRegistryPayload,
   IntegrationRegistrySource,
-} from '@/lib/api/backend/types';
+} from '@/types/integrations';
 
 export interface ConnectorRegistryResponse {
   categories: IntegrationRegistryCategoryDefinition[];
@@ -16,20 +16,20 @@ export interface ConnectorRegistryResponse {
 
 function isRegistryPayload(value: unknown): value is IntegrationRegistryPayload {
   return Boolean(
-    value
-    && typeof value === 'object'
-    && !Array.isArray(value)
-    && 'categories' in value
-    && Array.isArray((value as { categories?: unknown }).categories)
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    'categories' in value &&
+    Array.isArray((value as { categories?: unknown }).categories)
   );
 }
 
 export const connectorRegistryApi = {
   async listCategories(): Promise<ConnectorRegistryResponse> {
     try {
-      const response = await agencyApiClient.get<IntegrationRegistryCategoryDefinition[] | IntegrationRegistryPayload>(
-        backendRoutes.connectorRegistry.categories()
-      );
+      const response = await agencyApiClient.get<
+        IntegrationRegistryCategoryDefinition[] | IntegrationRegistryPayload
+      >(backendRoutes.connectorRegistry.categories());
       return {
         categories: isRegistryPayload(response) ? response.categories : response,
         source: 'backend',

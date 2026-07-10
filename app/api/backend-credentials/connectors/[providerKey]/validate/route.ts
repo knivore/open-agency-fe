@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { backendCredentialsApi } from '@/lib/api/backend';
+import { backendCredentialsApi } from '@/lib/api/backend/credentials';
 import {
   getAuthenticatedUser,
   getInternalApiKey,

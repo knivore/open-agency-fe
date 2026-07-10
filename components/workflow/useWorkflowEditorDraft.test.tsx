@@ -121,7 +121,9 @@ describe('useWorkflowEditorDraft', () => {
     expect(result.current.derived.invalidEdgeConditionByTaskPair['task-a->task-b']).toBe(
       'is required when edge type is conditional.'
     );
-    expect(result.current.derived.invalidEdgeMetadataByTaskPair['task-a->task-b']).toBe('must be valid JSON.');
+    expect(result.current.derived.invalidEdgeMetadataByTaskPair['task-a->task-b']).toBe(
+      'must be valid JSON.'
+    );
     expect(result.current.derived.draftValidationIssues).toEqual(
       expect.arrayContaining([
         'Edge condition for "Task A" -> "Task B" is required when edge type is conditional.',
@@ -190,6 +192,46 @@ describe('useWorkflowEditorDraft', () => {
     });
   });
 
+  it('keeps metadata changes applied from graph workflow edits in the preview', () => {
+    const { result } = renderHook(() =>
+      useWorkflowEditorDraft({
+        workflow: workflowFixture,
+        workflowId: workflowFixture.id,
+      })
+    );
+
+    act(() => {
+      result.current.actions.startEditing();
+    });
+
+    act(() => {
+      result.current.actions.applyWorkflowDefinition({
+        ...workflowFixture,
+        metadata: {
+          ...(workflowFixture.metadata ?? {}),
+          workflow_graph_tool_nodes: [
+            {
+              id: 'tools-test',
+              toolIds: [],
+              agentId: null,
+            },
+          ],
+        },
+      });
+    });
+
+    expect(result.current.derived.hasUnsavedChanges).toBe(true);
+    expect(result.current.derived.workflowPreview?.metadata).toMatchObject({
+      workflow_graph_tool_nodes: [
+        {
+          id: 'tools-test',
+          toolIds: [],
+          agentId: null,
+        },
+      ],
+    });
+  });
+
   it('adds an existing catalog agent to the workflow draft without duplicating it', () => {
     const catalogAgent: AgentDefinition = {
       id: 'agent-catalog-1',
@@ -229,6 +271,124 @@ describe('useWorkflowEditorDraft', () => {
         source: 'catalog',
         added_from_agent_catalog: true,
       },
+    });
+  });
+
+  it('applies workflow definitions from graph edits to the active draft', () => {
+    const { result } = renderHook(() =>
+      useWorkflowEditorDraft({
+        workflow: workflowFixture,
+        workflowId: workflowFixture.id,
+      })
+    );
+
+    act(() => {
+      result.current.actions.startEditing();
+      result.current.actions.applyWorkflowDefinition({
+        ...workflowFixture,
+        task_definitions: [
+          workflowFixture.task_definitions?.[0] as NonNullable<
+            WorkflowDefinition['task_definitions']
+          >[number],
+          {
+            ...(workflowFixture.task_definitions?.[1] as NonNullable<
+              WorkflowDefinition['task_definitions']
+            >[number]),
+            name: 'Graph Updated Task',
+            agent_id: null,
+            depends_on_task_ids: [],
+          },
+        ],
+        nodes: [
+          workflowFixture.nodes?.[0] as NonNullable<WorkflowDefinition['nodes']>[number],
+          {
+            ...(workflowFixture.nodes?.[1] as NonNullable<WorkflowDefinition['nodes']>[number]),
+            metadata: {
+              position: { x: 360, y: 240 },
+            },
+          },
+        ],
+        edges: [],
+      });
+    });
+
+    expect(result.current.state.taskDefinitions[1]).toMatchObject({
+      name: 'Graph Updated Task',
+      agent_id: null,
+      depends_on_task_ids: [],
+    });
+    expect(
+      result.current.derived.workflowPreview?.nodes?.find((node) => node.task_id === 'task-b')
+        ?.metadata?.position
+    ).toEqual({ x: 360, y: 240 });
+    expect(result.current.derived.hasUnsavedChanges).toBe(true);
+  });
+
+  it('keeps the structured builder draft editable after graph edits', () => {
+    const { result } = renderHook(() =>
+      useWorkflowEditorDraft({
+        workflow: workflowFixture,
+        workflowId: workflowFixture.id,
+      })
+    );
+
+    act(() => {
+      result.current.actions.startEditing();
+      result.current.actions.applyWorkflowDefinition({
+        ...workflowFixture,
+        task_definitions: [
+          workflowFixture.task_definitions?.[0] as NonNullable<
+            WorkflowDefinition['task_definitions']
+          >[number],
+          {
+            ...(workflowFixture.task_definitions?.[1] as NonNullable<
+              WorkflowDefinition['task_definitions']
+            >[number]),
+            name: 'Graph Updated Task',
+          },
+        ],
+      });
+    });
+
+    act(() => {
+      result.current.actions.updateTaskDefinition(1, {
+        description: 'Structured builder still edits the graph-updated draft.',
+      });
+    });
+
+    expect(result.current.state.taskDefinitions[1]).toMatchObject({
+      name: 'Graph Updated Task',
+      description: 'Structured builder still edits the graph-updated draft.',
+    });
+    expect(result.current.derived.workflowPreview?.task_definitions?.[1]).toMatchObject({
+      name: 'Graph Updated Task',
+      description: 'Structured builder still edits the graph-updated draft.',
+    });
+  });
+
+  it('creates capability-aware starter tasks from workflow metadata tags', () => {
+    const { result } = renderHook(() =>
+      useWorkflowEditorDraft({
+        workflow: {
+          ...workflowFixture,
+          metadata: {
+            workflow_capability_tags: ['home-control'],
+          },
+        },
+        workflowId: workflowFixture.id,
+      })
+    );
+
+    act(() => {
+      result.current.actions.startEditing();
+      result.current.actions.addTaskDefinition();
+    });
+
+    const createdTask = result.current.state.taskDefinitions.at(-1);
+    expect(createdTask).toMatchObject({
+      name: 'Smart Home control task 3',
+      description: expect.stringContaining('through Smart Home'),
+      expected_output: 'Structured smart-home status or safe action result',
     });
   });
 });

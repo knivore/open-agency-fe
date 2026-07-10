@@ -59,16 +59,20 @@ async function walk(directory) {
     dirents
       .filter((dirent) => !shouldSkipAssetCatalogEntry(dirent.name))
       .map((dirent) => {
-      const childPath = join(directory, dirent.name);
-      return dirent.isDirectory() ? walk(childPath) : childPath;
-    })
+        const childPath = join(directory, dirent.name);
+        return dirent.isDirectory() ? walk(childPath) : childPath;
+      })
   );
 
   return children.flat();
 }
 
 function shouldSkipAssetCatalogEntry(name) {
-  return name.startsWith('.') || name === '_review' || name === 'manifest.generated.json';
+  return (
+    name.startsWith('.') ||
+    name === '_review' ||
+    name === 'manifest.generated.json'
+  );
 }
 
 async function readRasterMetadata(filePath, normalizedPath) {
@@ -77,7 +81,11 @@ async function readRasterMetadata(filePath, normalizedPath) {
     sha256: createHash('sha256').update(file).digest('hex'),
   };
 
-  if (extname(filePath).toLowerCase() !== '.png' || file.length < 24 || file.toString('ascii', 1, 4) !== 'PNG') {
+  if (
+    extname(filePath).toLowerCase() !== '.png' ||
+    file.length < 24 ||
+    file.toString('ascii', 1, 4) !== 'PNG'
+  ) {
     return metadata;
   }
 
@@ -103,11 +111,13 @@ function readPngAnimationFrameCrop(file, normalizedPath) {
     width,
   });
 
-  if (isCatalogAnimationAtlasForBuild({
-    fileName: normalizedPath.split('/').pop() ?? normalizedPath,
-    height,
-    width,
-  })) {
+  if (
+    isCatalogAnimationAtlasForBuild({
+      fileName: normalizedPath.split('/').pop() ?? normalizedPath,
+      height,
+      width,
+    })
+  ) {
     return undefined;
   }
 
@@ -154,7 +164,12 @@ function readPngAlphaTrim(file, crop) {
     y: crop.y + minY,
   };
 
-  if (trimmed.width === crop.width && trimmed.height === crop.height && trimmed.x === crop.x && trimmed.y === crop.y) {
+  if (
+    trimmed.width === crop.width &&
+    trimmed.height === crop.height &&
+    trimmed.x === crop.x &&
+    trimmed.y === crop.y
+  ) {
     return undefined;
   }
 
@@ -171,13 +186,14 @@ function decodePngAlpha(file) {
     throw new Error(`Unsupported PNG bit depth ${bitDepth}`);
   }
 
-  const bytesPerPixel = colorType === 6
-    ? 4
-    : colorType === 2
-      ? 3
-      : colorType === 3 || colorType === 0
-        ? 1
-        : 0;
+  const bytesPerPixel =
+    colorType === 6
+      ? 4
+      : colorType === 2
+        ? 3
+        : colorType === 3 || colorType === 0
+          ? 1
+          : 0;
 
   if (bytesPerPixel === 0) {
     throw new Error(`Unsupported PNG color type ${colorType}`);
@@ -217,7 +233,9 @@ function decodePngAlpha(file) {
   for (let y = 0; y < height; y += 1) {
     const filterType = inflated[inputOffset];
     inputOffset += 1;
-    const current = Buffer.from(inflated.subarray(inputOffset, inputOffset + scanlineLength));
+    const current = Buffer.from(
+      inflated.subarray(inputOffset, inputOffset + scanlineLength)
+    );
     inputOffset += scanlineLength;
 
     unfilterScanline(current, previous, bytesPerPixel, filterType);
@@ -244,7 +262,8 @@ function unfilterScanline(current, previous, bytesPerPixel, filterType) {
   for (let index = 0; index < current.length; index += 1) {
     const left = index >= bytesPerPixel ? current[index - bytesPerPixel] : 0;
     const up = previous[index] ?? 0;
-    const upLeft = index >= bytesPerPixel ? previous[index - bytesPerPixel] ?? 0 : 0;
+    const upLeft =
+      index >= bytesPerPixel ? (previous[index - bytesPerPixel] ?? 0) : 0;
 
     if (filterType === 1) {
       current[index] = (current[index] + left) & 0xff;
@@ -253,7 +272,8 @@ function unfilterScanline(current, previous, bytesPerPixel, filterType) {
     } else if (filterType === 3) {
       current[index] = (current[index] + Math.floor((left + up) / 2)) & 0xff;
     } else if (filterType === 4) {
-      current[index] = (current[index] + paethPredictor(left, up, upLeft)) & 0xff;
+      current[index] =
+        (current[index] + paethPredictor(left, up, upLeft)) & 0xff;
     } else if (filterType !== 0) {
       throw new Error(`Unsupported PNG filter type ${filterType}`);
     }
@@ -274,18 +294,6 @@ function paethPredictor(left, up, upLeft) {
 }
 
 function inferCatalogAnimationFrameGeometryForBuild(entry) {
-  if (entry.path === 'animations/animated_control_room_screens_48x48.png') {
-    return { frameWidth: 192, frameHeight: 144 };
-  }
-
-  if (entry.path === 'animations/animated_control_room_server_48x48.png') {
-    return { frameWidth: 48, frameHeight: 144 };
-  }
-
-  if (entry.path === 'animations/animated_coffee_48x48.png') {
-    return { frameWidth: 48, frameHeight: 96 };
-  }
-
   const sourceWidth = entry.width ?? 48;
   const sourceHeight = entry.height ?? 48;
 
@@ -304,8 +312,10 @@ function isCatalogAnimationAtlasForBuild(entry) {
   const sourceWidth = entry.width ?? 0;
   const sourceHeight = entry.height ?? 0;
 
-  return fileName === 'animated_shopping_carts_48x48.png'
-    || (sourceWidth === sourceHeight && sourceWidth >= 480);
+  return (
+    fileName === 'animated_shopping_carts_48x48.png' ||
+    (sourceWidth === sourceHeight && sourceWidth >= 480)
+  );
 }
 
 function summarizeDirectories(entries) {
@@ -330,8 +340,10 @@ function toCandidateAssetId(relativePath) {
     .replace(/^-+|-+$/g, '');
 }
 
-function renderTypescriptCatalog(catalog) {
-  return `export interface ObservatoryAssetCatalogDirectorySummary {
+function renderTypescriptCatalog() {
+  return `${'import'} catalogGenerated from './catalog.generated.json';
+
+export interface ObservatoryAssetCatalogDirectorySummary {
   directory: string;
   fileCount: number;
 }
@@ -353,10 +365,21 @@ export interface ObservatoryAssetCatalogEntry {
   height?: number;
 }
 
-export const observatoryAssetCatalogEntries = ${JSON.stringify(catalog.entries, null, 2)} satisfies ObservatoryAssetCatalogEntry[];
+interface ObservatoryGeneratedCatalog {
+  directories: ObservatoryAssetCatalogDirectorySummary[];
+  entries: ObservatoryAssetCatalogEntry[];
+  generatedAt: string;
+  totalFileCount: number;
+}
+
+// Keep one generated JSON source of truth instead of shipping a second multi-megabyte
+// TypeScript copy of the same catalog in the open-source frontend bundle.
+const catalog = catalogGenerated as ObservatoryGeneratedCatalog;
+
+export const observatoryAssetCatalogEntries = catalog.entries;
 
 export const observatoryAssetCatalogSummary = {
-  directories: ${JSON.stringify(catalog.directories, null, 2)} satisfies ObservatoryAssetCatalogDirectorySummary[],
+  directories: catalog.directories,
   totalFileCount: observatoryAssetCatalogEntries.length,
 };
 `;
@@ -364,74 +387,59 @@ export const observatoryAssetCatalogSummary = {
 
 function renderTypescriptRegistry(catalog) {
   const imports = catalog.entries
-    .map((entry, index) => `import asset${index} from '../../assets/${escapeImportPath(entry.path)}';`)
+    .map(
+      (entry, index) =>
+        `${'import'} asset${index} from '${'../../assets/'}${escapeImportPath(entry.path)}';`
+    )
     .join('\n');
   const importMap = catalog.entries
     .map((entry, index) => `  ${JSON.stringify(entry.path)}: asset${index},`)
     .join('\n');
   const animationFrameCropMap = catalog.entries
     .filter((entry) => entry.animationFrameCrop)
-    .map((entry) => `  ${JSON.stringify(entry.path)}: ${JSON.stringify(entry.animationFrameCrop)},`)
+    .map(
+      (entry) =>
+        `  ${JSON.stringify(entry.path)}: ${JSON.stringify(entry.animationFrameCrop)},`
+    )
     .join('\n');
 
-  return `import type { StaticImageData } from 'next/image';
+  return `${'import'} type { StaticImageData } from 'next/image';
 
-import type { ObservatoryAssetDefinition } from './assetRegistry';
-import { observatoryAssetCatalogEntries, type ObservatoryAssetCatalogEntry } from './assetCatalog';
-import furnitureManifest from '../../assets/furnitures/furniture-manifest.generated.json';
+${'import'} type {
+  ObservatoryAssetDefinition,
+  ObservatoryAssetSourceCrop,
+} from '${'./assetRegistry'}';
+${'import'} { observatoryAssetCatalogEntries, type ObservatoryAssetCatalogEntry } from '${'./assetCatalog'}';
+${'import'} type { ${'ObservatoryFurnitureManifestAsset'} } from '${'./furnitureManifest'}';
+${'import'} ${'furnitureManifest'} from '${'../../assets/furnitures/furniture-manifest.generated.json'}';
 ${imports}
 
-type ImportedRasterAsset = StaticImageData | string;
-type GeneratedFrameGeometry = {
+type ${'ImportedRasterAsset'} = StaticImageData | string;
+type ${'GeneratedFrameGeometry'} = {
   confidence: string;
   frameHeight: number;
   frameWidth: number;
-};
-type GeneratedSourceCrop = {
-  height: number;
-  width: number;
-  x: number;
-  y: number;
-};
-type FurnitureManifestAsset = {
-  category: string;
-  fileName: string;
-  footprintH: number;
-  footprintW: number;
-  height: number;
-  id: string;
-  label: string;
-  path: string;
-  semanticRole: string;
-  sourceCrop?: {
-    height: number;
-    width: number;
-    x: number;
-    y: number;
-  };
-  source: { kind: string; path: string };
-  tags: string[];
-  visibleHeight?: number;
-  visibleWidth?: number;
-  width: number;
-};
-type FurnitureManifest = {
-  assets: FurnitureManifestAsset[];
-};
+}
+type ${'FurnitureManifest'} = {
+  assets?: ${'ObservatoryFurnitureManifestAsset'}[];
+}
 
-function uri(asset: ImportedRasterAsset) {
+function uri(asset: ${'ImportedRasterAsset'}) {
   return typeof asset === 'string' ? asset : asset.src;
 }
 
 const furnitureManifestAssetsByCatalogPath = new Map(
-  (furnitureManifest as FurnitureManifest).assets.map((asset) => [asset.source.path, asset]),
-);
+  ((${'furnitureManifest'} as ${'FurnitureManifest'}).assets ?? []).map((asset) => [
+    asset.source.path,
+    asset,
+  ])
+)
 
-const generatedAssetImports: Record<string, ImportedRasterAsset> = {
+const generatedAssetImports: Record<string, ${'ImportedRasterAsset'}> = {
 ${importMap}
 };
 
-const generatedAnimationFrameCrops: Record<string, GeneratedSourceCrop> = {
+const generatedAnimationFrameCrops: Record<string, ObservatoryAssetSourceCrop> = {
 ${animationFrameCropMap}
 };
 
@@ -454,7 +462,7 @@ function toGeneratedAssetDefinition(entry: ObservatoryAssetCatalogEntry): Observ
   const frameCount = Math.max(
     1,
     Math.floor((entry.width ?? frameWidth) / frameWidth) *
-      Math.floor((entry.height ?? frameHeight) / frameHeight)
+      Math.floor((entry.height ?? frameHeight) / frameHeight),
   );
   const tags = [
     'office-pack',
@@ -505,7 +513,7 @@ function toGeneratedAssetDefinition(entry: ObservatoryAssetCatalogEntry): Observ
 
 function toGeneratedFurnitureAssetDefinition(
   entry: ObservatoryAssetCatalogEntry,
-  furnitureAsset: FurnitureManifestAsset,
+  furnitureAsset: ${'ObservatoryFurnitureManifestAsset'},
 ): ObservatoryAssetDefinition {
   const collision = collisionForFurnitureAsset(furnitureAsset);
 
@@ -536,7 +544,7 @@ function toGeneratedFurnitureAssetDefinition(
   };
 }
 
-function collisionForFurnitureAsset(furnitureAsset: FurnitureManifestAsset) {
+function collisionForFurnitureAsset(furnitureAsset: ${'ObservatoryFurnitureManifestAsset'}) {
   const crop = furnitureAsset.sourceCrop ?? {
     height: furnitureAsset.height,
     width: furnitureAsset.width,
@@ -556,19 +564,7 @@ function collisionForFurnitureAsset(furnitureAsset: FurnitureManifestAsset) {
   };
 }
 
-function inferGeneratedFrameGeometry(entry: ObservatoryAssetCatalogEntry): GeneratedFrameGeometry {
-  if (entry.path === 'animations/animated_control_room_screens_48x48.png') {
-    return { frameWidth: 192, frameHeight: 144, confidence: 'reviewed-known-exception' };
-  }
-
-  if (entry.path === 'animations/animated_control_room_server_48x48.png') {
-    return { frameWidth: 48, frameHeight: 144, confidence: 'reviewed-known-exception' };
-  }
-
-  if (entry.path === 'animations/animated_coffee_48x48.png') {
-    return { frameWidth: 48, frameHeight: 96, confidence: 'reviewed-known-exception' };
-  }
-
+function inferGeneratedFrameGeometry(entry: ObservatoryAssetCatalogEntry): ${'GeneratedFrameGeometry'} {
   if (entry.path.startsWith('animations/')) {
     return inferGeneratedAnimationFrameGeometry(entry);
   }
@@ -600,7 +596,7 @@ function inferGeneratedFrameGeometry(entry: ObservatoryAssetCatalogEntry): Gener
   return { frameWidth: 48, frameHeight: 48, confidence: 'filename-default' };
 }
 
-function inferGeneratedAnimationFrameGeometry(entry: ObservatoryAssetCatalogEntry): GeneratedFrameGeometry {
+function inferGeneratedAnimationFrameGeometry(entry: ObservatoryAssetCatalogEntry): ${'GeneratedFrameGeometry'} {
   const sourceWidth = entry.width ?? 48;
   const sourceHeight = entry.height ?? 48;
 
@@ -624,7 +620,7 @@ function isGeneratedAnimationAtlas(entry: ObservatoryAssetCatalogEntry) {
     || (sourceWidth === sourceHeight && sourceWidth >= 480);
 }
 
-function autotileForGeneratedCatalogPath(path: string, frameGeometry: GeneratedFrameGeometry) {
+function autotileForGeneratedCatalogPath(path: string, frameGeometry: ${'GeneratedFrameGeometry'}) {
   if (path.startsWith('floors/A2 ')) {
     return {
       autotile: {
@@ -719,51 +715,6 @@ function labelForGeneratedCatalogPath(path: string): string {
 function escapeImportPath(path) {
   return path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 }
-
-function toGeneratedAssetDefinition(entry) {
-  const category = categoryForCatalogPath(entry.path);
-  const frameGeometry = inferFrameGeometry(entry);
-  const frameWidth = frameGeometry.frameWidth;
-  const frameHeight = frameGeometry.frameHeight;
-  const frameCount = Math.max(
-    1,
-    Math.floor((entry.width ?? frameWidth) / frameWidth) *
-      Math.floor((entry.height ?? frameHeight) / frameHeight)
-  );
-  const source = {
-    kind: 'spritesheet',
-    uri: `__URI__${entry.path}`,
-    frameWidth,
-    frameHeight,
-  };
-
-  return {
-    id: `generated:${entry.id}`,
-    catalogPath: entry.path,
-    category,
-    label: labelForCatalogPath(entry.path),
-    source,
-    ...(category === 'human' ? { frame: 1 } : { frame: 0 }),
-    ...(entry.path.startsWith('animations/') && frameCount > 1
-      ? {
-          animation: {
-            key: `generated:${entry.id}:loop`,
-            startFrame: 0,
-            endFrame: frameCount - 1,
-            frameRate: 8,
-            repeat: -1,
-          },
-        }
-      : {}),
-    width: frameWidth,
-    height: frameHeight,
-    anchor: category === 'human' ? { x: 0.5, y: 0.5 } : { x: 0, y: 0 },
-    ...autotileForCatalogPath(entry.path, frameGeometry),
-    semanticId: `generated:${entry.id}`,
-    tags: ['office-pack', 'generated', `catalog:${entry.path.split('/')[0] ?? 'root'}`, ...semanticTagsForCatalogPath(entry.path)],
-  };
-}
-
 function renderRegistryCandidates(catalog) {
   return {
     generatedAt: catalog.generatedAt,
@@ -773,10 +724,20 @@ function renderRegistryCandidates(catalog) {
       const frameGeometry = inferFrameGeometry(entry);
       const frameCount = Math.max(
         1,
-        Math.floor((entry.width ?? frameGeometry.frameWidth) / frameGeometry.frameWidth) *
-          Math.floor((entry.height ?? frameGeometry.frameHeight) / frameGeometry.frameHeight)
+        Math.floor(
+          (entry.width ?? frameGeometry.frameWidth) / frameGeometry.frameWidth
+        ) *
+          Math.floor(
+            (entry.height ?? frameGeometry.frameHeight) /
+              frameGeometry.frameHeight
+          )
       );
-      const tags = ['office-pack', 'generated', `catalog:${entry.directory}`, ...semanticTagsForCatalogPath(entry.path)];
+      const tags = [
+        'office-pack',
+        'generated',
+        `catalog:${entry.directory}`,
+        ...semanticTagsForCatalogPath(entry.path),
+      ];
 
       return {
         id: `generated:${entry.id}`,
@@ -812,8 +773,14 @@ function renderRegistryCandidates(catalog) {
           priority: reviewPriorityForCatalogPath(entry.path),
           reasons: reviewReasonsForCatalogPath(entry.path, frameGeometry),
           frameGrid: {
-            columns: Math.floor((entry.width ?? frameGeometry.frameWidth) / frameGeometry.frameWidth),
-            rows: Math.floor((entry.height ?? frameGeometry.frameHeight) / frameGeometry.frameHeight),
+            columns: Math.floor(
+              (entry.width ?? frameGeometry.frameWidth) /
+                frameGeometry.frameWidth
+            ),
+            rows: Math.floor(
+              (entry.height ?? frameGeometry.frameHeight) /
+                frameGeometry.frameHeight
+            ),
             frameCount,
           },
         },
@@ -823,18 +790,6 @@ function renderRegistryCandidates(catalog) {
 }
 
 function inferFrameGeometry(entry) {
-  if (entry.path === 'animations/animated_control_room_screens_48x48.png') {
-    return { frameWidth: 192, frameHeight: 144, confidence: 'reviewed-known-exception' };
-  }
-
-  if (entry.path === 'animations/animated_control_room_server_48x48.png') {
-    return { frameWidth: 48, frameHeight: 144, confidence: 'reviewed-known-exception' };
-  }
-
-  if (entry.path === 'animations/animated_coffee_48x48.png') {
-    return { frameWidth: 48, frameHeight: 96, confidence: 'reviewed-known-exception' };
-  }
-
   if (entry.path.startsWith('characters/Character_48x48_')) {
     return { frameWidth: 48, frameHeight: 96, confidence: 'pattern' };
   }
@@ -929,11 +884,27 @@ function semanticTagsForCatalogPath(path) {
 function reviewPriorityForCatalogPath(path) {
   const tags = semanticTagsForCatalogPath(path);
 
-  if (path.startsWith('characters/') || tags.some((tag) => ['runtime', 'workstation', 'screen', 'door', 'seating', 'pantry'].includes(tag))) {
+  if (
+    path.startsWith('characters/') ||
+    tags.some((tag) =>
+      [
+        'runtime',
+        'workstation',
+        'screen',
+        'door',
+        'seating',
+        'pantry',
+      ].includes(tag)
+    )
+  ) {
     return 'high';
   }
 
-  if (path.startsWith('floors/') || path.startsWith('walls/') || path.startsWith('furnitures/')) {
+  if (
+    path.startsWith('floors/') ||
+    path.startsWith('walls/') ||
+    path.startsWith('furnitures/')
+  ) {
     return 'medium';
   }
 
@@ -941,7 +912,9 @@ function reviewPriorityForCatalogPath(path) {
 }
 
 function reviewReasonsForCatalogPath(path, frameGeometry) {
-  const reasons = [`frame:${frameGeometry.frameWidth}x${frameGeometry.frameHeight}:${frameGeometry.confidence}`];
+  const reasons = [
+    `frame:${frameGeometry.frameWidth}x${frameGeometry.frameHeight}:${frameGeometry.confidence}`,
+  ];
   const tags = semanticTagsForCatalogPath(path);
 
   if (tags.length > 0) {
@@ -965,7 +938,10 @@ function categoryForCatalogPath(path) {
   if (path.startsWith('furnitures/')) {
     return 'furniture';
   }
-  if (path.startsWith('characters/Premade_Character_') || path.startsWith('characters/Character_48x48_')) {
+  if (
+    path.startsWith('characters/Premade_Character_') ||
+    path.startsWith('characters/Character_48x48_')
+  ) {
     return 'human';
   }
   return 'decor';

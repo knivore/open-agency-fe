@@ -1,20 +1,29 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { type ComponentType, useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import type {
   ExecutionEventRecord,
   RunLogEntry,
   RunSessionSummary,
   RunViewMode,
-  WorkflowDefinition,
-} from '@/lib/api/backend/types';
-import { agentsApi, workflowsApi } from '@/lib/api/backend';
+} from '@/types/runtime';
+import type { WorkflowDefinition } from '@/types/workflows';
+import { agentsApi } from '@/lib/api/backend/agents';
+import { workflowsApi } from '@/lib/api/backend/workflows';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
-import { ActivitySquare, List, RefreshCw } from 'lucide-react';
+import {
+  ActivitySquare,
+  CircleAlert,
+  Clock3,
+  Cpu,
+  List,
+  PlayCircle,
+  RefreshCw,
+} from 'lucide-react';
 import {
   Card,
   CardContent,
@@ -24,6 +33,7 @@ import {
 } from '@/components/library/shadcn/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
 import PageHeader from '@/components/app-shell/PageHeader';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import {
   RunsEmptyCard,
   RunsErrorAlert,
@@ -44,6 +54,39 @@ import {
 } from '@/modules/observatory/runtime/agentVisibility';
 
 type RunsVisibleViewMode = RunViewMode | 'observatory';
+
+function RunMetricCard({
+  description,
+  icon: Icon,
+  label,
+  tone,
+  value,
+}: {
+  description: string;
+  icon: ComponentType<{ className?: string }>;
+  label: string;
+  tone: 'active' | 'failed' | 'runtime' | 'waiting';
+  value: number;
+}) {
+  return (
+    <Card className="agency-run-metric relative overflow-hidden" data-tone={tone}>
+      <CardHeader className="flex-row items-start justify-between gap-4">
+        <div>
+          <CardTitle className="text-base">{label}</CardTitle>
+          <CardDescription className="mt-1">{description}</CardDescription>
+        </div>
+        <span className="agency-run-metric-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
+          <Icon className="size-[1.05rem] stroke-[1.75]" />
+        </span>
+      </CardHeader>
+      <CardContent>
+        <p className="text-2xl font-semibold tracking-[-0.03em] text-(--agency-shell-text)">
+          {value}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 const OBSERVATORY_WORKING_RUN_STATUSES = new Set([
   'created',
@@ -99,7 +142,7 @@ export default function RunsWorkspace() {
     return () => window.clearTimeout(timeoutId);
   }, []);
   const agentsQuery = useQuery({
-    queryKey: queryKeys.backendAgents(),
+    queryKey: queryKeys.backendAgentCatalog(),
     queryFn: () => agentsApi.listAgentCatalog(),
   });
   const observatoryWorkingRuns = useMemo(
@@ -219,6 +262,71 @@ export default function RunsWorkspace() {
       onModeChange={setObservatoryAgentVisibilityMode}
     />
   );
+  const focusedRun = filteredRuns[0] ?? runs[0] ?? null;
+  const focusedRunId = focusedRun?.id ?? null;
+  const focusedWorkflowId = focusedRun?.workflowId ?? null;
+  const focusedWorkflowName = focusedWorkflowId
+    ? (workflowNamesById.get(focusedWorkflowId) ?? focusedWorkflowId)
+    : null;
+  const assistantPageContext = useMemo(() => {
+    return {
+      surface: 'runs.list' as const,
+      title: 'Runs',
+      description: 'Execution runs, statuses, approvals, and runtime observability.',
+      entities: [
+        focusedRun
+          ? {
+              type: 'run',
+              id: focusedRun.id,
+              name: focusedWorkflowName ? `${focusedWorkflowName} run` : `Run ${focusedRun.id}`,
+            }
+          : null,
+        focusedWorkflowId
+          ? {
+              type: 'workflow',
+              id: focusedWorkflowId,
+              name: focusedWorkflowName,
+            }
+          : null,
+      ].filter(Boolean) as Array<{ type: string; id: string; name?: string | null }>,
+      selection: {
+        runId: focusedRun?.id ?? null,
+        workflowId: focusedWorkflowId,
+        mode: visibleViewMode,
+      },
+      summary: {
+        totalRuns: runs.length,
+        filteredRuns: filteredRuns.length,
+        activeCount,
+        waitingCount,
+        failedCount,
+        runtimeCount,
+        statusFilter,
+        search,
+        observatoryAgentVisibilityMode,
+      },
+      allowedActions: [
+        ...(focusedRunId ? ['run.inspect'] : []),
+        ...(focusedWorkflowId ? ['workflow.inspect', 'workflow.run'] : []),
+      ],
+    };
+  }, [
+    activeCount,
+    failedCount,
+    filteredRuns.length,
+    focusedRun,
+    focusedRunId,
+    focusedWorkflowId,
+    focusedWorkflowName,
+    observatoryAgentVisibilityMode,
+    runtimeCount,
+    runs.length,
+    search,
+    statusFilter,
+    visibleViewMode,
+    waitingCount,
+  ]);
+  useRegisterAssistantPageContext(assistantPageContext);
 
   const handleViewModeChange = (nextViewMode: string) => {
     const nextVisibleViewMode = nextViewMode as RunsVisibleViewMode;
@@ -262,9 +370,10 @@ export default function RunsWorkspace() {
     return (
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Runs"
+          icon={ActivitySquare}
+          tone="run"
           title="Runs"
-          description="Live operations, coordination, and execution records"
+          description="Follow live execution, approvals, failures, and completed workflow runs."
           actions={
             <>
               <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
@@ -325,9 +434,10 @@ export default function RunsWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Runs"
+        icon={ActivitySquare}
+        tone="run"
         title="Runs"
-        description="Live operations, coordination, and execution records"
+        description="Follow live execution, approvals, failures, and completed workflow runs."
         meta={
           <>
             <Badge variant="outline">{runs.length} total</Badge>
@@ -388,42 +498,34 @@ export default function RunsWorkspace() {
       {observatoryAgentControls}
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Active</CardTitle>
-            <CardDescription>Runs that still need supervision.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-neutral-900">{activeCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Waiting</CardTitle>
-            <CardDescription>Runs blocked on approval or input.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-neutral-900">{waitingCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Failed</CardTitle>
-            <CardDescription>Runs that need debugging.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-neutral-900">{failedCount}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Runtime Adapters</CardTitle>
-            <CardDescription>Distinct runtimes in current result set.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-2xl font-semibold text-neutral-900">{runtimeCount}</p>
-          </CardContent>
-        </Card>
+        <RunMetricCard
+          label="Active"
+          description="Runs that still need supervision."
+          value={activeCount}
+          icon={PlayCircle}
+          tone="active"
+        />
+        <RunMetricCard
+          label="Waiting"
+          description="Runs blocked on approval or input."
+          value={waitingCount}
+          icon={Clock3}
+          tone="waiting"
+        />
+        <RunMetricCard
+          label="Failed"
+          description="Runs that need debugging."
+          value={failedCount}
+          icon={CircleAlert}
+          tone="failed"
+        />
+        <RunMetricCard
+          label="Runtime adapters"
+          description="Distinct runtimes in this result set."
+          value={runtimeCount}
+          icon={Cpu}
+          tone="runtime"
+        />
       </div>
 
       <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
@@ -478,8 +580,8 @@ function ObservatoryAgentVisibilityControls({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border bg-white px-3 py-2">
-      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500">
+    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary-100 bg-white/90 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+      <span className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-slate-400">
         Observatory agents
       </span>
       {options.map((option) => (

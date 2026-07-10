@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { agencyApiClient } from '@/lib/api';
-import { backendRoutes } from '@/lib/api/backend';
+import { agencyApiClient } from '@/lib/api/clientInstances';
+import { backendRoutes } from '@/lib/api/backend/routes';
+import { currentUserHeaders } from '@/lib/api/backend/identity';
 import type { ConnectorCapabilitiesPayload } from '@/types/integrations';
 import {
   getAuthenticatedUser,
@@ -9,22 +10,6 @@ import {
   syncCurrentBackendUser,
   unauthorizedResponse,
 } from '@/app/api/backend-users/utils';
-
-function currentUserHeaders(user: Awaited<ReturnType<typeof getAuthenticatedUser>>, internalApiKey?: string | null): HeadersInit {
-  if (!user) {
-    return {};
-  }
-
-  return {
-    'x-agency-user-id': user.id,
-    'x-agency-user-email': user.email,
-    'x-agency-user-name': user.name,
-    'x-agency-auth-provider': user.authMode === 'dev' ? 'dev-auth' : 'nextauth',
-    'x-agency-provider-subject': user.id,
-    'x-agency-provider-account-id': user.email,
-    ...(internalApiKey ? { 'x-agency-internal-api-key': internalApiKey } : {}),
-  };
-}
 
 export async function GET() {
   try {

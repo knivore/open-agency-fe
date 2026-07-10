@@ -1,4 +1,4 @@
-import type {
+import React, {
   ButtonHTMLAttributes,
   InputHTMLAttributes,
   LabelHTMLAttributes,
@@ -26,7 +26,9 @@ vi.mock('@/components/library/shadcn/textarea', () => ({
 }));
 
 vi.mock('@/components/library/shadcn/label', () => ({
-  Label: ({ children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => <label {...props}>{children}</label>,
+  Label: ({ children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
+    <label {...props}>{children}</label>
+  ),
 }));
 
 vi.mock('@/components/library/shadcn/card', () => ({
@@ -34,7 +36,9 @@ vi.mock('@/components/library/shadcn/card', () => ({
   CardHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   CardTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   CardDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  CardContent: ({ children, className }: { children: ReactNode; className?: string }) => <div className={className}>{children}</div>,
+  CardContent: ({ children, className }: { children: ReactNode; className?: string }) => (
+    <div className={className}>{children}</div>
+  ),
 }));
 
 function renderEditor(overrides?: Partial<React.ComponentProps<typeof WorkflowMetadataEditor>>) {
@@ -45,9 +49,10 @@ function renderEditor(overrides?: Partial<React.ComponentProps<typeof WorkflowMe
       name="Workflow"
       description="Description"
       entrypoint=""
+      defaultRuntimeAdapterId="adapter-a"
       executionHost="local"
       restartActiveExecutions={false}
-      allowedRuntimeAdapterIds={['adapter-a']}
+      workflowCapabilityTags={[]}
       visibleTaskDefinitions={[]}
       runtimeAdapters={[
         {
@@ -64,9 +69,10 @@ function renderEditor(overrides?: Partial<React.ComponentProps<typeof WorkflowMe
       onNameChange={() => {}}
       onDescriptionChange={() => {}}
       onEntrypointChange={() => {}}
+      onDefaultRuntimeAdapterChange={() => {}}
       onExecutionHostChange={() => {}}
       onRestartActiveExecutionsChange={() => {}}
-      onAllowedRuntimeAdapterToggle={() => {}}
+      onWorkflowCapabilityTagsChange={() => {}}
       onSave={onSave}
       {...overrides}
     />
@@ -98,8 +104,23 @@ describe('WorkflowMetadataEditor', () => {
     const onRestartActiveExecutionsChange = vi.fn();
     renderEditor({ onRestartActiveExecutionsChange });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: /Restart active runs/i }));
+    fireEvent.change(screen.getByRole('combobox', { name: 'Active run behavior' }), {
+      target: { value: 'restart' },
+    });
 
     expect(onRestartActiveExecutionsChange).toHaveBeenCalledWith(true);
+  });
+
+  it('keeps WIP workflow capability controls hidden', () => {
+    const onWorkflowCapabilityTagsChange = vi.fn();
+    renderEditor({
+      workflowCapabilityTags: ['home-control'],
+      onWorkflowCapabilityTagsChange,
+    });
+
+    expect(screen.queryByText('Workflow capabilities')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Vision')).not.toBeInTheDocument();
+
+    expect(onWorkflowCapabilityTagsChange).not.toHaveBeenCalled();
   });
 });

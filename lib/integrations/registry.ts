@@ -1,37 +1,41 @@
-import type { IntegrationRegistryCategoryDefinition } from '@/types';
+import type { IntegrationRegistryCategoryDefinition } from '@/types/integrations';
 
 export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[] = [
   {
     id: 'communications',
     name: 'Communications',
     description:
-      'Messaging, chat, and email connectors staged in the frontend while backend credential and delivery routes are formalized.',
+      'Messaging, chat, and email connectors that can be connected through Agency-owned OneCLI setup sessions.',
     providers: {
       Telegram: {
         backendKey: 'telegram-bot',
         authModel: 'bot token',
-        summary: 'Bot API connector for notifications, inbound command handling, and chat delivery workflows.',
+        summary:
+          'Bot API connector for notifications, inbound command handling, and chat delivery workflows.',
         launchPriority: 'now',
         providerAliases: ['telegram'],
       },
       'WhatsApp Cloud API': {
         backendKey: 'whatsapp-cloud-api',
         authModel: 'access token',
-        summary: 'Business messaging connector for outbound alerts, customer support handoff, and approval loops.',
+        summary:
+          'Business messaging connector for outbound alerts, customer support handoff, and approval loops.',
         launchPriority: 'now',
         providerAliases: ['whatsapp', 'meta-whatsapp'],
       },
       Discord: {
         backendKey: 'discord-bot',
         authModel: 'bot token',
-        summary: 'Guild, channel, and webhook integration for community operations and agent notifications.',
+        summary:
+          'Guild, channel, and webhook integration for community operations and agent notifications.',
         launchPriority: 'now',
         providerAliases: ['discord'],
       },
       Slack: {
         backendKey: 'slack-app',
         authModel: 'oauth',
-        summary: 'Workspace messaging and slash-command connector for operations, approvals, and incident response.',
+        summary:
+          'Workspace messaging and slash-command connector for operations, approvals, and incident response.',
         launchPriority: 'next',
         providerAliases: ['slack'],
       },
@@ -69,19 +73,21 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'productivity',
     name: 'Productivity',
     description:
-      'Work management and office-suite connectors that need backend route groups and credential lifecycle support.',
+      'Work management and office-suite connectors available for Agency-owned OneCLI credential setup.',
     providers: {
       Notion: {
         backendKey: 'notion',
         authModel: 'oauth',
-        summary: 'Workspace knowledge connector for search, publishing, and structured page updates.',
+        summary:
+          'Workspace knowledge connector for search, publishing, and structured page updates.',
         launchPriority: 'next',
         providerAliases: ['notion'],
       },
       Linear: {
         backendKey: 'linear',
         authModel: 'oauth',
-        summary: 'Issue and project workflow connector for planning, triage, and release operations.',
+        summary:
+          'Issue and project workflow connector for planning, triage, and release operations.',
         launchPriority: 'next',
         providerAliases: ['linear'],
       },
@@ -102,7 +108,8 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
       Airtable: {
         backendKey: 'airtable',
         authModel: 'api key',
-        summary: 'Structured workspace connector for lightweight CRM, ops queues, and table-driven workflows.',
+        summary:
+          'Structured workspace connector for lightweight CRM, ops queues, and table-driven workflows.',
         launchPriority: 'later',
         providerAliases: ['airtable'],
       },
@@ -126,7 +133,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'developer',
     name: 'Developer',
     description:
-      'Engineering-facing connectors planned after the backend exposes credentialed provider route groups beyond tools and MCP servers.',
+      'Engineering-facing connectors available for Agency-owned OneCLI credential setup.',
     providers: {
       GitHub: {
         backendKey: 'github',
@@ -162,12 +169,13 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'media-creative',
     name: 'Media & Creative',
     description:
-      'Creative and publishing connectors that remain frontend-visible while backend route groups are still absent.',
+      'Creative and publishing connectors available for Agency-owned OneCLI credential setup.',
     providers: {
       Figma: {
         backendKey: 'figma',
         authModel: 'oauth',
-        summary: 'Design file connector for implementation context, component retrieval, and review loops.',
+        summary:
+          'Design file connector for implementation context, component retrieval, and review loops.',
         launchPriority: 'next',
         providerAliases: ['figma'],
       },
@@ -188,21 +196,40 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
       Adobe: {
         backendKey: 'adobe-creative-cloud',
         authModel: 'oauth',
-        summary: 'Creative Cloud family placeholder for asset review and production handoff automation.',
+        summary:
+          'Creative Cloud family placeholder for asset review and production handoff automation.',
         launchPriority: 'later',
         providerAliases: ['adobe', 'creative-cloud'],
       },
     },
   },
   {
+    id: 'home-tools',
+    name: 'Smart Home',
+    description:
+      'Smart-home and ambient-environment setup for Agency home automation, camera analysis, announcements, and room-aware actions.',
+    providers: {
+      'Smart Home': {
+        backendKey: 'home-assistant',
+        authModel: 'access token',
+        summary:
+          'Primary Agency Smart Home setup, currently implemented through a Home Assistant compatibility bridge for entity reads, safe actions, and camera-backed ambient reasoning.',
+        launchPriority: 'now',
+        providerAliases: ['home-assistant', 'home_assistant', 'homeassistant', 'smart-home'],
+      },
+    },
+  },
+  {
     id: 'search-knowledge',
     name: 'Search / Knowledge',
-    description: 'Retrieval and external knowledge connectors planned outside the current tool and MCP server route groups.',
+    description:
+      'Retrieval and external knowledge connectors available for Agency-owned OneCLI credential setup.',
     providers: {
       Perplexity: {
         backendKey: 'perplexity',
         authModel: 'api key',
-        summary: 'Web answer and research connector for augmented retrieval and citation workflows.',
+        summary:
+          'Web answer and research connector for augmented retrieval and citation workflows.',
         launchPriority: 'later',
         providerAliases: ['perplexity'],
       },
@@ -225,12 +252,13 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'storage',
     name: 'Storage',
     description:
-      'File and object-store connectors that need backend credential and file-operation routes before they become configurable.',
+      'File and object-store connectors available for Agency-owned OneCLI credential setup.',
     providers: {
       S3: {
         backendKey: 's3',
         authModel: 'access key',
-        summary: 'Bucket and object storage connector for artifacts, documents, and workflow payload exchange.',
+        summary:
+          'Bucket and object storage connector for artifacts, documents, and workflow payload exchange.',
         launchPriority: 'next',
         providerAliases: ['aws-s3'],
       },
@@ -258,7 +286,8 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
       SharePoint: {
         backendKey: 'sharepoint',
         authModel: 'oauth',
-        summary: 'Document library connector for team knowledge, approvals, and enterprise content flows.',
+        summary:
+          'Document library connector for team knowledge, approvals, and enterprise content flows.',
         launchPriority: 'later',
         providerAliases: ['microsoft-sharepoint'],
       },

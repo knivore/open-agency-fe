@@ -1,8 +1,8 @@
 import type Phaser from 'phaser';
 
 import { createBootScene } from '@/modules/observatory/engine/scenes/BootScene';
-import { createOfficeScene } from '@/modules/observatory/engine/scenes/OfficeScene';
 import type { ObservatoryCameraState } from '@/modules/observatory/engine/scenes/OfficeScene';
+import { createOfficeScene } from '@/modules/observatory/engine/scenes/OfficeScene';
 import type { ObservatoryOfficeMapViewFilter } from '@/modules/observatory/engine/rendering/officeMapRenderer';
 import { createPreloadScene } from '@/modules/observatory/engine/scenes/PreloadScene';
 import type {

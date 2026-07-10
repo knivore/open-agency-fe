@@ -1,31 +1,38 @@
-import { ComponentPropsWithoutRef, useState } from 'react';
+import React, { ComponentPropsWithoutRef, useState } from 'react';
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
-import { FieldError, RegisterOptions, UseFormRegister } from 'react-hook-form';
+import {
+  FieldError,
+  FieldPath,
+  FieldValues,
+  RegisterOptions,
+  UseFormRegister,
+} from 'react-hook-form';
+import { cn } from '@/lib/utils';
 
-type TextInputProps = {
-  name: string;
+type TextInputProps<TFieldValues extends FieldValues> = {
+  name: FieldPath<TFieldValues>;
   label: string;
-  register: UseFormRegister<any>;
+  register: UseFormRegister<TFieldValues>;
   error?: FieldError;
-  validation?: RegisterOptions;
+  validation?: RegisterOptions<TFieldValues, FieldPath<TFieldValues>>;
   isChecked?: boolean;
 } & Omit<ComponentPropsWithoutRef<typeof Input>, 'name'>;
 
-export default function MultiTypeInput({
-                                         name,
-                                         label,
-                                         register,
-                                         error,
-                                         validation,
-                                         className = '',
-                                         type = 'text',
-                                         min = 0,
-                                         max = 100,
-                                         isChecked,
-                                         defaultValue,
-                                         ...props
-                                       }: TextInputProps) {
+export default function MultiTypeInput<TFieldValues extends FieldValues>({
+  name,
+  label,
+  register,
+  error,
+  validation,
+  className = '',
+  type = 'text',
+  min = 0,
+  max = 100,
+  isChecked,
+  defaultValue,
+  ...props
+}: TextInputProps<TFieldValues>) {
   const [sliderValue, setSliderValue] = useState(defaultValue || min || '0'); // Track slider value
 
   // Handle slider value change
@@ -35,17 +42,18 @@ export default function MultiTypeInput({
   };
 
   // Calculate the position of the slider value display
-  const sliderPercentage = (((Number(sliderValue) - Number(min)) / (Number(max) - Number(min))) * 100) + 1;
+  const sliderPercentage =
+    ((Number(sliderValue) - Number(min)) / (Number(max) - Number(min))) * 100 + 1;
 
   return (
-    <div>
-      <Label className="block text-sm font-medium text-gray-700">{label}</Label>
+    <div className="flex flex-col gap-2" data-invalid={error ? true : undefined}>
+      <Label className="text-sm font-medium text-(--agency-shell-text)">{label}</Label>
 
       {/* Slider Container */}
       {type === 'range' && (
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-500">{min}</span>
-          <span className="text-xs text-gray-500">{max}</span>
+        <div className="flex items-center justify-between text-xs text-(--agency-shell-muted)">
+          <span>{min}</span>
+          <span>{max}</span>
         </div>
       )}
 
@@ -55,9 +63,12 @@ export default function MultiTypeInput({
           // Checkbox input
           <Input
             type="checkbox"
-            className={`mt-1 block w-4 h-4 rounded border ${
-              error ? 'border-red-500' : 'border-gray-300'
-            } ${className}`}
+            aria-invalid={error ? true : undefined}
+            className={cn(
+              'size-4 rounded border',
+              error && 'border-destructive ring-destructive/20',
+              className
+            )}
             {...register(name, validation)}
             defaultChecked={isChecked}
           />
@@ -65,13 +76,12 @@ export default function MultiTypeInput({
           // Other input Types
           <Input
             type={type}
-            className={`mt-1 block w-full p-2 border rounded-lg ${
-              error ? 'border-red-500' : 'border-gray-300'
-            } ${className}`}
+            aria-invalid={error ? true : undefined}
+            className={cn(error && 'border-destructive ring-destructive/20', className)}
             {...register(name, validation)}
             {...props}
-            defaultValue={defaultValue} // Set default value
-            onChange={type === 'range' ? handleSliderChange : undefined} // Handle slider change
+            defaultValue={defaultValue}
+            onChange={type === 'range' ? handleSliderChange : undefined}
             min={min}
             max={max}
           />
@@ -80,16 +90,16 @@ export default function MultiTypeInput({
         {/* Current Value Display for Slider */}
         {type === 'range' && (
           <div
-            className="absolute -bottom-6 transform -translate-x-1/2 bg-white px-2 py-1 rounded-md shadow-md text-sm text-gray-700"
+            className="absolute -bottom-7 -translate-x-1/2 rounded-md border border-(--agency-shell-border) bg-(--agency-shell-panel-strong) px-2 py-1 text-sm text-(--agency-shell-text) shadow-md"
             style={{
-              left: `${sliderPercentage > 99 ? 99 : sliderPercentage}%`, // Position based on slider percentage
+              left: `${sliderPercentage > 99 ? 99 : sliderPercentage}%`,
             }}
           >
             {sliderValue}
           </div>
         )}
       </div>
-      {error && <p className="mt-1 text-sm text-red-500">{error.message}</p>}
+      {error ? <p className="text-sm text-(--agency-danger-text)">{error.message}</p> : null}
     </div>
   );
 }

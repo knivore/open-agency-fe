@@ -11,13 +11,14 @@ import type {
   ModelProviderDefinition,
   PlannedIntegrationDefinition,
   PlannedIntegrationState,
-  ProviderConfigField,
   ProviderCredentialStatus,
-  RuntimeAdapterDefinition,
-  ToolDefinition,
-} from '@/types';
+} from '@/types/integrations';
+import type { ProviderConfigField, ToolDefinition } from '@/types/tools';
+import type { RuntimeAdapterDefinition } from '@/types/runtime';
 
-function createCredentialStatus(refs: Array<{ name: string; source?: string | null; description?: string | null }>): ProviderCredentialStatus {
+function createCredentialStatus(
+  refs: Array<{ name: string; source?: string | null; description?: string | null }>
+): ProviderCredentialStatus {
   return {
     managedByBackend: true,
     writeSupported: false,
@@ -26,6 +27,56 @@ function createCredentialStatus(refs: Array<{ name: string; source?: string | nu
       ? 'Credential values are expected to be managed by the backend or deployment environment.'
       : credentialsApi.getUnsupportedStatus().message,
   };
+}
+
+const CREDENTIAL_IDENTITY_KEYS = [
+  'workspace_id',
+  'workspace_name',
+  'tenant_id',
+  'team_id',
+  'channel_id',
+  'default_channel_id',
+  'guild_id',
+  'default_guild_id',
+  'bot_user_id',
+  'bot_username',
+  'phone_number_id',
+  'business_account_id',
+  'display_phone_number',
+  'mailbox',
+  'site_id',
+  'project_key',
+  'space_key',
+  'base_id',
+  'owner',
+  'repo',
+  'installation_id',
+  'namespace',
+  'project_id',
+  'organization_slug',
+  'project_slug',
+  'service_id',
+  'bucket',
+  'region',
+  'prefix',
+  'drive_id',
+  'folder_id',
+] as const;
+
+function credentialIdentitySummary(credential: CredentialDefinition) {
+  const metadata = credential.metadata ?? {};
+  const parts = CREDENTIAL_IDENTITY_KEYS.flatMap((key) => {
+    const value = metadata[key];
+    if (typeof value === 'string' && value.trim()) {
+      return [`${key}: ${value.trim()}`];
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      return [`${key}: ${String(value)}`];
+    }
+    return [];
+  });
+
+  return parts.slice(0, 4).join(' | ');
 }
 
 function createPlannedCredentialStatus(
@@ -38,11 +89,18 @@ function createPlannedCredentialStatus(
     refs: matchedCredentials.map((credential) => ({
       name: credential.name,
       source: typeof credential.provider === 'string' ? credential.provider : null,
-      description: typeof credential.secret_ref === 'string' ? `Secret ref: ${credential.secret_ref}` : null,
+      description:
+        [
+          credentialIdentitySummary(credential),
+          typeof credential.secret_ref === 'string' ? `Secret ref: ${credential.secret_ref}` : null,
+        ]
+          .filter(Boolean)
+          .join(' | ') || null,
     })),
-    message: matchedCredentials.length > 0
-      ? `${matchedCredentials.length} backend credential${matchedCredentials.length === 1 ? '' : 's'} mapped to this connector.`
-      : `No backend credential mapped yet. Expected auth model: ${authModel}.`,
+    message:
+      matchedCredentials.length > 0
+        ? `${matchedCredentials.length} backend credential${matchedCredentials.length === 1 ? '' : 's'} mapped to this connector.`
+        : `No backend credential mapped yet. Expected auth model: ${authModel}.`,
   };
 }
 
@@ -50,7 +108,10 @@ function providerStatus(provider: ModelProviderDefinition): IntegrationStatus {
   if ((provider.endpoint?.base_url ?? '').trim()) {
     return 'configured';
   }
-  if ((provider.secret_references?.length ?? 0) > 0 || Object.keys(provider.config ?? {}).length > 0) {
+  if (
+    (provider.secret_references?.length ?? 0) > 0 ||
+    Object.keys(provider.config ?? {}).length > 0
+  ) {
     return 'needs_configuration';
   }
   return 'available';
@@ -134,15 +195,59 @@ function toModelProfile(profile: ModelProfileDefinition): IntegrationProvider {
       profile.supports_streaming ? 'streaming' : '',
     ].filter(Boolean),
     configFields: [
-      { key: 'provider', label: 'Provider', type: 'text', required: true, value: profile.provider, editable: false },
-      { key: 'model', label: 'Model', type: 'text', required: true, value: profile.model, editable: false },
-      { key: 'base_url', label: 'Base URL', type: 'text', required: false, value: profile.base_url ?? '', editable: true },
-      { key: 'api_key_ref', label: 'API Key Reference', type: 'secret', required: false, value: profile.api_key_ref ?? '', editable: false },
-      { key: 'temperature', label: 'Temperature', type: 'number', required: false, value: profile.temperature ?? '', editable: true },
-      { key: 'max_tokens', label: 'Max Tokens', type: 'number', required: false, value: profile.max_tokens ?? '', editable: true },
+      {
+        key: 'provider',
+        label: 'Provider',
+        type: 'text',
+        required: true,
+        value: profile.provider,
+        editable: false,
+      },
+      {
+        key: 'model',
+        label: 'Model',
+        type: 'text',
+        required: true,
+        value: profile.model,
+        editable: false,
+      },
+      {
+        key: 'base_url',
+        label: 'Base URL',
+        type: 'text',
+        required: false,
+        value: profile.base_url ?? '',
+        editable: true,
+      },
+      {
+        key: 'api_key_ref',
+        label: 'API Key Reference',
+        type: 'secret',
+        required: false,
+        value: profile.api_key_ref ?? '',
+        editable: false,
+      },
+      {
+        key: 'temperature',
+        label: 'Temperature',
+        type: 'number',
+        required: false,
+        value: profile.temperature ?? '',
+        editable: true,
+      },
+      {
+        key: 'max_tokens',
+        label: 'Max Tokens',
+        type: 'number',
+        required: false,
+        value: profile.max_tokens ?? '',
+        editable: true,
+      },
     ],
     credentialStatus: createCredentialStatus(
-      profile.api_key_ref ? [{ name: profile.api_key_ref, description: 'Backend secret or reference name' }] : []
+      profile.api_key_ref
+        ? [{ name: profile.api_key_ref, description: 'Backend secret or reference name' }]
+        : []
     ),
     actions: {
       canSaveConfig: true,
@@ -183,11 +288,46 @@ function toMcpServer(server: MCPServerDefinition): IntegrationProvider {
     description: server.url || server.command,
     capabilities: [server.transport ?? 'stdio'],
     configFields: [
-      { key: 'transport', label: 'Transport', type: 'text', required: true, value: server.transport ?? 'stdio', editable: false },
-      { key: 'command', label: 'Command', type: 'text', required: true, value: server.command, editable: true },
-      { key: 'args', label: 'Args', type: 'list', required: false, value: server.args ?? [], editable: true },
-      { key: 'url', label: 'URL', type: 'text', required: false, value: server.url ?? '', editable: true },
-      { key: 'enabled', label: 'Enabled', type: 'boolean', required: false, value: server.enabled ?? false, editable: true },
+      {
+        key: 'transport',
+        label: 'Transport',
+        type: 'text',
+        required: true,
+        value: server.transport ?? 'stdio',
+        editable: false,
+      },
+      {
+        key: 'command',
+        label: 'Command',
+        type: 'text',
+        required: true,
+        value: server.command,
+        editable: true,
+      },
+      {
+        key: 'args',
+        label: 'Args',
+        type: 'list',
+        required: false,
+        value: server.args ?? [],
+        editable: true,
+      },
+      {
+        key: 'url',
+        label: 'URL',
+        type: 'text',
+        required: false,
+        value: server.url ?? '',
+        editable: true,
+      },
+      {
+        key: 'enabled',
+        label: 'Enabled',
+        type: 'boolean',
+        required: false,
+        value: server.enabled ?? false,
+        editable: true,
+      },
     ],
     credentialStatus: createCredentialStatus(
       (server.env_refs ?? []).map((reference) => ({
@@ -215,12 +355,17 @@ function plannedProvider(
   definition: PlannedIntegrationDefinition,
   credentials: CredentialDefinition[]
 ): IntegrationProvider {
-  const providerKeys = [definition.backendKey, ...(definition.providerAliases ?? [])].map((value) => normalizeProviderKey(value));
-  const matchedCredentials = credentials.filter((credential) => providerKeys.includes(normalizeProviderKey(credential.provider)));
+  const providerKeys = [definition.backendKey, ...(definition.providerAliases ?? [])].map((value) =>
+    normalizeProviderKey(value)
+  );
+  const matchedCredentials = credentials.filter((credential) =>
+    providerKeys.includes(normalizeProviderKey(credential.provider))
+  );
   const plannedState: PlannedIntegrationState = {
     ...definition,
     matchedCredentialIds: matchedCredentials.map((credential) => credential.id),
     matchedCredentialNames: matchedCredentials.map((credential) => credential.name),
+    matchedCredentials,
   };
 
   return {
@@ -261,9 +406,7 @@ export function buildIntegrationCatalog(input: {
     ...input.mcpServers.map(toMcpServer),
   ];
 
-  const planned = (
-    category: IntegrationRegistryCategoryDefinition
-  ): IntegrationCategory => ({
+  const planned = (category: IntegrationRegistryCategoryDefinition): IntegrationCategory => ({
     id: category.id,
     name: category.name,
     description: category.description,
@@ -276,7 +419,7 @@ export function buildIntegrationCatalog(input: {
   return [
     {
       id: 'llm-models',
-      name: 'LLM Models',
+      name: 'Models',
       description: 'Configured LLM connections and selectable runtime profiles.',
       status: 'supported',
       providers: llmProviders,

@@ -1,5 +1,9 @@
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
-import type { ObservatoryLayoutDocument, ObservatoryLayoutIssue, ObservatoryValidatedLayout } from '@/modules/observatory/engine/world/layoutTypes';
+import type {
+  ObservatoryLayoutDocument,
+  ObservatoryLayoutIssue,
+  ObservatoryValidatedLayout,
+} from '@/modules/observatory/engine/world/layoutTypes';
 
 export const OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY = 'observatory:layout:draft:v1';
 export const OBSERVATORY_PUBLISHED_LAYOUT_STORAGE_KEY = 'observatory:layout:published:v1';
@@ -45,7 +49,9 @@ export function parseObservatoryLayoutJson(json: string): ObservatoryLayoutParse
   }
 }
 
-export function exportObservatoryLayoutJson(layout: ObservatoryLayoutDocument): ObservatoryLayoutExportResult {
+export function exportObservatoryLayoutJson(
+  layout: ObservatoryLayoutDocument
+): ObservatoryLayoutExportResult {
   const validation = validateObservatoryLayout(layout);
 
   if (!validation.layout) {
@@ -60,7 +66,7 @@ export function exportObservatoryLayoutJson(layout: ObservatoryLayoutDocument): 
 
 export function importObservatoryLayoutJson(
   json: string,
-  options: ObservatoryLayoutImportOptions = {},
+  options: ObservatoryLayoutImportOptions = {}
 ): ObservatoryLayoutParseResult {
   const result = parseObservatoryLayoutJson(json);
 
@@ -76,7 +82,7 @@ export function importObservatoryLayoutJson(
 
 export function readObservatoryLayoutFromStorage(
   storage: Pick<Storage, 'getItem'>,
-  key = OBSERVATORY_LAYOUT_STORAGE_KEY,
+  key = OBSERVATORY_LAYOUT_STORAGE_KEY
 ): ObservatoryLayoutStorageResult {
   try {
     const stored = storage.getItem(key);
@@ -97,7 +103,7 @@ export function readObservatoryLayoutFromStorage(
 export function writeObservatoryLayoutToStorage(
   storage: Pick<Storage, 'setItem'>,
   layout: ObservatoryLayoutDocument,
-  key = OBSERVATORY_LAYOUT_STORAGE_KEY,
+  key = OBSERVATORY_LAYOUT_STORAGE_KEY
 ): ObservatoryLayoutStorageResult {
   const validation = validateObservatoryLayout(layout);
 
@@ -117,7 +123,10 @@ export function writeObservatoryLayoutToStorage(
   }
 }
 
-export function clearObservatoryLayoutStorage(storage: Pick<Storage, 'removeItem'>, key = OBSERVATORY_LAYOUT_STORAGE_KEY) {
+export function clearObservatoryLayoutStorage(
+  storage: Pick<Storage, 'removeItem'>,
+  key = OBSERVATORY_LAYOUT_STORAGE_KEY
+) {
   storage.removeItem(key);
 }
 
@@ -127,16 +136,22 @@ export function readObservatoryDraftLayoutFromStorage(storage: Pick<Storage, 'ge
 
 export function writeObservatoryDraftLayoutToStorage(
   storage: Pick<Storage, 'setItem'>,
-  layout: ObservatoryLayoutDocument,
+  layout: ObservatoryLayoutDocument
 ) {
-  return writeObservatoryLayoutToStorage(storage, markObservatoryLayoutStatus(layout, 'draft'), OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY);
+  return writeObservatoryLayoutToStorage(
+    storage,
+    markObservatoryLayoutStatus(layout, 'draft'),
+    OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY
+  );
 }
 
 export function readObservatoryPublishedLayoutFromStorage(storage: Pick<Storage, 'getItem'>) {
   return readObservatoryLayoutFromStorage(storage, OBSERVATORY_PUBLISHED_LAYOUT_STORAGE_KEY);
 }
 
-export function readObservatoryViewerLayoutFromStorage(storage: Pick<Storage, 'getItem'>): ObservatoryViewerLayoutResult {
+export function readObservatoryViewerLayoutFromStorage(
+  storage: Pick<Storage, 'getItem'>
+): ObservatoryViewerLayoutResult {
   const result = readObservatoryPublishedLayoutFromStorage(storage);
 
   return {
@@ -148,19 +163,19 @@ export function readObservatoryViewerLayoutFromStorage(storage: Pick<Storage, 'g
 export function writeObservatoryPublishedLayoutToStorage(
   storage: Pick<Storage, 'setItem'>,
   layout: ObservatoryLayoutDocument,
-  options: ObservatoryLayoutPublishOptions = {},
+  options: ObservatoryLayoutPublishOptions = {}
 ) {
   return writeObservatoryLayoutToStorage(
     storage,
     markObservatoryLayoutStatus(layout, 'published', options),
-    OBSERVATORY_PUBLISHED_LAYOUT_STORAGE_KEY,
+    OBSERVATORY_PUBLISHED_LAYOUT_STORAGE_KEY
   );
 }
 
 export function publishObservatoryLayoutToStorage(
   storage: Pick<Storage, 'setItem'>,
   layout: ObservatoryLayoutDocument,
-  options: ObservatoryLayoutPublishOptions = {},
+  options: ObservatoryLayoutPublishOptions = {}
 ) {
   return writeObservatoryPublishedLayoutToStorage(storage, layout, options);
 }
@@ -168,7 +183,7 @@ export function publishObservatoryLayoutToStorage(
 export function markObservatoryLayoutStatus(
   layout: ObservatoryLayoutDocument,
   status: 'draft' | 'published',
-  options: ObservatoryLayoutPublishOptions = {},
+  options: ObservatoryLayoutPublishOptions = {}
 ): ObservatoryLayoutDocument {
   const timestamp = new Date().toISOString();
   const currentVersion = layout.metadata?.version ?? 0;
@@ -205,6 +220,9 @@ function jsonParseIssue(error: unknown): ObservatoryLayoutIssue {
 function storageIssue(error: unknown, operation: 'read' | 'write'): ObservatoryLayoutIssue {
   return {
     path: 'storage',
-    reason: error instanceof Error ? `layout storage ${operation} failed: ${error.message}` : `layout storage ${operation} failed`,
+    reason:
+      error instanceof Error
+        ? `layout storage ${operation} failed: ${error.message}`
+        : `layout storage ${operation} failed`,
   };
 }

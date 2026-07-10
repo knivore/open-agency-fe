@@ -22,31 +22,26 @@ import {
  * Variants for the multi-select component to handle different styles.
  * Uses class-variance-authority (cva) to define different styles based on "variant" prop.
  */
-const multiSelectVariants = cva(
-  'm-1 transition-colors',
-  {
-    variants: {
-      variant: {
-        default: 'border-input bg-white text-foreground hover:bg-muted',
-        secondary:
-          'border-secondary-200 bg-secondary-50 text-secondary-800 hover:bg-secondary-100',
-        destructive:
-          'border-destructive-200 bg-destructive-50 text-destructive-800 hover:bg-destructive-100',
-        inverted: 'inverted',
-      },
+const multiSelectVariants = cva('m-1 transition-colors', {
+  variants: {
+    variant: {
+      default: 'border-(--agency-shell-border) bg-(--agency-active-bg) text-(--agency-shell-text)',
+      secondary: 'border-(--agency-shell-border) bg-muted text-(--agency-shell-text)',
+      destructive:
+        'border-(--agency-danger-border) bg-(--agency-danger-bg) text-(--agency-danger-text)',
+      inverted: 'inverted',
     },
-    defaultVariants: {
-      variant: 'default',
-    },
-  }
-);
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+});
 
 /**
  * Props for multi-select component
  */
 interface MultiSelectProps
-  extends React.ButtonHTMLAttributes<HTMLButtonElement>,
-    VariantProps<typeof multiSelectVariants> {
+  extends React.ButtonHTMLAttributes<HTMLButtonElement>, VariantProps<typeof multiSelectVariants> {
   /**
    * An array of option objects to be displayed in the multi-select component.
    * Each option object has a label, value, and an optional icon.
@@ -191,7 +186,7 @@ export const MultiSelect = React.forwardRef<HTMLButtonElement, MultiSelectProps>
             {...props}
             onClick={handleTogglePopover}
             className={cn(
-              'flex h-auto min-h-10 w-full items-center justify-between rounded-lg border border-input bg-white p-1 shadow-sm shadow-neutral-950/5 hover:border-neutral-500 hover:bg-white',
+              'flex h-auto min-h-10 w-full items-center justify-between rounded-lg border border-input bg-(--agency-input-bg) p-1 shadow-(--agency-input-shadow) hover:border-primary/60 hover:bg-(--agency-control-bg-hover)',
               className
             )}
           >

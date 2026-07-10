@@ -112,7 +112,7 @@ export const observatoryCuratedAssetOverrides = overrides.overrides;
 
 export function resolveObservatoryAssetCandidates(): ObservatoryResolvedAssetCandidate[] {
   const overrideByCatalogPath = new Map(
-    observatoryCuratedAssetOverrides.map((override) => [override.catalogPath, override]),
+    observatoryCuratedAssetOverrides.map((override) => [override.catalogPath, override])
   );
 
   return observatoryGeneratedAssetCandidates.map((candidate) => {
@@ -129,7 +129,7 @@ export function resolveObservatoryAssetCandidates(): ObservatoryResolvedAssetCan
 export function summarizeObservatoryAssetPipeline(): ObservatoryAssetPipelineSummary {
   const resolvedCandidates = resolveObservatoryAssetCandidates();
   const reviewQueue = resolvedCandidates.filter(
-    (candidate) => candidate.reviewStatus !== 'reviewed' && candidate.review.priority === 'high',
+    (candidate) => candidate.reviewStatus !== 'reviewed' && candidate.review.priority === 'high'
   );
 
   return {
@@ -138,7 +138,7 @@ export function summarizeObservatoryAssetPipeline(): ObservatoryAssetPipelineSum
     inventoryFileCount: catalog.totalFileCount,
     reviewQueue,
     reviewedOverrideCount: observatoryCuratedAssetOverrides.filter(
-      (override) => override.reviewStatus === 'reviewed',
+      (override) => override.reviewStatus === 'reviewed'
     ).length,
     sourceDirectories: catalog.directories,
   };

@@ -8,33 +8,29 @@ const badgeVariants = cva(
   {
     variants: {
       variant: {
-        default:
-          'border-primary-200 bg-primary-50 text-primary-800 hover:bg-primary-100',
-        secondary:
-          'border-secondary-200 bg-secondary-50 text-secondary-800 hover:bg-secondary-100',
+        default: 'border-(--agency-shell-border) bg-(--agency-active-bg) text-primary',
+        secondary: 'border-(--agency-shell-border) bg-muted text-(--agency-shell-text)',
         destructive:
-          'border-destructive-200 bg-destructive-50 text-destructive-800 hover:bg-destructive-100',
-        outline: 'border-input bg-white text-foreground',
-        successful: 'border-success-200 bg-success-50 text-success-800',
-        failed: 'border-destructive-200 bg-destructive-50 text-destructive-800',
+          'border-(--agency-danger-border) bg-(--agency-danger-bg) text-(--agency-danger-text)',
+        outline:
+          'border-(--agency-control-border) bg-(--agency-control-bg) text-(--agency-control-text)',
+        successful:
+          'border-(--agency-success-border) bg-(--agency-success-bg) text-(--agency-success-text)',
+        failed:
+          'border-(--agency-danger-border) bg-(--agency-danger-bg) text-(--agency-danger-text)',
       },
     },
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
-    VariantProps<typeof badgeVariants> {
-}
+  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return (
-    <div
-      className={cn(badgeVariants({ variant }), className)} {...props} />
-  );
+  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
 }
 
 export { Badge, badgeVariants };

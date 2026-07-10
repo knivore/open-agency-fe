@@ -1,8 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { ApprovalRequest, ExecutionEventRecord, ExecutionStateSnapshot, RunSessionSummary, WorkflowDefinition } from '@/lib/api/backend/types';
-import { deriveAgentPresences, deriveTaskPresences } from '@/components/runs/lib/presenceDerivation';
+import type { ApprovalRequest } from '@/types/conversations';
+import type {
+  ExecutionEventRecord,
+  ExecutionStateSnapshot,
+  RunSessionSummary,
+} from '@/types/runtime';
+import type { WorkflowDefinition } from '@/types/workflows';
+import {
+  deriveAgentPresences,
+  deriveTaskPresences,
+} from '@/components/runs/lib/presenceDerivation';
 
 export function useRunPresence(params: {
   run: RunSessionSummary;

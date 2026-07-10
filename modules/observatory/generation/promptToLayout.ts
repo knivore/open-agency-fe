@@ -5,10 +5,13 @@ import {
   placeObservatoryRoomTemplate,
 } from '@/modules/observatory/engine/world/layoutEditing';
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
-import type { ObservatoryLayoutDocument, ObservatoryLayoutIssue } from '@/modules/observatory/engine/world/layoutTypes';
+import type {
+  ObservatoryLayoutDocument,
+  ObservatoryLayoutIssue,
+} from '@/modules/observatory/engine/world/layoutTypes';
 import {
-  observatoryRoomTemplates,
   type ObservatoryRoomTemplateId,
+  observatoryRoomTemplates,
 } from '@/modules/observatory/engine/world/roomTemplates';
 import { validateObservatoryGeneratedLayout } from '@/modules/observatory/generation/proceduralLayoutRules';
 
@@ -39,7 +42,11 @@ const templateAliases: Array<{
   { id: 'approval-room', terms: ['approval', 'review', 'gate', 'signoff'] },
 ];
 
-const defaultTemplateIds: ObservatoryRoomTemplateId[] = ['engineering-pod', 'ops-center', 'meeting-room'];
+const defaultTemplateIds: ObservatoryRoomTemplateId[] = [
+  'engineering-pod',
+  'ops-center',
+  'meeting-room',
+];
 
 export function parseObservatoryLayoutPrompt(prompt: string): ObservatoryPromptLayoutPlan {
   const normalizedPrompt = prompt.trim();
@@ -62,13 +69,15 @@ export function parseObservatoryLayoutPrompt(prompt: string): ObservatoryPromptL
 export function generateObservatoryLayoutFromPrompt(
   baseLayout: ObservatoryLayoutDocument,
   prompt: string,
-  mapId = baseLayout.world.maps[0]?.id,
+  mapId = baseLayout.world.maps[0]?.id
 ): ObservatoryPromptLayoutResult {
   const plan = parseObservatoryLayoutPrompt(prompt);
 
   if (!mapId) {
     return {
-      issues: [{ path: 'world.maps', reason: 'expected at least one map before prompt generation' }],
+      issues: [
+        { path: 'world.maps', reason: 'expected at least one map before prompt generation' },
+      ],
       plan,
       valid: false,
     };
@@ -106,7 +115,7 @@ export function generateObservatoryLayoutFromPrompt(
 export function validateObservatoryPromptLayout(
   layout: ObservatoryLayoutDocument,
   mapId = layout.world.maps[0]?.id,
-  plan: ObservatoryPromptLayoutPlan = parseObservatoryLayoutPrompt(''),
+  plan: ObservatoryPromptLayoutPlan = parseObservatoryLayoutPrompt('')
 ): ObservatoryPromptLayoutResult {
   const schemaValidation = validateObservatoryLayout(layout);
   if (!schemaValidation.layout) {

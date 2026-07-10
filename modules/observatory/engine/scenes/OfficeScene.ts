@@ -1,13 +1,13 @@
 import type Phaser from 'phaser';
 
-import { getObservatoryModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleAssetRegistry';
+import { getObservatoryFullModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
 import {
   OBSERVATORY_AGENT_VISUAL_STATE_EVENT,
   type ObservatoryAgentVisualState,
   type ObservatoryAgentVisualStateEventDetail,
 } from '@/modules/observatory/engine/rendering/agentVisualState';
-import { renderObservatoryOfficeMap } from '@/modules/observatory/engine/rendering/officeMapRenderer';
 import type { ObservatoryOfficeMapViewFilter } from '@/modules/observatory/engine/rendering/officeMapRenderer';
+import { renderObservatoryOfficeMap } from '@/modules/observatory/engine/rendering/officeMapRenderer';
 import {
   OBSERVATORY_CAMERA_USER_ADJUSTED_EVENT,
   setupObservatorySceneInteractions,
@@ -263,7 +263,7 @@ export function createOfficeScene(
       });
 
       const grid = { tileSize: world.grid.tileSize };
-      const assetRegistry = getObservatoryModuleAssetRegistry();
+      const assetRegistry = getObservatoryFullModuleAssetRegistry();
 
       const renderedMap = renderObservatoryOfficeMap(this, map, grid, {
         activeWallEditRoomId: options.activeWallEditRoomId,

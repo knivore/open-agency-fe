@@ -1,7 +1,12 @@
+import { auth } from '@/auth';
 import { WorkflowEditorFormSchema } from '@/types/workflows';
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { backendWorkflowsApi, workflowsApi } from '@/lib/api/backend';
+import { Session } from 'next-auth';
+import {
+  backendWorkflowsApi,
+  workflowsApi,
+} from '@/lib/api/backend/workflows';
 import { workflowBuilderBaseToWorkflowDefinition } from '@/lib/workflows/workflowDefinitionMutations';
 import {
   getAuthenticatedUser,
@@ -10,6 +15,7 @@ import {
   syncCurrentBackendUser,
   unauthorizedResponse,
 } from '@/app/api/backend-users/utils';
+import { sanitizeWorkflowDefinitionPayload } from '@/app/api/workflows/payload';
 
 function looksLikeWorkflowDefinition(value: unknown): value is Record<string, unknown> {
   return Boolean(
@@ -29,24 +35,26 @@ function assignWorkflowOwner(payload: Record<string, unknown>, userId: string) {
   const existingOwnerIds = Array.isArray(metadata.owner_ids)
     ? metadata.owner_ids.filter((ownerId): ownerId is string => typeof ownerId === 'string' && ownerId.length > 0)
     : [];
-  return {
-    ...payload,
-    metadata: {
-      ...metadata,
-      created_by: typeof metadata.created_by === 'string' && metadata.created_by.length > 0 ? metadata.created_by : userId,
-      owner_ids: Array.from(new Set([...existingOwnerIds, userId])),
-    },
+  const nextMetadata: Record<string, unknown> = {
+    ...metadata,
+    created_by: typeof metadata.created_by === 'string' && metadata.created_by.length > 0 ? metadata.created_by : userId,
+    owner_ids: Array.from(new Set([...existingOwnerIds, userId])),
   };
+
+  return sanitizeWorkflowDefinitionPayload({
+    ...payload,
+    metadata: nextMetadata,
+  });
 }
 
 export async function GET() {
   try {
-    const user = await getAuthenticatedUser();
+    const session = (await auth()) as Session;
     const response = await workflowsApi.listWorkflows();
     const workflows = response.items
       .filter((workflow) => {
         const ownerIds = Array.isArray(workflow.metadata?.owner_ids) ? workflow.metadata.owner_ids : [];
-        return ownerIds.length === 0 || (user ? ownerIds.includes(user.id) : true);
+        return ownerIds.length === 0 || ownerIds.includes(session.user.id);
       });
     return NextResponse.json({ workflows });
   } catch (e) {

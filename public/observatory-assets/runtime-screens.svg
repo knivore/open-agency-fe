@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 144" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Open Agency runtime screens</title>
+  <rect x="4" y="20" width="184" height="108" fill="#0f172a"/>
+  <rect x="12" y="28" width="80" height="56" fill="#172554"/>
+  <rect x="100" y="28" width="80" height="56" fill="#172554"/>
+  <path fill="#22d3ee" d="M18 68h10V52h10v8h10V42h10v18h10V48h10v20z"/>
+  <path fill="#a78bfa" d="M106 68h12V44h12v16h12V38h12v12h12v18z"/>
+  <rect x="12" y="92" width="168" height="28" fill="#1e293b"/>
+  <rect x="20" y="100" width="20" height="6" fill="#22c55e"/>
+  <rect x="48" y="100" width="36" height="6" fill="#38bdf8"/>
+  <rect x="92" y="100" width="16" height="6" fill="#f59e0b"/>
+  <rect x="116" y="100" width="56" height="6" fill="#64748b"/>
+  <rect x="20" y="112" width="64" height="4" fill="#475569"/>
+  <rect x="92" y="112" width="80" height="4" fill="#475569"/>
+</svg>

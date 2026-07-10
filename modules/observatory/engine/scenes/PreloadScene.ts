@@ -1,7 +1,7 @@
 import type Phaser from 'phaser';
 
 import { filterObservatoryRegistryForMap } from '@/modules/observatory/engine/assets/assetUsage';
-import { getObservatoryModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleAssetRegistry';
+import { getObservatoryFullModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
 import {
   createObservatoryRegistryAnimations,
   ensureObservatoryFallbackTexture,
@@ -27,7 +27,7 @@ export function createPreloadScene(
     }
 
     preload() {
-      const registry = getObservatoryModuleAssetRegistry();
+      const registry = getObservatoryFullModuleAssetRegistry();
       const validatedLayout = validateObservatoryLayout(layout);
       const map = validatedLayout.layout?.world.maps[0];
       const assetsToLoad = map ? filterObservatoryRegistryForMap(registry, map) : registry;
@@ -41,7 +41,7 @@ export function createPreloadScene(
 
     create() {
       ensureObservatoryFallbackTexture(this);
-      const registry = getObservatoryModuleAssetRegistry();
+      const registry = getObservatoryFullModuleAssetRegistry();
       const validatedLayout = validateObservatoryLayout(layout);
       const map = validatedLayout.layout?.world.maps[0];
       const assetsToCreate = map ? filterObservatoryRegistryForMap(registry, map) : registry;

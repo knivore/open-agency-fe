@@ -1,10 +1,13 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
-import type { CrudListResponse, DeleteResponse, MCPServerDefinition } from '@/lib/api/backend/types';
+import type { CrudListResponse, DeleteResponse } from '@/types/api';
+import type { MCPServerDefinition } from '@/types/integrations';
 
 export const mcpServersApi = {
   listMcpServers() {
-    return agencyApiClient.get<CrudListResponse<MCPServerDefinition>>(backendRoutes.mcpServers.list());
+    return agencyApiClient.get<CrudListResponse<MCPServerDefinition>>(
+      backendRoutes.mcpServers.list()
+    );
   },
   getMcpServer(serverId: string) {
     return agencyApiClient.get<MCPServerDefinition>(backendRoutes.mcpServers.byId(serverId));
@@ -19,7 +22,9 @@ export const mcpServersApi = {
     return agencyApiClient.delete<DeleteResponse>(backendRoutes.mcpServers.byId(serverId));
   },
   discover(serverId?: string) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.mcpServers.discover(), serverId ? { serverId } : {});
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.mcpServers.discover(),
+      serverId ? { serverId } : {}
+    );
   },
 };
-

@@ -10,6 +10,7 @@ import {
 
 import { Label } from '../library/shadcn/label';
 import { Combobox as ShadcnCombobox } from '../library/shadcn/combobox';
+import { cn } from '@/lib/utils';
 
 type ComboboxOption = {
   value: string;
@@ -36,8 +37,8 @@ export default function Combobox<TFieldValues extends FieldValues>({
   ...props
 }: FormComboboxProps<TFieldValues>) {
   return (
-    <div>
-      <Label className="block text-sm font-medium text-gray-700">{label}</Label>
+    <div className="flex flex-col gap-2" data-invalid={error ? true : undefined}>
+      <Label className="text-sm font-medium text-(--agency-shell-text)">{label}</Label>
       <Controller
         name={name}
         control={control}
@@ -47,12 +48,13 @@ export default function Combobox<TFieldValues extends FieldValues>({
             value={field.value}
             onChange={field.onChange}
             options={options}
-            className={`mt-1 ${error ? 'border-red-500' : ''} ${className}`}
+            aria-invalid={error ? true : undefined}
+            className={cn(error && 'border-destructive ring-destructive/20', className)}
             {...props}
           />
         )}
       />
-      {error && <p className="mt-1 text-sm text-red-500">{error.message}</p>}
+      {error ? <p className="text-sm text-(--agency-danger-text)">{error.message}</p> : null}
     </div>
   );
 }

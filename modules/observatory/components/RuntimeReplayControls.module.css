@@ -1,9 +1,8 @@
 .panel {
   border: 1px solid rgba(15, 23, 42, 0.12);
   border-radius: 16px;
-  background:
-    radial-gradient(circle at 14% 0%, rgba(251, 191, 36, 0.2), transparent 30%),
-    linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  background: radial-gradient(circle at 14% 0%, rgba(251, 191, 36, 0.2), transparent 30%),
+  linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   padding: 14px;
 }
 

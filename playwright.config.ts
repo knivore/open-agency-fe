@@ -1,4 +1,8 @@
 import { defineConfig } from '@playwright/test';
+import nextEnv from '@next/env';
+
+const { loadEnvConfig } = nextEnv;
+loadEnvConfig(process.cwd());
 
 const frontendBaseUrl = process.env.E2E_FRONTEND_URL ?? 'http://localhost:3000';
 

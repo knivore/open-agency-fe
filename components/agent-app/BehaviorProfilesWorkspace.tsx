@@ -11,14 +11,16 @@ import {
   useTransition,
 } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { behaviorProfilesApi, modelProfilesApi, modelProvidersApi } from '@/lib/api/backend';
-import type {
-  DeviceAuthorizeResponse,
-  ModelProviderModelOption,
-  ProviderAuthorizeResponse,
-} from '@/lib/api/backend/models';
+import { behaviorProfilesApi } from '@/lib/api/backend/behaviorProfiles';
+import { modelProfilesApi, modelProvidersApi } from '@/lib/api/backend/models';
+import type { ModelProviderModelOption, ProviderAuthorizeResponse } from '@/lib/api/backend/models';
 import { queryKeys } from '@/lib/react-query/queryKeys';
-import type { BehaviorTuningProfile, ModelProviderDefinition } from '@/lib/api/backend/types';
+import type { BehaviorTuningProfile } from '@/types/agents';
+import type {
+  ModelFallbackRetryReason,
+  ModelFallbackStrategy,
+  ModelProviderDefinition,
+} from '@/types/integrations';
 import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
@@ -33,14 +35,48 @@ import {
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
-import { Copy, RefreshCw } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../library/shadcn/tooltip';
+import { ArrowDown, ArrowUp, BrainCog, Copy, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import PageHeader from '@/components/app-shell/PageHeader';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 const OPENAI_CODEX_CLIENT_ID = 'app_EMoamEEZ73f0CkXaXp7hrann';
 const OPENAI_CODEX_REDIRECT_URI = 'http://localhost:1455/auth/callback';
 const AGENCY_OAUTH_CALLBACK_MESSAGE_TYPE = 'agency-oauth-callback';
+const MAX_FALLBACK_MODELS = 5;
+const FALLBACK_RETRY_REASONS: ModelFallbackRetryReason[] = [
+  'rate_limit',
+  'timeout',
+  'service_unavailable',
+  'network',
+  'auth',
+];
+const FALLBACK_RETRY_REASON_LABELS: Record<ModelFallbackRetryReason, string> = {
+  rate_limit: 'Rate limit',
+  timeout: 'Timeout',
+  service_unavailable: 'Service unavailable',
+  network: 'Network',
+  auth: 'Auth',
+};
+const FALLBACK_RETRY_REASON_TITLES: Record<ModelFallbackRetryReason, string> = {
+  rate_limit: 'Switch when the provider reports quota or rate-limit pressure.',
+  timeout: 'Switch when the model request times out.',
+  service_unavailable: 'Switch on temporary provider outages or overloaded service responses.',
+  network: 'Switch on connection or transport failures.',
+  auth: 'Switch on access failures such as unauthorized or forbidden responses.',
+};
+const DEFAULT_FALLBACK_POLICY: ProfileFallbackPolicyForm = {
+  retryOn: FALLBACK_RETRY_REASONS,
+  sameProviderOnly: false,
+  requireCapabilityMatch: true,
+};
 
 type AgencyOAuthCallbackMessage = {
   type: typeof AGENCY_OAUTH_CALLBACK_MESSAGE_TYPE;
@@ -106,6 +142,20 @@ type ProfileFormState = {
   supportsVision: boolean;
   supportsStreaming: boolean;
   oauthProfileId: string;
+  fallbackStrategy: ModelFallbackStrategy;
+  fallbackModels: ProfileFallbackFormTarget[];
+  fallbackPolicy: ProfileFallbackPolicyForm;
+};
+
+type ProfileFallbackFormTarget = {
+  provider: string;
+  model: string;
+};
+
+type ProfileFallbackPolicyForm = {
+  retryOn: ModelFallbackRetryReason[];
+  sameProviderOnly: boolean;
+  requireCapabilityMatch: boolean;
 };
 
 type ProviderFamily =
@@ -116,6 +166,8 @@ type ProviderFamily =
   | 'openai_compatible'
   | 'huggingface'
   | 'xai'
+  | 'deepseek'
+  | 'qwen'
   | 'openai_codex'
   | 'azure_openai';
 
@@ -170,6 +222,9 @@ type CreateLlmModelState = {
   supportsVision: boolean;
   supportsStreaming: boolean;
   oauthProfileId: string;
+  fallbackStrategy: ModelFallbackStrategy;
+  fallbackModels: ProfileFallbackFormTarget[];
+  fallbackPolicy: ProfileFallbackPolicyForm;
 };
 
 const PROVIDER_PRESETS: Record<ProviderFamily, ProviderPreset> = {
@@ -277,6 +332,36 @@ const PROVIDER_PRESETS: Record<ProviderFamily, ProviderPreset> = {
       { id: 'grok-4-fast-reasoning', name: 'Grok 4 Fast Reasoning' },
       { id: 'grok-4-fast-non-reasoning', name: 'Grok 4 Fast Non-Reasoning' },
       { id: 'grok-4', name: 'Grok 4' },
+    ],
+    requiresApiKey: true,
+  },
+  deepseek: {
+    label: 'DeepSeek',
+    providerType: 'deepseek',
+    defaultName: 'DeepSeek',
+    defaultBaseUrl: 'https://api.deepseek.com',
+    modelHint: 'deepseek-v4-flash',
+    modelOptions: [
+      { id: 'deepseek-v4-flash', name: 'DeepSeek V4 Flash' },
+      { id: 'deepseek-v4-pro', name: 'DeepSeek V4 Pro' },
+      { id: 'deepseek-chat', name: 'DeepSeek Chat (legacy)' },
+      { id: 'deepseek-reasoner', name: 'DeepSeek Reasoner (legacy)' },
+    ],
+    requiresApiKey: true,
+  },
+  qwen: {
+    label: 'Qwen / DashScope',
+    providerType: 'qwen',
+    defaultName: 'Qwen',
+    defaultBaseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    modelHint: 'qwen-plus',
+    modelOptions: [
+      { id: 'qwen-plus', name: 'Qwen Plus' },
+      { id: 'qwen-max', name: 'Qwen Max' },
+      { id: 'qwen-flash', name: 'Qwen Flash' },
+      { id: 'qwen3.5-plus', name: 'Qwen3.5 Plus' },
+      { id: 'qwen3.5-flash', name: 'Qwen3.5 Flash' },
+      { id: 'qwen3-coder-plus', name: 'Qwen3 Coder Plus' },
     ],
     requiresApiKey: true,
   },
@@ -444,6 +529,52 @@ function providerFamilyFromProvider(provider: ModelProviderDefinition): Provider
   return 'openai_compatible';
 }
 
+function llmCardTone(family: ProviderFamily | null) {
+  switch (family) {
+    case 'openai':
+    case 'openai_codex':
+    case 'azure_openai':
+      return {
+        accent: 'bg-primary-500',
+        badge:
+          'border-primary-200 bg-primary-50 text-primary-800 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-200',
+        card: 'border-primary-200 bg-primary-50/25 dark:border-sky-500/25 dark:bg-[radial-gradient(circle_at_top,rgba(56,189,248,0.14),rgba(10,17,30,0.94)_58%)]',
+      };
+    case 'anthropic':
+    case 'xai':
+    case 'deepseek':
+      return {
+        accent: 'bg-secondary-500',
+        badge:
+          'border-secondary-200 bg-secondary-50 text-secondary-800 dark:border-violet-500/30 dark:bg-violet-500/15 dark:text-violet-200',
+        card: 'border-secondary-200 bg-secondary-50/25 dark:border-violet-500/25 dark:bg-[radial-gradient(circle_at_top,rgba(168,85,247,0.14),rgba(10,17,30,0.94)_58%)]',
+      };
+    case 'google':
+    case 'huggingface':
+    case 'qwen':
+      return {
+        accent: 'bg-warning-400',
+        badge:
+          'border-warning-200 bg-warning-50 text-warning-900 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
+        card: 'border-warning-200 bg-warning-50/30 dark:border-amber-500/25 dark:bg-[radial-gradient(circle_at_top,rgba(245,158,11,0.13),rgba(10,17,30,0.94)_58%)]',
+      };
+    case 'ollama':
+      return {
+        accent: 'bg-success-500',
+        badge:
+          'border-success-200 bg-success-50 text-success-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
+        card: 'border-success-200 bg-success-50/30 dark:border-emerald-500/25 dark:bg-[radial-gradient(circle_at_top,rgba(16,185,129,0.13),rgba(10,17,30,0.94)_58%)]',
+      };
+    default:
+      return {
+        accent: 'bg-neutral-400',
+        badge:
+          'border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-white/12 dark:bg-white/8 dark:text-slate-200',
+        card: 'border-neutral-200 bg-white dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(20,30,48,0.92),rgba(9,14,24,0.96))]',
+      };
+  }
+}
+
 function toProviderEditFormState(provider: ModelProviderDefinition): ProviderEditFormState {
   const config = provider.config ?? {};
   const apiKey = config.api_key;
@@ -489,6 +620,9 @@ function defaultCreateLlmModelState(providers: ModelProviderDefinition[]): Creat
     supportsVision: false,
     supportsStreaming: true,
     oauthProfileId: '',
+    fallbackStrategy: 'auto',
+    fallbackModels: [],
+    fallbackPolicy: { ...DEFAULT_FALLBACK_POLICY },
   };
 }
 
@@ -522,6 +656,7 @@ function providerPatchFromForm(
 }
 
 function toFormState(profile?: BehaviorTuningProfile): ProfileFormState {
+  const retryOn = profile?.fallbackPolicy?.retry_on;
   return {
     name: profile?.name ?? '',
     description: profile?.description ?? '',
@@ -538,6 +673,17 @@ function toFormState(profile?: BehaviorTuningProfile): ProfileFormState {
       typeof profile?.parameters?.oauth_profile_id === 'string'
         ? profile.parameters.oauth_profile_id
         : '',
+    fallbackStrategy: profile?.fallbackStrategy ?? 'auto',
+    fallbackModels:
+      profile?.fallbackModels?.slice(0, MAX_FALLBACK_MODELS).map((target) => ({
+        provider: target.provider ?? profile.provider,
+        model: target.model,
+      })) ?? [],
+    fallbackPolicy: {
+      retryOn: Array.isArray(retryOn) && retryOn.length > 0 ? retryOn : FALLBACK_RETRY_REASONS,
+      sameProviderOnly: profile?.fallbackPolicy?.same_provider_only ?? false,
+      requireCapabilityMatch: profile?.fallbackPolicy?.require_capability_match ?? true,
+    },
   };
 }
 
@@ -578,6 +724,12 @@ function modelHintForProvider(providers: ModelProviderDefinition[], providerId: 
   if (selectedProviderType === 'google') {
     return PROVIDER_PRESETS.google.modelHint;
   }
+  if (selectedProviderType === 'deepseek') {
+    return PROVIDER_PRESETS.deepseek.modelHint;
+  }
+  if (selectedProviderType === 'qwen') {
+    return PROVIDER_PRESETS.qwen.modelHint;
+  }
   if (selectedProviderType === 'openai') {
     return PROVIDER_PRESETS.openai.modelHint;
   }
@@ -613,6 +765,60 @@ function firstModelForProvider(
     modelOptionsForProvider(providers, providerId, modelOptionsByProvider)[0]?.id ??
     modelHintForProvider(providers, providerId)
   );
+}
+
+function defaultFallbackTarget(
+  providers: ModelProviderDefinition[],
+  primaryProviderId: string,
+  modelOptionsByProvider: ProviderModelOptionsById = {}
+): ProfileFallbackFormTarget {
+  const providerId =
+    providers.find((provider) => provider.id !== primaryProviderId)?.id ??
+    primaryProviderId ??
+    providers[0]?.id ??
+    '';
+  return {
+    provider: providerId,
+    model: providerId ? firstModelForProvider(providers, providerId, modelOptionsByProvider) : '',
+  };
+}
+
+function toFallbackPayload(
+  fallbackStrategy: ModelFallbackStrategy,
+  fallbackModels: ProfileFallbackFormTarget[],
+  fallbackPolicy: ProfileFallbackPolicyForm
+) {
+  return {
+    fallback_strategy: fallbackStrategy,
+    fallback_policy: {
+      retry_on: fallbackPolicy.retryOn,
+      same_provider_only: fallbackPolicy.sameProviderOnly,
+      require_capability_match: fallbackPolicy.requireCapabilityMatch,
+    },
+    fallback_models:
+      fallbackStrategy === 'manual'
+        ? fallbackModels
+            .filter((target) => target.model.trim())
+            .slice(0, MAX_FALLBACK_MODELS)
+            .map((target) => {
+              const provider = target.provider.trim();
+              return provider
+                ? { provider, model: target.model.trim() }
+                : { model: target.model.trim() };
+            })
+        : [],
+  };
+}
+
+function fallbackBadgeLabel(profile: BehaviorTuningProfile) {
+  if (profile.fallbackStrategy === 'disabled') {
+    return 'No backups';
+  }
+  if (profile.fallbackStrategy === 'manual') {
+    const count = profile.fallbackModels?.length ?? 0;
+    return `${count} backup${count === 1 ? '' : 's'}`;
+  }
+  return 'Auto backups';
 }
 
 function ModelSelector({
@@ -677,6 +883,341 @@ function ModelSelector({
   );
 }
 
+function fallbackStatusLabel(
+  fallback: ProfileFallbackFormTarget,
+  providers: ModelProviderDefinition[],
+  modelOptionsByProvider: ProviderModelOptionsById = {}
+) {
+  const provider = providers.find((item) => item.id === fallback.provider);
+  if (!provider) {
+    return { label: 'Provider missing', variant: 'destructive' as const };
+  }
+  const preset = providerPresetForFamily(providerFamilyFromProvider(provider));
+  if (preset.requiresOAuth && !hasOAuthToken(provider)) {
+    return { label: 'Needs OAuth', variant: 'destructive' as const };
+  }
+  if (preset.requiresApiKey && !provider.config?.api_key) {
+    return { label: 'Needs API key', variant: 'destructive' as const };
+  }
+  if (!fallback.model.trim()) {
+    return { label: 'Model required', variant: 'secondary' as const };
+  }
+  const options = modelOptionsForProvider(providers, fallback.provider, modelOptionsByProvider);
+  if (options.length === 0) {
+    return { label: 'Model unverified', variant: 'secondary' as const };
+  }
+  if (options.some((option) => option.id === fallback.model)) {
+    return { label: 'Listed model', variant: 'outline' as const };
+  }
+  return { label: 'Custom model', variant: 'secondary' as const };
+}
+
+function FallbackModelFields({
+  idPrefix,
+  strategy,
+  models,
+  policy,
+  providers,
+  primaryProviderId,
+  modelOptionsByProvider,
+  disabled,
+  onChange,
+}: {
+  idPrefix: string;
+  strategy: ModelFallbackStrategy;
+  models: ProfileFallbackFormTarget[];
+  policy: ProfileFallbackPolicyForm;
+  providers: ModelProviderDefinition[];
+  primaryProviderId: string;
+  modelOptionsByProvider?: ProviderModelOptionsById;
+  disabled: boolean;
+  onChange: (next: {
+    fallbackStrategy: ModelFallbackStrategy;
+    fallbackModels: ProfileFallbackFormTarget[];
+    fallbackPolicy: ProfileFallbackPolicyForm;
+  }) => void;
+}) {
+  const updatePolicy = (nextPolicy: ProfileFallbackPolicyForm) => {
+    onChange({ fallbackStrategy: strategy, fallbackModels: models, fallbackPolicy: nextPolicy });
+  };
+
+  const toggleRetryReason = (reason: ModelFallbackRetryReason, checked: boolean) => {
+    const nextRetryOn = checked
+      ? [...new Set([...policy.retryOn, reason])]
+      : policy.retryOn.filter((item) => item !== reason);
+    updatePolicy({ ...policy, retryOn: nextRetryOn.length > 0 ? nextRetryOn : [reason] });
+  };
+
+  const addFallback = () => {
+    if (models.length >= MAX_FALLBACK_MODELS) {
+      return;
+    }
+    onChange({
+      fallbackStrategy: strategy,
+      fallbackModels: [
+        ...models,
+        defaultFallbackTarget(providers, primaryProviderId, modelOptionsByProvider),
+      ],
+      fallbackPolicy: policy,
+    });
+  };
+
+  const updateModel = (index: number, nextModel: ProfileFallbackFormTarget) => {
+    onChange({
+      fallbackStrategy: strategy,
+      fallbackModels: models.map((model, modelIndex) => (modelIndex === index ? nextModel : model)),
+      fallbackPolicy: policy,
+    });
+  };
+
+  const removeModel = (index: number) => {
+    onChange({
+      fallbackStrategy: strategy,
+      fallbackModels: models.filter((_, modelIndex) => modelIndex !== index),
+      fallbackPolicy: policy,
+    });
+  };
+
+  const moveModel = (index: number, direction: -1 | 1) => {
+    const nextIndex = index + direction;
+    if (nextIndex < 0 || nextIndex >= models.length) {
+      return;
+    }
+    const nextModels = [...models];
+    [nextModels[index], nextModels[nextIndex]] = [nextModels[nextIndex], nextModels[index]];
+    onChange({ fallbackStrategy: strategy, fallbackModels: nextModels, fallbackPolicy: policy });
+  };
+
+  const updateStrategy = (fallbackStrategy: ModelFallbackStrategy) => {
+    onChange({
+      fallbackStrategy,
+      fallbackModels:
+        fallbackStrategy === 'manual' && models.length === 0 && providers.length > 0
+          ? [defaultFallbackTarget(providers, primaryProviderId, modelOptionsByProvider)]
+          : models,
+      fallbackPolicy: policy,
+    });
+  };
+
+  return (
+    <div className="space-y-3 rounded-md border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-[rgba(10,17,30,0.84)]">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Label htmlFor={`${idPrefix}-fallback-strategy`}>Fallback models</Label>
+        <div className="inline-flex overflow-hidden rounded-md border border-neutral-200 bg-neutral-50 dark:border-white/10 dark:bg-white/5">
+          {(['auto', 'manual', 'disabled'] as ModelFallbackStrategy[]).map((option) => (
+            <Button
+              key={option}
+              type="button"
+              variant={strategy === option ? 'default' : 'ghost'}
+              className="h-8 rounded-none px-3 text-xs capitalize"
+              disabled={disabled}
+              onClick={() => updateStrategy(option)}
+            >
+              {option}
+            </Button>
+          ))}
+        </div>
+        <select
+          id={`${idPrefix}-fallback-strategy`}
+          value={strategy}
+          onChange={(event) => updateStrategy(event.target.value as ModelFallbackStrategy)}
+          disabled={disabled}
+          className="sr-only"
+        >
+          <option value="auto">Auto</option>
+          <option value="manual">Manual</option>
+          <option value="disabled">Disabled</option>
+        </select>
+      </div>
+
+      {strategy === 'manual' ? (
+        <div className="space-y-3">
+          {models.map((fallback, index) => {
+            const selectedModelOptions = modelOptionsForProvider(
+              providers,
+              fallback.provider,
+              modelOptionsByProvider
+            );
+            const status = fallbackStatusLabel(fallback, providers, modelOptionsByProvider);
+            const moveUpLabel = `Move backup ${index + 1} up`;
+            const moveDownLabel = `Move backup ${index + 1} down`;
+            const removeLabel = `Remove backup ${index + 1}`;
+            return (
+              <div
+                key={`${index}-${fallback.provider}`}
+                className="grid gap-2 md:grid-cols-[1fr_1fr_auto]"
+              >
+                <div className="space-y-1.5">
+                  <Label htmlFor={`${idPrefix}-fallback-provider-${index}`}>
+                    Backup {index + 1} provider
+                  </Label>
+                  <select
+                    id={`${idPrefix}-fallback-provider-${index}`}
+                    value={fallback.provider}
+                    onChange={(event) => {
+                      const provider = event.target.value;
+                      updateModel(index, {
+                        provider,
+                        model: provider
+                          ? firstModelForProvider(providers, provider, modelOptionsByProvider)
+                          : '',
+                      });
+                    }}
+                    disabled={disabled || providers.length === 0}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                  >
+                    <option value="">Select a provider</option>
+                    {providers.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <ModelSelector
+                  key={`${fallback.provider}-${index}`}
+                  id={`${idPrefix}-fallback-model-${index}`}
+                  label={`Backup ${index + 1} model`}
+                  value={fallback.model}
+                  onChange={(model) => updateModel(index, { ...fallback, model })}
+                  options={selectedModelOptions}
+                  placeholder={
+                    fallback.provider
+                      ? modelHintForProvider(providers, fallback.provider)
+                      : 'model-id'
+                  }
+                  disabled={disabled}
+                />
+                <div className="flex items-end gap-1">
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={disabled || index === 0}
+                          onClick={() => moveModel(index, -1)}
+                          aria-label={moveUpLabel}
+                        >
+                          <ArrowUp className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{moveUpLabel}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={disabled || index === models.length - 1}
+                          onClick={() => moveModel(index, 1)}
+                          aria-label={moveDownLabel}
+                        >
+                          <ArrowDown className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{moveDownLabel}</TooltipContent>
+                    </Tooltip>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          disabled={disabled}
+                          onClick={() => removeModel(index)}
+                          aria-label={removeLabel}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>{removeLabel}</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <div className="md:col-span-3">
+                  <Badge variant={status.variant}>{status.label}</Badge>
+                </div>
+              </div>
+            );
+          })}
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            disabled={disabled || models.length >= MAX_FALLBACK_MODELS || providers.length === 0}
+            onClick={addFallback}
+          >
+            <Plus className="h-4 w-4" />
+            Add backup
+          </Button>
+        </div>
+      ) : strategy === 'auto' ? (
+        <p className="text-xs text-neutral-500 dark:text-slate-400">
+          Auto chooses up to two provider defaults and keeps model capabilities from this preset.
+        </p>
+      ) : (
+        <p className="text-xs text-neutral-500 dark:text-slate-400">
+          Disabled stops the run when the primary model fails.
+        </p>
+      )}
+
+      {strategy !== 'disabled' ? (
+        <div className="space-y-2 border-t border-neutral-200 pt-3 dark:border-white/10">
+          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+            Fallback policy
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-2 lg:grid-cols-3">
+            {FALLBACK_RETRY_REASONS.map((reason) => (
+              <label
+                key={reason}
+                className="flex items-center gap-2 text-neutral-700 dark:text-slate-300"
+              >
+                <input
+                  type="checkbox"
+                  checked={policy.retryOn.includes(reason)}
+                  disabled={disabled}
+                  title={FALLBACK_RETRY_REASON_TITLES[reason]}
+                  onChange={(event) => toggleRetryReason(reason, event.target.checked)}
+                />
+                <span>{FALLBACK_RETRY_REASON_LABELS[reason]}</span>
+              </label>
+            ))}
+          </div>
+          <div className="grid gap-2 text-xs sm:grid-cols-2">
+            <label className="flex items-center gap-2 text-neutral-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={policy.sameProviderOnly}
+                disabled={disabled}
+                title="Only use fallback models from the same provider as the primary model."
+                onChange={(event) =>
+                  updatePolicy({ ...policy, sameProviderOnly: event.target.checked })
+                }
+              />
+              <span>Same provider only</span>
+            </label>
+            <label className="flex items-center gap-2 text-neutral-700 dark:text-slate-300">
+              <input
+                type="checkbox"
+                checked={policy.requireCapabilityMatch}
+                disabled={disabled}
+                title="Require backups to support the primary model preset's enabled tools, structured output, vision, and streaming capabilities."
+                onChange={(event) =>
+                  updatePolicy({ ...policy, requireCapabilityMatch: event.target.checked })
+                }
+              />
+              <span>Match capabilities</span>
+            </label>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function toProfilePayloadFromLlmModelState({
   state,
   providerId,
@@ -705,6 +1246,7 @@ function toProfilePayloadFromLlmModelState({
     supports_structured_output: state.supportsStructuredOutput,
     supports_vision: state.supportsVision,
     supports_streaming: state.supportsStreaming,
+    ...toFallbackPayload(state.fallbackStrategy, state.fallbackModels, state.fallbackPolicy),
   };
   return Object.keys(parameters).length > 0 ? { ...payload, parameters } : payload;
 }
@@ -822,6 +1364,17 @@ function ProfileFields({
           </select>
         </div>
       ) : null}
+      <FallbackModelFields
+        idPrefix={idPrefix}
+        strategy={form.fallbackStrategy}
+        models={form.fallbackModels}
+        policy={form.fallbackPolicy}
+        providers={providers}
+        primaryProviderId={form.provider}
+        modelOptionsByProvider={modelOptionsByProvider}
+        disabled={disabled}
+        onChange={(fallback) => setForm((current) => ({ ...current, ...fallback }))}
+      />
       <div className="grid gap-3 md:grid-cols-3">
         <div className="space-y-1.5">
           <Label htmlFor={`${idPrefix}-temperature`}>Temperature</Label>
@@ -856,7 +1409,7 @@ function ProfileFields({
         </div>
       </div>
       <div className="grid gap-2 md:grid-cols-2">
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
           <input
             type="checkbox"
             checked={form.supportsTools}
@@ -867,7 +1420,7 @@ function ProfileFields({
           />
           Supports tools
         </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
           <input
             type="checkbox"
             checked={form.supportsStructuredOutput}
@@ -878,7 +1431,7 @@ function ProfileFields({
           />
           Structured output
         </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
           <input
             type="checkbox"
             checked={form.supportsVision}
@@ -889,7 +1442,7 @@ function ProfileFields({
           />
           Vision
         </label>
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
           <input
             type="checkbox"
             checked={form.supportsStreaming}
@@ -913,9 +1466,8 @@ function OAuthDialog({
   onComplete: () => Promise<void>;
 }) {
   const [isOpen, setIsOpen] = useState(false);
-  const [step, setStep] = useState<'start' | 'waiting' | 'manual' | 'device'>('start');
+  const [step, setStep] = useState<'start' | 'waiting' | 'manual'>('start');
   const [authData, setAuthData] = useState<ProviderAuthorizeResponse | null>(null);
-  const [deviceData, setDeviceData] = useState<DeviceAuthorizeResponse | null>(null);
   const [completionInput, setCompletionInput] = useState('');
   const [authProfileId, setAuthProfileId] = useState(defaultOAuthProfileId(provider));
   const [error, setError] = useState<string | null>(null);
@@ -937,43 +1489,6 @@ function OAuthDialog({
         setStep('waiting');
       } catch (e) {
         setError(e instanceof Error ? e.message : 'Failed to start OAuth flow');
-      }
-    });
-  };
-
-  const handleDeviceStart = () => {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const res = await modelProvidersApi.deviceAuthorizeProvider(provider.id, authProfileId);
-        setDeviceData(res);
-        setAuthProfileId(res.auth_profile_id || authProfileId);
-        setStep('device');
-      } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to start device auth flow');
-      }
-    });
-  };
-
-  const handleDeviceComplete = () => {
-    if (!deviceData) return;
-    setError(null);
-    startTransition(async () => {
-      try {
-        await modelProvidersApi.completeDeviceAuthorizeProvider(
-          provider.id,
-          deviceData.device_code,
-          authProfileId
-        );
-        toast.success('Device authorization successful!');
-        setIsOpen(false);
-        await onComplete();
-      } catch (e) {
-        setError(
-          e instanceof Error
-            ? e.message
-            : 'Failed to complete device flow. Make sure you entered the code in your browser first.'
-        );
       }
     });
   };
@@ -1069,76 +1584,13 @@ function OAuthDialog({
                   ))}
                 </div>
               ) : null}
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700">
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
                 <div>Status: {statusLabel}</div>
                 {accountId ? <div>Account: {accountId}</div> : null}
               </div>
               <div className="grid gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleStart}
-                  disabled={isPending}
-                  className="w-full"
-                >
+                <Button onClick={handleStart} disabled={isPending} className="w-full">
                   {isPending ? 'Starting...' : 'Browser authorization'}
-                </Button>
-                {provider.provider_type === 'openai_codex' && (
-                  <Button onClick={handleDeviceStart} disabled={isPending} className="w-full">
-                    {isPending ? 'Starting...' : 'Device code sign-in'}
-                  </Button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {step === 'device' && (
-            <div className="space-y-4 py-4">
-              <div className="rounded-md bg-blue-50 p-4 border border-blue-100">
-                <p className="text-sm text-blue-800 font-medium">Device Authentication Required</p>
-                <ol className="mt-2 ml-4 list-decimal text-xs text-blue-700 space-y-1">
-                  <li>
-                    Open{' '}
-                    <a
-                      href={deviceData?.verification_uri}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="underline font-bold"
-                    >
-                      {deviceData?.verification_uri}
-                    </a>{' '}
-                    in your browser.
-                  </li>
-                  <li>
-                    Enter this one-time code:
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="font-mono font-bold bg-white px-2 py-1 border rounded text-lg">
-                        {deviceData?.user_code}
-                      </span>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-6 w-6"
-                        onClick={() => {
-                          if (deviceData?.user_code) {
-                            navigator.clipboard.writeText(deviceData.user_code);
-                            toast.success('Code copied to clipboard');
-                          }
-                        }}
-                      >
-                        <Copy className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </li>
-                  <li>Once approved in the browser, click the button below to complete.</li>
-                </ol>
-              </div>
-              {error && <p className="text-xs text-red-600">{error}</p>}
-              <div className="flex gap-2">
-                <Button onClick={handleDeviceComplete} disabled={isPending} className="flex-1">
-                  {isPending ? 'Verifying...' : 'I have entered the code'}
-                </Button>
-                <Button variant="ghost" onClick={() => setStep('start')}>
-                  Back
                 </Button>
               </div>
             </div>
@@ -1150,19 +1602,27 @@ function OAuthDialog({
               <div className="space-y-1">
                 <div className="flex items-center justify-between">
                   <Label className="text-[10px] uppercase text-muted-foreground">Auth URL</Label>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-4 w-4"
-                    onClick={() => {
-                      if (authData?.auth_url) {
-                        navigator.clipboard.writeText(authData.auth_url);
-                        toast.success('URL copied to clipboard');
-                      }
-                    }}
-                  >
-                    <Copy className="h-3 w-3" />
-                  </Button>
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-4 w-4"
+                          aria-label="Copy authorization URL"
+                          onClick={() => {
+                            if (authData?.auth_url) {
+                              navigator.clipboard.writeText(authData.auth_url);
+                              toast.success('URL copied to clipboard');
+                            }
+                          }}
+                        >
+                          <Copy className="h-3 w-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Copy authorization URL</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <div className="bg-muted p-3 rounded text-xs break-all font-mono">
                   {authData?.auth_url}
@@ -1264,23 +1724,32 @@ function ProviderConnectionCard({
   const oauthProfiles = oauthProfilesForProvider(provider);
   const defaultProfileId = defaultOAuthProfileId(provider);
   const defaultOAuthStatus = oauthStatusLabel(provider, defaultProfileId);
+  const tone = llmCardTone(family);
 
   return (
-    <Card className="border-neutral-200 bg-white">
+    <Card
+      className={cn(
+        'relative overflow-hidden transition-colors dark:shadow-[0_24px_60px_rgba(2,6,23,0.34)]',
+        tone.card
+      )}
+    >
+      <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-lg">{provider.name}</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg dark:text-slate-50">{provider.name}</CardTitle>
+            <CardDescription className="dark:text-slate-300">
               {provider.description || `${providerPresetForFamily(family).label} connection`}
             </CardDescription>
           </div>
-          <Badge variant="outline">{provider.provider_type}</Badge>
+          <Badge variant="outline" className={tone.badge}>
+            {provider.provider_type}
+          </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm text-neutral-600">
+      <CardContent className="space-y-3 text-sm text-neutral-600 dark:text-slate-200">
         {isEditing ? (
-          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-slate-950/60">
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor={`${provider.id}-connection-family`}>Provider family</Label>
@@ -1330,7 +1799,7 @@ function ProviderConnectionCard({
               <div className="space-y-1.5">
                 <Label htmlFor={`${provider.id}-connection-id`}>Connection ID</Label>
                 <Input id={`${provider.id}-connection-id`} value={form.providerId} disabled />
-                <p className="text-xs text-neutral-500">
+                <p className="text-xs text-neutral-500 dark:text-slate-400">
                   IDs stay fixed because model presets reference this connection.
                 </p>
               </div>
@@ -1345,9 +1814,9 @@ function ProviderConnectionCard({
                   disabled={isPending}
                 />
                 {shouldWarnAboutDockerOllamaBaseUrl(form.family, form.baseUrl) ? (
-                  <p className="text-xs text-amber-700">
-                    `localhost` usually points at the backend container itself. For Dockerized local
-                    backends, prefer `http://host.docker.internal:11434`.
+                  <p className="text-xs text-amber-700 dark:text-amber-300">
+                    localhost usually points at the backend container itself. For Dockerized local
+                    backends, prefer http://host.docker.internal:11434.
                   </p>
                 ) : null}
               </div>
@@ -1427,7 +1896,7 @@ function ProviderConnectionCard({
                 </div>
               </>
             )}
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-neutral-500 dark:text-slate-400">
               Saving this connection also refreshes endpoint and credential references on{' '}
               {linkedProfiles.length} linked model preset{linkedProfiles.length === 1 ? '' : 's'}.
             </p>
@@ -1480,15 +1949,17 @@ function ProviderConnectionCard({
                 <Badge variant="secondary">No API key</Badge>
               )}
             </div>
-            <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
+            <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/60">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                 Endpoint
               </p>
-              <p className="mt-1 break-words text-sm text-neutral-800">{baseUrl || 'Not set'}</p>
+              <p className="mt-1 wrap-break-word text-sm text-neutral-800 dark:text-slate-100">
+                {baseUrl || 'Not set'}
+              </p>
             </div>
             {providerRequiresOAuth ? (
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
+              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/60">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                   OAuth profiles
                 </p>
                 {oauthProfiles.length > 0 ? (
@@ -1498,21 +1969,25 @@ function ProviderConnectionCard({
                       return (
                         <div
                           key={profile.id}
-                          className="flex flex-wrap items-center gap-2 text-sm text-neutral-800"
+                          className="flex flex-wrap items-center gap-2 text-sm text-neutral-800 dark:text-slate-100"
                         >
                           <Badge variant={profile.id === defaultProfileId ? 'default' : 'outline'}>
                             {profile.id}
                           </Badge>
                           <Badge variant="outline">{oauthStatusLabel(provider, profile.id)}</Badge>
                           {accountId ? (
-                            <span className="text-xs text-neutral-500">Account {accountId}</span>
+                            <span className="text-xs text-neutral-500 dark:text-slate-400">
+                              Account {accountId}
+                            </span>
                           ) : null}
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <p className="mt-1 text-sm text-neutral-800">No OAuth account linked.</p>
+                  <p className="mt-1 text-sm text-neutral-800 dark:text-slate-100">
+                    No OAuth account linked.
+                  </p>
                 )}
               </div>
             ) : null}
@@ -1636,11 +2111,11 @@ function CreateLlmModelDialog({
             toProfilePayloadFromLlmModelState({ state, providerId, baseUrl, apiKey })
           );
           await onRefresh();
-          toast.success('LLM model added.', { position: 'top-right' });
+          toast.success('Model added.', { position: 'top-right' });
           reset();
           setIsOpen(false);
         } catch (createError) {
-          setError(createError instanceof Error ? createError.message : 'Failed to add LLM model.');
+          setError(createError instanceof Error ? createError.message : 'Failed to add model.');
         }
       })();
     });
@@ -1689,7 +2164,7 @@ function CreateLlmModelDialog({
           );
 
           await onRefresh();
-          toast.success('OAuth successful and LLM model created!');
+          toast.success('OAuth successful and model created!');
           reset();
           setIsOpen(false);
         } catch (e) {
@@ -1735,6 +2210,8 @@ function CreateLlmModelDialog({
     modelOptionsByProvider
   );
   const newProviderModelOptions = selectedPreset.modelOptions;
+  const primaryProviderId =
+    state.mode === 'existing' ? state.selectedProviderId : state.provider.providerId;
   const canCreate =
     (selectedPreset.requiresOAuth ? true : state.profileName.trim()) &&
     state.model.trim() &&
@@ -1751,7 +2228,7 @@ function CreateLlmModelDialog({
         className="agency-gradient text-white hover:brightness-105"
         onClick={() => setIsOpen(true)}
       >
-        Add LLM model
+        Add Model
       </Button>
       <Dialog
         open={isOpen}
@@ -1764,7 +2241,7 @@ function CreateLlmModelDialog({
       >
         <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add LLM model</DialogTitle>
+            <DialogTitle>Add Model</DialogTitle>
             <DialogDescription>
               Create a selectable model preset and connect it to an existing or new provider.
             </DialogDescription>
@@ -1860,7 +2337,7 @@ function CreateLlmModelDialog({
                 ) : null}
               </>
             ) : (
-              <div className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-3">
+              <div className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/5">
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="llm-provider-family">Provider family</Label>
@@ -1932,8 +2409,8 @@ function CreateLlmModelDialog({
                       state.provider.baseUrl
                     ) ? (
                       <p className="text-xs text-amber-700">
-                        `localhost` usually points at the backend container itself. For Dockerized
-                        local backends, prefer `http://host.docker.internal:11434`.
+                        localhost usually points at the backend container itself. For Dockerized
+                        local backends, prefer http://host.docker.internal:11434.
                       </p>
                     ) : null}
                   </div>
@@ -2074,6 +2551,17 @@ function CreateLlmModelDialog({
                     placeholder={selectedPreset.requiresOAuth ? '(Auto-filled after OAuth)' : ''}
                   />
                 </div>
+                <FallbackModelFields
+                  idPrefix="llm"
+                  strategy={state.fallbackStrategy}
+                  models={state.fallbackModels}
+                  policy={state.fallbackPolicy}
+                  providers={providers}
+                  primaryProviderId={primaryProviderId}
+                  modelOptionsByProvider={modelOptionsByProvider}
+                  disabled={isPending}
+                  onChange={(fallback) => setState((current) => ({ ...current, ...fallback }))}
+                />
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="llm-temperature">Temperature</Label>
@@ -2110,7 +2598,7 @@ function CreateLlmModelDialog({
                   </div>
                 </div>
                 <div className="grid gap-2 md:grid-cols-2">
-                  <label className="flex items-center gap-2 text-sm text-neutral-700">
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={state.supportsTools}
@@ -2121,7 +2609,7 @@ function CreateLlmModelDialog({
                     />
                     Supports tools
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700">
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={state.supportsStructuredOutput}
@@ -2135,7 +2623,7 @@ function CreateLlmModelDialog({
                     />
                     Structured output
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700">
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={state.supportsVision}
@@ -2149,7 +2637,7 @@ function CreateLlmModelDialog({
                     />
                     Vision
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700">
+                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
                     <input
                       type="checkbox"
                       checked={state.supportsStreaming}
@@ -2250,6 +2738,8 @@ function ProfileCard({
   const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<ProfileFormState>(() => toFormState(profile));
   const [isPending, startTransition] = useTransition();
+  const provider = providers.find((candidate) => candidate.id === profile.provider) ?? null;
+  const tone = llmCardTone(provider ? providerFamilyFromProvider(provider) : null);
 
   const reset = () => {
     setForm(toFormState(profile));
@@ -2278,6 +2768,7 @@ function ProfileCard({
             supports_structured_output: form.supportsStructuredOutput,
             supports_vision: form.supportsVision,
             supports_streaming: form.supportsStreaming,
+            ...toFallbackPayload(form.fallbackStrategy, form.fallbackModels, form.fallbackPolicy),
           };
           await modelProfilesApi.updateProfile(
             profile.id,
@@ -2315,22 +2806,30 @@ function ProfileCard({
   };
 
   return (
-    <Card className="border-neutral-200">
+    <Card
+      className={cn(
+        'relative overflow-hidden transition-colors dark:shadow-[0_24px_60px_rgba(2,6,23,0.34)]',
+        tone.card
+      )}
+    >
+      <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <CardTitle className="text-lg">{profile.name}</CardTitle>
-            <CardDescription>
+            <CardTitle className="text-lg dark:text-slate-50">{profile.name}</CardTitle>
+            <CardDescription className="dark:text-slate-300">
               {profile.description ||
                 `${providerNameFromId(providers, profile.provider)} / ${profile.model}`}
             </CardDescription>
           </div>
-          <Badge variant="secondary">{providerNameFromId(providers, profile.provider)}</Badge>
+          <Badge variant="outline" className={tone.badge}>
+            {providerNameFromId(providers, profile.provider)}
+          </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3 text-sm text-neutral-600">
+      <CardContent className="space-y-3 text-sm text-neutral-600 dark:text-slate-200">
         {isEditing ? (
-          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3">
+          <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-slate-950/60">
             <ProfileFields
               form={form}
               setForm={setForm}
@@ -2366,6 +2865,7 @@ function ProfileCard({
           <>
             <div className="flex flex-wrap gap-2">
               <Badge variant="outline">Model: {profile.model}</Badge>
+              <Badge variant="outline">{fallbackBadgeLabel(profile)}</Badge>
               {profile.temperature !== null && profile.temperature !== undefined ? (
                 <Badge variant="outline">Temp: {profile.temperature}</Badge>
               ) : null}
@@ -2476,13 +2976,13 @@ export default function BehaviorProfilesWorkspace() {
   };
 
   if (profilesQuery.isLoading || providersQuery.isLoading) {
-    return <LoadingCard title="LLM Models" description="Loading LLM model configuration." />;
+    return <LoadingCard title="Models" description="Loading model configuration." />;
   }
 
   if (profilesQuery.isError) {
     return (
       <ErrorAlert
-        title="Failed to load LLM models"
+        title="Failed to load models"
         message={profilesQuery.error.message}
         onRetry={() => void refreshAll()}
       />
@@ -2504,8 +3004,9 @@ export default function BehaviorProfilesWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="LLM Models"
-        title="LLM Models"
+        icon={BrainCog}
+        tone="model"
+        title="Models"
         description="Set up LLM connections and selectable model presets for agents and workflows."
         actions={
           <>
@@ -2531,15 +3032,17 @@ export default function BehaviorProfilesWorkspace() {
 
       <div className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900">LLM connections</h2>
-          <p className="text-sm text-neutral-500">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+            LLM connections
+          </h2>
+          <p className="text-sm text-neutral-500 dark:text-slate-400">
             Connection-level provider settings shared by model presets.
           </p>
         </div>
         {providers.length === 0 ? (
           <EmptyCard
             title="No LLM connections found"
-            description="Use Add LLM model to create a connection and first model preset together."
+            description="Use Add Model to create a connection and first model preset together."
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
@@ -2557,15 +3060,17 @@ export default function BehaviorProfilesWorkspace() {
 
       <div className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold text-neutral-900">Model presets</h2>
-          <p className="text-sm text-neutral-500">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+            Model presets
+          </h2>
+          <p className="text-sm text-neutral-500 dark:text-slate-400">
             Selectable model defaults that agents and workflows bind to.
           </p>
         </div>
         {profiles.length === 0 ? (
           <EmptyCard
-            title="No LLM models found"
-            description="Create the first LLM model preset to bind models to agents and workflows."
+            title="No models found"
+            description="Create the first model preset to bind models to agents and workflows."
           />
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">

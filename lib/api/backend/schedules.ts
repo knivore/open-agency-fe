@@ -1,15 +1,13 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
-import type {
-  CrudListResponse,
-  DeleteResponse,
-  ScheduleDefinition,
-  ScheduleTriggerNowResponse,
-} from '@/lib/api/backend/types';
+import type { CrudListResponse, DeleteResponse } from '@/types/api';
+import type { ScheduleDefinition, ScheduleTriggerNowResponse } from '@/types/runtime';
 
 export const schedulesApi = {
   listSchedules() {
-    return agencyApiClient.get<CrudListResponse<ScheduleDefinition>>(backendRoutes.schedules.list());
+    return agencyApiClient.get<CrudListResponse<ScheduleDefinition>>(
+      backendRoutes.schedules.list()
+    );
   },
   getSchedule(scheduleId: string) {
     return agencyApiClient.get<ScheduleDefinition>(backendRoutes.schedules.byId(scheduleId));
@@ -18,7 +16,10 @@ export const schedulesApi = {
     return agencyApiClient.post<ScheduleDefinition>(backendRoutes.schedules.create(), payload);
   },
   patchSchedule(scheduleId: string, patch: Record<string, unknown>) {
-    return agencyApiClient.patch<ScheduleDefinition>(backendRoutes.schedules.byId(scheduleId), patch);
+    return agencyApiClient.patch<ScheduleDefinition>(
+      backendRoutes.schedules.byId(scheduleId),
+      patch
+    );
   },
   updateSchedule(scheduleId: string, patch: Record<string, unknown>) {
     return agencyApiClient.put<ScheduleDefinition>(backendRoutes.schedules.byId(scheduleId), patch);
@@ -27,13 +28,18 @@ export const schedulesApi = {
     return agencyApiClient.post<ScheduleDefinition>(backendRoutes.schedules.enable(scheduleId), {});
   },
   disableSchedule(scheduleId: string) {
-    return agencyApiClient.post<ScheduleDefinition>(backendRoutes.schedules.disable(scheduleId), {});
+    return agencyApiClient.post<ScheduleDefinition>(
+      backendRoutes.schedules.disable(scheduleId),
+      {}
+    );
   },
   triggerNow(scheduleId: string) {
-    return agencyApiClient.post<ScheduleTriggerNowResponse>(backendRoutes.schedules.triggerNow(scheduleId), {});
+    return agencyApiClient.post<ScheduleTriggerNowResponse>(
+      backendRoutes.schedules.triggerNow(scheduleId),
+      {}
+    );
   },
   deleteSchedule(scheduleId: string) {
     return agencyApiClient.delete<DeleteResponse>(backendRoutes.schedules.byId(scheduleId));
   },
 };
-

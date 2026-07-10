@@ -11,30 +11,32 @@ export interface ObservatoryCharacterActionManifestIssue {
 }
 
 const directionalActionFrameCounts: Partial<Record<ObservatoryCharacterActionName, number>> = {
-  'gift': 10,
+  gift: 10,
   'grab-gun': 4,
   'gun-idle': 6,
-  'hit': 6,
-  'hurt': 3,
-  'lift': 14,
+  hit: 6,
+  hurt: 3,
+  lift: 14,
   'pick-up': 12,
-  'punch': 6,
+  punch: 6,
   'push-cart': 6,
-  'shoot': 3,
-  'stab': 6,
-  'throw': 14,
+  shoot: 3,
+  stab: 6,
+  throw: 14,
   face: 1,
   idle: 6,
   walk: 6,
 };
 
-const twoDirectionActionOrder: Partial<Record<ObservatoryCharacterActionName, ObservatoryCharacterDirection[]>> = {
+const twoDirectionActionOrder: Partial<
+  Record<ObservatoryCharacterActionName, ObservatoryCharacterDirection[]>
+> = {
   'high-chair-sit': ['right', 'left'],
   sit: ['right', 'left'],
 };
 
 export function validateObservatoryCharacterActionManifest(
-  asset: ObservatoryAssetDefinition,
+  asset: ObservatoryAssetDefinition
 ): ObservatoryCharacterActionManifestIssue[] {
   if (!asset.characterActions?.length) {
     return [];
@@ -45,7 +47,10 @@ export function validateObservatoryCharacterActionManifest(
   const issues: ObservatoryCharacterActionManifestIssue[] = [];
 
   if (!columns) {
-    issues.push({ action: asset.id, reason: 'characterSheet.columns is required when characterActions are present' });
+    issues.push({
+      action: asset.id,
+      reason: 'characterSheet.columns is required when characterActions are present',
+    });
     return issues;
   }
 
@@ -59,12 +64,16 @@ export function validateObservatoryCharacterActionManifest(
 function validateActionWindow(
   action: ObservatoryCharacterActionDefinition,
   columns: number,
-  directionOrder: ObservatoryCharacterDirection[] | undefined,
+  directionOrder: ObservatoryCharacterDirection[] | undefined
 ): ObservatoryCharacterActionManifestIssue[] {
   const issues: ObservatoryCharacterActionManifestIssue[] = [];
   const expectedFrameCount = directionalActionFrameCounts[action.action];
 
-  if (expectedFrameCount !== undefined && action.direction && action.frameCount !== expectedFrameCount) {
+  if (
+    expectedFrameCount !== undefined &&
+    action.direction &&
+    action.frameCount !== expectedFrameCount
+  ) {
     issues.push({
       action: action.action,
       reason: `expected ${expectedFrameCount} frames for ${action.action}/${action.direction}, got ${action.frameCount}`,
@@ -96,9 +105,14 @@ function validateActionWindow(
   if (
     action.loopStartFrame !== undefined &&
     action.loopEndFrame !== undefined &&
-    (action.loopStartFrame < action.startFrame || action.loopEndFrame > action.endFrame || action.loopEndFrame < action.loopStartFrame)
+    (action.loopStartFrame < action.startFrame ||
+      action.loopEndFrame > action.endFrame ||
+      action.loopEndFrame < action.loopStartFrame)
   ) {
-    issues.push({ action: action.action, reason: 'loop window must be inside action frame window' });
+    issues.push({
+      action: action.action,
+      reason: 'loop window must be inside action frame window',
+    });
   }
 
   return issues;

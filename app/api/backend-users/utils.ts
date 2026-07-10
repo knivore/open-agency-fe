@@ -1,14 +1,25 @@
 import { NextResponse } from 'next/server';
+import { auth } from '@/auth';
+import { backendUsersApi } from '@/lib/api/backend/users';
 import { isApiError } from '@/lib/api/errors';
 import type { AuthUser } from '@/types/auth';
-import { localUser } from '@/lib/identity/localUser';
 
 export async function getAuthenticatedUser(): Promise<AuthUser | null> {
-  return localUser;
+  const session = await auth();
+  const user = session?.user as AuthUser | undefined;
+  if (!user?.id || !user.email) {
+    return null;
+  }
+  return user;
 }
 
 export function getInternalApiKey() {
-  return process.env.AGENCY_INTERNAL_API_KEY || process.env.BACKEND_INTERNAL_API_KEY || null;
+  return (
+    process.env.AGENCY_FE_BFF_IDENTITY_KEY ||
+    process.env.AGENCY_INTERNAL_API_KEY ||
+    process.env.BACKEND_INTERNAL_API_KEY ||
+    null
+  );
 }
 
 export function unauthorizedResponse() {
@@ -28,5 +39,5 @@ export function proxyErrorResponse(error: unknown) {
 }
 
 export async function syncCurrentBackendUser(user: AuthUser) {
-  return user;
+  return backendUsersApi.syncCurrentUser(user, getInternalApiKey());
 }

@@ -1,8 +1,11 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
-  OBSERVATORY_ASSET_REGISTRY_VERSION,
   filterObservatoryAssetRegistry,
+  OBSERVATORY_ASSET_REGISTRY_VERSION,
   validateObservatoryAssetRegistry,
 } from '@/modules/observatory/engine/assets/assetRegistry';
 import {
@@ -196,9 +199,7 @@ describe('observatory pixel asset registry', () => {
 
     expect(filteredIds).toContain('floor:office-blue');
     expect(filteredIds).toContain('wall:office-partition');
-    expect(filteredIds).toContain(
-      'furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station'
-    );
+    expect(filteredIds).toContain('decor:thinking-emote');
     expect(filteredIds).toContain('human:echo');
     expect(filteredIds).not.toContain('missing:asset');
     expect(filteredRegistry.assets.length).toBeLessThanOrEqual(registry.assets.length);
@@ -208,17 +209,38 @@ describe('observatory pixel asset registry', () => {
     const registry = getObservatoryFullModuleAssetRegistry();
     const filteredRegistry = filterObservatoryAssetRegistry(registry, [
       'human:atlas',
-      'furniture:1-modern-office-singles-48x48:office-water-cooler',
+      'decor:coffee-loop',
     ]);
 
     expect(filteredRegistry.assets.map((asset) => asset.id)).toEqual([
-      'furniture:1-modern-office-singles-48x48:office-water-cooler',
+      'decor:coffee-loop',
       'human:atlas',
     ]);
     expect(filteredRegistry.invalidAssets).toBe(registry.invalidAssets);
   });
 
-  it('crops spritesheet previews to the selected frame for the builder palette', () => {
+  it('contains only generated assets backed by the tracked open raster inventory', () => {
+    const registry = getObservatoryFullModuleAssetRegistry();
+    const assetRoot = resolve(process.cwd(), 'modules/observatory/assets');
+
+    expect(observatoryAssetCatalogEntries).toHaveLength(346);
+    expect(
+      observatoryAssetCatalogEntries.every((entry) => existsSync(resolve(assetRoot, entry.path)))
+    ).toBe(true);
+    expect(observatoryAssetCatalogEntries.some((entry) => entry.directory === 'animations')).toBe(
+      false
+    );
+    expect(registry.assets.some((asset) => asset.id.startsWith('generated:animations-'))).toBe(
+      false
+    );
+    expect(
+      registry.assets
+        .filter((asset) => asset.source.uri.startsWith('/observatory-assets/'))
+        .every((asset) => existsSync(resolve(process.cwd(), 'public', asset.source.uri.slice(1))))
+    ).toBe(true);
+  });
+
+  it('crops wall spritesheet previews to the selected frame for the builder palette', () => {
     const paletteAssets = getObservatoryPaletteAssets({ includeUnreviewed: true });
     const wallPreviews = paletteAssets
       .filter((asset) => asset.assetId.startsWith('wall:walls-1:variant-'))
@@ -314,7 +336,7 @@ describe('observatory pixel asset registry', () => {
     const coverage = summarizeObservatoryCatalogCoverage(registry, observatoryAssetCatalogSummary);
 
     expect(coverage.catalogFileCount).toBe(observatoryAssetCatalogEntries.length);
-    expect(observatoryAssetCatalogEntries.length).toBeGreaterThan(100);
+    expect(observatoryAssetCatalogEntries.length).toBe(346);
     expect(
       observatoryAssetCatalogEntries.some(
         (entry) => entry.path === 'characters/Character_48x48_01.png'
@@ -333,8 +355,11 @@ describe('observatory pixel asset registry', () => {
       )
     ).toBe(true);
     expect(coverage.registeredAssetCount).toBe(registry.assets.length);
-    expect(coverage.registeredAssetCount).toBeGreaterThan(100);
+    expect(coverage.registeredAssetCount).toBeGreaterThan(346);
     expect(coverage.coverageRatio).toBeGreaterThanOrEqual(1);
+    expect(registry.assets.some((asset) => asset.id.startsWith('generated:animations-'))).toBe(
+      false
+    );
     expect(registry.assets.some((asset) => asset.id === 'floor:office-blue')).toBe(true);
     expect(registry.assets.some((asset) => asset.id === 'furniture:ops-workstation')).toBe(true);
     expect(registry.assets.some((asset) => asset.id === 'decor:planning-whiteboard')).toBe(true);
@@ -406,33 +431,42 @@ describe('observatory pixel asset registry', () => {
     ).toBe(true);
   });
 
-  it('keeps the retained five character sheets registered with deterministic action metadata', () => {
+  it('does not synthesize character sheets absent from the open asset inventory', () => {
     const registry = getObservatoryFullModuleAssetRegistry();
-    const retainedCharacters = registry.assets.filter(
-      (asset) => asset.category === 'human' && asset.catalogPath?.startsWith('characters/')
+    const generatedCharacter = registry.assets.find(
+      (asset) => asset.catalogPath === 'characters/Character_48x48_06.png'
     );
-    const atlas = registry.assets.find((asset) => asset.id === 'human:atlas');
 
-    expect(retainedCharacters.map((asset) => asset.catalogPath).sort()).toEqual([
-      'characters/Character_48x48_01.png',
-      'characters/Character_48x48_02.png',
-      'characters/Character_48x48_03.png',
-      'characters/Character_48x48_04.png',
-      'characters/Character_48x48_05.png',
-    ]);
-    expect(atlas).toMatchObject({ category: 'human', frame: 3, height: 96 });
-    expect(
-      atlas?.characterActions?.some(
-        (action) =>
-          action.action === 'idle' && action.direction === 'down' && action.startFrame === 74
-      )
-    ).toBe(true);
-    expect(
-      atlas?.characterActions?.some(
-        (action) =>
-          action.action === 'phone' && action.loopStartFrame === 339 && action.loopEndFrame === 344
-      )
-    ).toBe(true);
+    expect(generatedCharacter).toBeUndefined();
+  });
+
+  it('uses redistributable static Open Agency decor assets', () => {
+    const registry = getObservatoryFullModuleAssetRegistry();
+    const screens = registry.assets.find((asset) => asset.id === 'decor:runtime-screens');
+    const server = registry.assets.find((asset) => asset.id === 'decor:runtime-server');
+    const coffee = registry.assets.find((asset) => asset.id === 'decor:coffee-loop');
+    const thinking = registry.assets.find((asset) => asset.id === 'decor:thinking-emote');
+
+    expect(screens).toMatchObject({
+      height: 144,
+      source: { kind: 'image', uri: '/observatory-assets/runtime-screens.svg' },
+      width: 192,
+      collision: { width: 4, height: 2, offsetY: 1 },
+    });
+    expect(server).toMatchObject({
+      height: 144,
+      source: { kind: 'image', uri: '/observatory-assets/runtime-server.svg' },
+      collision: { width: 1, height: 2 },
+    });
+    expect(coffee).toMatchObject({
+      height: 96,
+      source: { kind: 'image', uri: '/observatory-assets/coffee-station.svg' },
+    });
+    expect(thinking).toMatchObject({
+      height: 48,
+      source: { kind: 'image', uri: '/observatory-assets/thinking-emote.svg' },
+      width: 48,
+    });
   });
 
   it('registers local A2 floors and the active A4 wall sheet as RPG Maker autotiles', () => {

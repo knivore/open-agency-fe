@@ -30,7 +30,13 @@ export interface ObservatoryAssetAnimation {
   repeat?: number;
 }
 
-export type ObservatoryAssetStatusAnimationKey = 'blocked' | 'complete' | 'error' | 'idle' | 'moving' | 'working';
+export type ObservatoryAssetStatusAnimationKey =
+  | 'blocked'
+  | 'complete'
+  | 'error'
+  | 'idle'
+  | 'moving'
+  | 'working';
 
 export type ObservatoryCharacterDirection = 'down' | 'left' | 'right' | 'up';
 
@@ -146,7 +152,13 @@ export interface ObservatoryValidatedAssetRegistry {
   invalidAssets: ObservatoryInvalidAsset[];
 }
 
-const assetCategories = new Set<ObservatoryAssetCategory>(['floor', 'wall', 'furniture', 'decor', 'human']);
+const assetCategories = new Set<ObservatoryAssetCategory>([
+  'floor',
+  'wall',
+  'furniture',
+  'decor',
+  'human',
+]);
 const autotileKinds = new Set<ObservatoryAutotileKind>(['rpgmaker-a2-ground', 'rpgmaker-a4-wall']);
 const sourceKinds = new Set<ObservatoryAssetSourceKind>(['image', 'spritesheet']);
 const characterActions = new Set<ObservatoryCharacterActionName>([
@@ -202,7 +214,9 @@ function isOptionalPositiveInteger(value: unknown): value is number | undefined 
 }
 
 function isOptionalNonNegativeInteger(value: unknown): value is number | undefined {
-  return value === undefined || (typeof value === 'number' && Number.isInteger(value) && value >= 0);
+  return (
+    value === undefined || (typeof value === 'number' && Number.isInteger(value) && value >= 0)
+  );
 }
 
 function isOptionalStringOrNull(value: unknown): value is string | null | undefined {
@@ -217,7 +231,10 @@ function isNonNegativeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
 
-function validateAssetAnchor(value: unknown): { anchor?: ObservatoryAssetDefinition['anchor']; reason?: string } {
+function validateAssetAnchor(value: unknown): {
+  anchor?: ObservatoryAssetDefinition['anchor'];
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -226,14 +243,24 @@ function validateAssetAnchor(value: unknown): { anchor?: ObservatoryAssetDefinit
     return { reason: 'anchor must be an object when present' };
   }
 
-  if (!isFiniteNumber(value.x) || value.x < 0 || value.x > 1 || !isFiniteNumber(value.y) || value.y < 0 || value.y > 1) {
+  if (
+    !isFiniteNumber(value.x) ||
+    value.x < 0 ||
+    value.x > 1 ||
+    !isFiniteNumber(value.y) ||
+    value.y < 0 ||
+    value.y > 1
+  ) {
     return { reason: 'anchor.x and anchor.y must be numbers between 0 and 1' };
   }
 
   return { anchor: { x: value.x, y: value.y } };
 }
 
-function validateAssetCollision(value: unknown): { collision?: ObservatoryAssetDefinition['collision']; reason?: string } {
+function validateAssetCollision(value: unknown): {
+  collision?: ObservatoryAssetDefinition['collision'];
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -264,7 +291,10 @@ function validateAssetCollision(value: unknown): { collision?: ObservatoryAssetD
   };
 }
 
-function validateAssetAnimation(value: unknown): { animation?: ObservatoryAssetAnimation; reason?: string } {
+function validateAssetAnimation(value: unknown): {
+  animation?: ObservatoryAssetAnimation;
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -289,7 +319,10 @@ function validateAssetAnimation(value: unknown): { animation?: ObservatoryAssetA
     return { reason: 'animation.frameRate must be a positive number' };
   }
 
-  if (value.repeat !== undefined && (typeof value.repeat !== 'number' || !Number.isInteger(value.repeat) || value.repeat < -1)) {
+  if (
+    value.repeat !== undefined &&
+    (typeof value.repeat !== 'number' || !Number.isInteger(value.repeat) || value.repeat < -1)
+  ) {
     return { reason: 'animation.repeat must be an integer >= -1 when present' };
   }
 
@@ -304,7 +337,10 @@ function validateAssetAnimation(value: unknown): { animation?: ObservatoryAssetA
   };
 }
 
-function validateAssetAnimations(value: unknown): { animations?: ObservatoryAssetAnimation[]; reason?: string } {
+function validateAssetAnimations(value: unknown): {
+  animations?: ObservatoryAssetAnimation[];
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -363,16 +399,26 @@ function validateStatusAnimations(value: unknown): {
   return { statusAnimations };
 }
 
-function validateCharacterAction(value: unknown): { action?: ObservatoryCharacterActionDefinition; reason?: string } {
+function validateCharacterAction(value: unknown): {
+  action?: ObservatoryCharacterActionDefinition;
+  reason?: string;
+} {
   if (!isRecord(value)) {
     return { reason: 'character action must be an object' };
   }
 
-  if (typeof value.action !== 'string' || !characterActions.has(value.action as ObservatoryCharacterActionName)) {
+  if (
+    typeof value.action !== 'string' ||
+    !characterActions.has(value.action as ObservatoryCharacterActionName)
+  ) {
     return { reason: 'character action is not supported' };
   }
 
-  if (value.direction !== undefined && (typeof value.direction !== 'string' || !characterDirections.has(value.direction as ObservatoryCharacterDirection))) {
+  if (
+    value.direction !== undefined &&
+    (typeof value.direction !== 'string' ||
+      !characterDirections.has(value.direction as ObservatoryCharacterDirection))
+  ) {
     return { reason: 'character action direction is not supported' };
   }
 
@@ -397,7 +443,9 @@ function validateCharacterAction(value: unknown): { action?: ObservatoryCharacte
   }
 
   if (value.loopStartFrame !== undefined && !isNonNegativeInteger(value.loopStartFrame)) {
-    return { reason: 'character action loopStartFrame must be a non-negative integer when present' };
+    return {
+      reason: 'character action loopStartFrame must be a non-negative integer when present',
+    };
   }
 
   if (value.loopEndFrame !== undefined && !isNonNegativeInteger(value.loopEndFrame)) {
@@ -419,7 +467,11 @@ function validateCharacterAction(value: unknown): { action?: ObservatoryCharacte
     return { reason: 'character action playOnce must be a boolean when present' };
   }
 
-  if (value.priority !== undefined && (typeof value.priority !== 'string' || !characterPriorities.has(value.priority as ObservatoryCharacterActionPriority))) {
+  if (
+    value.priority !== undefined &&
+    (typeof value.priority !== 'string' ||
+      !characterPriorities.has(value.priority as ObservatoryCharacterActionPriority))
+  ) {
     return { reason: 'character action priority is not supported' };
   }
 
@@ -440,7 +492,10 @@ function validateCharacterAction(value: unknown): { action?: ObservatoryCharacte
   };
 }
 
-function validateCharacterActions(value: unknown): { actions?: ObservatoryCharacterActionDefinition[]; reason?: string } {
+function validateCharacterActions(value: unknown): {
+  actions?: ObservatoryCharacterActionDefinition[];
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -471,7 +526,10 @@ function validateCharacterActions(value: unknown): { actions?: ObservatoryCharac
   return { actions };
 }
 
-function validateCharacterSheet(value: unknown): { reason?: string; sheet?: ObservatoryCharacterSheetDefinition } {
+function validateCharacterSheet(value: unknown): {
+  reason?: string;
+  sheet?: ObservatoryCharacterSheetDefinition;
+} {
   if (value === undefined) {
     return {};
   }
@@ -487,7 +545,11 @@ function validateCharacterSheet(value: unknown): { reason?: string; sheet?: Obse
   if (
     value.directionOrder !== undefined &&
     (!Array.isArray(value.directionOrder) ||
-      value.directionOrder.some((direction) => typeof direction !== 'string' || !characterDirections.has(direction as ObservatoryCharacterDirection)))
+      value.directionOrder.some(
+        (direction) =>
+          typeof direction !== 'string' ||
+          !characterDirections.has(direction as ObservatoryCharacterDirection)
+      ))
   ) {
     return { reason: 'characterSheet.directionOrder must contain supported directions' };
   }
@@ -502,7 +564,10 @@ function validateCharacterSheet(value: unknown): { reason?: string; sheet?: Obse
   };
 }
 
-function validateAutotile(value: unknown): { autotile?: ObservatoryAutotileDefinition; reason?: string } {
+function validateAutotile(value: unknown): {
+  autotile?: ObservatoryAutotileDefinition;
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -535,7 +600,9 @@ function validateAutotile(value: unknown): { autotile?: ObservatoryAutotileDefin
     !isPositiveNumber(value.set.height) ||
     !Number.isInteger(value.set.height)
   ) {
-    return { reason: 'autotile.set must include non-negative x/y and positive integer width/height' };
+    return {
+      reason: 'autotile.set must include non-negative x/y and positive integer width/height',
+    };
   }
 
   if (value.sourceLayout !== undefined && !isRecord(value.sourceLayout)) {
@@ -544,16 +611,17 @@ function validateAutotile(value: unknown): { autotile?: ObservatoryAutotileDefin
 
   if (
     isRecord(value.sourceLayout) &&
-    (
-      !isOptionalNonNegativeInteger(value.sourceLayout.x) ||
+    (!isOptionalNonNegativeInteger(value.sourceLayout.x) ||
       !isOptionalNonNegativeInteger(value.sourceLayout.topY) ||
       !isOptionalNonNegativeInteger(value.sourceLayout.faceY) ||
       !isOptionalPositiveInteger(value.sourceLayout.blockWidth) ||
       !isOptionalPositiveInteger(value.sourceLayout.blockCount) ||
-      !isOptionalStringOrNull(value.sourceLayout.colorKey)
-    )
+      !isOptionalStringOrNull(value.sourceLayout.colorKey))
   ) {
-    return { reason: 'autotile.sourceLayout must use non-negative integer offsets, positive integer sizes/counts, and optional string colorKey' };
+    return {
+      reason:
+        'autotile.sourceLayout must use non-negative integer offsets, positive integer sizes/counts, and optional string colorKey',
+    };
   }
 
   const sourceLayout = isRecord(value.sourceLayout)
@@ -588,21 +656,33 @@ function validateAssetSource(value: unknown): { source?: ObservatoryAssetSource;
     return { reason: 'source must be an object' };
   }
 
-  if (typeof value.kind !== 'string' || !sourceKinds.has(value.kind as ObservatoryAssetSourceKind)) {
+  if (
+    typeof value.kind !== 'string' ||
+    !sourceKinds.has(value.kind as ObservatoryAssetSourceKind)
+  ) {
     return { reason: 'source.kind must be image or spritesheet' };
   }
 
   const sourceKind = value.kind as ObservatoryAssetSourceKind;
 
-  if (typeof value.uri !== 'string' || value.uri.length === 0 || value.uri.length > maxAssetUriLength) {
-    return { reason: `source.uri must be a non-empty string up to ${maxAssetUriLength} characters` };
+  if (
+    typeof value.uri !== 'string' ||
+    value.uri.length === 0 ||
+    value.uri.length > maxAssetUriLength
+  ) {
+    return {
+      reason: `source.uri must be a non-empty string up to ${maxAssetUriLength} characters`,
+    };
   }
 
   if (!isOptionalPositiveNumber(value.frameWidth) || !isOptionalPositiveNumber(value.frameHeight)) {
     return { reason: 'source frame dimensions must be positive numbers when present' };
   }
 
-  if (sourceKind === 'spritesheet' && (!isPositiveNumber(value.frameWidth) || !isPositiveNumber(value.frameHeight))) {
+  if (
+    sourceKind === 'spritesheet' &&
+    (!isPositiveNumber(value.frameWidth) || !isPositiveNumber(value.frameHeight))
+  ) {
     return { reason: 'spritesheet assets require frameWidth and frameHeight' };
   }
 
@@ -616,7 +696,10 @@ function validateAssetSource(value: unknown): { source?: ObservatoryAssetSource;
   };
 }
 
-function validateAssetSourceCrop(value: unknown): { sourceCrop?: ObservatoryAssetSourceCrop; reason?: string } {
+function validateAssetSourceCrop(value: unknown): {
+  sourceCrop?: ObservatoryAssetSourceCrop;
+  reason?: string;
+} {
   if (value === undefined) {
     return {};
   }
@@ -646,7 +729,10 @@ function validateAssetSourceCrop(value: unknown): { sourceCrop?: ObservatoryAsse
   };
 }
 
-function validateAsset(value: unknown): { asset?: ObservatoryAssetDefinition; invalidAsset?: ObservatoryInvalidAsset } {
+function validateAsset(value: unknown): {
+  asset?: ObservatoryAssetDefinition;
+  invalidAsset?: ObservatoryInvalidAsset;
+} {
   if (!isRecord(value)) {
     return { invalidAsset: { assetId: 'unknown', reason: 'asset must be an object' } };
   }
@@ -654,14 +740,24 @@ function validateAsset(value: unknown): { asset?: ObservatoryAssetDefinition; in
   const assetId = typeof value.id === 'string' ? value.id : 'unknown';
 
   if (!assetIdPattern.test(assetId)) {
-    return { invalidAsset: { assetId, reason: 'id must use lowercase letters, numbers, colon, or dash' } };
+    return {
+      invalidAsset: { assetId, reason: 'id must use lowercase letters, numbers, colon, or dash' },
+    };
   }
 
-  if (value.catalogPath !== undefined && (typeof value.catalogPath !== 'string' || value.catalogPath.length === 0)) {
-    return { invalidAsset: { assetId, reason: 'catalogPath must be a non-empty string when present' } };
+  if (
+    value.catalogPath !== undefined &&
+    (typeof value.catalogPath !== 'string' || value.catalogPath.length === 0)
+  ) {
+    return {
+      invalidAsset: { assetId, reason: 'catalogPath must be a non-empty string when present' },
+    };
   }
 
-  if (typeof value.category !== 'string' || !assetCategories.has(value.category as ObservatoryAssetCategory)) {
+  if (
+    typeof value.category !== 'string' ||
+    !assetCategories.has(value.category as ObservatoryAssetCategory)
+  ) {
     return { invalidAsset: { assetId, reason: 'category is not supported' } };
   }
 
@@ -688,11 +784,15 @@ function validateAsset(value: unknown): { asset?: ObservatoryAssetDefinition; in
   }
 
   if (!isOptionalPositiveNumber(value.width) || !isOptionalPositiveNumber(value.height)) {
-    return { invalidAsset: { assetId, reason: 'asset dimensions must be positive numbers when present' } };
+    return {
+      invalidAsset: { assetId, reason: 'asset dimensions must be positive numbers when present' },
+    };
   }
 
   if (!isOptionalNonNegativeInteger(value.frame)) {
-    return { invalidAsset: { assetId, reason: 'frame must be a non-negative integer when present' } };
+    return {
+      invalidAsset: { assetId, reason: 'frame must be a non-negative integer when present' },
+    };
   }
 
   const animationResult = validateAssetAnimation(value.animation);
@@ -743,8 +843,16 @@ function validateAsset(value: unknown): { asset?: ObservatoryAssetDefinition; in
     return { invalidAsset: { assetId, reason: collisionResult.reason } };
   }
 
-  if (value.semanticId !== undefined && (typeof value.semanticId !== 'string' || !semanticIdPattern.test(value.semanticId))) {
-    return { invalidAsset: { assetId, reason: 'semanticId must use lowercase letters, numbers, colon, or dash' } };
+  if (
+    value.semanticId !== undefined &&
+    (typeof value.semanticId !== 'string' || !semanticIdPattern.test(value.semanticId))
+  ) {
+    return {
+      invalidAsset: {
+        assetId,
+        reason: 'semanticId must use lowercase letters, numbers, colon, or dash',
+      },
+    };
   }
 
   return {
@@ -768,7 +876,9 @@ function validateAsset(value: unknown): { asset?: ObservatoryAssetDefinition; in
       collision: collisionResult.collision,
       semanticId: value.semanticId,
       statusAnimations: statusAnimationsResult.statusAnimations,
-      tags: Array.isArray(value.tags) ? value.tags.filter((tag): tag is string => typeof tag === 'string') : undefined,
+      tags: Array.isArray(value.tags)
+        ? value.tags.filter((tag): tag is string => typeof tag === 'string')
+        : undefined,
     },
   };
 }
@@ -779,7 +889,7 @@ export function createObservatoryAssetLookup(registry: ObservatoryValidatedAsset
 
 export function filterObservatoryAssetRegistry(
   registry: ObservatoryValidatedAssetRegistry,
-  assetIds: Iterable<string>,
+  assetIds: Iterable<string>
 ): ObservatoryValidatedAssetRegistry {
   const requestedIds = new Set(assetIds);
 
@@ -792,12 +902,14 @@ export function filterObservatoryAssetRegistry(
 export function createObservatoryCharacterActionAnimationKey(
   assetId: string,
   action: ObservatoryCharacterActionName,
-  direction?: ObservatoryCharacterDirection,
+  direction?: ObservatoryCharacterDirection
 ) {
   return `${assetId}:action:${action}:${direction ?? 'all'}`;
 }
 
-export function validateObservatoryAssetRegistry(registry: unknown): ObservatoryValidatedAssetRegistry {
+export function validateObservatoryAssetRegistry(
+  registry: unknown
+): ObservatoryValidatedAssetRegistry {
   if (!isRecord(registry)) {
     return {
       registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
@@ -818,7 +930,10 @@ export function validateObservatoryAssetRegistry(registry: unknown): Observatory
   }
 
   if (typeof registry.assetPackVersion !== 'string' || registry.assetPackVersion.length === 0) {
-    invalidAssets.push({ assetId: 'registry', reason: 'assetPackVersion must be a non-empty string' });
+    invalidAssets.push({
+      assetId: 'registry',
+      reason: 'assetPackVersion must be a non-empty string',
+    });
   }
 
   if (!Array.isArray(registry.assets)) {
@@ -853,7 +968,8 @@ export function validateObservatoryAssetRegistry(registry: unknown): Observatory
       registry.registryVersion === OBSERVATORY_ASSET_REGISTRY_VERSION
         ? registry.registryVersion
         : OBSERVATORY_ASSET_REGISTRY_VERSION,
-    assetPackVersion: typeof registry.assetPackVersion === 'string' ? registry.assetPackVersion : 'invalid',
+    assetPackVersion:
+      typeof registry.assetPackVersion === 'string' ? registry.assetPackVersion : 'invalid',
     assets,
     invalidAssets,
   };

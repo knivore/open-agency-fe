@@ -21,28 +21,40 @@ export interface ObservatoryGridConfig {
   tileSize: number;
 }
 
-export function gridToWorld(point: ObservatoryGridPoint, grid: ObservatoryGridConfig): ObservatoryWorldPoint {
+export function gridToWorld(
+  point: ObservatoryGridPoint,
+  grid: ObservatoryGridConfig
+): ObservatoryWorldPoint {
   return {
     x: point.x * grid.tileSize,
     y: point.y * grid.tileSize,
   };
 }
 
-export function gridToWorldCenter(point: ObservatoryGridPoint, grid: ObservatoryGridConfig): ObservatoryWorldPoint {
+export function gridToWorldCenter(
+  point: ObservatoryGridPoint,
+  grid: ObservatoryGridConfig
+): ObservatoryWorldPoint {
   return {
     x: point.x * grid.tileSize + grid.tileSize / 2,
     y: point.y * grid.tileSize + grid.tileSize / 2,
   };
 }
 
-export function worldToGrid(point: ObservatoryWorldPoint, grid: ObservatoryGridConfig): ObservatoryGridPoint {
+export function worldToGrid(
+  point: ObservatoryWorldPoint,
+  grid: ObservatoryGridConfig
+): ObservatoryGridPoint {
   return {
     x: Math.floor(point.x / grid.tileSize),
     y: Math.floor(point.y / grid.tileSize),
   };
 }
 
-export function gridRectToWorldRect(rect: ObservatoryGridRect, grid: ObservatoryGridConfig): ObservatoryGridRect {
+export function gridRectToWorldRect(
+  rect: ObservatoryGridRect,
+  grid: ObservatoryGridConfig
+): ObservatoryGridRect {
   return {
     x: rect.x * grid.tileSize,
     y: rect.y * grid.tileSize,
@@ -52,5 +64,10 @@ export function gridRectToWorldRect(rect: ObservatoryGridRect, grid: Observatory
 }
 
 export function pointInGridRect(point: ObservatoryGridPoint, rect: ObservatoryGridRect): boolean {
-  return point.x >= rect.x && point.y >= rect.y && point.x < rect.x + rect.width && point.y < rect.y + rect.height;
+  return (
+    point.x >= rect.x &&
+    point.y >= rect.y &&
+    point.x < rect.x + rect.width &&
+    point.y < rect.y + rect.height
+  );
 }

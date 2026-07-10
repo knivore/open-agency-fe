@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '../library/shadcn/alert';
 import { Toaster } from 'sonner';
 
@@ -44,7 +44,7 @@ const ImageArtifacts = ({ processId }: {
           imageElement.src = streamUrl;
         }
       } catch (err) {
-        // Only set error if the component is still mounted and it's not an abort error
+        // Only set error if the component is still mounted, and it's not an abort error
         if (isMounted && !(err instanceof DOMException && err.name === 'AbortError')) {
           console.error('Error fetching image stream:', err);
           const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';

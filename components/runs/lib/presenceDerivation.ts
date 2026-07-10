@@ -1,10 +1,10 @@
+import type { ApprovalRequest } from '@/types/conversations';
 import type {
-  ApprovalRequest,
   ExecutionEventRecord,
   ExecutionStateSnapshot,
   RunSessionSummary,
-  WorkflowDefinition,
-} from '@/lib/api/backend/types';
+} from '@/types/runtime';
+import type { WorkflowDefinition } from '@/types/workflows';
 
 type DerivedPresence = {
   id: string;
@@ -30,7 +30,11 @@ const ACTIVE_EVENT_TYPES = new Set([
   'artifact.created',
 ]);
 
-function pushIndexed(map: Map<string, ExecutionEventRecord[]>, key: string | null | undefined, event: ExecutionEventRecord) {
+function pushIndexed(
+  map: Map<string, ExecutionEventRecord[]>,
+  key: string | null | undefined,
+  event: ExecutionEventRecord
+) {
   if (!key) {
     return;
   }
@@ -55,7 +59,10 @@ function sortEvents(events: ExecutionEventRecord[]) {
   return [...events].sort((left, right) => left.sequence - right.sequence);
 }
 
-function currentNodeContext(workflow: WorkflowDefinition | undefined, currentNodeId?: string | null) {
+function currentNodeContext(
+  workflow: WorkflowDefinition | undefined,
+  currentNodeId?: string | null
+) {
   if (!workflow || !currentNodeId) {
     return { currentTaskId: null, currentAgentId: null };
   }

@@ -1,11 +1,24 @@
 'use client';
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useSession } from 'next-auth/react';
 import { normalizeRunStatus } from '@/lib/workflows/runFormatting';
 import { useRunsModule } from '@/components/runs/context';
-import { localUser } from '@/lib/identity/localUser';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
+export const RUN_GOVERNANCE_EVENT_TYPES = [
+  'token.usage.recorded',
+  'model.fallback.used',
+  'model.fallback.failed',
+  'token.budget.warning',
+  'token.budget.exceeded',
+  'context.health.recorded',
+  'context.compaction.started',
+  'context.compaction.completed',
+  'context.compaction.failed',
+  'supervisor.steering.requested',
+  'supervisor.steering.applied',
+];
 
 function runStatusValue(status: unknown): string | null {
   return typeof status === 'string' ? status : null;
@@ -14,6 +27,7 @@ function runStatusValue(status: unknown): string | null {
 export function useRunDetailData(runId: string) {
   const { api, queryKeys } = useRunsModule();
   const queryClient = useQueryClient();
+  const { data: session } = useSession();
 
   const runQuery = useQuery({
     queryKey: queryKeys.runSession(runId),
@@ -41,6 +55,41 @@ export function useRunDetailData(runId: string) {
       return runStatus && TERMINAL_STATUSES.has(runStatus) ? false : 5000;
     },
   });
+  const governanceEventsQuery = useQuery({
+    queryKey: queryKeys.runGovernanceEvents(runId),
+    queryFn: () => api.logs.listRunEvents(runId, 0, RUN_GOVERNANCE_EVENT_TYPES),
+    refetchInterval: () => {
+      const runStatus = runStatusValue(runQuery.data?.summary.status);
+      return runStatus && TERMINAL_STATUSES.has(runStatus) ? false : 5000;
+    },
+  });
+
+  const nativeApprovalsQuery = useQuery({
+    queryKey: queryKeys.runApprovals(runId),
+    queryFn: () => api.runSessions.listRunApprovals(runId),
+    refetchInterval: () => {
+      const runStatus = runStatusValue(runQuery.data?.summary.status);
+      return runStatus && TERMINAL_STATUSES.has(runStatus) ? false : 5000;
+    },
+  });
+
+  const usageQuery = useQuery({
+    queryKey: queryKeys.runUsage(runId),
+    queryFn: () => api.runSessions.getRunUsage(runId),
+    refetchInterval: () => {
+      const runStatus = runStatusValue(runQuery.data?.summary.status);
+      return runStatus && TERMINAL_STATUSES.has(runStatus) ? false : 5000;
+    },
+  });
+
+  const contextUsageQuery = useQuery({
+    queryKey: queryKeys.runContextUsage(runId),
+    queryFn: () => api.runSessions.getRunContextUsage(runId),
+    refetchInterval: () => {
+      const runStatus = runStatusValue(runQuery.data?.summary.status);
+      return runStatus && TERMINAL_STATUSES.has(runStatus) ? false : 5000;
+    },
+  });
 
   const artifactsQuery = useQuery({
     queryKey: queryKeys.runArtifacts(runId),
@@ -62,7 +111,9 @@ export function useRunDetailData(runId: string) {
   });
 
   const workflowQuery = useQuery({
-    queryKey: runQuery.data?.summary.workflowId ? queryKeys.workflow(runQuery.data.summary.workflowId) : ['backendWorkflow', 'missing-run-workflow'] as const,
+    queryKey: runQuery.data?.summary.workflowId
+      ? queryKeys.workflow(runQuery.data.summary.workflowId)
+      : (['backendWorkflow', 'missing-run-workflow'] as const),
     queryFn: () => api.workflows.getWorkflow(runQuery.data!.summary.workflowId!),
     enabled: Boolean(runQuery.data?.summary.workflowId),
   });
@@ -72,6 +123,10 @@ export function useRunDetailData(runId: string) {
       runQuery.refetch(),
       timelineQuery.refetch(),
       eventsQuery.refetch(),
+      governanceEventsQuery.refetch(),
+      nativeApprovalsQuery.refetch(),
+      usageQuery.refetch(),
+      contextUsageQuery.refetch(),
       artifactsQuery.refetch(),
       logsQuery.refetch(),
       conversationContextQuery.refetch(),
@@ -85,21 +140,60 @@ export function useRunDetailData(runId: string) {
       await queryClient.invalidateQueries({ queryKey: queryKeys.agentRuns() });
       await queryClient.invalidateQueries({ queryKey: queryKeys.activeRunSessions() });
       if (runQuery.data?.summary.workflowId) {
-        await queryClient.invalidateQueries({ queryKey: queryKeys.workflowRuns(runQuery.data.summary.workflowId) });
+        await queryClient.invalidateQueries({
+          queryKey: queryKeys.workflowRuns(runQuery.data.summary.workflowId),
+        });
       }
     },
   };
 
-  const pauseMutation = useMutation({ mutationFn: () => api.runs.pauseRun(runId), ...mutationOptions });
-  const resumeMutation = useMutation({ mutationFn: () => api.runs.resumeRun(runId), ...mutationOptions });
-  const cancelMutation = useMutation({ mutationFn: () => api.runs.cancelRun(runId), ...mutationOptions });
+  const pauseMutation = useMutation({
+    mutationFn: () => api.runs.pauseRun(runId),
+    ...mutationOptions,
+  });
+  const resumeMutation = useMutation({
+    mutationFn: () => api.runs.resumeRun(runId),
+    ...mutationOptions,
+  });
+  const cancelMutation = useMutation({
+    mutationFn: () => api.runs.cancelRun(runId),
+    ...mutationOptions,
+  });
   const approvalDecisionMutation = useMutation({
-    mutationFn: async ({ approvalRequestId, action }: { approvalRequestId: string; action: 'approve' | 'reject' }) => {
-      const actorUserId = localUser.id;
+    mutationFn: async ({
+      approvalRequestId,
+      action,
+    }: {
+      approvalRequestId: string;
+      action: 'approve' | 'reject';
+    }) => {
+      const actorUserId =
+        typeof session?.user?.id === 'string'
+          ? session.user.id
+          : typeof session?.user?.email === 'string'
+            ? session.user.email
+            : 'unknown-user';
       return action === 'approve'
         ? api.conversations.approveApprovalRequest(approvalRequestId, { user_id: actorUserId })
         : api.conversations.rejectApprovalRequest(approvalRequestId, { user_id: actorUserId });
     },
+    onSuccess: async () => {
+      await refreshAll();
+    },
+  });
+  const nativeApprovalDecisionMutation = useMutation({
+    mutationFn: async ({
+      toolId,
+      action,
+      reason,
+    }: {
+      toolId: string;
+      action: 'approve' | 'reject';
+      reason?: string;
+    }) =>
+      action === 'approve'
+        ? api.runs.approveRun(runId, toolId, reason)
+        : api.runs.rejectRun(runId, toolId, reason),
     onSuccess: async () => {
       await refreshAll();
     },
@@ -109,6 +203,10 @@ export function useRunDetailData(runId: string) {
     runQuery,
     timelineQuery,
     eventsQuery,
+    governanceEventsQuery,
+    nativeApprovalsQuery,
+    usageQuery,
+    contextUsageQuery,
     artifactsQuery,
     logsQuery,
     conversationContextQuery,
@@ -118,5 +216,6 @@ export function useRunDetailData(runId: string) {
     resumeMutation,
     cancelMutation,
     approvalDecisionMutation,
+    nativeApprovalDecisionMutation,
   };
 }

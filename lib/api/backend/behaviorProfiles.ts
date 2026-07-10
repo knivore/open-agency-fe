@@ -1,6 +1,6 @@
 import { modelProfilesApi } from '@/lib/api/backend/models';
 import { toBehaviorTuningProfile } from '@/lib/api/backend/agentTransforms';
-import type { BehaviorTuningProfile } from '@/lib/api/backend/types';
+import type { BehaviorTuningProfile } from '@/types/agents';
 
 export const behaviorProfilesApi = {
   async listProfiles(): Promise<BehaviorTuningProfile[]> {

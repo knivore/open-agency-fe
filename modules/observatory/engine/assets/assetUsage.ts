@@ -1,4 +1,7 @@
-import { filterObservatoryAssetRegistry, type ObservatoryValidatedAssetRegistry } from '@/modules/observatory/engine/assets/assetRegistry';
+import {
+  filterObservatoryAssetRegistry,
+  type ObservatoryValidatedAssetRegistry,
+} from '@/modules/observatory/engine/assets/assetRegistry';
 import type { ObservatoryMap } from '@/modules/observatory/engine/world/layoutTypes';
 
 export function collectObservatoryMapAssetIds(map: ObservatoryMap): Set<string> {
@@ -36,7 +39,7 @@ export function collectObservatoryMapAssetIds(map: ObservatoryMap): Set<string> 
 
 export function filterObservatoryRegistryForMap(
   registry: ObservatoryValidatedAssetRegistry,
-  map: ObservatoryMap,
+  map: ObservatoryMap
 ): ObservatoryValidatedAssetRegistry {
   const assetIds = collectObservatoryMapAssetIds(map);
 

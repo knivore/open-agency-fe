@@ -24,10 +24,10 @@ import type {
   ObservatoryObject,
   ObservatoryObjectRenderOptions,
   ObservatoryRoom,
-  ObservatoryRoomWallEdgeOpening,
-  ObservatoryRoomWallCellKind,
-  ObservatoryRoomWallSide,
   ObservatoryRoomKind,
+  ObservatoryRoomWallCellKind,
+  ObservatoryRoomWallEdgeOpening,
+  ObservatoryRoomWallSide,
 } from '@/modules/observatory/engine/world/layoutTypes';
 
 export interface ObservatoryLayoutEditResult {

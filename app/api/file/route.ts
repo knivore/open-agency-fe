@@ -1,4 +1,4 @@
-import { storageApi } from '@/lib/api/backend';
+import { storageApi } from '@/lib/api/backend/storage';
 import { NextResponse } from 'next/server';
 
 // GET /api/file?key=xxx - Download file from S3
@@ -37,10 +37,7 @@ export async function POST(req: Request) {
     const s3Key = formData.get('s3Key') as string;
 
     if (!file || !s3Key) {
-      return NextResponse.json(
-        { message: 'File and s3Key are required' },
-        { status: 400 },
-      );
+      return NextResponse.json({ message: 'File and s3Key are required' }, { status: 400 });
     }
 
     const presignedResponse = await storageApi.getPresignedUrl({
@@ -61,8 +58,7 @@ export async function POST(req: Request) {
       throw new Error(`Failed to upload file: ${uploadResponse.statusText}`);
     }
 
-    const key = s3Key;
-    return NextResponse.json({ data: key, status: 200 });
+    return NextResponse.json({ data: s3Key, status: 200 });
   } catch (error) {
     console.error('Failed to upload file:', error);
     return NextResponse.json(

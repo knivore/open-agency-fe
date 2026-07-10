@@ -22,3 +22,11 @@ export function getAgencyApiBaseUrl() {
 
   return '';
 }
+
+export function isAgencyDevAuthEnabled() {
+  if (process.env.NEXT_PUBLIC_AGENCY_DEV_AUTH_ENABLED === 'true') {
+    return true;
+  }
+
+  return process.env.NEXT_PUBLIC_APP_ENV === 'local';
+}

@@ -4,12 +4,21 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const moduleRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..'
+);
 const repoLayoutPath = path.join(moduleRoot, 'layouts', 'publishedLayout.json');
 const schemaVersion = 1;
 const idPattern = /^[a-z0-9][a-z0-9:-]*$/;
 const roomKinds = new Set(['workspace', 'runtime', 'commons']);
-const agentStatuses = new Set(['idle', 'working', 'blocked', 'complete', 'error']);
+const agentStatuses = new Set([
+  'idle',
+  'working',
+  'blocked',
+  'complete',
+  'error',
+]);
 
 async function main() {
   const args = process.argv.slice(2);
@@ -17,8 +26,12 @@ async function main() {
   const inputPath = args.find((argument) => !argument.startsWith('-'));
 
   if (!inputPath || inputPath === '--help' || inputPath === '-h') {
-    console.log('Usage: node modules/observatory/scripts/save-layout-to-repo.mjs [--check] <exported-layout.json>');
-    console.log(`Writes validated layout JSON to ${path.relative(process.cwd(), repoLayoutPath)}`);
+    console.log(
+      'Usage: node modules/observatory/scripts/save-layout-to-repo.mjs [--check] <exported-layout.json>'
+    );
+    console.log(
+      `Writes validated layout JSON to ${path.relative(process.cwd(), repoLayoutPath)}`
+    );
     return;
   }
 
@@ -27,7 +40,9 @@ async function main() {
   const issues = validateLayout(layout);
 
   if (issues.length > 0) {
-    console.error(`Layout validation failed:\n${issues.map((issue) => `- ${issue}`).join('\n')}`);
+    console.error(
+      `Layout validation failed:\n${issues.map((issue) => `- ${issue}`).join('\n')}`
+    );
     process.exitCode = 1;
     return;
   }
@@ -35,17 +50,26 @@ async function main() {
   const publishedLayout = markPublished(layout);
 
   if (checkOnly) {
-    console.log(`Validated Observatory layout: ${path.relative(process.cwd(), path.resolve(inputPath))}`);
+    console.log(
+      `Validated Observatory layout: ${path.relative(process.cwd(), path.resolve(inputPath))}`
+    );
     return;
   }
 
-  await writeFile(repoLayoutPath, `${JSON.stringify(publishedLayout, null, 2)}\n`, 'utf8');
-  console.log(`Saved repo-backed Observatory layout: ${path.relative(process.cwd(), repoLayoutPath)}`);
+  await writeFile(
+    repoLayoutPath,
+    `${JSON.stringify(publishedLayout, null, 2)}\n`,
+    'utf8'
+  );
+  console.log(
+    `Saved repo-backed Observatory layout: ${path.relative(process.cwd(), repoLayoutPath)}`
+  );
 }
 
 function markPublished(layout) {
   const timestamp = new Date().toISOString();
-  const metadata = layout.metadata && isRecord(layout.metadata) ? layout.metadata : {};
+  const metadata =
+    layout.metadata && isRecord(layout.metadata) ? layout.metadata : {};
 
   return {
     ...layout,
@@ -86,7 +110,11 @@ function validateLayout(layout) {
     issues.push('world.name must be a non-empty string');
   }
 
-  if (!isRecord(layout.world.grid) || !positiveInteger(layout.world.grid.tileSize) || !gridSize(layout.world.grid.size)) {
+  if (
+    !isRecord(layout.world.grid) ||
+    !positiveInteger(layout.world.grid.tileSize) ||
+    !gridSize(layout.world.grid.size)
+  ) {
     issues.push('world.grid must include positive tileSize and size');
   }
 
@@ -95,7 +123,9 @@ function validateLayout(layout) {
     return issues;
   }
 
-  layout.world.maps.forEach((map, mapIndex) => validateMap(map, `world.maps[${mapIndex}]`, issues));
+  layout.world.maps.forEach((map, mapIndex) =>
+    validateMap(map, `world.maps[${mapIndex}]`, issues)
+  );
   return issues;
 }
 
@@ -118,7 +148,9 @@ function validateMap(map, pathPrefix, issues) {
   }
 
   if (!id(map.defaultFloorAssetId)) {
-    issues.push(`${pathPrefix}.defaultFloorAssetId must be a lowercase asset identifier`);
+    issues.push(
+      `${pathPrefix}.defaultFloorAssetId must be a lowercase asset identifier`
+    );
   }
 
   if (!Array.isArray(map.rooms)) {
@@ -134,21 +166,29 @@ function validateMap(map, pathPrefix, issues) {
     }
 
     if (!id(room.id)) {
-      issues.push(`${pathPrefix}.rooms[${roomIndex}].id must be a lowercase identifier`);
+      issues.push(
+        `${pathPrefix}.rooms[${roomIndex}].id must be a lowercase identifier`
+      );
     } else {
       roomIds.add(room.id);
     }
 
     if (!nonEmptyString(room.name)) {
-      issues.push(`${pathPrefix}.rooms[${roomIndex}].name must be a non-empty string`);
+      issues.push(
+        `${pathPrefix}.rooms[${roomIndex}].name must be a non-empty string`
+      );
     }
 
     if (!roomKinds.has(room.kind)) {
-      issues.push(`${pathPrefix}.rooms[${roomIndex}].kind must be workspace, runtime, or commons`);
+      issues.push(
+        `${pathPrefix}.rooms[${roomIndex}].kind must be workspace, runtime, or commons`
+      );
     }
 
     if (!gridRect(room.bounds)) {
-      issues.push(`${pathPrefix}.rooms[${roomIndex}].bounds must be a valid grid rect`);
+      issues.push(
+        `${pathPrefix}.rooms[${roomIndex}].bounds must be a valid grid rect`
+      );
     }
   });
 
@@ -173,15 +213,21 @@ function validateObjects(objects, roomIds, pathPrefix, issues) {
     }
 
     if (!id(object.assetId)) {
-      issues.push(`${pathPrefix}[${index}].assetId must be a lowercase asset identifier`);
+      issues.push(
+        `${pathPrefix}[${index}].assetId must be a lowercase asset identifier`
+      );
     }
 
     if (object.roomId !== undefined && !roomIds.has(object.roomId)) {
-      issues.push(`${pathPrefix}[${index}].roomId must reference an existing room`);
+      issues.push(
+        `${pathPrefix}[${index}].roomId must reference an existing room`
+      );
     }
 
     if (!gridPoint(object.position)) {
-      issues.push(`${pathPrefix}[${index}].position must be a valid grid point`);
+      issues.push(
+        `${pathPrefix}[${index}].position must be a valid grid point`
+      );
     }
 
     if (object.size !== undefined && !gridSize(object.size)) {
@@ -211,19 +257,27 @@ function validateAgents(agents, roomIds, pathPrefix, issues) {
     }
 
     if (!id(agent.assetId)) {
-      issues.push(`${pathPrefix}[${index}].assetId must be a lowercase asset identifier`);
+      issues.push(
+        `${pathPrefix}[${index}].assetId must be a lowercase asset identifier`
+      );
     }
 
     if (agent.roomId !== undefined && !roomIds.has(agent.roomId)) {
-      issues.push(`${pathPrefix}[${index}].roomId must reference an existing room`);
+      issues.push(
+        `${pathPrefix}[${index}].roomId must reference an existing room`
+      );
     }
 
     if (!gridPoint(agent.position)) {
-      issues.push(`${pathPrefix}[${index}].position must be a valid grid point`);
+      issues.push(
+        `${pathPrefix}[${index}].position must be a valid grid point`
+      );
     }
 
     if (!agentStatuses.has(agent.status)) {
-      issues.push(`${pathPrefix}[${index}].status must be idle, working, blocked, complete, or error`);
+      issues.push(
+        `${pathPrefix}[${index}].status must be idle, working, blocked, complete, or error`
+      );
     }
   });
 }
@@ -249,11 +303,19 @@ function nonNegativeInteger(value) {
 }
 
 function gridPoint(value) {
-  return isRecord(value) && nonNegativeInteger(value.x) && nonNegativeInteger(value.y);
+  return (
+    isRecord(value) &&
+    nonNegativeInteger(value.x) &&
+    nonNegativeInteger(value.y)
+  );
 }
 
 function gridSize(value) {
-  return isRecord(value) && positiveInteger(value.width) && positiveInteger(value.height);
+  return (
+    isRecord(value) &&
+    positiveInteger(value.width) &&
+    positiveInteger(value.height)
+  );
 }
 
 function gridRect(value) {

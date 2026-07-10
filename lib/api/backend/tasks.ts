@@ -1,6 +1,6 @@
 import { toTask } from '@/lib/api/backend/agentTransforms';
 import { workflowsApi } from '@/lib/api/backend/workflows';
-import type { Task } from '@/lib/api/backend/types';
+import type { Task } from '@/types/workflows';
 
 export const tasksApi = {
   async listTasksForWorkflow(workflowId: string): Promise<Task[]> {

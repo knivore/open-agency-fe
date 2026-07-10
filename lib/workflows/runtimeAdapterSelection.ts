@@ -3,7 +3,7 @@ import type { RuntimeAdapterDefinition } from '@/types/runtime';
 export function resolveRunnableAdapters(
   runtimeAdapters: RuntimeAdapterDefinition[],
   workflowAllowedAdapterIds: string[] | undefined,
-  workflowDefaultAdapterId: string | null | undefined,
+  workflowDefaultAdapterId: string | null | undefined
 ) {
   const adapterById = new Map(runtimeAdapters.map((adapter) => [adapter.id, adapter]));
   const allowedAdapters = (workflowAllowedAdapterIds ?? [])
@@ -26,21 +26,22 @@ export function resolveRunnableAdapters(
 
 export function preferredRunRuntimeAdapterId(
   runnableAdapters: RuntimeAdapterDefinition[],
-  workflowDefaultAdapterId: string | null | undefined,
+  workflowDefaultAdapterId: string | null | undefined
 ) {
   return (
-    runnableAdapters.find((adapter) => adapter.id === 'native')?.id
-    ?? (workflowDefaultAdapterId && runnableAdapters.some((adapter) => adapter.id === workflowDefaultAdapterId)
+    runnableAdapters.find((adapter) => adapter.id === 'native')?.id ??
+    (workflowDefaultAdapterId &&
+    runnableAdapters.some((adapter) => adapter.id === workflowDefaultAdapterId)
       ? workflowDefaultAdapterId
-      : null)
-    ?? runnableAdapters[0]?.id
-    ?? ''
+      : null) ??
+    runnableAdapters[0]?.id ??
+    ''
   );
 }
 
 export function preferredWorkflowRuntimeAdapterId(
   workflowAllowedAdapterIds: string[] | undefined,
-  workflowDefaultAdapterId: string | null | undefined,
+  workflowDefaultAdapterId: string | null | undefined
 ) {
   const allowedAdapterIds = workflowAllowedAdapterIds ?? [];
 
@@ -49,8 +50,8 @@ export function preferredWorkflowRuntimeAdapterId(
   }
 
   if (
-    workflowDefaultAdapterId
-    && (allowedAdapterIds.length === 0 || allowedAdapterIds.includes(workflowDefaultAdapterId))
+    workflowDefaultAdapterId &&
+    (allowedAdapterIds.length === 0 || allowedAdapterIds.includes(workflowDefaultAdapterId))
   ) {
     return workflowDefaultAdapterId;
   }

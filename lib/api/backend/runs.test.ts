@@ -13,6 +13,8 @@ const { appApiClient, executionsApi, workflowsApi } = vi.hoisted(() => ({
     startExecution: vi.fn(),
     pauseExecution: vi.fn(),
     resumeExecution: vi.fn(),
+    retryExecutionTask: vi.fn(),
+    resumeExecutionFromCheckpoint: vi.fn(),
     cancelExecution: vi.fn(),
   },
   workflowsApi: {
@@ -20,7 +22,7 @@ const { appApiClient, executionsApi, workflowsApi } = vi.hoisted(() => ({
   },
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/lib/api/clientInstances', () => ({
   appApiClient,
 }));
 
@@ -79,6 +81,7 @@ describe('runsApi', () => {
       completedAt: null,
       updatedAt: null,
       createdBy: null,
+      currentNodeId: null,
       workerId: null,
       lastHeartbeatAt: null,
       container: {
@@ -93,8 +96,38 @@ describe('runsApi', () => {
       replacementOfExecutionId: null,
       restartReason: null,
       metadata: undefined,
+      inputPayload: null,
       outputPayload: null,
       error: null,
     });
+  });
+
+  it('retries a failed execution task through the executions API', async () => {
+    executionsApi.retryExecutionTask.mockResolvedValue({
+      status: 'queued',
+      replacement_execution_id: 'run-retry-1',
+    });
+
+    await runsApi.retryTask('run-failed-1', 'task-1', 'retry from graph');
+
+    expect(executionsApi.retryExecutionTask).toHaveBeenCalledWith(
+      'run-failed-1',
+      'task-1',
+      'retry from graph'
+    );
+  });
+
+  it('resumes an execution from checkpoint through the executions API', async () => {
+    executionsApi.resumeExecutionFromCheckpoint.mockResolvedValue({
+      status: 'queued',
+      replacement_execution_id: 'run-resume-1',
+    });
+
+    await runsApi.resumeFromCheckpoint('run-failed-1', 'resume checkpoint');
+
+    expect(executionsApi.resumeExecutionFromCheckpoint).toHaveBeenCalledWith(
+      'run-failed-1',
+      'resume checkpoint'
+    );
   });
 });

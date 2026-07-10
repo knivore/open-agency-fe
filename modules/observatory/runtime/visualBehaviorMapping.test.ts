@@ -75,7 +75,7 @@ describe('observatory pixel visual behavior mapping', () => {
         action: agent.action,
         agentId: agent.agentId,
         attention: agent.attention,
-      })),
+      }))
     ).toEqual([
       { action: 'phone', agentId: 'agent:byte', attention: 'thinking' },
       { action: 'idle', agentId: 'agent:delta', attention: 'error' },

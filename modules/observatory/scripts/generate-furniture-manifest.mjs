@@ -1,7 +1,15 @@
 #!/usr/bin/env node
 
 import { createHash } from 'node:crypto';
-import { access, mkdir, readFile, readdir, rename, rm, writeFile } from 'node:fs/promises';
+import {
+  access,
+  mkdir,
+  readdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { inflateSync } from 'node:zlib';
@@ -11,12 +19,18 @@ const moduleRoot = path.resolve(scriptDir, '..');
 const furnitureRoot = path.join(moduleRoot, 'assets', 'furnitures');
 const reviewDir = path.join(furnitureRoot, '_review');
 const reviewMapPath = path.join(furnitureRoot, 'furniture-review-map.json');
-const generatedManifestPath = path.join(furnitureRoot, 'furniture-manifest.generated.json');
+const generatedManifestPath = path.join(
+  furnitureRoot,
+  'furniture-manifest.generated.json'
+);
 
 const shouldGenerateContactSheets = process.argv.includes('--contact-sheets');
 const shouldApplyRenames = process.argv.includes('--apply-renames');
 const folderFilter = new Set(parseCliValues('--folder'));
-const reviewMap = await readOptionalJson(reviewMapPath, { reviews: [], schemaVersion: 1 });
+const reviewMap = await readOptionalJson(reviewMapPath, {
+  reviews: [],
+  schemaVersion: 1,
+});
 let sharpModule;
 
 const folders = await scanFurnitureFolders();
@@ -26,18 +40,27 @@ if (shouldApplyRenames) {
   await applyReviewedRenames(assets);
 }
 
-const refreshedFolders = shouldApplyRenames ? await scanFurnitureFolders() : folders;
-const refreshedAssets = shouldApplyRenames ? await scanFurnitureAssets(refreshedFolders) : assets;
+const refreshedFolders = shouldApplyRenames
+  ? await scanFurnitureFolders()
+  : folders;
+const refreshedAssets = shouldApplyRenames
+  ? await scanFurnitureAssets(refreshedFolders)
+  : assets;
 
 if (shouldGenerateContactSheets) {
   await generateContactSheets(refreshedAssets);
 }
 
 const manifest = createFurnitureManifest(refreshedAssets);
-await writeFile(generatedManifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
+await writeFile(
+  generatedManifestPath,
+  `${JSON.stringify(manifest, null, 2)}\n`
+);
 await writeFolderManifests(manifest);
 
-console.log(`Generated furniture manifest for ${manifest.assets.length} assets across ${manifest.folders.length} folders`);
+console.log(
+  `Generated furniture manifest for ${manifest.assets.length} assets across ${manifest.folders.length} folders`
+);
 
 async function scanFurnitureFolders() {
   const dirents = await readdir(furnitureRoot, { withFileTypes: true });
@@ -45,7 +68,9 @@ async function scanFurnitureFolders() {
   return dirents
     .filter((dirent) => dirent.isDirectory())
     .map((dirent) => dirent.name)
-    .filter((name) => !name.startsWith('.') && name !== '_review' && name !== 'sliced')
+    .filter(
+      (name) => !name.startsWith('.') && name !== '_review' && name !== 'sliced'
+    )
     .filter((name) => folderFilter.size === 0 || folderFilter.has(name))
     .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 }
@@ -56,7 +81,10 @@ async function scanFurnitureAssets(folders) {
   for (const folder of folders) {
     const folderPath = path.join(furnitureRoot, folder);
     const files = (await readdir(folderPath, { withFileTypes: true }))
-      .filter((dirent) => dirent.isFile() && dirent.name.toLowerCase().endsWith('.png'))
+      .filter(
+        (dirent) =>
+          dirent.isFile() && dirent.name.toLowerCase().endsWith('.png')
+      )
       .map((dirent) => dirent.name)
       .sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
 
@@ -162,8 +190,16 @@ function decodeRgbaPng(file) {
   const filter = file[27];
   const interlace = file[28];
 
-  if (bitDepth !== 8 || colorType !== 6 || compression !== 0 || filter !== 0 || interlace !== 0) {
-    throw new Error(`Unsupported PNG format: bitDepth=${bitDepth}, colorType=${colorType}, interlace=${interlace}`);
+  if (
+    bitDepth !== 8 ||
+    colorType !== 6 ||
+    compression !== 0 ||
+    filter !== 0 ||
+    interlace !== 0
+  ) {
+    throw new Error(
+      `Unsupported PNG format: bitDepth=${bitDepth}, colorType=${colorType}, interlace=${interlace}`
+    );
   }
 
   const idatChunks = [];
@@ -198,7 +234,9 @@ function decodeRgbaPng(file) {
   for (let y = 0; y < height; y += 1) {
     const filterType = inflated[inputOffset];
     inputOffset += 1;
-    const current = Buffer.from(inflated.subarray(inputOffset, inputOffset + scanlineLength));
+    const current = Buffer.from(
+      inflated.subarray(inputOffset, inputOffset + scanlineLength)
+    );
     inputOffset += scanlineLength;
 
     unfilterScanline(current, previous, bytesPerPixel, filterType);
@@ -213,7 +251,8 @@ function unfilterScanline(current, previous, bytesPerPixel, filterType) {
   for (let index = 0; index < current.length; index += 1) {
     const left = index >= bytesPerPixel ? current[index - bytesPerPixel] : 0;
     const up = previous[index] ?? 0;
-    const upLeft = index >= bytesPerPixel ? previous[index - bytesPerPixel] ?? 0 : 0;
+    const upLeft =
+      index >= bytesPerPixel ? (previous[index - bytesPerPixel] ?? 0) : 0;
 
     if (filterType === 1) {
       current[index] = (current[index] + left) & 0xff;
@@ -222,7 +261,8 @@ function unfilterScanline(current, previous, bytesPerPixel, filterType) {
     } else if (filterType === 3) {
       current[index] = (current[index] + Math.floor((left + up) / 2)) & 0xff;
     } else if (filterType === 4) {
-      current[index] = (current[index] + paethPredictor(left, up, upLeft)) & 0xff;
+      current[index] =
+        (current[index] + paethPredictor(left, up, upLeft)) & 0xff;
     } else if (filterType !== 0) {
       throw new Error(`Unsupported PNG filter type ${filterType}`);
     }
@@ -302,12 +342,16 @@ async function writeFolderManifests(manifest) {
   for (const folder of manifest.folders) {
     await writeFile(
       path.join(furnitureRoot, folder.path, 'manifest.generated.json'),
-      `${JSON.stringify({
-        generatedAt: manifest.generatedAt,
-        schemaVersion: manifest.schemaVersion,
-        folder,
-        assets: assetsByFolder.get(folder.path) ?? [],
-      }, null, 2)}\n`,
+      `${JSON.stringify(
+        {
+          generatedAt: manifest.generatedAt,
+          schemaVersion: manifest.schemaVersion,
+          folder,
+          assets: assetsByFolder.get(folder.path) ?? [],
+        },
+        null,
+        2
+      )}\n`
     );
   }
 }
@@ -328,7 +372,11 @@ async function generateContactSheets(assets) {
   for (const [folder, folderAssets] of assetsByFolder) {
     const pageSize = 120;
 
-    for (let pageStart = 0; pageStart < folderAssets.length; pageStart += pageSize) {
+    for (
+      let pageStart = 0;
+      pageStart < folderAssets.length;
+      pageStart += pageSize
+    ) {
       const pageAssets = folderAssets.slice(pageStart, pageStart + pageSize);
       const pageNumber = pageStart / pageSize + 1;
       const fileName = `${slugify(folder)}.page-${String(pageNumber).padStart(3, '0')}.png`;
@@ -348,15 +396,19 @@ async function generateContactSheets(assets) {
 
   await writeFile(
     path.join(reviewDir, 'vlm-furniture-naming-prompt.md'),
-    `${createVlmNamingPrompt()}\n`,
+    `${createVlmNamingPrompt()}\n`
   );
   await writeFile(
     path.join(reviewDir, 'review-batches.generated.json'),
-    `${JSON.stringify({
-      generatedAt: new Date().toISOString(),
-      batchCount: batches.length,
-      batches,
-    }, null, 2)}\n`,
+    `${JSON.stringify(
+      {
+        generatedAt: new Date().toISOString(),
+        batchCount: batches.length,
+        batches,
+      },
+      null,
+      2
+    )}\n`
   );
 }
 
@@ -398,7 +450,7 @@ async function writeContactSheet(outputPath, assets) {
           <rect width="100%" height="100%" fill="#111827"/>
           <text x="4" y="13" fill="#e5e7eb" font-size="10" font-family="monospace">${escapeXml(assetKey(asset))}</text>
           <text x="4" y="27" fill="#94a3b8" font-size="9" font-family="monospace">${escapeXml(shortFileIndex(asset.fileName))}</text>
-        </svg>`,
+        </svg>`
       ),
       left,
       top: top + previewSize,
@@ -437,13 +489,18 @@ async function applyReviewedRenames(assets) {
       continue;
     }
 
-    const asset = assets.find((candidate) => candidate.relativePath === sourcePath);
+    const asset = assets.find(
+      (candidate) => candidate.relativePath === sourcePath
+    );
 
     if (!asset) {
       continue;
     }
 
-    const safeFileName = await createUniqueReviewedFileName(asset, ensurePngFileName(reviewedFileName));
+    const safeFileName = await createUniqueReviewedFileName(
+      asset,
+      ensurePngFileName(reviewedFileName)
+    );
     const targetPath = path.join(furnitureRoot, asset.folder, safeFileName);
 
     if (asset.absolutePath === targetPath) {
@@ -494,7 +551,9 @@ async function fileExists(filePath) {
 
 function findReviewForPath(relativePath) {
   return (reviewMap.reviews ?? []).find((review) => {
-    return review.sourcePath === relativePath || review.originalPath === relativePath;
+    return (
+      review.sourcePath === relativePath || review.originalPath === relativePath
+    );
   });
 }
 
@@ -530,12 +589,17 @@ Rules:
 
 function inferPack(folder) {
   const withoutPrefix = folder.replace(/^\d+_/, '');
-  const label = titleCase(withoutPrefix.replace(/_?Singles?_48x48/gi, '').replace(/_48x48/gi, ''));
+  const label = titleCase(
+    withoutPrefix.replace(/_?Singles?_48x48/gi, '').replace(/_48x48/gi, '')
+  );
 
   return {
     id: slugify(folder),
     label,
-    tags: uniqueStrings(['48x48', ...label.toLowerCase().split(/\s+/).filter(Boolean)]),
+    tags: uniqueStrings([
+      '48x48',
+      ...label.toLowerCase().split(/\s+/).filter(Boolean),
+    ]),
   };
 }
 
@@ -617,15 +681,21 @@ function titleCase(value) {
 }
 
 function slugify(value) {
-  return String(value)
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'asset';
+  return (
+    String(value)
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'asset'
+  );
 }
 
 function uniqueStrings(values) {
-  return [...new Set(values.filter((value) => typeof value === 'string' && value.length > 0))];
+  return [
+    ...new Set(
+      values.filter((value) => typeof value === 'string' && value.length > 0)
+    ),
+  ];
 }
 
 function ensurePngFileName(value) {
@@ -666,5 +736,10 @@ function parseCliValues(flag) {
     }
   }
 
-  return values.flatMap((value) => value.split(',').map((item) => item.trim()).filter(Boolean));
+  return values.flatMap((value) =>
+    value
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean)
+  );
 }

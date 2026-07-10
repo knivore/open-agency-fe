@@ -34,6 +34,7 @@ export interface ExecutionRecord extends JsonObject {
   runtime_fingerprint?: string | null;
   status?: ExecutionStatus;
   trigger_type?: string;
+  trigger_payload?: JsonObject;
   input_payload?: JsonObject;
   output_payload?: JsonObject | null;
   error?: string | null;
@@ -51,6 +52,7 @@ export interface ExecutionRecord extends JsonObject {
   container_started_at?: string | null;
   container_ended_at?: string | null;
   container_exit_code?: number | null;
+  current_node_id?: string | null;
   replacement_of_execution_id?: string | null;
   restart_reason?: string | null;
   metadata?: JsonObject;
@@ -131,14 +133,57 @@ export interface ExecutionEventRecord extends JsonObject {
   workflow_id?: string | null;
   agent_id?: string | null;
   task_id?: string | null;
+  tool_call_id?: string | null;
+  model_request_id?: string | null;
+  parent_event_id?: string | null;
+  trace_id?: string | null;
+  span_id?: string | null;
   event_type: string;
   timestamp?: string;
   sequence: number;
   actor_type?: string;
   actor?: string | null;
+  source?: string | null;
+  status?: string | null;
   payload?: JsonObject;
+  payload_sha256?: string | null;
   metrics?: JsonObject;
+  redacted_fields?: string[];
   metadata?: JsonObject;
+}
+
+export interface ExecutionApprovalRequest extends JsonObject {
+  id: string;
+  execution_id: string;
+  event_id?: string | null;
+  tool_id?: string | null;
+  status: string;
+  request_payload?: JsonObject | null;
+  response_payload?: JsonObject | null;
+  requested_at?: string | null;
+  responded_at?: string | null;
+  responded_by?: string | null;
+}
+
+export interface ExecutionUsageResponse extends JsonObject {
+  execution_id: string;
+  workflow_id?: string | null;
+  source?: string;
+  token_usage?: JsonObject;
+  budget_warnings?: JsonObject[];
+  updated_at?: string | null;
+}
+
+export interface ExecutionContextUsageResponse extends JsonObject {
+  execution_id: string;
+  workflow_id?: string | null;
+  source?: string;
+  context_health?: JsonObject;
+  latest_context_health?: JsonObject;
+  context_compaction?: JsonObject;
+  latest_compaction?: JsonObject;
+  compaction_records?: JsonObject[];
+  updated_at?: string | null;
 }
 
 export interface ExecutionTimelineResponse extends JsonObject {
@@ -166,6 +211,7 @@ export interface RunSessionSummary extends JsonObject {
   container?: RunContainerInfo;
   replacementOfExecutionId?: string | null;
   restartReason?: string | null;
+  inputPayload?: JsonObject | null;
   outputPayload?: JsonObject | null;
   metadata?: JsonObject;
   error?: string | null;
@@ -267,6 +313,7 @@ export interface CreateExecutionPayload {
   trigger?: Record<string, unknown>;
   runtimeAdapterId?: string;
   executionHost?: ExecutionHost;
+  goal_id?: string | null;
   workflow_definition?: WorkflowDefinition;
   model_profiles?: ModelProfileDefinition[];
 }

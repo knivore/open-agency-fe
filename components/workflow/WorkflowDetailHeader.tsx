@@ -1,9 +1,30 @@
 'use client';
 
-import { Play, RefreshCw } from 'lucide-react';
+import { useState } from 'react';
+import {
+  Download,
+  MoreHorizontal,
+  Pencil,
+  Play,
+  RefreshCw,
+  Trash2,
+  Workflow,
+  X,
+} from 'lucide-react';
 import { Button } from '../library/shadcn/button';
-import { Checkbox } from '../library/shadcn/checkbox';
-import { Label } from '../library/shadcn/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../library/shadcn/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../library/shadcn/tooltip';
 import PageHeader from '@/components/app-shell/PageHeader';
 import WorkflowDeleteAction from '@/components/workflow/WorkflowDeleteAction';
 
@@ -12,17 +33,13 @@ interface WorkflowDetailHeaderProps {
   workflowName: string;
   workflowDescription?: string | null;
   isEditing: boolean;
-  isPublished: boolean;
   hasUnsavedChanges: boolean;
-  isPublishing: boolean;
   isExecuting: boolean;
-  restartActiveExecutions: boolean;
   onRefresh: () => void;
   onStartEditing: () => void;
   onCancelEditing: () => void;
-  onPublish: () => void;
   onExecute: () => void;
-  onRestartActiveExecutionsChange: (checked: boolean) => void;
+  onExportWorkflow: () => void;
 }
 
 export default function WorkflowDetailHeader({
@@ -30,87 +47,115 @@ export default function WorkflowDetailHeader({
   workflowName,
   workflowDescription,
   isEditing,
-  isPublished,
   hasUnsavedChanges,
-  isPublishing,
   isExecuting,
-  restartActiveExecutions,
   onRefresh,
   onStartEditing,
   onCancelEditing,
-  onPublish,
   onExecute,
-  onRestartActiveExecutionsChange,
+  onExportWorkflow,
 }: WorkflowDetailHeaderProps) {
-  const publishButtonLabel = (() => {
-    if (isEditing) {
-      return 'Save To Publish';
-    }
-    if (isPublishing) {
-      return isPublished ? 'Unpublishing...' : 'Publishing...';
-    }
-    return isPublished ? 'Unpublish' : 'Publish';
-  })();
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
   return (
     <PageHeader
       eyebrow="Workflow"
+      icon={Workflow}
+      tone="workflow"
       title={workflowName}
       description={workflowDescription || 'No backend workflow description configured.'}
       actions={
-        <>
-          <Button type="button" variant="outline" onClick={onRefresh}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Refresh
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              if (isEditing) {
-                if (hasUnsavedChanges && !window.confirm('Discard unsaved workflow changes?')) {
-                  return;
-                }
-                onCancelEditing();
-                return;
-              }
+        <div className="flex w-full flex-wrap items-center justify-start gap-2 sm:w-auto sm:justify-end">
+          <TooltipProvider delayDuration={100} skipDelayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  aria-label={isEditing ? 'Cancel Edit' : 'Edit Workflow'}
+                  onClick={() => {
+                    if (isEditing) {
+                      if (
+                        hasUnsavedChanges &&
+                        !window.confirm('Discard unsaved workflow changes?')
+                      ) {
+                        return;
+                      }
+                      onCancelEditing();
+                      return;
+                    }
 
-              onStartEditing();
-            }}
-          >
-            {isEditing ? 'Cancel Edit' : 'Edit Workflow'}
-          </Button>
-          <div className="flex min-h-10 items-center gap-2 rounded-md border border-neutral-200 px-3">
-            <Checkbox
-              id="restart-active-executions"
-              checked={restartActiveExecutions}
-              disabled={isPublishing || isEditing}
-              onCheckedChange={(checked) => onRestartActiveExecutionsChange(checked === true)}
-            />
-            <Label htmlFor="restart-active-executions" className="text-sm text-neutral-700">
-              Restart active runs
-            </Label>
-          </div>
+                    onStartEditing();
+                  }}
+                >
+                  {isEditing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {isEditing ? 'Cancel Edit' : 'Edit Workflow'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <Button
             type="button"
-            variant="outline"
-            onClick={onPublish}
-            disabled={isPublishing || isEditing}
+            onClick={onExecute}
+            disabled={isExecuting || isEditing}
+            className="min-w-37"
           >
-            {publishButtonLabel}
-          </Button>
-          <Button type="button" onClick={onExecute} disabled={isExecuting || isEditing}>
             <Play className="mr-2 h-4 w-4" />
             {isEditing ? 'Save To Run' : isExecuting ? 'Starting...' : 'Run Workflow'}
           </Button>
+
+          <DropdownMenu>
+            <TooltipProvider delayDuration={100} skipDelayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      aria-label="More workflow actions"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">More workflow actions</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem onSelect={onRefresh}>
+                <RefreshCw className="h-4 w-4" />
+                Refresh
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={onExportWorkflow}>
+                <Download className="h-4 w-4" />
+                Export Workflow
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                className="text-destructive focus:bg-destructive/10 focus:text-destructive"
+                onSelect={() => setIsDeleteDialogOpen(true)}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete Workflow
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <WorkflowDeleteAction
             workflowId={workflowId}
             workflowName={workflowName}
             redirectTo="/workflows"
-            variant="destructive"
             label="Delete Workflow"
+            open={isDeleteDialogOpen}
+            onOpenChange={setIsDeleteDialogOpen}
+            trigger={null}
           />
-        </>
+        </div>
       }
     />
   );

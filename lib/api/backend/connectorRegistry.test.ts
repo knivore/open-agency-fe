@@ -7,7 +7,7 @@ const { getMock } = vi.hoisted(() => ({
   getMock: vi.fn(),
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/lib/api/clientInstances', () => ({
   agencyApiClient: {
     get: getMock,
   },
@@ -80,5 +80,6 @@ describe('connectorRegistryApi.listCategories', () => {
 
     expect(result.source).toBe('fallback');
     expect(result.categories).toEqual(plannedIntegrationRegistry);
+    expect(result.categories.some((category) => category.id === 'home-tools')).toBe(true);
   });
 });

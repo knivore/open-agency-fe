@@ -10,8 +10,7 @@ export const RPG_MAKER_A4_WALL_BLOCK_COUNT = 8;
 export const RPG_MAKER_A4_WALL_BLOCK_TILE_ROWS = 5;
 export const RPG_MAKER_A4_WALL_TOP_SECTION_TILE_ROWS = 3;
 export const RPG_MAKER_A4_WALL_FACE_SECTION_TILE_ROWS = 2;
-export const RPG_MAKER_A4_WALL_TOP_SECTION_MINI_ROWS =
-  RPG_MAKER_A4_WALL_TOP_SECTION_TILE_ROWS * 2;
+export const RPG_MAKER_A4_WALL_TOP_SECTION_MINI_ROWS = RPG_MAKER_A4_WALL_TOP_SECTION_TILE_ROWS * 2;
 export const RPG_MAKER_A4_WALL_ACTIVE_WIDTH =
   RPG_MAKER_A4_WALL_BLOCK_WIDTH * RPG_MAKER_A4_WALL_BLOCK_COUNT;
 export const RPG_MAKER_A4_WALL_ACTIVE_HEIGHT =
@@ -1068,9 +1067,7 @@ export function resolveA4WallCeilingQuadrantsForBitmask(
     ];
   }
 
-  return A4_WALL_ROOF_QUADRANT_RULES.map((rule) =>
-    selectA4WallRoofQuadrant(bitmask, rule)
-  );
+  return A4_WALL_ROOF_QUADRANT_RULES.map((rule) => selectA4WallRoofQuadrant(bitmask, rule));
 }
 
 export function resolveA4WallFlatPartitionCeilingQuadrants(
@@ -1114,9 +1111,7 @@ export function resolveA4WallFaceQuadrantsForBitmask(
   bitmask: number,
   rows: A4WallMiniTileRows = resolveA4WallMiniTileRows()
 ): ObservatoryAutotileQuadrant[] {
-  return A4_WALL_SIDE_QUADRANT_RULES.map((rule) =>
-    selectA4WallSideQuadrant(bitmask, rule, rows)
-  );
+  return A4_WALL_SIDE_QUADRANT_RULES.map((rule) => selectA4WallSideQuadrant(bitmask, rule, rows));
 }
 
 export function resolveA4WallFaceStackQuadrantsForBitmask(
@@ -1135,10 +1130,7 @@ export function resolveA4WallSolidFaceQuadrants(
 ): ObservatoryAutotileQuadrant[] {
   void stackIndex;
   void faceColumn;
-  return resolveA4WallFaceQuadrantsForBitmask(
-    A4_WALL_N | A4_WALL_E | A4_WALL_S | A4_WALL_W,
-    rows
-  );
+  return resolveA4WallFaceQuadrantsForBitmask(A4_WALL_N | A4_WALL_E | A4_WALL_S | A4_WALL_W, rows);
 }
 
 function getRoomWallBitmask(

@@ -1,16 +1,21 @@
-import { agencyApiClient, getAgencyApiBaseUrl } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
+import { getAgencyApiBaseUrl } from '@/lib/api/config';
 import { isApiError } from '@/lib/api/errors';
 import { backendRoutes } from '@/lib/api/backend/routes';
+import type { AgentDefinition } from '@/types/agents';
 import type {
-  AgentDefinition,
   ApprovalRequest,
   Conversation,
+  ConversationCompactPackListResponse,
+  ConversationCompactPayload,
+  ConversationCompactResponse,
+  ConversationContextUsage,
   ConversationMessage,
   MainAgent,
   ConversationPostMessageResponse,
   ConversationStreamEvent,
-  CrudListResponse,
-} from '@/lib/api/backend/types';
+} from '@/types/conversations';
+import type { CrudListResponse } from '@/types/api';
 
 function withBaseUrl(path: string) {
   const baseUrl = getAgencyApiBaseUrl();
@@ -112,6 +117,24 @@ export const conversationsApi = {
   createConversation(payload: Record<string, unknown>) {
     return agencyApiClient.post<Conversation>(backendRoutes.conversations.create(), payload);
   },
+  resolveChannelConversation(channelType: string, payload: Record<string, unknown>) {
+    return agencyApiClient.post<Conversation>(
+      backendRoutes.conversations.resolveChannel(channelType),
+      payload
+    );
+  },
+  upsertChannelIdentityMapping(payload: Record<string, unknown>) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.conversations.channelIdentityMappings(),
+      payload
+    );
+  },
+  deliverChannelConversation(conversationId: string, payload: Record<string, unknown>) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.conversations.deliverChannelConversation(conversationId),
+      payload
+    );
+  },
   getConversation(conversationId: string) {
     return agencyApiClient.get<Conversation>(backendRoutes.conversations.byId(conversationId));
   },
@@ -125,6 +148,33 @@ export const conversationsApi = {
     return agencyApiClient.get<CrudListResponse<ConversationMessage>>(
       backendRoutes.conversations.messages(conversationId),
       options
+    );
+  },
+  getContextUsage(conversationId: string) {
+    return agencyApiClient.get<ConversationContextUsage>(
+      backendRoutes.conversations.contextUsage(conversationId)
+    );
+  },
+  compactConversation(conversationId: string, payload: ConversationCompactPayload) {
+    return agencyApiClient.post<ConversationCompactResponse>(
+      backendRoutes.conversations.compact(conversationId),
+      payload,
+      { timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS }
+    );
+  },
+  listCompactPacks(
+    conversationId: string,
+    query: { mode?: string; limit?: number; include_superseded?: boolean } = {}
+  ) {
+    return agencyApiClient.get<ConversationCompactPackListResponse>(
+      backendRoutes.conversations.compactPacks(conversationId),
+      {
+        query: {
+          mode: query.mode || undefined,
+          limit: query.limit ?? 20,
+          include_superseded: query.include_superseded ?? undefined,
+        },
+      }
     );
   },
   postMessage(conversationId: string, payload: Record<string, unknown>) {
@@ -141,7 +191,11 @@ export const conversationsApi = {
   },
   approveApprovalRequest(
     approvalRequestId: string,
-    payload: { user_id: string; reason?: string | null }
+    payload: {
+      user_id: string;
+      reason?: string | null;
+      steering_parameters?: Record<string, unknown> | null;
+    }
   ) {
     return agencyApiClient.post<
       ConversationPostMessageResponse & { approval_request: ApprovalRequest }
@@ -174,7 +228,10 @@ export const conversationsApi = {
     payload: { user_id: string; reason?: string | null }
   ) {
     return agencyApiClient.post<
-      ConversationPostMessageResponse & { approval_request: ApprovalRequest; approval_requests?: ApprovalRequest[] }
+      ConversationPostMessageResponse & {
+        approval_request: ApprovalRequest;
+        approval_requests?: ApprovalRequest[];
+      }
     >(backendRoutes.conversations.splitApprovalRequest(approvalRequestId), payload, {
       timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS,
     });

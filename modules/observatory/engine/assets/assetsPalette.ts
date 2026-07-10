@@ -30,7 +30,7 @@ export type ObservatoryPaletteRoleId =
 
 export type ObservatoryPaletteSortId = 'recommended' | 'alpha' | 'footprint' | 'pack';
 
-export type ObservatoryPaletteGroupId = 'furniture' | 'floors' | 'walls' | 'decor';
+export type ObservatoryPaletteGroupId = 'furniture' | 'animations' | 'floors' | 'walls' | 'decor';
 export type ObservatoryPaletteSurfaceType =
   | 'none'
   | 'a2-ground'
@@ -131,6 +131,11 @@ const paletteGroups: Array<Omit<ObservatoryPaletteGroup, 'assets'>> = [
     id: 'furniture',
     label: 'Furniture',
     description: 'Desks, chairs, storage, tables, and room props.',
+  },
+  {
+    id: 'animations',
+    label: 'Animations',
+    description: 'Animated props and looping decor from the animation packs.',
   },
   {
     id: 'floors',
@@ -385,6 +390,9 @@ function groupForAsset(
   if (asset.category === 'furniture') {
     return 'furniture';
   }
+  if (sourcePath.startsWith('animations/') || asset.animation || asset.animations?.length) {
+    return 'animations';
+  }
   return 'decor';
 }
 
@@ -471,6 +479,7 @@ function builderPriority(asset: ObservatoryPaletteAsset) {
   if (asset.isReviewedFurniture) score += 40;
   if (asset.groupId === 'furniture') score += 18;
   if (asset.groupId === 'floors' || asset.groupId === 'walls') score += 16;
+  if (asset.groupId === 'animations') score += 14;
   if (asset.themeId === 'office' || asset.themeId === 'classroom' || asset.themeId === 'museum')
     score += 12;
   if (

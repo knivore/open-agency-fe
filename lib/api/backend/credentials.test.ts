@@ -6,7 +6,7 @@ const { appGetMock } = vi.hoisted(() => ({
   appGetMock: vi.fn(),
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/lib/api/clientInstances', () => ({
   agencyApiClient: {},
   appApiClient: {
     get: appGetMock,

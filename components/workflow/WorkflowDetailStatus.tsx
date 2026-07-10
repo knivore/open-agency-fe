@@ -3,7 +3,6 @@
 import { labelForEntrypointTask } from '@/components/workflow/useWorkflowEditorDraft';
 import { resolveWorkflowExecutionHost } from '@/lib/workflows/executionPayload';
 import type { TaskDefinition, WorkflowDefinition } from '@/types/workflows';
-import { Badge } from '../library/shadcn/badge';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
 
 interface WorkflowDetailStatusProps {
@@ -11,9 +10,25 @@ interface WorkflowDetailStatusProps {
   visibleTaskDefinitions: TaskDefinition[];
   visibleAgentCount: number;
   effectiveEntrypointTaskId: string;
-  hasUnsavedChanges: boolean;
   isEditing: boolean;
   draftValidationIssues: string[];
+}
+
+function workflowImportReport(workflow: WorkflowDefinition) {
+  const report = workflow.metadata?.workflow_import_report;
+  if (!report || typeof report !== 'object' || Array.isArray(report)) {
+    return null;
+  }
+
+  const actionRequired = report.action_required === true;
+  const messages = Array.isArray(report.messages)
+    ? report.messages.filter((message): message is string => typeof message === 'string')
+    : [];
+
+  return {
+    actionRequired,
+    messages,
+  };
 }
 
 export default function WorkflowDetailStatus({
@@ -21,21 +36,18 @@ export default function WorkflowDetailStatus({
   visibleTaskDefinitions,
   visibleAgentCount,
   effectiveEntrypointTaskId,
-  hasUnsavedChanges,
   isEditing,
   draftValidationIssues,
 }: WorkflowDetailStatusProps) {
   const entrypointLabel = labelForEntrypointTask(effectiveEntrypointTaskId, visibleTaskDefinitions);
   const runtimeLabel = workflow.default_runtime_adapter_id || 'No default adapter';
   const hostLabel = resolveWorkflowExecutionHost(workflow);
-  const versionLabel = workflow.versioning?.version || '1.0.0';
-  const publicationLabel = workflow.versioning?.is_published ? 'Published' : 'Draft';
-  const editLabel = isEditing ? (hasUnsavedChanges ? 'Unsaved changes' : 'Editing') : null;
+  const importReport = workflowImportReport(workflow);
 
   return (
     <>
       {isEditing && draftValidationIssues.length > 0 ? (
-        <Card className="border-red-200 bg-red-50/70">
+        <Card className="border-red-200 bg-red-50/70 dark:border-red-400/25 dark:bg-red-500/10">
           <CardHeader>
             <CardTitle className="text-base text-red-900">Workflow validation</CardTitle>
             <CardDescription className="text-red-800">
@@ -50,50 +62,62 @@ export default function WorkflowDetailStatus({
         </Card>
       ) : null}
 
-      <div className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-white/80 px-4 py-3 shadow-sm shadow-primary-100/30 lg:flex-row lg:items-center lg:justify-between">
-        <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={workflow.versioning?.is_published ? 'default' : 'outline'}>
-              {publicationLabel}
-            </Badge>
-            <Badge variant="secondary">v{versionLabel}</Badge>
-            {editLabel ? <Badge variant="secondary">{editLabel}</Badge> : null}
-          </div>
-          <div className="grid gap-2 text-sm text-neutral-600 md:grid-cols-3">
-            <div className="min-w-0">
-              <span className="font-medium text-neutral-900">Entrypoint</span>
-              <span className="ml-2 truncate">{entrypointLabel}</span>
+      {importReport?.actionRequired ? (
+        <Card className="border-amber-200 bg-amber-50/80 dark:border-amber-300/25 dark:bg-amber-400/10">
+          <CardHeader>
+            <CardTitle className="text-base text-amber-950">Import needs review</CardTitle>
+            <CardDescription className="text-amber-900">
+              Some model profiles or tools from the package were missing locally.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-2 text-sm text-amber-950">
+            {importReport.messages.slice(0, 5).map((message) => (
+              <p key={message}>{message}</p>
+            ))}
+            {importReport.messages.length > 5 ? (
+              <p>{importReport.messages.length - 5} more import notes.</p>
+            ) : null}
+          </CardContent>
+        </Card>
+      ) : null}
+
+      <div className="flex flex-col gap-3 rounded-xl border border-primary-100 bg-white/80 px-4 py-3 shadow-sm shadow-primary-100/30 dark:border-white/10 dark:bg-slate-950/78 dark:shadow-none lg:flex-row lg:items-center lg:justify-between">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="grid gap-3 text-sm text-neutral-600 dark:text-slate-300 md:grid-cols-[minmax(18rem,1fr)_minmax(9rem,auto)_minmax(5rem,auto)]">
+            <div className="flex min-w-0 items-start gap-2">
+              <span className="shrink-0 font-medium text-neutral-900 dark:text-slate-100">Entrypoint</span>
+              <span className="line-clamp-2 min-w-0 leading-5">{entrypointLabel}</span>
             </div>
-            <div className="min-w-0">
-              <span className="font-medium text-neutral-900">Runtime</span>
-              <span className="ml-2 truncate">{runtimeLabel}</span>
+            <div className="flex min-w-0 items-baseline gap-2 md:justify-end">
+              <span className="shrink-0 font-medium text-neutral-900 dark:text-slate-100">Runtime</span>
+              <span className="block min-w-0 truncate">{runtimeLabel}</span>
             </div>
-            <div className="min-w-0">
-              <span className="font-medium text-neutral-900">Host</span>
-              <span className="ml-2">{hostLabel}</span>
+            <div className="flex min-w-0 items-baseline gap-2 md:justify-end">
+              <span className="shrink-0 font-medium text-neutral-900 dark:text-slate-100">Host</span>
+              <span className="block min-w-0 truncate">{hostLabel}</span>
             </div>
           </div>
         </div>
-        <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-[28rem]">
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
-            <dt className="text-xs font-medium text-neutral-500">Agents</dt>
-            <dd className="mt-0.5 font-semibold text-neutral-900">{visibleAgentCount}</dd>
+        <dl className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4 lg:min-w-112">
+          <div className="rounded-lg border border-agent-200/70 bg-agent-50/70 px-3 py-2 dark:border-agent-400/20 dark:bg-agent-500/10">
+            <dt className="text-xs font-medium text-agent-700 dark:text-agent-200">Agents</dt>
+            <dd className="mt-0.5 font-semibold text-agent-950 dark:text-agent-50">{visibleAgentCount}</dd>
           </div>
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
-            <dt className="text-xs font-medium text-neutral-500">Tasks</dt>
-            <dd className="mt-0.5 font-semibold text-neutral-900">
+          <div className="rounded-lg border border-amber-200/70 bg-amber-50/70 px-3 py-2 dark:border-amber-300/20 dark:bg-amber-400/10">
+            <dt className="text-xs font-medium text-amber-700 dark:text-amber-200">Tasks</dt>
+            <dd className="mt-0.5 font-semibold text-amber-950 dark:text-amber-50">
               {visibleTaskDefinitions.length}
             </dd>
           </div>
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
-            <dt className="text-xs font-medium text-neutral-500">Graph</dt>
-            <dd className="mt-0.5 font-semibold text-neutral-900">
+          <div className="rounded-lg border border-slate-200/70 bg-slate-50/70 px-3 py-2 dark:border-slate-400/20 dark:bg-slate-400/10">
+            <dt className="text-xs font-medium text-slate-600 dark:text-slate-300">Graph</dt>
+            <dd className="mt-0.5 font-semibold text-slate-900 dark:text-slate-100">
               {workflow.nodes?.length ?? 0}/{workflow.edges?.length ?? 0}
             </dd>
           </div>
-          <div className="rounded-lg border border-neutral-200 bg-neutral-50/70 px-3 py-2">
-            <dt className="text-xs font-medium text-neutral-500">Adapters</dt>
-            <dd className="mt-0.5 font-semibold text-neutral-900">
+          <div className="rounded-lg border border-blue-200/70 bg-blue-50/70 px-3 py-2 dark:border-blue-400/20 dark:bg-blue-500/10">
+            <dt className="text-xs font-medium text-blue-700 dark:text-blue-200">Adapters</dt>
+            <dd className="mt-0.5 font-semibold text-blue-950 dark:text-blue-50">
               {workflow.allowed_runtime_adapter_ids?.length ?? 0}
             </dd>
           </div>

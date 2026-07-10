@@ -108,6 +108,8 @@ function createGameUpdateKey(options: {
   enableAmbientAutoplay?: boolean;
   initialZoom?: number | null;
   layout?: ObservatoryLayoutDocument;
+  selectedAgentId?: string | null;
+  selectedObjectId?: string | null;
   showDebugCoordinates?: boolean;
   showWallEditOverlay?: boolean;
   viewFilter?: ObservatoryOfficeMapViewFilter;
@@ -196,9 +198,74 @@ function createLayoutRenderKey(layout: ObservatoryLayoutDocument) {
   };
 }
 
+type ObjectControlsDraft = {
+  collisionHeight: string;
+  collisionWidth: string;
+  offsetX: string;
+  offsetY: string;
+  renderHeight: string;
+  renderWidth: string;
+  scale: string;
+  sourceKey: string;
+};
+
+type RoomControlsDraft = {
+  cols: string;
+  rows: string;
+  sourceKey: string;
+  x: string;
+  y: string;
+};
+
+function createObjectControlsDraft(options: {
+  baseHeightPx?: number | null;
+  baseWidthPx?: number | null;
+  collisionHeight?: number | null;
+  collisionWidth?: number | null;
+  offsetX?: number | null;
+  offsetY?: number | null;
+  renderHeightPx?: number | null;
+  renderWidthPx?: number | null;
+  sourceKey: string;
+}): ObjectControlsDraft {
+  return {
+    collisionHeight: String(Math.max(1, Math.round(options.collisionHeight ?? 1))),
+    collisionWidth: String(Math.max(1, Math.round(options.collisionWidth ?? 1))),
+    offsetX: String(options.offsetX ?? 0),
+    offsetY: String(options.offsetY ?? 0),
+    renderHeight: options.renderHeightPx ? String(Math.round(options.renderHeightPx)) : '',
+    renderWidth: options.renderWidthPx ? String(Math.round(options.renderWidthPx)) : '',
+    scale: (options.baseWidthPx &&
+    options.baseHeightPx &&
+    options.renderWidthPx &&
+    options.renderHeightPx
+      ? (options.renderWidthPx / options.baseWidthPx +
+          options.renderHeightPx / options.baseHeightPx) /
+        2
+      : 1
+    ).toFixed(2),
+    sourceKey: options.sourceKey,
+  };
+}
+
+function createRoomControlsDraft(options: {
+  cols?: number | null;
+  rows?: number | null;
+  sourceKey: string;
+  x?: number | null;
+  y?: number | null;
+}): RoomControlsDraft {
+  return {
+    cols: options.cols !== null && options.cols !== undefined ? String(options.cols) : '',
+    rows: options.rows !== null && options.rows !== undefined ? String(options.rows) : '',
+    sourceKey: options.sourceKey,
+    x: options.x !== null && options.x !== undefined ? String(options.x) : '',
+    y: options.y !== null && options.y !== undefined ? String(options.y) : '',
+  };
+}
+
 export default function ObservatoryGameCanvas({
   activeWallEditRoomId = null,
-  activeWallEditRoomLabel = null,
   activeWallEditTool = 'opening',
   activeWallEditWallAssetId = null,
   activeWallEditDoorCount = 0,
@@ -278,19 +345,98 @@ export default function ObservatoryGameCanvas({
   const onSelectionChangeRef = useRef(onSelectionChange);
   const lastGameUpdateKeyRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [objectCollisionWidthInput, setObjectCollisionWidthInput] = useState('');
-  const [objectCollisionHeightInput, setObjectCollisionHeightInput] = useState('');
-  const [objectOffsetXInput, setObjectOffsetXInput] = useState('');
-  const [objectOffsetYInput, setObjectOffsetYInput] = useState('');
-  const [objectRenderWidthInput, setObjectRenderWidthInput] = useState('');
-  const [objectRenderHeightInput, setObjectRenderHeightInput] = useState('');
-  const [objectScaleInput, setObjectScaleInput] = useState('1.00');
   const [cameraZoom, setCameraZoom] = useState<number | null>(null);
-  const [roomXInput, setRoomXInput] = useState('');
-  const [roomYInput, setRoomYInput] = useState('');
-  const [roomColsInput, setRoomColsInput] = useState('');
-  const [roomRowsInput, setRoomRowsInput] = useState('');
   const map = layout?.world.maps[0];
+  const objectControlsSourceKey = JSON.stringify({
+    selectedObjectBaseHeightPx,
+    selectedObjectBaseWidthPx,
+    selectedObjectCollisionHeight,
+    selectedObjectCollisionWidth,
+    selectedObjectId,
+    selectedObjectOffsetX,
+    selectedObjectOffsetY,
+    selectedObjectRenderHeightPx,
+    selectedObjectRenderWidthPx,
+  });
+  const defaultObjectControlsDraft = createObjectControlsDraft({
+    baseHeightPx: selectedObjectBaseHeightPx,
+    baseWidthPx: selectedObjectBaseWidthPx,
+    collisionHeight: selectedObjectCollisionHeight,
+    collisionWidth: selectedObjectCollisionWidth,
+    offsetX: selectedObjectOffsetX,
+    offsetY: selectedObjectOffsetY,
+    renderHeightPx: selectedObjectRenderHeightPx,
+    renderWidthPx: selectedObjectRenderWidthPx,
+    sourceKey: objectControlsSourceKey,
+  });
+  const roomControlsSourceKey = JSON.stringify({
+    selectedRoomCols,
+    selectedRoomId,
+    selectedRoomRows,
+    selectedRoomX,
+    selectedRoomY,
+  });
+  const defaultRoomControlsDraft = createRoomControlsDraft({
+    cols: selectedRoomCols,
+    rows: selectedRoomRows,
+    sourceKey: roomControlsSourceKey,
+    x: selectedRoomX,
+    y: selectedRoomY,
+  });
+  const [objectControlsDraft, setObjectControlsDraft] = useState(defaultObjectControlsDraft);
+  const [roomControlsDraft, setRoomControlsDraft] = useState(defaultRoomControlsDraft);
+  const activeObjectControlsDraft =
+    objectControlsDraft.sourceKey === objectControlsSourceKey
+      ? objectControlsDraft
+      : defaultObjectControlsDraft;
+  const activeRoomControlsDraft =
+    roomControlsDraft.sourceKey === roomControlsSourceKey
+      ? roomControlsDraft
+      : defaultRoomControlsDraft;
+  const updateObjectControlsDraft = (patch: Partial<Omit<ObjectControlsDraft, 'sourceKey'>>) => {
+    setObjectControlsDraft((currentDraft) => ({
+      ...(currentDraft.sourceKey === objectControlsSourceKey
+        ? currentDraft
+        : defaultObjectControlsDraft),
+      ...patch,
+      sourceKey: objectControlsSourceKey,
+    }));
+  };
+  const updateRoomControlsDraft = (patch: Partial<Omit<RoomControlsDraft, 'sourceKey'>>) => {
+    setRoomControlsDraft((currentDraft) => ({
+      ...(currentDraft.sourceKey === roomControlsSourceKey
+        ? currentDraft
+        : defaultRoomControlsDraft),
+      ...patch,
+      sourceKey: roomControlsSourceKey,
+    }));
+  };
+  const objectCollisionWidthInput = activeObjectControlsDraft.collisionWidth;
+  const objectCollisionHeightInput = activeObjectControlsDraft.collisionHeight;
+  const objectOffsetXInput = activeObjectControlsDraft.offsetX;
+  const objectOffsetYInput = activeObjectControlsDraft.offsetY;
+  const objectRenderWidthInput = activeObjectControlsDraft.renderWidth;
+  const objectRenderHeightInput = activeObjectControlsDraft.renderHeight;
+  const objectScaleInput = activeObjectControlsDraft.scale;
+  const roomXInput = activeRoomControlsDraft.x;
+  const roomYInput = activeRoomControlsDraft.y;
+  const roomColsInput = activeRoomControlsDraft.cols;
+  const roomRowsInput = activeRoomControlsDraft.rows;
+  const setObjectCollisionWidthInput = (value: string) =>
+    updateObjectControlsDraft({ collisionWidth: value });
+  const setObjectCollisionHeightInput = (value: string) =>
+    updateObjectControlsDraft({ collisionHeight: value });
+  const setObjectOffsetXInput = (value: string) => updateObjectControlsDraft({ offsetX: value });
+  const setObjectOffsetYInput = (value: string) => updateObjectControlsDraft({ offsetY: value });
+  const setObjectRenderWidthInput = (value: string) =>
+    updateObjectControlsDraft({ renderWidth: value });
+  const setObjectRenderHeightInput = (value: string) =>
+    updateObjectControlsDraft({ renderHeight: value });
+  const setObjectScaleInput = (value: string) => updateObjectControlsDraft({ scale: value });
+  const setRoomXInput = (value: string) => updateRoomControlsDraft({ x: value });
+  const setRoomYInput = (value: string) => updateRoomControlsDraft({ y: value });
+  const setRoomColsInput = (value: string) => updateRoomControlsDraft({ cols: value });
+  const setRoomRowsInput = (value: string) => updateRoomControlsDraft({ rows: value });
   const footprint = getObservatoryLayoutFootprint(layout);
   const fillsAvailableViewport = presentation === 'viewer' || presentation === 'viewerCompact';
   const showStatus = presentation !== 'viewer' && presentation !== 'viewerCompact';
@@ -303,7 +449,6 @@ export default function ObservatoryGameCanvas({
         : isBuilderPresentation
           ? 36
           : 28;
-  const tileSize = layout?.world.grid.tileSize ?? 48;
   const compactViewportHeight = footprint
     ? Math.min(760, Math.max(620, footprint.height * 36 + 80))
     : 640;
@@ -331,6 +476,21 @@ export default function ObservatoryGameCanvas({
       currentZoom !== null && Math.abs(currentZoom - state.zoom) < 0.005 ? currentZoom : state.zoom
     );
   };
+  const initialGameOptionsRef = useRef({
+    activeWallEditRoomId,
+    activeWallEditTool,
+    activeWallEditWallAssetId,
+    allowPan,
+    allowZoom,
+    enableAmbientAutoplay,
+    initialZoom,
+    layout,
+    selectedAgentId,
+    selectedObjectId,
+    showDebugCoordinates,
+    showWallEditOverlay,
+    viewFilter,
+  });
 
   useEffect(() => {
     onGridClickRef.current = onGridClick;
@@ -347,49 +507,6 @@ export default function ObservatoryGameCanvas({
   useEffect(() => {
     onSelectionDragRef.current = onSelectionDrag;
   }, [onSelectionDrag]);
-
-  useEffect(() => {
-    setObjectCollisionWidthInput(
-      String(Math.max(1, Math.round(selectedObjectCollisionWidth ?? 1)))
-    );
-    setObjectCollisionHeightInput(
-      String(Math.max(1, Math.round(selectedObjectCollisionHeight ?? 1)))
-    );
-    setObjectOffsetXInput(String(selectedObjectOffsetX ?? 0));
-    setObjectOffsetYInput(String(selectedObjectOffsetY ?? 0));
-    setObjectRenderWidthInput(
-      selectedObjectRenderWidthPx ? String(Math.round(selectedObjectRenderWidthPx)) : ''
-    );
-    setObjectRenderHeightInput(
-      selectedObjectRenderHeightPx ? String(Math.round(selectedObjectRenderHeightPx)) : ''
-    );
-    setObjectScaleInput(
-      (selectedObjectBaseWidthPx &&
-      selectedObjectBaseHeightPx &&
-      selectedObjectRenderWidthPx &&
-      selectedObjectRenderHeightPx
-        ? (selectedObjectRenderWidthPx / selectedObjectBaseWidthPx +
-            selectedObjectRenderHeightPx / selectedObjectBaseHeightPx) /
-          2
-        : 1
-      ).toFixed(2)
-    );
-  }, [
-    selectedObjectCollisionHeight,
-    selectedObjectCollisionWidth,
-    selectedObjectId,
-    selectedObjectOffsetX,
-    selectedObjectOffsetY,
-    selectedObjectRenderHeightPx,
-    selectedObjectRenderWidthPx,
-  ]);
-
-  useEffect(() => {
-    setRoomXInput(selectedRoomX !== null ? String(selectedRoomX) : '');
-    setRoomYInput(selectedRoomY !== null ? String(selectedRoomY) : '');
-    setRoomColsInput(selectedRoomCols !== null ? String(selectedRoomCols) : '');
-    setRoomRowsInput(selectedRoomRows !== null ? String(selectedRoomRows) : '');
-  }, [selectedRoomCols, selectedRoomId, selectedRoomRows, selectedRoomX, selectedRoomY]);
 
   useEffect(() => {
     let cancelled = false;
@@ -410,28 +527,29 @@ export default function ObservatoryGameCanvas({
 
       try {
         const initialSize = readContainerSize(containerRef.current);
+        const initialOptions = initialGameOptionsRef.current;
         lastCanvasSizeRef.current = initialSize;
         const gameHandle = await createObservatoryGame({
-          activeWallEditRoomId,
-          activeWallEditTool,
-          activeWallEditWallAssetId,
-          allowPan,
-          allowZoom,
-          enableAmbientAutoplay,
-          initialZoom,
+          activeWallEditRoomId: initialOptions.activeWallEditRoomId,
+          activeWallEditTool: initialOptions.activeWallEditTool,
+          activeWallEditWallAssetId: initialOptions.activeWallEditWallAssetId,
+          allowPan: initialOptions.allowPan,
+          allowZoom: initialOptions.allowZoom,
+          enableAmbientAutoplay: initialOptions.enableAmbientAutoplay,
+          initialZoom: initialOptions.initialZoom,
           initialCameraState: cameraStateRef.current,
-          layout,
+          layout: initialOptions.layout,
           onCameraStateChange: handleCameraStateChange,
           onGridClick: (point) => onGridClickRef.current?.(point),
           onRoomResizeCommit: (...args) => onRoomResizeCommitRef.current?.(...args),
           onSelectionDrag: (payload) => onSelectionDragRef.current?.(payload),
           onSelectionChange: (selection) => onSelectionChangeRef.current?.(selection),
           parent: containerRef.current,
-          showWallEditOverlay,
-          showDebugCoordinates,
-          selectedAgentId,
-          selectedObjectId,
-          viewFilter,
+          showWallEditOverlay: initialOptions.showWallEditOverlay,
+          showDebugCoordinates: initialOptions.showDebugCoordinates,
+          selectedAgentId: initialOptions.selectedAgentId,
+          selectedObjectId: initialOptions.selectedObjectId,
+          viewFilter: initialOptions.viewFilter,
           width: initialSize.width,
           height: initialSize.height,
         });
@@ -443,17 +561,7 @@ export default function ObservatoryGameCanvas({
 
         gameRef.current = gameHandle;
         lastGameUpdateKeyRef.current = createGameUpdateKey({
-          activeWallEditRoomId,
-          activeWallEditTool,
-          activeWallEditWallAssetId,
-          allowPan,
-          allowZoom,
-          enableAmbientAutoplay,
-          initialZoom,
-          layout,
-          showDebugCoordinates,
-          showWallEditOverlay,
-          viewFilter,
+          ...initialOptions,
         });
         resizeObserver = new ResizeObserver((entries) => {
           const entry = entries[0];
@@ -530,8 +638,6 @@ export default function ObservatoryGameCanvas({
       onSelectionChange: (selection) => onSelectionChangeRef.current?.(selection),
       showWallEditOverlay,
       showDebugCoordinates,
-      selectedAgentId,
-      selectedObjectId,
       viewFilter,
     });
   }, [

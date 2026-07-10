@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title" shape-rendering="crispEdges">
+  <title id="title">Open Agency office door</title>
+  <rect x="6" y="4" width="36" height="42" fill="#0f172a"/>
+  <rect x="10" y="8" width="24" height="34" fill="#475569"/>
+  <path fill="#1e293b" d="M34 8h4v34h-4z"/>
+  <path fill="#67e8f9" d="M14 12h16v10H14z"/>
+  <rect x="27" y="29" width="4" height="4" fill="#f59e0b"/>
+  <path fill="#a78bfa" d="M10 42h28v4H10z"/>
+</svg>

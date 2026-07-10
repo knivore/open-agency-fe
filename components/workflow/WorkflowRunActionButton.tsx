@@ -21,28 +21,21 @@ export default function WorkflowRunActionButton({
   redirectTo,
 }: WorkflowRunActionButtonProps) {
   const [isPending, startTransition] = useTransition();
-  const {
-    workflowQuery,
-    runtimeAdaptersQuery,
-    preferredRuntimeAdapterId,
-    launchWorkflow,
-  } = useWorkflowRunLauncher({
-    workflowId,
-    redirectTo: (runId) => (redirectTo ? redirectTo(runId) : `/runs/${runId}`),
-  });
+  const { workflowQuery, runtimeAdaptersQuery, preferredRuntimeAdapterId, launchWorkflow } =
+    useWorkflowRunLauncher({
+      workflowId,
+      redirectTo: (runId) => (redirectTo ? redirectTo(runId) : `/runs/${runId}`),
+    });
   const actionLabel = preferredRuntimeAdapterId ? `${label} (${preferredRuntimeAdapterId})` : label;
 
   const handleRun = () => {
     startTransition(() => {
-      void toast.promise(
-        launchWorkflow(undefined),
-        {
-          loading: 'Starting workflow...',
-          success: 'Workflow run started.',
-          error: (error) => (error instanceof Error ? error.message : 'Failed to start workflow.'),
-          position: 'top-right',
-        }
-      );
+      void toast.promise(launchWorkflow(undefined), {
+        loading: 'Starting workflow...',
+        success: 'Workflow run started.',
+        error: (error) => (error instanceof Error ? error.message : 'Failed to start workflow.'),
+        position: 'top-right',
+      });
     });
   };
 

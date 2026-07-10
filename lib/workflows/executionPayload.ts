@@ -165,6 +165,9 @@ export function buildExecutionWorkflowDefinition(
     executionHost?: ExecutionHost | null;
   }
 ): WorkflowDefinition {
+  const executionWorkflow = { ...workflow };
+  delete executionWorkflow.monitoring;
+  delete executionWorkflow.runtime_governance;
   const taskDefinitions = sortTaskDefinitions(workflow, options?.taskOrder);
   const agentDefinitions = (workflow.agent_definitions ?? []).map((agent) =>
     normalizeWorkflowAgentDefinition(applyAgentRuntimeConfig(agent, options?.agentConfigs))
@@ -178,7 +181,7 @@ export function buildExecutionWorkflowDefinition(
   ) as JsonObject;
 
   return {
-    ...workflow,
+    ...executionWorkflow,
     task_definitions: taskDefinitions,
     agent_definitions: agentDefinitions,
     default_runtime_adapter_id:

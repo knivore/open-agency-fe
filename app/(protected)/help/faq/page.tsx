@@ -1,7 +1,3 @@
-import React from 'react';
+import { FaqPage } from '@/components/help/HelpPages';
 
-const FAQ = () => {
-  return <div>FAQ</div>;
-};
-
-export default FAQ;
+export default FaqPage;

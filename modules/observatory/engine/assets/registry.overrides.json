@@ -25,12 +25,7 @@
         },
         "tileSize": 32
       },
-      "tags": [
-        "office-pack",
-        "floor",
-        "office",
-        "rpgmaker-a2"
-      ]
+      "tags": ["office-pack", "floor", "office", "rpgmaker-a2"]
     },
     {
       "assetId": "wall:office-partition",
@@ -62,12 +57,7 @@
         },
         "tileSize": 48
       },
-      "tags": [
-        "office-pack",
-        "wall",
-        "office",
-        "rpgmaker-a4"
-      ]
+      "tags": ["office-pack", "wall", "office", "rpgmaker-a4"]
     },
     {
       "assetId": "furniture:ops-workstation",
@@ -104,11 +94,7 @@
         "width": 2,
         "height": 2
       },
-      "tags": [
-        "office-pack",
-        "planning",
-        "whiteboard"
-      ]
+      "tags": ["office-pack", "planning", "whiteboard"]
     },
     {
       "assetId": "decor:agent-laptop",
@@ -119,12 +105,7 @@
       "source": {
         "kind": "image"
       },
-      "tags": [
-        "office-pack",
-        "dynamic",
-        "laptop",
-        "work-device"
-      ]
+      "tags": ["office-pack", "dynamic", "laptop", "work-device"]
     },
     {
       "assetId": "human:atlas",
@@ -137,11 +118,7 @@
         "frameHeight": 96
       },
       "frame": 3,
-      "tags": [
-        "office-pack",
-        "agent",
-        "character-action-sheet"
-      ]
+      "tags": ["office-pack", "agent", "character-action-sheet"]
     },
     {
       "assetId": "human:byte",
@@ -154,11 +131,7 @@
         "frameHeight": 96
       },
       "frame": 3,
-      "tags": [
-        "office-pack",
-        "agent",
-        "character-action-sheet"
-      ]
+      "tags": ["office-pack", "agent", "character-action-sheet"]
     },
     {
       "assetId": "human:clio",
@@ -171,11 +144,7 @@
         "frameHeight": 96
       },
       "frame": 3,
-      "tags": [
-        "office-pack",
-        "agent",
-        "character-action-sheet"
-      ]
+      "tags": ["office-pack", "agent", "character-action-sheet"]
     },
     {
       "assetId": "human:delta",
@@ -188,11 +157,7 @@
         "frameHeight": 96
       },
       "frame": 3,
-      "tags": [
-        "office-pack",
-        "agent",
-        "character-action-sheet"
-      ]
+      "tags": ["office-pack", "agent", "character-action-sheet"]
     },
     {
       "assetId": "human:echo",
@@ -205,11 +170,7 @@
         "frameHeight": 96
       },
       "frame": 3,
-      "tags": [
-        "office-pack",
-        "agent",
-        "character-action-sheet"
-      ]
+      "tags": ["office-pack", "agent", "character-action-sheet"]
     }
   ]
 }

@@ -1,6 +1,7 @@
 import { agentsApi } from '@/lib/api/backend/agents';
 import { executionsApi } from '@/lib/api/backend/executions';
-import type { AgentRun, CrudListResponse, ExecutionArtifact } from '@/lib/api/backend/types';
+import type { AgentRun, ExecutionArtifact } from '@/types/runtime';
+import type { CrudListResponse } from '@/types/api';
 
 export const agentRunsApi = {
   listRuns(): Promise<AgentRun[]> {

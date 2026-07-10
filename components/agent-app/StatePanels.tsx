@@ -1,26 +1,18 @@
-'use client';
-
 import { Alert, AlertDescription, AlertTitle } from '../library/shadcn/alert';
 import { Button } from '../library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, Inbox, LoaderCircle, RefreshCw } from 'lucide-react';
 
-export function LoadingCard({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
+export function LoadingCard({ title, description }: { title: string; description: string }) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{title}</CardTitle>
+        <CardTitle className="text-lg">{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="flex min-h-32 items-center justify-center">
-          <span className="loading loading-spinner loading-lg text-primary" />
+        <div className="flex min-h-32 items-center justify-center text-(--agency-shell-muted)">
+          <LoaderCircle className="size-5 animate-spin" aria-label="Loading" />
         </div>
       </CardContent>
     </Card>
@@ -39,15 +31,18 @@ export function EmptyCard({
   onAction?: () => void;
 }) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{title}</CardTitle>
+    <Card className="border-dashed">
+      <CardHeader className="items-center text-center">
+        <span className="mb-2 flex size-10 items-center justify-center rounded-full bg-muted text-(--agency-shell-muted)">
+          <Inbox className="size-[1.1rem]" />
+        </span>
+        <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="flex flex-col items-center gap-4 text-center">
         <CardDescription>{description}</CardDescription>
         {actionLabel && onAction ? (
           <Button type="button" variant="outline" onClick={onAction}>
-            <RefreshCw className="mr-2 h-4 w-4" />
+            <RefreshCw data-icon="inline-start" />
             {actionLabel}
           </Button>
         ) : null}
@@ -67,7 +62,7 @@ export function ErrorAlert({
 }) {
   return (
     <Alert variant="destructive">
-      <AlertCircle className="h-4 w-4" />
+      <AlertCircle className="size-4" />
       <AlertTitle>{title}</AlertTitle>
       <AlertDescription className="flex flex-wrap items-center gap-3">
         <span>{message}</span>

@@ -19,7 +19,7 @@ export interface ObservatoryLayoutLibrarySummary {
 }
 
 export function summarizeObservatoryLayoutLibraryEntry(
-  entry: ObservatoryLayoutLibraryEntry,
+  entry: ObservatoryLayoutLibraryEntry
 ): ObservatoryLayoutLibrarySummary {
   const metadata = entry.layout.metadata;
 

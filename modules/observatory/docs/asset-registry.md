@@ -75,7 +75,7 @@ Invalid entries are reported and skipped. They must not crash the Phaser preload
 
 ## Review Workflow
 
-Use the retained office-focused asset set as the source of truth. The normal flow is:
+Do not review hundreds of images one by one upfront. The normal flow is:
 
 1. Add or replace files under `modules/observatory/assets`.
 2. Run `node modules/observatory/scripts/generate-asset-catalog.mjs` with the needed output
@@ -86,6 +86,16 @@ Use the retained office-focused asset set as the source of truth. The normal flo
 5. Add or update the corresponding curated runtime entry in `moduleAssetRegistry.ts` only when
    that asset needs a stable semantic ID, collision, action manifest, or hand-corrected frame
    geometry.
+
+## Open-Source Asset Boundary
+
+`open-agency-fe` must catalog only the redistributable files tracked under
+`modules/observatory/assets`. Do not copy paid or private asset packs from another repository,
+and do not commit generated metadata that references files absent from this repository.
+
+Regenerate the catalog, candidates, TypeScript registry, and furniture manifests whenever the
+open asset inventory changes. CI tests must verify that every generated catalog path resolves to
+a tracked Open Agency FE asset.
 
 ## Fallback
 

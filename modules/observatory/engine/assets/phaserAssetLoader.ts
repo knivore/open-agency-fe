@@ -3,18 +3,24 @@ import type Phaser from 'phaser';
 import {
   createObservatoryCharacterActionAnimationKey,
   OBSERVATORY_FALLBACK_TEXTURE_KEY,
-  type ObservatoryAssetDefinition,
   type ObservatoryAssetAnimation,
+  type ObservatoryAssetDefinition,
   type ObservatoryValidatedAssetRegistry,
 } from '@/modules/observatory/engine/assets/assetRegistry';
 
-export function loadObservatoryRegistryAssets(scene: Phaser.Scene, registry: ObservatoryValidatedAssetRegistry) {
+export function loadObservatoryRegistryAssets(
+  scene: Phaser.Scene,
+  registry: ObservatoryValidatedAssetRegistry
+) {
   for (const asset of registry.assets) {
     loadAsset(scene, asset);
   }
 }
 
-export function createObservatoryRegistryAnimations(scene: Phaser.Scene, registry: ObservatoryValidatedAssetRegistry) {
+export function createObservatoryRegistryAnimations(
+  scene: Phaser.Scene,
+  registry: ObservatoryValidatedAssetRegistry
+) {
   for (const asset of registry.assets) {
     if (asset.source.kind !== 'spritesheet') {
       continue;
@@ -79,7 +85,7 @@ function loadAsset(scene: Phaser.Scene, asset: ObservatoryAssetDefinition) {
 
 function getAssetAnimations(asset: ObservatoryAssetDefinition): ObservatoryAssetAnimation[] {
   const baseAnimations = [asset.animation, ...(asset.animations ?? [])].filter(
-    (animation): animation is ObservatoryAssetAnimation => Boolean(animation),
+    (animation): animation is ObservatoryAssetAnimation => Boolean(animation)
   );
   const characterActionAnimations =
     asset.characterActions?.map((action) => ({

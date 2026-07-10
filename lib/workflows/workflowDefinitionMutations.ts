@@ -1,9 +1,9 @@
 import type { AgentDefinition } from '@/types/agents';
 import type {
+  TaskDefinition,
   WorkflowDefinition,
   WorkflowEdgeDefinition,
   WorkflowNodeDefinition,
-  TaskDefinition,
 } from '@/types/workflows';
 import type {
   WorkflowBuilderAgent,
@@ -70,17 +70,27 @@ export function builderTaskToDefinition(task: WorkflowBuilderTask, index = 0): T
 
 export function rebuildWorkflowGraph(workflow: WorkflowDefinition): WorkflowDefinition {
   const taskDefinitions = workflow.task_definitions ?? [];
+  const existingNodeByTaskId = new Map(
+    (workflow.nodes ?? [])
+      .filter((node) => typeof node.task_id === 'string')
+      .map((node) => [node.task_id as string, node])
+  );
 
-  const nodes: WorkflowNodeDefinition[] = taskDefinitions.map((task) => ({
-    id: `node-${task.id}`,
-    name: task.name,
-    node_type: 'task',
-    task_id: task.id,
-    agent_id: task.agent_id ?? null,
-    metadata: {
-      generated_by: 'workflow-mutation-adapter',
-    },
-  }));
+  const nodes: WorkflowNodeDefinition[] = taskDefinitions.map((task) => {
+    const existingNode = existingNodeByTaskId.get(task.id);
+
+    return {
+      id: existingNode?.id ?? `node-${task.id}`,
+      name: task.name,
+      node_type: existingNode?.node_type ?? 'task',
+      task_id: task.id,
+      agent_id: task.agent_id ?? null,
+      metadata: {
+        ...(existingNode?.metadata ?? {}),
+        generated_by: 'workflow-mutation-adapter',
+      },
+    };
+  });
 
   const nodeIdByTaskId = new Map(nodes.map((node) => [node.task_id ?? '', node.id]));
   const edges: WorkflowEdgeDefinition[] = [];
@@ -137,7 +147,7 @@ export function workflowBuilderBaseToWorkflowDefinition(
     };
   });
 
-  const workflow = rebuildWorkflowGraph({
+  return rebuildWorkflowGraph({
     id: builderDraft.id ?? randomId('workflow'),
     name: builderDraft.name,
     description: builderDraft.description,
@@ -149,7 +159,6 @@ export function workflowBuilderBaseToWorkflowDefinition(
     versioning: {
       version: '1.0.0',
       revision: 1,
-      is_published: false,
       labels: ['draft'],
     },
     metadata: {
@@ -159,8 +168,6 @@ export function workflowBuilderBaseToWorkflowDefinition(
       process: builderDraft.process ?? 'sequential',
     },
   });
-
-  return workflow;
 }
 
 export function cloneWorkflowDefinition(
@@ -205,7 +212,6 @@ export function cloneWorkflowDefinition(
     versioning: {
       version: '1.0.0',
       revision: 1,
-      is_published: false,
       labels: ['draft', 'clone'],
     },
     metadata: {

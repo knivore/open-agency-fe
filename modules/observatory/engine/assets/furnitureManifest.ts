@@ -29,6 +29,26 @@ export interface ObservatoryFurnitureManifestAsset {
   width: number;
 }
 
+interface ObservatoryFurnitureManifestFolder {
+  assetCount: number;
+  name: string;
+  path: string;
+}
+
+interface ObservatoryFurnitureManifest {
+  assets?: ObservatoryFurnitureManifestAsset[];
+  folders?: ObservatoryFurnitureManifestFolder[];
+}
+
+interface ObservatoryFurnitureReview {
+  originalPath?: string;
+  sourcePath?: string;
+}
+
+interface ObservatoryFurnitureReviewMap {
+  reviews?: ObservatoryFurnitureReview[];
+}
+
 export interface ObservatoryFurniturePaletteAsset {
   assetId: string;
   category: string;
@@ -102,7 +122,10 @@ export interface ObservatoryFurniturePaletteGroup {
   label: string;
 }
 
-export const observatoryFurnitureThemeOptions: Array<{ id: ObservatoryFurnitureThemeId; label: string }> = [
+export const observatoryFurnitureThemeOptions: Array<{
+  id: ObservatoryFurnitureThemeId;
+  label: string;
+}> = [
   { id: 'all', label: 'All Themes' },
   { id: 'office', label: 'Office' },
   { id: 'classroom', label: 'Classroom' },
@@ -117,7 +140,10 @@ export const observatoryFurnitureThemeOptions: Array<{ id: ObservatoryFurnitureT
   { id: 'specialty', label: 'Specialty Packs' },
 ];
 
-export const observatoryFurnitureRoleOptions: Array<{ id: ObservatoryFurnitureRoleId; label: string }> = [
+export const observatoryFurnitureRoleOptions: Array<{
+  id: ObservatoryFurnitureRoleId;
+  label: string;
+}> = [
   { id: 'all', label: 'All Roles' },
   { id: 'tables', label: 'Tables' },
   { id: 'seating', label: 'Seating' },
@@ -130,20 +156,30 @@ export const observatoryFurnitureRoleOptions: Array<{ id: ObservatoryFurnitureRo
   { id: 'workstations', label: 'Workstations' },
 ];
 
-export const observatoryFurnitureSortOptions: Array<{ id: ObservatoryFurnitureSortId; label: string }> = [
+export const observatoryFurnitureSortOptions: Array<{
+  id: ObservatoryFurnitureSortId;
+  label: string;
+}> = [
   { id: 'recommended', label: 'Recommended' },
   { id: 'alpha', label: 'A-Z' },
   { id: 'footprint', label: 'Smallest Footprint' },
   { id: 'pack', label: 'Pack' },
 ];
 
-const furnitureAssets = (furnitureManifest.assets ?? []) as ObservatoryFurnitureManifestAsset[];
+const typedFurnitureManifest = furnitureManifest as ObservatoryFurnitureManifest;
+const typedFurnitureReviewMap = furnitureReviewMap as ObservatoryFurnitureReviewMap;
+
+const furnitureAssets = typedFurnitureManifest.assets ?? [];
 const reviewedSourcePaths = new Set(
-  (furnitureReviewMap.reviews ?? []).flatMap((review) => [review.sourcePath, review.originalPath].filter(Boolean)),
+  (typedFurnitureReviewMap.reviews ?? []).flatMap((review) =>
+    [review.sourcePath, review.originalPath].filter((path): path is string => Boolean(path))
+  )
 );
 const reviewedAssetCount = furnitureAssets.reduce((count, asset) => {
   const sourcePath = asset.source.path;
-  return reviewedSourcePaths.has(asset.path) || reviewedSourcePaths.has(sourcePath) ? count + 1 : count;
+  return reviewedSourcePaths.has(asset.path) || reviewedSourcePaths.has(sourcePath)
+    ? count + 1
+    : count;
 }, 0);
 
 const paletteGroups: Array<Omit<ObservatoryFurniturePaletteGroup, 'assets'>> = [
@@ -196,7 +232,7 @@ const paletteGroups: Array<Omit<ObservatoryFurniturePaletteGroup, 'assets'>> = [
 
 export const observatoryFurnitureManifestSummary = {
   assetCount: furnitureAssets.length,
-  folderCount: furnitureManifest.folders?.length ?? 0,
+  folderCount: typedFurnitureManifest.folders?.length ?? 0,
   reviewedCount: reviewedAssetCount,
 };
 
@@ -234,7 +270,9 @@ export function getObservatoryFurniturePaletteAssets({
         asset.role,
         asset.sourcePath,
         ...asset.tags,
-      ].join(' ').toLowerCase();
+      ]
+        .join(' ')
+        .toLowerCase();
 
       return haystack.includes(query);
     })
@@ -244,7 +282,8 @@ export function getObservatoryFurniturePaletteAssets({
       }
 
       if (sort === 'footprint') {
-        const footprintDiff = a.footprint.width * a.footprint.height - b.footprint.width * b.footprint.height;
+        const footprintDiff =
+          a.footprint.width * a.footprint.height - b.footprint.width * b.footprint.height;
         return footprintDiff || a.label.localeCompare(b.label, undefined, { numeric: true });
       }
 
@@ -285,11 +324,13 @@ export function getObservatoryFurniturePaletteGroups(options?: {
 
 export function getObservatoryFurniturePaletteAsset(assetId: string) {
   return getObservatoryFurniturePaletteAssets({ includeUnreviewed: true }).find(
-    (asset) => asset.assetId === assetId,
+    (asset) => asset.assetId === assetId
   );
 }
 
-function toPaletteAsset(asset: ObservatoryFurnitureManifestAsset): ObservatoryFurniturePaletteAsset {
+function toPaletteAsset(
+  asset: ObservatoryFurnitureManifestAsset
+): ObservatoryFurniturePaletteAsset {
   const sourcePath = asset.source.path;
 
   return {
@@ -315,10 +356,17 @@ function toPaletteAsset(asset: ObservatoryFurnitureManifestAsset): ObservatoryFu
   };
 }
 
-function themeForFurnitureAsset(asset: ObservatoryFurnitureManifestAsset): ObservatoryFurnitureThemeId {
-  const text = `${asset.packName} ${asset.category} ${asset.semanticRole} ${asset.label} ${asset.tags.join(' ')}`.toLowerCase();
+function themeForFurnitureAsset(
+  asset: ObservatoryFurnitureManifestAsset
+): ObservatoryFurnitureThemeId {
+  const text =
+    `${asset.packName} ${asset.category} ${asset.semanticRole} ${asset.label} ${asset.tags.join(' ')}`.toLowerCase();
 
-  if (/(modern office|office|workspace|agency|meeting|approval|research|finance|audit|ops center)/.test(text)) {
+  if (
+    /(modern office|office|workspace|agency|meeting|approval|research|finance|audit|ops center)/.test(
+      text
+    )
+  ) {
     return 'office';
   }
   if (/(classroom|library|school|bookcase|student|teacher)/.test(text)) {
@@ -351,8 +399,11 @@ function themeForFurnitureAsset(asset: ObservatoryFurnitureManifestAsset): Obser
   return 'specialty';
 }
 
-function roleForFurnitureAsset(asset: ObservatoryFurnitureManifestAsset): ObservatoryFurnitureRoleId {
-  const text = `${asset.category} ${asset.semanticRole} ${asset.label} ${asset.tags.join(' ')}`.toLowerCase();
+function roleForFurnitureAsset(
+  asset: ObservatoryFurnitureManifestAsset
+): ObservatoryFurnitureRoleId {
+  const text =
+    `${asset.category} ${asset.semanticRole} ${asset.label} ${asset.tags.join(' ')}`.toLowerCase();
 
   if (/(workstation|computer|printer|laptop|keyboard|mouse|office-machine|console)/.test(text)) {
     return 'workstations';
@@ -381,8 +432,11 @@ function roleForFurnitureAsset(asset: ObservatoryFurnitureManifestAsset): Observ
   return 'decor';
 }
 
-function groupForFurnitureAsset(asset: ObservatoryFurnitureManifestAsset): ObservatoryFurniturePaletteGroupId {
-  const text = `${asset.category} ${asset.semanticRole} ${asset.label} ${asset.tags.join(' ')}`.toLowerCase();
+function groupForFurnitureAsset(
+  asset: ObservatoryFurnitureManifestAsset
+): ObservatoryFurniturePaletteGroupId {
+  const text =
+    `${asset.category} ${asset.semanticRole} ${asset.label} ${asset.tags.join(' ')}`.toLowerCase();
 
   if (/(server|runtime|rack|terminal|control-panel|server-cart)/.test(text)) {
     return 'runtime';
@@ -435,7 +489,12 @@ function builderPriority(asset: ObservatoryFurniturePaletteAsset) {
     score += 20;
   }
 
-  if (asset.roleId === 'workstations' || asset.roleId === 'tables' || asset.roleId === 'seating' || asset.roleId === 'screens') {
+  if (
+    asset.roleId === 'workstations' ||
+    asset.roleId === 'tables' ||
+    asset.roleId === 'seating' ||
+    asset.roleId === 'screens'
+  ) {
     score += 18;
   }
 

@@ -1,15 +1,22 @@
-import { agencyApiClient } from '@/lib/api';
+import { agencyApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
+import type { CrudListResponse, DeleteResponse } from '@/types/api';
 import type {
-  CrudListResponse,
-  DeleteResponse,
-  ToolContract,
-  ToolContractListResponse,
+  GeneratedToolPackageDetail,
+  GeneratedToolPackageListResponse,
+  GeneratedToolPublishPayload,
+  GeneratedToolPublishResponse,
+  GeneratedToolScaffoldPayload,
+  GeneratedToolScaffoldResponse,
   ToolDefinition,
-  ToolRunResponse,
   ToolTestPayload,
   ToolValidationPayload,
-} from '@/lib/api/backend/types';
+} from '@/types/tools';
+import type {
+  ToolContract,
+  ToolContractListResponse,
+  ToolRunResponse,
+} from '@/types/toolContracts';
 
 export const toolsApi = {
   listTools() {
@@ -17,6 +24,29 @@ export const toolsApi = {
   },
   getTool(toolId: string) {
     return agencyApiClient.get<ToolDefinition>(backendRoutes.tools.byId(toolId));
+  },
+  listGeneratedToolPackages(packageId?: string) {
+    const suffix = packageId ? `?package_id=${encodeURIComponent(packageId)}` : '';
+    return agencyApiClient.get<GeneratedToolPackageListResponse>(
+      `${backendRoutes.tools.generatedPackages()}${suffix}`
+    );
+  },
+  getGeneratedToolPackage(packageId: string) {
+    return agencyApiClient.get<GeneratedToolPackageDetail>(
+      backendRoutes.tools.generatedPackageById(packageId)
+    );
+  },
+  scaffoldGeneratedToolPackage(payload: GeneratedToolScaffoldPayload) {
+    return agencyApiClient.post<GeneratedToolScaffoldResponse>(
+      backendRoutes.tools.generatedPackageScaffold(),
+      payload
+    );
+  },
+  publishGeneratedTool(payload: GeneratedToolPublishPayload) {
+    return agencyApiClient.post<GeneratedToolPublishResponse>(
+      backendRoutes.tools.generatedPackagePublish(),
+      payload
+    );
   },
   createTool(payload: Record<string, unknown>) {
     return agencyApiClient.post<ToolDefinition>(backendRoutes.tools.create(), payload);

@@ -1,8 +1,10 @@
-'use client';
-
 import { Badge } from '@/components/library/shadcn/badge';
 import { Card, CardContent } from '@/components/library/shadcn/card';
 import type { ToolContract } from '@/types/toolContracts';
+
+function riskLabelsFor(contract: ToolContract) {
+  return contract.riskLabels ?? contract.risk_labels ?? [];
+}
 
 export default function ToolContractList({
   contracts,
@@ -27,6 +29,7 @@ export default function ToolContractList({
     <div className="space-y-3">
       {contracts.map((contract) => {
         const selected = contract.name === selectedName;
+        const riskLabels = riskLabelsFor(contract);
         return (
           <button
             key={contract.name}
@@ -46,6 +49,20 @@ export default function ToolContractList({
                 >
                   {contract.description || 'No description provided.'}
                 </p>
+                {riskLabels.length ? (
+                  <div className="mt-3 flex flex-wrap gap-1.5">
+                    {riskLabels.slice(0, 4).map((label) => (
+                      <Badge key={label} variant={selected ? 'secondary' : 'outline'} className="font-mono text-[11px]">
+                        {label}
+                      </Badge>
+                    ))}
+                    {riskLabels.length > 4 ? (
+                      <Badge variant={selected ? 'secondary' : 'outline'} className="font-mono text-[11px]">
+                        +{riskLabels.length - 4}
+                      </Badge>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
               <Badge variant={selected ? 'secondary' : 'outline'}>v{contract.version}</Badge>
             </div>

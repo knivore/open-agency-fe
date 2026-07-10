@@ -9,14 +9,33 @@ describe('getAgencyApiBaseUrl', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses the internal backend URL on the server when the public base is a rewrite path', () => {
+  it('uses an explicit public backend URL when configured', () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      NEXT_PUBLIC_AGENCY_API_BASE_URL: 'https://agency-runtime.example.com/',
+    };
+
+    expect(getAgencyApiBaseUrl()).toBe('https://agency-runtime.example.com');
+  });
+
+  it('uses the local backend URL for local app mode when no explicit URL is configured', () => {
+    process.env = {
+      ...ORIGINAL_ENV,
+      NEXT_PUBLIC_AGENCY_API_BASE_URL: '',
+      LOCAL_BACKEND: '',
+      NEXT_PUBLIC_APP_ENV: 'local',
+    };
+
+    expect(getAgencyApiBaseUrl()).toBe('http://127.0.0.1:8000');
+  });
+
+  it('preserves explicit local rewrite paths for browser callers', () => {
     process.env = {
       ...ORIGINAL_ENV,
       NEXT_PUBLIC_AGENCY_API_BASE_URL: '/backend',
-      AGENCY_INTERNAL_API_BASE_URL: 'http://127.0.0.1:8000/',
     };
-    vi.stubGlobal('window', undefined);
+    vi.stubGlobal('window', {});
 
-    expect(getAgencyApiBaseUrl()).toBe('http://127.0.0.1:8000');
+    expect(getAgencyApiBaseUrl()).toBe('/backend');
   });
 });

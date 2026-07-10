@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
-import { backendWorkflowsApi } from '@/lib/api/backend';
+import { backendWorkflowsApi } from '@/lib/api/backend/workflows';
 import {
   getAuthenticatedUser,
   getInternalApiKey,

@@ -55,19 +55,27 @@ describe('observatory pixel agent behavior targets', () => {
 
     expect(target).not.toEqual({ x: 4, y: 2 });
     expect(target).not.toEqual({ x: 5, y: 2 });
-    expect(target).toEqual(expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) }));
+    expect(target).toEqual(
+      expect.objectContaining({ x: expect.any(Number), y: expect.any(Number) })
+    );
   });
 
   it('classifies manifest-style office assets into behavior target roles', () => {
-    expect(classifyObservatoryObjectBehaviorRole('furniture:1-modern-office-singles-48x48:compact-gray-laptop')).toBe(
-      'computer',
-    );
-    expect(classifyObservatoryObjectBehaviorRole('furniture:1-modern-office-singles-48x48:server-workbench-with-tools')).toBe(
-      'runtime',
-    );
-    expect(classifyObservatoryObjectBehaviorRole('furniture:1-modern-office-singles-48x48:planning-whiteboard-chart')).toBe(
-      'planning',
-    );
+    expect(
+      classifyObservatoryObjectBehaviorRole(
+        'furniture:1-modern-office-singles-48x48:compact-gray-laptop'
+      )
+    ).toBe('computer');
+    expect(
+      classifyObservatoryObjectBehaviorRole(
+        'furniture:1-modern-office-singles-48x48:server-workbench-with-tools'
+      )
+    ).toBe('runtime');
+    expect(
+      classifyObservatoryObjectBehaviorRole(
+        'furniture:1-modern-office-singles-48x48:planning-whiteboard-chart'
+      )
+    ).toBe('planning');
   });
 
   it('uses the full object perimeter when the four cardinal interaction tiles are blocked', () => {

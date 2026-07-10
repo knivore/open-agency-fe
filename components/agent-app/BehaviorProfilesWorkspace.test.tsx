@@ -25,13 +25,14 @@ const { behaviorProfilesApi, modelProfilesApi, modelProvidersApi } = vi.hoisted(
     updateProvider: vi.fn(),
     authorizeProvider: vi.fn(),
     completeAuthorizeProvider: vi.fn(),
-    deviceAuthorizeProvider: vi.fn(),
-    completeDeviceAuthorizeProvider: vi.fn(),
   },
 }));
 
-vi.mock('@/lib/api/backend', () => ({
+vi.mock('@/lib/api/backend/behaviorProfiles', () => ({
   behaviorProfilesApi,
+}));
+
+vi.mock('@/lib/api/backend/models', () => ({
   modelProfilesApi,
   modelProvidersApi,
 }));
@@ -43,13 +44,19 @@ vi.mock('sonner', () => ({
   },
 }));
 
-vi.mock('@/components/library/shadcn/button', () => ({
-  Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>
-      {children}
-    </button>
-  ),
-}));
+vi.mock('@/components/library/shadcn/button', async () => {
+  const ReactModule = await import('react');
+  const Button = ReactModule.forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
+    ({ children, ...props }, ref) => (
+      <button ref={ref} type="button" {...props}>
+        {children}
+      </button>
+    )
+  );
+  Button.displayName = 'MockButton';
+
+  return { Button };
+});
 
 vi.mock('@/components/library/shadcn/input', () => ({
   Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
@@ -156,19 +163,6 @@ describe('BehaviorProfilesWorkspace', () => {
       auth_profile_id: 'default',
       account_id: 'acct_123',
     });
-    modelProvidersApi.deviceAuthorizeProvider.mockResolvedValue({
-      device_code: 'device-1',
-      user_code: 'ABCD-1234',
-      verification_uri: 'https://auth.openai.com/activate',
-      expires_in: 900,
-      interval: 5,
-      message: 'Open auth.openai.com and enter code.',
-      auth_profile_id: 'default',
-    });
-    modelProvidersApi.completeDeviceAuthorizeProvider.mockResolvedValue({
-      status: 'success',
-      message: 'Tokens stored successfully',
-    });
     vi.spyOn(window, 'open').mockImplementation(() => null);
   });
 
@@ -184,7 +178,7 @@ describe('BehaviorProfilesWorkspace', () => {
       expect(screen.getByText('Primary Profile')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add LLM model' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
     fireEvent.change(screen.getByLabelText('Preset name'), { target: { value: 'Ops Profile' } });
     fireEvent.change(screen.getByLabelText('LLM connection'), {
       target: { value: 'provider-openai' },
@@ -209,6 +203,13 @@ describe('BehaviorProfilesWorkspace', () => {
         supports_structured_output: false,
         supports_vision: false,
         supports_streaming: true,
+        fallback_strategy: 'auto',
+        fallback_policy: {
+          retry_on: ['rate_limit', 'timeout', 'service_unavailable', 'network', 'auth'],
+          same_provider_only: false,
+          require_capability_match: true,
+        },
+        fallback_models: [],
       });
     });
   });
@@ -242,7 +243,113 @@ describe('BehaviorProfilesWorkspace', () => {
         supports_structured_output: true,
         supports_vision: false,
         supports_streaming: true,
+        fallback_strategy: 'auto',
+        fallback_policy: {
+          retry_on: ['rate_limit', 'timeout', 'service_unavailable', 'network', 'auth'],
+          same_provider_only: false,
+          require_capability_match: true,
+        },
+        fallback_models: [],
       });
+    });
+  });
+
+  it('updates manual fallback models on an existing model preset', async () => {
+    modelProvidersApi.listProviders.mockResolvedValue({
+      items: [
+        {
+          id: 'provider-openai',
+          name: 'OpenAI',
+          provider_type: 'openai',
+          endpoint: {
+            base_url: 'https://api.openai.com/v1',
+          },
+          config: {
+            api_key: 'sk-test',
+          },
+        },
+        {
+          id: 'provider-anthropic',
+          name: 'Anthropic',
+          provider_type: 'anthropic',
+          endpoint: null,
+          config: {
+            api_key: 'anthropic-key',
+          },
+        },
+      ],
+    });
+    modelProvidersApi.listProviderModels.mockImplementation(async (providerId: string) => ({
+      target_type: 'model_provider',
+      target_id: providerId,
+      provider_type: providerId === 'provider-anthropic' ? 'anthropic' : 'openai',
+      source: 'live',
+      models:
+        providerId === 'provider-anthropic'
+          ? [
+              { id: 'claude-sonnet-4-6', name: 'Claude Sonnet 4.6' },
+              { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku' },
+            ]
+          : [
+              { id: 'gpt-4.1', name: 'GPT-4.1' },
+              { id: 'gpt-4.1-mini', name: 'GPT-4.1 mini' },
+            ],
+    }));
+
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Primary Profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit preset' }));
+    fireEvent.click(screen.getByRole('button', { name: 'manual' }));
+    fireEvent.change(screen.getByLabelText('Backup 1 provider'), {
+      target: { value: 'provider-anthropic' },
+    });
+    fireEvent.change(screen.getByLabelText('Backup 1 model'), {
+      target: { value: 'claude-3-5-haiku-latest' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(modelProfilesApi.updateProfile).toHaveBeenCalledWith(
+        'profile-1',
+        expect.objectContaining({
+          fallback_strategy: 'manual',
+          fallback_policy: expect.objectContaining({
+            require_capability_match: true,
+          }),
+          fallback_models: [{ provider: 'provider-anthropic', model: 'claude-3-5-haiku-latest' }],
+        })
+      );
+    });
+  });
+
+  it('updates fallback policy on an existing model preset', async () => {
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Primary Profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit preset' }));
+    fireEvent.click(screen.getByRole('button', { name: 'manual' }));
+    fireEvent.click(screen.getByLabelText(/auth/i));
+    fireEvent.click(screen.getByLabelText('Same provider only'));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    await waitFor(() => {
+      expect(modelProfilesApi.updateProfile).toHaveBeenCalledWith(
+        'profile-1',
+        expect.objectContaining({
+          fallback_policy: {
+            retry_on: ['rate_limit', 'timeout', 'service_unavailable', 'network'],
+            same_provider_only: true,
+            require_capability_match: true,
+          },
+        })
+      );
     });
   });
 
@@ -303,7 +410,7 @@ describe('BehaviorProfilesWorkspace', () => {
       expect(screen.getByText('Primary Profile')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add LLM model' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
     fireEvent.click(screen.getByRole('button', { name: 'New connection' }));
     fireEvent.change(screen.getByLabelText('Provider family'), { target: { value: 'ollama' } });
     fireEvent.change(screen.getByLabelText('Connection name'), {
@@ -340,7 +447,106 @@ describe('BehaviorProfilesWorkspace', () => {
       supports_structured_output: false,
       supports_vision: false,
       supports_streaming: true,
+      fallback_strategy: 'auto',
+      fallback_policy: {
+        retry_on: ['rate_limit', 'timeout', 'service_unavailable', 'network', 'auth'],
+        same_provider_only: false,
+        require_capability_match: true,
+      },
+      fallback_models: [],
     });
+  });
+
+  it('adds a DeepSeek connection with backend provider type and defaults', async () => {
+    modelProvidersApi.createProvider.mockResolvedValueOnce({
+      id: 'deepseek',
+      name: 'DeepSeek',
+    });
+
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Primary Profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New connection' }));
+    fireEvent.change(screen.getByLabelText('Provider family'), { target: { value: 'deepseek' } });
+    expect(screen.getByLabelText('Base URL')).toHaveValue('https://api.deepseek.com');
+    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'deepseek-key' } });
+    fireEvent.change(screen.getByLabelText('Preset name'), { target: { value: 'DeepSeek Main' } });
+    fireEvent.change(screen.getByLabelText('Model'), {
+      target: { value: 'deepseek-v4-flash' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add model' }));
+
+    await waitFor(() => {
+      expect(modelProvidersApi.createProvider).toHaveBeenCalledWith({
+        id: 'deepseek',
+        name: 'DeepSeek',
+        provider_type: 'deepseek',
+        endpoint: { base_url: 'https://api.deepseek.com' },
+        config: {
+          provider_family: 'deepseek',
+          api_key: 'deepseek-key',
+        },
+      });
+    });
+    expect(modelProfilesApi.createProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'DeepSeek Main',
+        provider: 'deepseek',
+        model: 'deepseek-v4-flash',
+        base_url: 'https://api.deepseek.com',
+        api_key_ref: 'deepseek-key',
+      })
+    );
+  });
+
+  it('adds a Qwen connection with DashScope defaults', async () => {
+    modelProvidersApi.createProvider.mockResolvedValueOnce({
+      id: 'qwen',
+      name: 'Qwen',
+    });
+
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Primary Profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New connection' }));
+    fireEvent.change(screen.getByLabelText('Provider family'), { target: { value: 'qwen' } });
+    expect(screen.getByLabelText('Base URL')).toHaveValue(
+      'https://dashscope-intl.aliyuncs.com/compatible-mode/v1'
+    );
+    fireEvent.change(screen.getByLabelText('API key'), { target: { value: 'qwen-key' } });
+    fireEvent.change(screen.getByLabelText('Preset name'), { target: { value: 'Qwen Main' } });
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'qwen-plus' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add model' }));
+
+    await waitFor(() => {
+      expect(modelProvidersApi.createProvider).toHaveBeenCalledWith({
+        id: 'qwen',
+        name: 'Qwen',
+        provider_type: 'qwen',
+        endpoint: { base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1' },
+        config: {
+          provider_family: 'qwen',
+          api_key: 'qwen-key',
+        },
+      });
+    });
+    expect(modelProfilesApi.createProfile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'Qwen Main',
+        provider: 'qwen',
+        model: 'qwen-plus',
+        base_url: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+        api_key_ref: 'qwen-key',
+      })
+    );
   });
 
   it('warns when an ollama connection uses localhost in the create flow', async () => {
@@ -350,7 +556,7 @@ describe('BehaviorProfilesWorkspace', () => {
       expect(screen.getByText('Primary Profile')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add LLM model' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
     fireEvent.click(screen.getByRole('button', { name: 'New connection' }));
     fireEvent.change(screen.getByLabelText('Provider family'), { target: { value: 'ollama' } });
     fireEvent.change(screen.getByLabelText('Base URL'), {
@@ -358,7 +564,7 @@ describe('BehaviorProfilesWorkspace', () => {
     });
 
     expect(
-      screen.getByText(/`?localhost`? usually points at the backend container itself/i)
+      screen.getByText(/localhost usually points at the backend container itself/i)
     ).toBeInTheDocument();
   });
 
@@ -405,7 +611,7 @@ describe('BehaviorProfilesWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Edit connection' }));
 
     expect(
-      screen.getByText(/`?localhost`? usually points at the backend container itself/i)
+      screen.getByText(/localhost usually points at the backend container itself/i)
     ).toBeInTheDocument();
   });
 
@@ -440,6 +646,7 @@ describe('BehaviorProfilesWorkspace', () => {
 
     expect(screen.getByText('Account acct_123')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Re-authorize OAuth' }));
+    expect(screen.queryByRole('button', { name: 'Device authorization' })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Browser authorization' }));
 
     await waitFor(() => {

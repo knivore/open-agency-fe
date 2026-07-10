@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" aria-labelledby="title" role="img">
+  <title id="title">Open Agency symbol</title>
+  <defs>
+    <linearGradient id="open-agency-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#5FC3FF"/>
+      <stop offset="100%" stop-color="#8A56FF"/>
+    </linearGradient>
+  </defs>
+  <path d="M20 85 L50 15 Q75 45 85 85" stroke="url(#open-agency-gradient)" stroke-width="14"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="80" cy="28" r="10" fill="url(#open-agency-gradient)"/>
+  <circle cx="50" cy="60" r="10" fill="url(#open-agency-gradient)"/>
+</svg>

@@ -1,3 +1,4 @@
+import { getApiClientAuthToken, getApiClientIdentityHeaders } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 
 type QueryValue = string | number | boolean | null | undefined;
@@ -31,7 +32,10 @@ function buildUrl(path: string, query?: QueryParams, baseUrl?: string) {
   const normalizedBaseUrl = baseUrl ? baseUrl.replace(/\/+$/, '') : '';
   const normalizedPath = path.startsWith('/') ? path : `/${path}`;
   const rawUrl = isAbsolute ? path : `${normalizedBaseUrl}${normalizedPath}`;
-  const url = new URL(rawUrl, typeof window === 'undefined' ? 'http://localhost' : window.location.origin);
+  const url = new URL(
+    rawUrl,
+    typeof window === 'undefined' ? 'http://localhost' : window.location.origin
+  );
 
   if (query) {
     for (const [key, value] of Object.entries(query)) {
@@ -55,7 +59,10 @@ function buildUrl(path: string, query?: QueryParams, baseUrl?: string) {
 
 function mergeAbortSignals(signal: AbortSignal | null | undefined, timeoutMs: number) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(new Error(`Request timed out after ${timeoutMs}ms`)), timeoutMs);
+  const timeoutId = setTimeout(
+    () => controller.abort(new Error(`Request timed out after ${timeoutMs}ms`)),
+    timeoutMs
+  );
 
   if (signal) {
     if (signal.aborted) {
@@ -187,12 +194,34 @@ export function createApiClient(options: ApiClientOptions = {}) {
     let resolvedBody: BodyInit | undefined;
 
     if (body !== undefined && body !== null) {
-      if (body instanceof FormData || body instanceof URLSearchParams || typeof body === 'string' || body instanceof Blob || body instanceof ArrayBuffer) {
+      if (
+        body instanceof FormData ||
+        body instanceof URLSearchParams ||
+        typeof body === 'string' ||
+        body instanceof Blob ||
+        body instanceof ArrayBuffer
+      ) {
         resolvedBody = body;
       } else {
         combinedHeaders.set('Content-Type', 'application/json');
         resolvedBody = JSON.stringify(body);
       }
+    }
+
+    if (shouldIncludeAuthToken && !combinedHeaders.has('Authorization')) {
+      const token = authToken ?? (await getApiClientAuthToken());
+      if (token) {
+        combinedHeaders.set('Authorization', `Bearer ${token}`);
+      }
+    }
+
+    const identityHeaders = await getApiClientIdentityHeaders();
+    if (identityHeaders) {
+      new Headers(identityHeaders).forEach((value, key) => {
+        if (!combinedHeaders.has(key)) {
+          combinedHeaders.set(key, value);
+        }
+      });
     }
 
     if (!combinedHeaders.has('Accept') && responseType === 'json') {
@@ -244,7 +273,8 @@ export function createApiClient(options: ApiClientOptions = {}) {
 
   return {
     request,
-    get: <T>(path: string, options?: ApiRequestOptions) => request<T>(path, { ...options, method: 'GET' }),
+    get: <T>(path: string, options?: ApiRequestOptions) =>
+      request<T>(path, { ...options, method: 'GET' }),
     post: <T>(path: string, body?: ApiRequestOptions['body'], options?: ApiRequestOptions) =>
       request<T>(path, { ...options, method: 'POST', body }),
     put: <T>(path: string, body?: ApiRequestOptions['body'], options?: ApiRequestOptions) =>

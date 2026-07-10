@@ -1,8 +1,8 @@
 import {
-  validateObservatoryAssetRegistry,
   type ObservatoryAssetDefinition,
   type ObservatoryAssetRegistry,
   type ObservatoryValidatedAssetRegistry,
+  validateObservatoryAssetRegistry,
 } from '@/modules/observatory/engine/assets/assetRegistry';
 import {
   buildObservedSurfaceVariants,

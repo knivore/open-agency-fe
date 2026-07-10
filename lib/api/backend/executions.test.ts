@@ -6,7 +6,7 @@ const { agencyGetMock, agencyPostMock } = vi.hoisted(() => ({
   agencyPostMock: vi.fn(),
 }));
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@/lib/api/clientInstances', () => ({
   agencyApiClient: {
     get: agencyGetMock,
     post: agencyPostMock,
@@ -89,6 +89,44 @@ describe('executionsApi identity forwarding', () => {
       '/workflows/workflow-1/executions/start',
       expect.any(Object),
       undefined
+    );
+  });
+
+  it('posts task retry requests to the execution task retry endpoint', async () => {
+    agencyPostMock.mockResolvedValue({
+      status: 'queued',
+      replacement_execution_id: 'exec-retry-1',
+    });
+
+    await executionsApi.retryExecutionTask('exec-failed-1', 'task-1', 'retry from graph', user);
+
+    expect(agencyPostMock).toHaveBeenCalledWith(
+      '/executions/exec-failed-1/tasks/task-1/retry',
+      { reason: 'retry from graph' },
+      {
+        headers: expect.objectContaining({
+          'x-agency-user-id': user.id,
+        }),
+      }
+    );
+  });
+
+  it('posts checkpoint resume requests to the execution checkpoint endpoint', async () => {
+    agencyPostMock.mockResolvedValue({
+      status: 'queued',
+      replacement_execution_id: 'exec-resume-1',
+    });
+
+    await executionsApi.resumeExecutionFromCheckpoint('exec-failed-1', 'resume checkpoint', user);
+
+    expect(agencyPostMock).toHaveBeenCalledWith(
+      '/executions/exec-failed-1/resume-from-checkpoint',
+      { reason: 'resume checkpoint' },
+      {
+        headers: expect.objectContaining({
+          'x-agency-user-id': user.id,
+        }),
+      }
     );
   });
 });

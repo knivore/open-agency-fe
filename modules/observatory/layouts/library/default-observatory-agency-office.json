@@ -2,13 +2,13 @@
   "metadata": {
     "id": "layout:observatory-default",
     "name": "Default Observatory Agency Office",
-    "notes": "Published Observatory layout with tightened common work, reception, and pantry room clusters.",
-    "publishedAt": "2026-05-19T04:55:22.251Z",
+    "notes": "Observatory agency office layout with room-purpose furniture groups, attached workstation assemblies, and wall-safe placement.",
+    "publishedAt": "2026-05-14T02:16:43.349Z",
     "publishedBy": "local-builder",
     "status": "draft",
     "version": 1,
     "createdAt": "2026-05-11T15:52:31.880Z",
-    "updatedAt": "2026-05-19T04:56:10.221Z"
+    "updatedAt": "2026-06-25T00:00:00.000Z"
   },
   "schemaVersion": 1,
   "world": {
@@ -590,9 +590,9 @@
               "y": 8
             },
             "floorAssetId": "floor:office-floors-1:variant-07",
-            "id": "room:manual-8",
+            "id": "room:level-1-corridor",
             "kind": "workspace",
-            "name": "Manual Room 8",
+            "name": "Level 1 Corridor",
             "wallAssetId": "wall:office-partition",
             "wallOpenings": [
               {
@@ -738,11 +738,97 @@
         ],
         "objects": [
           {
-            "id": "object:level-1-common-whiteboard",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-whiteboard-panel",
-            "roomId": "room:level-1-common-work",
+            "id": "object:level-1-reception-counter",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-low-wood-service-counter",
+            "roomId": "room:level-1-reception",
             "position": {
-              "x": 14,
+              "x": 2,
+              "y": 3
+            },
+            "size": {
+              "height": 2,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 20
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Reception intake counter for guest handoff and triage."
+            }
+          },
+          {
+            "id": "object:level-1-reception-phone",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-desk-phone-handset",
+            "roomId": "room:level-1-reception",
+            "position": {
+              "x": 2,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 26
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Phone belongs on the reception counter.",
+              "targetObjectId": "object:level-1-reception-counter"
+            }
+          },
+          {
+            "id": "object:level-1-reception-chair",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-office-chair-front",
+            "roomId": "room:level-1-reception",
+            "position": {
+              "x": 3,
+              "y": 2
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 19
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Reception chair faces down toward the counter.",
+              "targetObjectId": "object:level-1-reception-counter"
+            }
+          },
+          {
+            "id": "object:level-1-reception-sofa",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-beige-platform-with-drawer",
+            "roomId": "room:level-1-reception",
+            "position": {
+              "x": 4,
+              "y": 3
+            },
+            "size": {
+              "height": 2,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Small waiting area for visitors after check-in."
+            }
+          },
+          {
+            "id": "object:level-1-reception-poster",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-whiteboard-panel",
+            "roomId": "room:level-1-reception",
+            "position": {
+              "x": 5,
               "y": 0
             },
             "size": {
@@ -751,44 +837,575 @@
             },
             "blocksMovement": false,
             "render": {
-              "depth": 19,
+              "depth": 12,
               "offsetPx": {
                 "x": 0,
-                "y": -65
-              },
-              "sizePx": {
-                "height": 172.79999999999998,
-                "width": 115.2
+                "y": -16
+              }
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Wall-mounted welcome information, kept off the walk grid."
+            }
+          },
+          {
+            "id": "object:level-1-reception-plant",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-slim-office-plant",
+            "roomId": "room:level-1-reception",
+            "position": {
+              "x": 1,
+              "y": 3
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 21
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Entry plant softens the waiting area without blocking movement."
+            }
+          },
+          {
+            "id": "object:level-1-common-bookshelf-left",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-storage-cabinet-wide",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 8,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 13,
+              "offsetPx": {
+                "x": 0,
+                "y": -12
+              }
+            },
+            "runtime": {
+              "behavior": "storage",
+              "description": "Reference shelf for the work area, visually anchored to the north wall."
+            }
+          },
+          {
+            "id": "object:level-1-common-bookshelf-right",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-tall-cream-storage-cabinet",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 10,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 13,
+              "offsetPx": {
+                "x": 0,
+                "y": -12
+              }
+            },
+            "runtime": {
+              "behavior": "storage",
+              "description": "Shared library shelf for workstation references."
+            }
+          },
+          {
+            "id": "object:level-1-common-task-poster",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-framed-task-poster-blue",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 12,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 12,
+              "offsetPx": {
+                "x": 0,
+                "y": -16
               }
             },
             "runtime": {
               "behavior": "planning",
-              "workflowId": "workflow:shared-runtime",
-              "description": "Planning board for common-work tasks before agents move to computers."
+              "description": "Wall task board for daily shared work."
+            }
+          },
+          {
+            "id": "object:level-1-common-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-whiteboard-panel",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 15,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 12,
+              "offsetPx": {
+                "x": 0,
+                "y": -16
+              }
+            },
+            "runtime": {
+              "behavior": "planning",
+              "description": "Common room whiteboard for work-in-progress notes."
+            }
+          },
+          {
+            "id": "object:level-1-common-wall-monitor",
+            "assetId": "furniture:1-modern-office-singles-48x48:blue-wall-monitor-right",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 18,
+              "y": 0
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 12,
+              "offsetPx": {
+                "x": 0,
+                "y": -16
+              }
+            },
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Wall-mounted status monitor for the common work area."
+            }
+          },
+          {
+            "id": "object:level-1-common-desk-a",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-beige-desk-front",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 8,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Complete workstation desk A for the common work area."
+            }
+          },
+          {
+            "id": "object:level-1-common-monitor-a",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-monitor-workstation-wide",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 8,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 26
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Monitor overlay is explicitly attached to its desk surface.",
+              "targetObjectId": "object:level-1-common-desk-a"
+            }
+          },
+          {
+            "id": "object:level-1-common-keyboard-a",
+            "assetId": "furniture:1-modern-office-singles-48x48:low-keyboard-dark",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 8,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 27
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Keyboard sits on the same workstation surface as the monitor.",
+              "targetObjectId": "object:level-1-common-desk-a"
+            }
+          },
+          {
+            "id": "object:level-1-common-chair-a",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-office-chair-back",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 9,
+              "y": 5
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 24
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Back-facing chair is below the desk so it faces the monitor.",
+              "targetObjectId": "object:level-1-common-desk-a"
+            }
+          },
+          {
+            "id": "object:level-1-common-desk-b",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-gray-desk-front",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 12,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Complete workstation desk B for the common work area."
+            }
+          },
+          {
+            "id": "object:level-1-common-monitor-b",
+            "assetId": "furniture:1-modern-office-singles-48x48:monitor-and-terminal-cluster",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 12,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 26
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Monitor overlay is explicitly attached to its desk surface.",
+              "targetObjectId": "object:level-1-common-desk-b"
+            }
+          },
+          {
+            "id": "object:level-1-common-keyboard-b",
+            "assetId": "furniture:1-modern-office-singles-48x48:low-keyboard-dark",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 12,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 27
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Keyboard sits on the same workstation surface as the monitor.",
+              "targetObjectId": "object:level-1-common-desk-b"
+            }
+          },
+          {
+            "id": "object:level-1-common-chair-b",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 13,
+              "y": 5
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 24
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Back-facing chair is below the desk so it faces the monitor.",
+              "targetObjectId": "object:level-1-common-desk-b"
+            }
+          },
+          {
+            "id": "object:level-1-common-desk-c",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-tan-desk-front",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 16,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Complete workstation desk C for the common work area."
+            }
+          },
+          {
+            "id": "object:level-1-common-monitor-c",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-station-with-base",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 16,
+              "y": 3
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 26
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Monitor overlay is explicitly attached to its desk surface.",
+              "targetObjectId": "object:level-1-common-desk-c"
+            }
+          },
+          {
+            "id": "object:level-1-common-keyboard-c",
+            "assetId": "furniture:1-modern-office-singles-48x48:low-keyboard-dark",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 16,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 27
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Keyboard sits on the same workstation surface as the monitor.",
+              "targetObjectId": "object:level-1-common-desk-c"
+            }
+          },
+          {
+            "id": "object:level-1-common-chair-c",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-office-chair-back",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 17,
+              "y": 5
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 24
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Back-facing chair is below the desk so it faces the monitor.",
+              "targetObjectId": "object:level-1-common-desk-c"
+            }
+          },
+          {
+            "id": "object:level-1-common-laptop-b",
+            "assetId": "furniture:1-modern-office-singles-48x48:compact-gray-laptop",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 13,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 28
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Laptop belongs on workstation B as a secondary device.",
+              "targetObjectId": "object:level-1-common-desk-b"
+            }
+          },
+          {
+            "id": "object:level-1-common-phone-c",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-desk-phone-handset",
+            "roomId": "room:level-1-common-work",
+            "position": {
+              "x": 17,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 28
+            },
+            "runtime": {
+              "behavior": "working",
+              "description": "Phone belongs on workstation C, not floating in the room.",
+              "targetObjectId": "object:level-1-common-desk-c"
             }
           },
           {
             "id": "object:level-1-common-plant",
             "assetId": "furniture:1-modern-office-singles-48x48:modern-office-small-office-plant",
+            "roomId": "room:level-1-common-work",
             "position": {
-              "x": 19,
-              "y": 0
+              "x": 18,
+              "y": 6
             },
             "size": {
-              "height": 3,
-              "width": 2
+              "height": 2,
+              "width": 1
             },
             "blocksMovement": false,
             "render": {
-              "depth": 20,
-              "offsetPx": {
-                "x": -10,
-                "y": -5
-              }
+              "depth": 22
             },
             "runtime": {
               "behavior": "ambient",
-              "description": "Idle pause point near the wall monitor."
+              "description": "Corner plant keeps the common room from reading as only desks."
+            }
+          },
+          {
+            "id": "object:level-1-pantry-wall-cabinet",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-cream-cabinet-panel-front",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 21,
+              "y": 0
+            },
+            "size": {
+              "height": 1,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 12,
+              "offsetPx": {
+                "x": 0,
+                "y": -12
+              }
+            },
+            "runtime": {
+              "behavior": "storage",
+              "description": "Wall cabinet marks this room as pantry storage without occupying floor pathing."
+            }
+          },
+          {
+            "id": "object:level-1-pantry-sink-counter",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-service-counter-front",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 21,
+              "y": 2
+            },
+            "size": {
+              "height": 1,
+              "width": 1
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "pantry",
+              "description": "Sink counter establishes the pantry work surface."
+            }
+          },
+          {
+            "id": "object:level-1-pantry-cup-counter",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-cream-office-counter-module-052",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 22,
+              "y": 2
+            },
+            "size": {
+              "height": 1,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "pantry",
+              "description": "Cup and condiment counter belongs to the pantry, replacing office printer clutter."
+            }
+          },
+          {
+            "id": "object:level-1-pantry-fridge",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-tall-cream-storage-cabinet",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 25,
+              "y": 2
+            },
+            "size": {
+              "height": 3,
+              "width": 1
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "pantry",
+              "description": "Fridge anchors the food-prep side of the pantry."
             }
           },
           {
@@ -797,30 +1414,92 @@
             "roomId": "room:level-1-pantry",
             "position": {
               "x": 24,
-              "y": 0
+              "y": 2
             },
             "size": {
-              "height": 3,
-              "width": 2
+              "height": 2,
+              "width": 1
             },
             "blocksMovement": true,
             "render": {
-              "depth": 18,
-              "offsetPx": {
-                "x": 25,
-                "y": 0
-              }
+              "depth": 19
             },
             "runtime": {
-              "behavior": "ambient",
-              "description": "Water break interaction point."
+              "behavior": "pantry",
+              "description": "Water dispenser is pantry equipment, not a work monitor."
             }
           },
           {
-            "id": "object:level-1-executive-whiteboard",
-            "assetId": "furniture:1-modern-office-singles-48x48:whiteboard-with-ui-chart",
+            "id": "object:level-1-pantry-coffee-loop",
+            "assetId": "decor:coffee-loop",
+            "roomId": "room:level-1-pantry",
             "position": {
-              "x": 10,
+              "x": 22,
+              "y": 3
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 24
+            },
+            "runtime": {
+              "behavior": "pantry",
+              "description": "Animated coffee sits by the pantry counter.",
+              "targetObjectId": "object:level-1-pantry-cup-counter"
+            }
+          },
+          {
+            "id": "object:level-1-pantry-dining-table",
+            "assetId": "furniture:1-modern-office-singles-48x48:large-wood-table-top",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 24,
+              "y": 4
+            },
+            "size": {
+              "height": 1,
+              "width": 1
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 20
+            },
+            "runtime": {
+              "behavior": "pantry",
+              "description": "Small standing table gives the pantry a break-room purpose."
+            }
+          },
+          {
+            "id": "object:level-1-pantry-chair",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-office-chair-side-right",
+            "roomId": "room:level-1-pantry",
+            "position": {
+              "x": 23,
+              "y": 4
+            },
+            "size": {
+              "height": 1,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 22
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Side chair faces the small pantry table.",
+              "targetObjectId": "object:level-1-pantry-dining-table"
+            }
+          },
+          {
+            "id": "object:level-1-lab-server-rack",
+            "assetId": "furniture:1-modern-office-singles-48x48:tall-network-server-rack",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 1,
               "y": 10
             },
             "size": {
@@ -828,25 +1507,85 @@
               "width": 2
             },
             "blocksMovement": true,
-            "runtime": {
-              "behavior": "planning",
-              "workflowId": "workflow:main-agent",
-              "description": "Main-agent planning board."
-            },
             "render": {
-              "depth": 19,
-              "offsetPx": {
-                "x": 15,
-                "y": -5
-              }
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "runtime",
+              "description": "Runtime lab server rack belongs in the infrastructure room."
             }
           },
           {
-            "id": "object:level-1-executive-server-rack",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
-            "roomId": "room:level-1-executive",
+            "id": "object:level-1-lab-workbench",
+            "assetId": "furniture:1-modern-office-singles-48x48:server-workbench-with-tools",
+            "roomId": "room:level-1-runtime-lab",
             "position": {
-              "x": 18,
+              "x": 3,
+              "y": 10
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "runtime",
+              "description": "Workbench supports server maintenance and tool access."
+            }
+          },
+          {
+            "id": "object:level-1-lab-screens",
+            "assetId": "decor:runtime-screens",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 5,
+              "y": 10
+            },
+            "size": {
+              "height": 3,
+              "width": 4
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 26
+            },
+            "runtime": {
+              "behavior": "runtime",
+              "description": "Runtime screens are a non-blocking display over the lab work zone.",
+              "targetObjectId": "object:level-1-lab-workbench"
+            }
+          },
+          {
+            "id": "object:level-1-lab-chair",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-orange-office-chair-back",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 4,
+              "y": 12
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 24
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Back-facing lab chair is placed below the workbench to face the screens.",
+              "targetObjectId": "object:level-1-lab-workbench"
+            }
+          },
+          {
+            "id": "object:level-1-lab-circuit-panel",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-green-circuit-server-panel",
+            "roomId": "room:level-1-runtime-lab",
+            "position": {
+              "x": 7,
               "y": 11
             },
             "size": {
@@ -855,23 +1594,40 @@
             },
             "blocksMovement": true,
             "render": {
-              "depth": 18,
-              "offsetPx": {
-                "x": 0,
-                "y": -10
-              }
+              "depth": 18
             },
             "runtime": {
-              "behavior": "executing",
-              "workflowId": "workflow:main-agent",
-              "description": "Local runtime telemetry rack."
+              "behavior": "runtime",
+              "description": "Circuit panel reinforces the runtime lab purpose."
             }
           },
           {
-            "id": "object:level-1-executive-plant",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-small-office-plant",
+            "id": "object:level-1-lab-server",
+            "assetId": "decor:runtime-server",
+            "roomId": "room:level-1-runtime-lab",
             "position": {
-              "x": 19,
+              "x": 8,
+              "y": 10
+            },
+            "size": {
+              "height": 3,
+              "width": 1
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 19
+            },
+            "runtime": {
+              "behavior": "runtime",
+              "description": "Animated runtime server sits with the lab equipment group."
+            }
+          },
+          {
+            "id": "object:level-1-executive-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:whiteboard-with-ui-chart",
+            "roomId": "room:level-1-executive",
+            "position": {
+              "x": 11,
               "y": 11
             },
             "size": {
@@ -880,99 +1636,130 @@
             },
             "blocksMovement": false,
             "render": {
-              "depth": 20,
+              "depth": 12,
               "offsetPx": {
                 "x": 0,
-                "y": 20
-              },
-              "sizePx": {
-                "height": 115.2,
-                "width": 76.80000000000001
+                "y": -16
               }
+            },
+            "runtime": {
+              "behavior": "planning",
+              "description": "Executive wall board for higher-level workflow metrics."
             }
           },
           {
-            "id": "object:level-1-lab-server",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
-            "roomId": "room:level-1-runtime-lab",
+            "id": "object:level-1-executive-desk",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-white-desk-front",
+            "roomId": "room:level-1-executive",
             "position": {
-              "x": 8,
-              "y": 8
+              "x": 13,
+              "y": 13
+            },
+            "size": {
+              "height": 2,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "executing",
+              "description": "Executive desk surface for the main agent workstation."
+            }
+          },
+          {
+            "id": "object:level-1-executive-monitor",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-monitor-workstation-wide",
+            "roomId": "room:level-1-executive",
+            "position": {
+              "x": 13,
+              "y": 13
             },
             "size": {
               "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 26
+            },
+            "runtime": {
+              "behavior": "executing",
+              "description": "Dual monitors are attached to the executive desk.",
+              "targetObjectId": "object:level-1-executive-desk"
+            }
+          },
+          {
+            "id": "object:level-1-executive-chair",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
+            "roomId": "room:level-1-executive",
+            "position": {
+              "x": 14,
+              "y": 15
+            },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 24
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Back-facing executive chair is below the desk and faces the workstation.",
+              "targetObjectId": "object:level-1-executive-desk"
+            }
+          },
+          {
+            "id": "object:level-1-executive-server-rack",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-gray-runtime-server-tower",
+            "roomId": "room:level-1-executive",
+            "position": {
+              "x": 17,
+              "y": 13
+            },
+            "size": {
+              "height": 2,
               "width": 1
             },
             "blocksMovement": true,
-            "runtime": {
-              "behavior": "executing",
-              "workflowId": "workflow:runtime-lab",
-              "description": "Live runtime server."
-            },
             "render": {
-              "offsetPx": {
-                "x": -11,
-                "y": 0
-              }
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "runtime",
+              "description": "Small server tower supports the executive workstation."
             }
           },
           {
-            "id": "object:level-1-lab-bench",
-            "assetId": "furniture:1-modern-office-singles-48x48:server-workbench-with-tools",
-            "roomId": "room:level-1-runtime-lab",
+            "id": "object:level-1-executive-plant",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-small-office-plant",
+            "roomId": "room:level-1-executive",
             "position": {
-              "x": 0,
-              "y": 8
+              "x": 18,
+              "y": 14
             },
             "size": {
-              "height": 3,
-              "width": 2
+              "height": 2,
+              "width": 1
             },
-            "blocksMovement": true,
+            "blocksMovement": false,
             "render": {
-              "depth": 18,
-              "offsetPx": {
-                "x": 0,
-                "y": 15
-              }
+              "depth": 22
             },
             "runtime": {
-              "behavior": "executing",
-              "workflowId": "workflow:runtime-lab",
-              "description": "Validation bench."
+              "behavior": "ambient",
+              "description": "Corner plant keeps the executive office readable but open."
             }
           },
           {
-            "id": "object:level-1-lab-server-cage",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-server-cage-front",
-            "roomId": "room:level-1-runtime-lab",
+            "id": "object:level-1-lounge-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:planning-whiteboard-chart",
+            "roomId": "room:level-1-planning-lounge",
             "position": {
-              "x": 6,
-              "y": 8
-            },
-            "size": {
-              "height": 3,
-              "width": 2
-            },
-            "blocksMovement": true,
-            "render": {
-              "depth": 18,
-              "offsetPx": {
-                "x": -15,
-                "y": 0
-              }
-            },
-            "runtime": {
-              "behavior": "executing",
-              "workflowId": "workflow:runtime-lab",
-              "description": "Rack-mounted service cluster."
-            }
-          },
-          {
-            "id": "object:level-1-lab-storage",
-            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
-            "position": {
-              "x": 4,
+              "x": 21,
               "y": 6
             },
             "size": {
@@ -981,77 +1768,147 @@
             },
             "blocksMovement": false,
             "render": {
-              "depth": 18,
+              "depth": 12,
               "offsetPx": {
-                "x": 3,
-                "y": 4
+                "x": 0,
+                "y": -16
               }
+            },
+            "runtime": {
+              "behavior": "planning",
+              "description": "Planning wall board is the primary purpose cue for the lounge."
             }
           },
           {
-            "id": "object:level-1-lounge-whiteboard",
-            "assetId": "furniture:1-modern-office-singles-48x48:planning-whiteboard-chart",
+            "id": "object:level-1-lounge-sideboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
+            "roomId": "room:level-1-planning-lounge",
             "position": {
-              "x": 21,
-              "y": 5
+              "x": 24,
+              "y": 8
             },
             "size": {
-              "height": 3,
+              "height": 2,
               "width": 2
             },
             "blocksMovement": true,
+            "render": {
+              "depth": 17
+            },
+            "runtime": {
+              "behavior": "storage",
+              "description": "Sideboard gives the planning lounge informal storage and decor."
+            }
+          },
+          {
+            "id": "object:level-1-lounge-table",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-beige-table-front",
+            "roomId": "room:level-1-planning-lounge",
+            "position": {
+              "x": 22,
+              "y": 10
+            },
+            "size": {
+              "height": 2,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
             "runtime": {
               "behavior": "planning",
-              "description": "Planning and approval board.",
-              "logs": ["[echo] Review queue prepared."],
-              "recentEvents": ["Planning notes updated."]
-            },
-            "render": {
-              "depth": 19,
-              "offsetPx": {
-                "x": 0,
-                "y": -5
-              }
+              "description": "Planning table with notes replaces the unrelated workstation."
             }
           },
           {
-            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
-            "blocksMovement": false,
-            "id": "object:manual-42",
+            "id": "object:level-1-lounge-chair-left",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-orange-office-chair-side-right",
+            "roomId": "room:level-1-planning-lounge",
             "position": {
-              "x": 16,
-              "y": 9
-            },
-            "render": {
-              "depth": 18,
-              "offsetPx": {
-                "x": 3,
-                "y": 4
-              }
+              "x": 21,
+              "y": 10
             },
             "size": {
-              "height": 3,
-              "width": 2
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 23
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Left-side chair faces right toward the planning table.",
+              "targetObjectId": "object:level-1-lounge-table"
             }
           },
           {
-            "assetId": "furniture:1-modern-office-singles-48x48:low-storage-cabinet-wide-gray",
-            "blocksMovement": false,
-            "id": "object:manual-43",
+            "id": "object:level-1-lounge-chair-right",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-orange-office-chair-side-left",
+            "roomId": "room:level-1-planning-lounge",
             "position": {
               "x": 24,
-              "y": 4
+              "y": 10
             },
+            "size": {
+              "height": 2,
+              "width": 1
+            },
+            "blocksMovement": false,
             "render": {
-              "depth": 18,
-              "offsetPx": {
-                "x": 3,
-                "y": 4
-              }
+              "depth": 23
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Right-side chair faces left toward the planning table.",
+              "targetObjectId": "object:level-1-lounge-table"
+            }
+          },
+          {
+            "id": "object:level-1-lounge-sofa",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-beige-platform-with-drawer",
+            "roomId": "room:level-1-planning-lounge",
+            "position": {
+              "x": 23,
+              "y": 13
+            },
+            "size": {
+              "height": 2,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "render": {
+              "depth": 18
+            },
+            "runtime": {
+              "behavior": "seating",
+              "description": "Soft seating keeps the room a planning lounge rather than a desk room."
+            }
+          },
+          {
+            "id": "object:level-1-lounge-task-poster",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-framed-task-poster-orange",
+            "roomId": "room:level-1-planning-lounge",
+            "position": {
+              "x": 25,
+              "y": 6
             },
             "size": {
               "height": 3,
               "width": 2
+            },
+            "blocksMovement": false,
+            "render": {
+              "depth": 12,
+              "offsetPx": {
+                "x": 0,
+                "y": -16
+              }
+            },
+            "runtime": {
+              "behavior": "planning",
+              "description": "Wall task poster supports planning without adding another workstation."
             }
           }
         ],
@@ -1063,13 +1920,13 @@
             "roomId": "room:level-1-common-work",
             "position": {
               "x": 10,
-              "y": 5
+              "y": 6
             },
             "status": "idle",
             "runtime": {
               "behavior": "ambient",
               "workflowId": "workflow:shared-runtime",
-              "targetObjectId": "object:level-1-common-desk-1",
+              "targetObjectId": "object:level-1-common-desk-a",
               "recentEvents": [
                 "Idle: reviewing backlog",
                 "Ready for workflow assignment"
@@ -1089,7 +1946,7 @@
             "runtime": {
               "behavior": "ambient",
               "workflowId": "workflow:shared-runtime",
-              "targetObjectId": "object:level-1-common-desk-5",
+              "targetObjectId": "object:level-1-common-desk-b",
               "recentEvents": [
                 "Idle: checking runtime notes",
                 "Ready for workflow assignment"
@@ -1102,7 +1959,7 @@
             "assetId": "human:clio",
             "roomId": "room:level-1-pantry",
             "position": {
-              "x": 24,
+              "x": 25,
               "y": 4
             },
             "status": "idle",
@@ -1118,7 +1975,7 @@
             "assetId": "human:delta",
             "roomId": "room:level-1-executive",
             "position": {
-              "x": 13,
+              "x": 16,
               "y": 15
             },
             "status": "working",
@@ -1136,13 +1993,551 @@
             "roomId": "room:level-1-planning-lounge",
             "position": {
               "x": 25,
-              "y": 14
+              "y": 13
             },
             "status": "idle",
             "runtime": {
               "behavior": "planning",
-              "targetObjectId": "object:level-1-lounge-whiteboard",
+              "targetObjectId": "object:level-1-lounge-table",
               "recentEvents": ["Reviewing approval queue"]
+            }
+          }
+        ]
+      },
+      {
+        "id": "map:level-2",
+        "name": "Level 2 - Collaboration Floor",
+        "size": {
+          "width": 32,
+          "height": 20
+        },
+        "defaultFloorAssetId": "floor:office-blue",
+        "rooms": [
+          {
+            "id": "room:level-2-medium-meeting",
+            "name": "Medium Meeting Room",
+            "kind": "workspace",
+            "bounds": {
+              "x": 1,
+              "y": 1,
+              "width": 14,
+              "height": 9
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:medium-meeting",
+              "description": "Six-person collaboration room."
+            }
+          },
+          {
+            "id": "room:level-2-small-meeting-a",
+            "name": "Small Meeting A",
+            "kind": "workspace",
+            "bounds": {
+              "x": 15,
+              "y": 1,
+              "width": 8,
+              "height": 9
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-a",
+              "description": "Focused four-person execution room."
+            }
+          },
+          {
+            "id": "room:level-2-small-meeting-b",
+            "name": "Small Meeting B",
+            "kind": "workspace",
+            "bounds": {
+              "x": 23,
+              "y": 1,
+              "width": 8,
+              "height": 9
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-b",
+              "description": "Focused review and monitoring room."
+            }
+          },
+          {
+            "id": "room:level-2-corridor",
+            "name": "Collaboration Corridor",
+            "kind": "commons",
+            "bounds": {
+              "x": 1,
+              "y": 10,
+              "width": 30,
+              "height": 3
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Connector between meeting rooms, war room, and pantry."
+            }
+          },
+          {
+            "id": "room:level-2-war-room",
+            "name": "Runtime War Room",
+            "kind": "runtime",
+            "bounds": {
+              "x": 1,
+              "y": 13,
+              "width": 22,
+              "height": 6
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:war-room",
+              "description": "Large runtime collaboration room."
+            }
+          },
+          {
+            "id": "room:level-2-pantry",
+            "name": "Level 2 Pantry",
+            "kind": "commons",
+            "bounds": {
+              "x": 23,
+              "y": 13,
+              "width": 8,
+              "height": 6
+            },
+            "floorAssetId": "floor:office-blue",
+            "wallAssetId": "wall:office-partition",
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Second-floor recharge point."
+            }
+          }
+        ],
+        "objects": [
+          {
+            "id": "object:level-2-medium-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:planning-whiteboard-chart",
+            "roomId": "room:level-2-medium-meeting",
+            "position": {
+              "x": 2,
+              "y": 2
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:medium-meeting",
+              "description": "Meeting planning board."
+            }
+          },
+          {
+            "id": "object:level-2-medium-table-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-monitor-workstation-wide",
+            "roomId": "room:level-2-medium-meeting",
+            "position": {
+              "x": 5,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:medium-meeting"
+            }
+          },
+          {
+            "id": "object:level-2-medium-table-2",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-multi-monitor-control-station",
+            "roomId": "room:level-2-medium-meeting",
+            "position": {
+              "x": 9,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:medium-meeting"
+            }
+          },
+          {
+            "id": "object:level-2-medium-plant",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-tall-office-plant",
+            "roomId": "room:level-2-medium-meeting",
+            "position": {
+              "x": 11,
+              "y": 2
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false
+          },
+          {
+            "id": "object:level-2-small-a-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-whiteboard-panel",
+            "roomId": "room:level-2-small-meeting-a",
+            "position": {
+              "x": 16,
+              "y": 2
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:small-a"
+            }
+          },
+          {
+            "id": "object:level-2-small-a-desk-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-monitor-workstation-wide",
+            "roomId": "room:level-2-small-meeting-a",
+            "position": {
+              "x": 18,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-a"
+            }
+          },
+          {
+            "id": "object:level-2-small-a-laptop",
+            "assetId": "furniture:1-modern-office-singles-48x48:compact-gray-laptop",
+            "roomId": "room:level-2-small-meeting-a",
+            "position": {
+              "x": 19,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": false,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-a",
+              "targetObjectId": "object:level-2-small-a-desk-1"
+            }
+          },
+          {
+            "id": "object:level-2-small-b-whiteboard",
+            "assetId": "furniture:1-modern-office-singles-48x48:whiteboard-with-ui-chart",
+            "roomId": "room:level-2-small-meeting-b",
+            "position": {
+              "x": 25,
+              "y": 2
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:small-b"
+            }
+          },
+          {
+            "id": "object:level-2-small-b-desk-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-screen-console-desk",
+            "roomId": "room:level-2-small-meeting-b",
+            "position": {
+              "x": 27,
+              "y": 4
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-b"
+            }
+          },
+          {
+            "id": "object:level-2-small-b-studio-screen",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-blue-dashboard-screen-left",
+            "roomId": "room:level-2-small-meeting-b",
+            "position": {
+              "x": 29,
+              "y": 2
+            },
+            "size": {
+              "width": 1,
+              "height": 2
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:level-2-war-podium",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-low-wood-service-counter",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 3,
+              "y": 15
+            },
+            "size": {
+              "width": 1,
+              "height": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:war-room"
+            }
+          },
+          {
+            "id": "object:level-2-war-screens",
+            "assetId": "decor:runtime-screens",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 6,
+              "y": 14
+            },
+            "size": {
+              "width": 4,
+              "height": 3
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:war-room",
+              "description": "War-room runtime wall."
+            }
+          },
+          {
+            "id": "object:level-2-war-desk-1",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-monitor-workstation-wide",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 11,
+              "y": 15
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:war-room"
+            }
+          },
+          {
+            "id": "object:level-2-war-desk-2",
+            "assetId": "furniture:1-modern-office-singles-48x48:printer-and-monitor-station",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 15,
+              "y": 15
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:war-room"
+            }
+          },
+          {
+            "id": "object:level-2-war-server",
+            "assetId": "decor:runtime-server",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 19,
+              "y": 14
+            },
+            "size": {
+              "width": 1,
+              "height": 3
+            },
+            "blocksMovement": true,
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:war-room"
+            }
+          },
+          {
+            "id": "object:level-2-war-lab-machine",
+            "assetId": "furniture:1-modern-office-singles-48x48:dual-monitor-workstation-wide",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 18,
+              "y": 16
+            },
+            "size": {
+              "height": 3,
+              "width": 2
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:level-2-pantry-counter",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-tan-office-counter-module-053",
+            "roomId": "room:level-2-pantry",
+            "position": {
+              "x": 24,
+              "y": 15
+            },
+            "size": {
+              "height": 2,
+              "width": 2
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:level-2-pantry-coffee",
+            "assetId": "decor:coffee-loop",
+            "roomId": "room:level-2-pantry",
+            "position": {
+              "x": 27,
+              "y": 15
+            },
+            "size": {
+              "width": 1,
+              "height": 2
+            },
+            "blocksMovement": false,
+            "runtime": {
+              "behavior": "ambient",
+              "description": "Coffee point for ambient agents."
+            }
+          },
+          {
+            "id": "object:level-2-pantry-fridge",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-tall-cream-storage-cabinet",
+            "roomId": "room:level-2-pantry",
+            "position": {
+              "x": 29,
+              "y": 14
+            },
+            "size": {
+              "height": 3,
+              "width": 1
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:level-2-pantry-sofa",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-wide-beige-platform-with-drawer",
+            "roomId": "room:level-2-pantry",
+            "position": {
+              "x": 26,
+              "y": 17
+            },
+            "size": {
+              "width": 2,
+              "height": 2
+            },
+            "blocksMovement": true
+          },
+          {
+            "id": "object:level-2-pantry-cart",
+            "assetId": "furniture:1-modern-office-singles-48x48:desktop-printer-station-gray",
+            "roomId": "room:level-2-pantry",
+            "position": {
+              "x": 29,
+              "y": 17
+            },
+            "size": {
+              "width": 2,
+              "height": 2
+            },
+            "blocksMovement": false
+          }
+        ],
+        "agents": [
+          {
+            "id": "agent:level-2-facilitator",
+            "name": "Facilitator",
+            "assetId": "human:echo",
+            "roomId": "room:level-2-war-room",
+            "position": {
+              "x": 7,
+              "y": 17
+            },
+            "status": "working",
+            "runtime": {
+              "behavior": "planning",
+              "workflowId": "workflow:war-room",
+              "targetObjectId": "object:level-2-war-screens",
+              "recentEvents": ["Coordinating war-room plan"]
+            }
+          },
+          {
+            "id": "agent:level-2-gamma",
+            "name": "Gamma",
+            "assetId": "human:atlas",
+            "roomId": "room:level-2-small-meeting-a",
+            "position": {
+              "x": 20,
+              "y": 6
+            },
+            "status": "working",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-a",
+              "targetObjectId": "object:level-2-small-a-desk-1"
+            }
+          },
+          {
+            "id": "agent:level-2-iona",
+            "name": "Iona",
+            "assetId": "human:byte",
+            "roomId": "room:level-2-small-meeting-b",
+            "position": {
+              "x": 29,
+              "y": 6
+            },
+            "status": "working",
+            "runtime": {
+              "behavior": "executing",
+              "workflowId": "workflow:small-b",
+              "targetObjectId": "object:level-2-small-b-desk-1"
+            }
+          },
+          {
+            "id": "agent:level-2-juno",
+            "name": "Juno",
+            "assetId": "human:clio",
+            "roomId": "room:level-2-pantry",
+            "position": {
+              "x": 28,
+              "y": 17
+            },
+            "status": "idle",
+            "runtime": {
+              "behavior": "ambient",
+              "targetObjectId": "object:level-2-pantry-coffee"
             }
           }
         ]

@@ -33,7 +33,9 @@ export default function RuntimeReplayControls({
       <div className={styles.header}>
         <div>
           <h2 className={styles.title}>Replay Timeline</h2>
-          <p className={styles.description}>Scrub normalized runtime history and rebuild visual state at any event.</p>
+          <p className={styles.description}>
+            Scrub normalized runtime history and rebuild visual state at any event.
+          </p>
         </div>
         <span className={styles.badge}>
           {eventNumber}/{frame.totalEvents}
@@ -53,7 +55,11 @@ export default function RuntimeReplayControls({
         />
         <div className={styles.eventMeta}>
           <span>{activeEvent ? activeEvent.id : 'No replayable events'}</span>
-          <span>{activeEvent ? `${activeEvent.type} from ${activeEvent.source}` : 'Push or replay events to populate history.'}</span>
+          <span>
+            {activeEvent
+              ? `${activeEvent.type} from ${activeEvent.source}`
+              : 'Push or replay events to populate history.'}
+          </span>
           <span>{activeEvent?.timestamp ?? 'empty timeline'}</span>
         </div>
       </div>

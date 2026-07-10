@@ -28,8 +28,8 @@ describe('observatory pixel platform adapter placeholders', () => {
     const statuses = registry.listSources('https://example.test');
 
     expect(statuses).toHaveLength(3);
-    expect(statuses.every((status) => status.enabled === false)).toBe(true);
-    expect(statuses.every((status) => status.acceptsCurrentOrigin === true)).toBe(true);
+    expect(statuses.every((status) => !status.enabled)).toBe(true);
+    expect(statuses.every((status) => status.acceptsCurrentOrigin)).toBe(true);
     expect(registry.validateSourceOrigin('platform-codex', 'https://example.test')).toBe(false);
   });
 
