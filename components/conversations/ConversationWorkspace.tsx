@@ -104,7 +104,9 @@ const conversationUploadModes: Array<{ value: DocumentUploadMode; label: string 
 ];
 const ASYNC_TURN_SLOW_MS = 30_000;
 const ASYNC_TURN_STALE_MS = 120_000;
-const ASYNC_TURN_TICK_MS = 5_000;
+const ASYNC_TURN_TICK_MS = 1_000;
+const ASYNC_TURN_BACKFILL_DELAYS_MS = [2_000, 2_000, 3_000, 5_000, 10_000, 30_000];
+const STREAM_RECONNECT_DELAYS_MS = [1_000, 2_000, 5_000, 10_000, 30_000];
 const REDACTED_VALUE = '[REDACTED]';
 const SENSITIVE_KEY_FRAGMENTS = [
   'authorization',
@@ -4430,6 +4432,7 @@ export default function ConversationWorkspace({
   const streamRef = useRef<EventSource | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reconnectAttemptRef = useRef(0);
   const latestMessageIdRef = useRef<string | undefined>(undefined);
   const messagesRef = useRef<ConversationMessage[]>([]);
   const activeConversationIdRef = useRef<string | undefined>(undefined);
@@ -4732,8 +4735,7 @@ export default function ConversationWorkspace({
     conversationId: string,
     originMessageId: string
   ) {
-    const delaysMs = [30000, 60000, 120000, 180000];
-    for (const delayMs of delaysMs) {
+    for (const delayMs of ASYNC_TURN_BACKFILL_DELAYS_MS) {
       await sleep(delayMs);
       if (activeConversationIdRef.current !== conversationId) {
         return;
@@ -4860,6 +4862,7 @@ export default function ConversationWorkspace({
     }
 
     let cancelled = false;
+    reconnectAttemptRef.current = 0;
     const orderedConversations = [...conversationItems].sort(
       (left, right) => new Date(right.updated_at).getTime() - new Date(left.updated_at).getTime()
     );
@@ -5007,6 +5010,7 @@ export default function ConversationWorkspace({
 
       stream.onopen = () => {
         clearReconnectTimeout();
+        reconnectAttemptRef.current = 0;
         void refreshConversationApprovals(conversation.id);
       };
 
@@ -5019,9 +5023,14 @@ export default function ConversationWorkspace({
           streamRef.current = null;
         }
         clearReconnectTimeout();
+        const reconnectDelay =
+          STREAM_RECONNECT_DELAYS_MS[
+            Math.min(reconnectAttemptRef.current, STREAM_RECONNECT_DELAYS_MS.length - 1)
+          ];
+        reconnectAttemptRef.current += 1;
         reconnectTimeoutRef.current = setTimeout(() => {
           connectStream();
-        }, 1000);
+        }, reconnectDelay);
       };
     };
 

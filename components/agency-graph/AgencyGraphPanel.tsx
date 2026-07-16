@@ -191,6 +191,9 @@ export default function AgencyGraphPanel({
   const [graphViewMode, setGraphViewMode] = useState<AgencyGraphViewMode>('global');
   const [graphCanvasTheme] = useState<AgencyGraphCanvasTheme>('dark');
   const [graphRenderMode, setGraphRenderMode] = useState<AgencyGraphRenderMode>('2d');
+  // The WebGL wrapper destroys itself in a passive effect, so rapid remounts can leave stale
+  // animation frames. Retain one paused 3D instance after its first activation.
+  const [hasMounted3DGraph, setHasMounted3DGraph] = useState(false);
   const [graphAutoRotate, setGraphAutoRotate] = useState(true);
   const [graphResetViewToken, setGraphResetViewToken] = useState(0);
   const [graphRotationAngle, setGraphRotationAngle] = useState(0);
@@ -1627,7 +1630,10 @@ export default function AgencyGraphPanel({
                     : 'bg-[linear-gradient(135deg,#0f172a,#1d4ed8)] text-white shadow-[0_10px_24px_rgba(29,78,216,0.2)] hover:brightness-105'
                   : graphThemeChrome.toolbarButton
               }`}
-              onClick={() => setGraphRenderMode('3d')}
+              onClick={() => {
+                setHasMounted3DGraph(true);
+                setGraphRenderMode('3d');
+              }}
             >
               3D
             </Button>
@@ -1757,17 +1763,19 @@ export default function AgencyGraphPanel({
           settings={sigmaSettings}
           onSelectionChange={setSelection}
         />
-      ) : (
+      ) : null}
+      {hasMounted3DGraph ? (
         <ForceGraph3DCanvas
+          active={graphRenderMode === '3d'}
           autoRotate={graphAutoRotate}
           theme={graphCanvasTheme}
           document={displayTimelineDocument}
-          className="min-h-0 flex-1"
+          className={`min-h-0 flex-1 ${graphRenderMode === '3d' ? '' : 'hidden'}`}
           resetViewToken={graphResetViewToken}
           selection={selection}
           onSelectionChange={setSelection}
         />
-      )}
+      ) : null}
 
       {hasGraphData && !hasSelection ? (
         <div

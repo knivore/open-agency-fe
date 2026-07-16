@@ -72,12 +72,16 @@ vi.mock('@/lib/api/backend/observability', () => ({
 
 vi.mock('@/modules/sigma-graph/ForceGraph3DCanvas', () => ({
   default: ({
+    active,
     autoRotate,
+    className,
     document,
     resetViewToken,
     onSelectionChange,
   }: {
+    active?: boolean;
     autoRotate?: boolean;
+    className?: string;
     document: {
       nodes: { id: string }[];
       edges: { id: string }[];
@@ -85,10 +89,11 @@ vi.mock('@/modules/sigma-graph/ForceGraph3DCanvas', () => ({
     resetViewToken?: number;
     onSelectionChange?: (selection: { nodeIds: string[]; edgeIds: string[] }) => void;
   }) => (
-    <div data-testid="memory-force-graph-canvas">
+    <div className={className} data-testid="memory-force-graph-canvas">
       {document.nodes.length} nodes / {document.edges.length} edges
       <span data-testid="memory-force-graph-controls">
-        autoRotate {String(autoRotate)} / reset {String(resetViewToken || 0)}
+        active {String(active)} / autoRotate {String(autoRotate)} / reset{' '}
+        {String(resetViewToken || 0)}
       </span>
       <button
         type="button"
@@ -270,10 +275,17 @@ describe('AgencyGraphPanel', () => {
 
     expect(screen.getByTestId('memory-sigma-graph-canvas')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Switch agency graph to 3D' }));
-    expect(await screen.findByTestId('memory-force-graph-canvas')).toBeInTheDocument();
+    const forceGraph = await screen.findByTestId('memory-force-graph-canvas');
+    expect(forceGraph).toBeInTheDocument();
+    expect(forceGraph).not.toHaveClass('hidden');
     expect(screen.queryByTestId('memory-sigma-graph-canvas')).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Switch agency graph to 2D' }));
     expect(await screen.findByTestId('memory-sigma-graph-canvas')).toBeInTheDocument();
+    expect(screen.getByTestId('memory-force-graph-canvas')).toHaveClass('hidden');
+    expect(screen.getByTestId('memory-force-graph-controls')).toHaveTextContent('active false');
+    fireEvent.click(screen.getByRole('button', { name: 'Switch agency graph to 3D' }));
+    expect(screen.getByTestId('memory-force-graph-canvas')).not.toHaveClass('hidden');
+    expect(screen.getByTestId('memory-force-graph-controls')).toHaveTextContent('active true');
   });
 
   it('controls 3D orbit rotation and reset view actions', async () => {
@@ -282,17 +294,17 @@ describe('AgencyGraphPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Switch agency graph to 3D' }));
     expect(await screen.findByTestId('memory-force-graph-canvas')).toBeInTheDocument();
     expect(screen.getByTestId('memory-force-graph-controls')).toHaveTextContent(
-      'autoRotate true / reset 0'
+      'active true / autoRotate true / reset 0'
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause agency graph orbit rotation' }));
     expect(screen.getByTestId('memory-force-graph-controls')).toHaveTextContent(
-      'autoRotate false / reset 0'
+      'active true / autoRotate false / reset 0'
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'Reset 3D agency graph view' }));
     expect(screen.getByTestId('memory-force-graph-controls')).toHaveTextContent(
-      'autoRotate false / reset 1'
+      'active true / autoRotate false / reset 1'
     );
   });
 

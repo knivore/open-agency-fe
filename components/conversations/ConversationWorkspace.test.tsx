@@ -457,7 +457,7 @@ describe('ConversationWorkspace', () => {
       expect(MockEventSource.instances).toHaveLength(1);
     });
 
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
 
     act(() => {
       MockEventSource.instances[0].fail();
@@ -515,6 +515,187 @@ describe('ConversationWorkspace', () => {
       screen.getByText('I received your message: Post-restart reconnect smoke test.')
     ).toBeInTheDocument();
   }, 10000);
+
+  it('backs off repeated stream reconnect failures', async () => {
+    renderConversationWorkspace();
+
+    await waitFor(() => {
+      expect(MockEventSource.instances).toHaveLength(1);
+    });
+
+    vi.useFakeTimers();
+
+    act(() => {
+      MockEventSource.instances[0].fail();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(999);
+      await Promise.resolve();
+    });
+    expect(MockEventSource.instances).toHaveLength(1);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    act(() => {
+      MockEventSource.instances[1].fail();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1999);
+      await Promise.resolve();
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(MockEventSource.instances).toHaveLength(3);
+
+    act(() => {
+      MockEventSource.instances[2].fail();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(4999);
+      await Promise.resolve();
+    });
+    expect(MockEventSource.instances).toHaveLength(3);
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+    });
+    expect(MockEventSource.instances).toHaveLength(4);
+  });
+
+  it('backfills an async assistant response after two seconds when streaming is unavailable', async () => {
+    const userMessage = {
+      id: 'message-backfill-user',
+      conversation_id: 'conversation-1',
+      role: 'user' as const,
+      message_type: 'user_text' as const,
+      plain_text: 'Hi',
+      content: { text: 'Hi' },
+      created_at: '2026-05-06T00:00:02.000Z',
+    };
+    const assistantMessage = {
+      id: 'message-backfill-assistant',
+      conversation_id: 'conversation-1',
+      role: 'assistant' as const,
+      message_type: 'assistant_text' as const,
+      plain_text: 'Hello!',
+      content: { text: 'Hello!' },
+      created_at: '2026-05-06T00:00:03.000Z',
+    };
+
+    conversationsApi.postMessage.mockResolvedValue({
+      message: userMessage,
+      stream_url: '/conversations/conversation-1/stream?after=message-backfill-user',
+    });
+    conversationsApi.listMessages
+      .mockResolvedValueOnce({
+        items: [
+          {
+            id: 'message-1',
+            conversation_id: 'conversation-1',
+            role: 'user',
+            message_type: 'user_text',
+            plain_text: 'Initial user message',
+            content: { text: 'Initial user message' },
+            created_at: '2026-05-06T00:00:00.000Z',
+          },
+          {
+            id: 'message-2',
+            conversation_id: 'conversation-1',
+            role: 'assistant',
+            message_type: 'assistant_text',
+            plain_text: 'Initial assistant reply',
+            content: { text: 'Initial assistant reply' },
+            created_at: '2026-05-06T00:00:01.000Z',
+          },
+        ],
+      })
+      .mockResolvedValue({
+        items: [userMessage, assistantMessage],
+      });
+
+    renderConversationWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Initial assistant reply')).toBeInTheDocument();
+    });
+
+    vi.useFakeTimers();
+
+    await act(async () => {
+      fireEvent.change(screen.getByLabelText('Message Main'), {
+        target: { value: 'Hi' },
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(screen.getByText('Main is working')).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1999);
+      await Promise.resolve();
+    });
+    expect(screen.queryByText('Hello!')).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('Hello!')).toBeInTheDocument();
+    expect(screen.queryByText('Main is working')).not.toBeInTheDocument();
+  });
+
+  it('updates the pending-turn elapsed time every second', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date('2026-05-06T00:00:10.000Z'));
+
+    conversationsApi.postMessage.mockResolvedValue({
+      message: {
+        id: 'message-timer-user',
+        conversation_id: 'conversation-1',
+        role: 'user',
+        message_type: 'user_text',
+        plain_text: 'Keep working.',
+        content: { text: 'Keep working.' },
+        created_at: '2026-05-06T00:00:02.000Z',
+      },
+      stream_url: '/conversations/conversation-1/stream?after=message-timer-user',
+    });
+
+    renderConversationWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Initial assistant reply')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Message Main'), {
+      target: { value: 'Keep working.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('0s')).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      vi.setSystemTime(new Date('2026-05-06T00:00:11.000Z'));
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('1s')).toBeInTheDocument();
+  });
 
   it('saves a conversation channel delivery target', async () => {
     conversationsApi.listMessages.mockResolvedValueOnce({

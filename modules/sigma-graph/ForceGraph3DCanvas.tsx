@@ -30,6 +30,7 @@ import type {
 } from './types';
 
 export interface ForceGraph3DCanvasProps {
+  active?: boolean;
   autoRotate?: boolean;
   document: SigmaGraphDocument;
   className?: string;
@@ -80,6 +81,7 @@ const ForceGraph3D = dynamic(() => import('react-force-graph-3d'), {
 }) as ComponentType<SigmaForceGraph3DProps>;
 
 export default function ForceGraph3DCanvas({
+  active = true,
   autoRotate = true,
   document,
   className,
@@ -103,6 +105,7 @@ export default function ForceGraph3DCanvas({
   const pendingInitialCameraRef = useRef(true);
   const initialCameraAppliedRef = useRef(false);
   const graphMountedRef = useRef(false);
+  const lastRendererActiveRef = useRef<boolean | null>(null);
   const graphFrameRef = useRef({
     center: { x: 0, y: 0, z: 0 },
     radius: 0,
@@ -231,14 +234,14 @@ export default function ForceGraph3DCanvas({
 
   const scheduleOrbitResume = useCallback(() => {
     clearOrbitResumeTimer();
-    if (!autoRotate || hasPinnedSelection) {
+    if (!active || !autoRotate || hasPinnedSelection) {
       return;
     }
     orbitResumeTimerRef.current = window.setTimeout(() => {
       orbitInteractionPausedRef.current = false;
       graphRef.current?.refresh?.();
     }, 5000);
-  }, [autoRotate, clearOrbitResumeTimer, hasPinnedSelection]);
+  }, [active, autoRotate, clearOrbitResumeTimer, hasPinnedSelection]);
 
   const pauseOrbitForInteraction = useCallback(() => {
     orbitInteractionPausedRef.current = true;
@@ -294,17 +297,39 @@ export default function ForceGraph3DCanvas({
   );
 
   const handleGraphRef = useCallback((instance: SigmaForceGraph3DMethods | null) => {
+    const previousInstance = graphRef.current;
+    if (previousInstance && previousInstance !== instance) {
+      // Ref detachment runs before react-kapsule's passive destructor. Stop WebGL frames here so
+      // none can render against framebuffer state that is already being disposed.
+      previousInstance.pauseAnimation?.();
+      lastRendererActiveRef.current = null;
+    }
     graphRef.current = instance || undefined;
     if (instance && !graphMountedRef.current) {
       graphMountedRef.current = true;
       setGraphMountToken((current) => current + 1);
-      instance.resumeAnimation?.();
+      // react-kapsule attaches the imperative ref before its layout effect initializes the
+      // renderer. Calling graph methods here can start a frame while renderObjs is still absent.
       return;
     }
     if (!instance && graphMountedRef.current) {
       graphMountedRef.current = false;
     }
   }, []);
+
+  useEffect(() => {
+    const graph = graphRef.current;
+    if (!graph || lastRendererActiveRef.current === active) {
+      return;
+    }
+    if (active) {
+      graph.resumeAnimation?.();
+      lastRendererActiveRef.current = true;
+      return;
+    }
+    graph.pauseAnimation?.();
+    lastRendererActiveRef.current = false;
+  }, [active, graphMountToken]);
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -324,7 +349,7 @@ export default function ForceGraph3DCanvas({
   }, []);
 
   useEffect(() => {
-    if (!graphRef.current) {
+    if (!active || !graphRef.current) {
       return;
     }
     const graphInstance = graphRef.current;
@@ -383,11 +408,10 @@ export default function ForceGraph3DCanvas({
       createDirectionalLight(palette.keyLight, 1.8, 160, 120, 180),
       createDirectionalLight(palette.fillLight, 1.15, -120, -80, -120),
     ]);
-    graphInstance.resumeAnimation?.();
-  }, [dimensions, graphData, graphMetrics.radius, graphMountToken, palette, theme]);
+  }, [active, dimensions, graphData, graphMetrics.radius, graphMountToken, palette, theme]);
 
   useEffect(() => {
-    if (!graphRef.current) {
+    if (!active || !graphRef.current) {
       return;
     }
     const controls = graphRef.current.controls() as {
@@ -402,8 +426,7 @@ export default function ForceGraph3DCanvas({
     } else if (!hasPinnedSelection) {
       orbitInteractionPausedRef.current = false;
     }
-    graphRef.current.resumeAnimation?.();
-  }, [autoRotate, clearOrbitResumeTimer, graphMountToken, hasPinnedSelection]);
+  }, [active, autoRotate, clearOrbitResumeTimer, graphMountToken, hasPinnedSelection]);
 
   useEffect(() => {
     if (!graphRef.current) {
@@ -434,7 +457,7 @@ export default function ForceGraph3DCanvas({
   }, [applyOverviewCamera, graphData, graphMountToken]);
 
   useEffect(() => {
-    if (!graphRef.current) {
+    if (!active || !graphRef.current) {
       return;
     }
     let disposed = false;
@@ -484,7 +507,7 @@ export default function ForceGraph3DCanvas({
         window.cancelAnimationFrame(animationFrame);
       }
     };
-  }, [autoRotate, dimensions, graphMountToken, hasPinnedSelection]);
+  }, [active, autoRotate, dimensions, graphMountToken, hasPinnedSelection]);
 
   useEffect(() => {
     if (!graphRef.current) {
@@ -582,7 +605,11 @@ export default function ForceGraph3DCanvas({
   }, [graphData.nodes, graphMountToken, palette, sceneFrame]);
 
   useEffect(() => {
-    if (!graphRef.current || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    if (
+      !active ||
+      !graphRef.current ||
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
       return;
     }
     const scene = graphRef.current.scene();
@@ -690,7 +717,7 @@ export default function ForceGraph3DCanvas({
         window.cancelAnimationFrame(animationFrame);
       }
     };
-  }, [graphData.nodes.length, theme]);
+  }, [active, graphData.nodes.length, theme]);
 
   useEffect(() => {
     if (!graphRef.current) {
@@ -940,7 +967,6 @@ export default function ForceGraph3DCanvas({
         }
         onEngineStop={() => {
           syncLiveSceneFrame();
-          graphRef.current?.resumeAnimation?.();
           if (pendingInitialCameraRef.current && !initialCameraAppliedRef.current) {
             pendingInitialCameraRef.current = false;
             initialCameraAppliedRef.current = true;

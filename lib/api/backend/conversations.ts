@@ -1,7 +1,7 @@
 import { agencyApiClient } from '@/lib/api/clientInstances';
-import { getAgencyApiBaseUrl } from '@/lib/api/config';
 import { isApiError } from '@/lib/api/errors';
 import { backendRoutes } from '@/lib/api/backend/routes';
+import { encodePathSegment } from '@/lib/api/path';
 import type { AgentDefinition } from '@/types/agents';
 import type {
   ApprovalRequest,
@@ -16,11 +16,6 @@ import type {
   ConversationStreamEvent,
 } from '@/types/conversations';
 import type { CrudListResponse } from '@/types/api';
-
-function withBaseUrl(path: string) {
-  const baseUrl = getAgencyApiBaseUrl();
-  return baseUrl ? `${baseUrl}${path}` : path;
-}
 
 const FALLBACK_MAIN_AGENT_ID = 'main-agent';
 const CONVERSATION_LLM_REQUEST_TIMEOUT_MS = 180_000;
@@ -237,17 +232,14 @@ export const conversationsApi = {
     });
   },
   getStreamUrl(conversationId: string, after?: string) {
-    const basePath = backendRoutes.conversations.stream(conversationId);
     const url = new URL(
-      withBaseUrl(basePath),
+      `/api/conversations/${encodePathSegment(conversationId)}/stream`,
       typeof window === 'undefined' ? 'http://localhost' : window.location.origin
     );
     if (after) {
       url.searchParams.set('after', after);
     }
-    return basePath.startsWith('http') || getAgencyApiBaseUrl()
-      ? url.toString()
-      : `${url.pathname}${url.search}`;
+    return `${url.pathname}${url.search}`;
   },
   parseStreamEvent(data: string) {
     return JSON.parse(data) as ConversationStreamEvent;
