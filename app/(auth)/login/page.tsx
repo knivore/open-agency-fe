@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { signIn, useSession } from 'next-auth/react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AlertCircle, LoaderCircle, Moon, Sun } from 'lucide-react';
@@ -163,7 +164,14 @@ export default function Login() {
             </p>
             <h2 className="mt-3 text-3xl font-semibold tracking-[-0.04em] sm:text-4xl">Sign in</h2>
             <p className="mt-3 text-sm leading-6 text-(--agency-shell-muted)">
-              Use the local admin credentials created during setup.
+              Use the local admin credentials created during setup. First time here?{' '}
+              <Link
+                className="font-medium text-primary underline-offset-4 hover:underline"
+                href="/setup"
+              >
+                Create the initial admin
+              </Link>
+              .
             </p>
           </div>
 

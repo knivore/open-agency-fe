@@ -8,10 +8,7 @@ import {
   unauthorizedResponse,
 } from '@/app/api/backend-users/utils';
 
-export async function GET(
-  _req: Request,
-  { params }: { params: Promise<{ providerKey: string }> }
-) {
+export async function GET(_req: Request, { params }: { params: Promise<{ providerKey: string }> }) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) {
@@ -19,7 +16,11 @@ export async function GET(
     }
     await syncCurrentBackendUser(user);
     const { providerKey } = await params;
-    const capability = await backendCredentialsApi.getConnectorCredentialSchema(providerKey, user, getInternalApiKey());
+    const capability = await backendCredentialsApi.getConnectorCredentialSchema(
+      providerKey,
+      user,
+      getInternalApiKey()
+    );
     return NextResponse.json(capability);
   } catch (error) {
     return proxyErrorResponse(error);

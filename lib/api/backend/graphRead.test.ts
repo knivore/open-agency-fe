@@ -96,7 +96,7 @@ describe('graphReadApi', () => {
     });
 
     expect(getMock).toHaveBeenCalledWith(
-      '/graph/read/entities/entity:organization:acme-corp/neighborhood',
+      '/graph/read/entities/entity%3Aorganization%3Aacme-corp/neighborhood',
       {
         query: {
           depth: 2,

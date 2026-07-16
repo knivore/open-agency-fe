@@ -886,6 +886,8 @@ describe('workflow graph adapter', () => {
         tool_type: 'shell_command',
         security: expect.objectContaining({
           allow_shell: true,
+          sandbox_required: true,
+          requires_approval: true,
         }),
       }),
     ]);

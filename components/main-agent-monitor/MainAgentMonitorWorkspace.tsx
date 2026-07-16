@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import {
   AlertTriangle,
   Check,
+  ChevronDown,
   ExternalLink,
   GitBranch,
   Inbox,
@@ -405,7 +406,7 @@ function RoutingPanel({
         purpose: 'main_agent_monitor_delivery',
       };
       // Monitor delivery only sends when the external conversation resolves to the
-      // same Agency user that owns the selected credential.
+      // same Open Agency user that owns the selected credential.
       await conversationsApi.upsertChannelIdentityMapping({
         channel_type: normalizedProvider,
         channel_user_id: userId,
@@ -442,17 +443,25 @@ function RoutingPanel({
   });
 
   return (
-    <Card className="border-neutral-200 dark:border-white/10">
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-5 w-5 text-primary-700" />
-          <CardTitle className="text-base">Notification Routing</CardTitle>
-        </div>
-        <CardDescription>
-          Route monitor prompts to the in-app inbox or a linked chat conversation.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <details className="group overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+      <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-cyan-300/15 dark:bg-cyan-300/8 dark:text-cyan-200">
+          <MessageSquare className="size-4" aria-hidden="true" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block font-semibold text-neutral-900 dark:text-slate-100">
+            Advanced: Notification routing
+          </span>
+          <span className="mt-0.5 block text-sm text-neutral-600 dark:text-slate-400">
+            Route monitor prompts to the inbox or a linked chat conversation.
+          </span>
+        </span>
+        <span className="hidden text-sm text-neutral-500 sm:block dark:text-slate-400">
+          {routeConversation ? conversationTargetLabel(routeConversation) : 'Inbox only'}
+        </span>
+        <ChevronDown className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="space-y-4 border-t border-neutral-200 p-5 dark:border-white/10">
         <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
@@ -611,8 +620,8 @@ function RoutingPanel({
             </Button>
           </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </details>
   );
 }
 
@@ -719,7 +728,7 @@ export default function MainAgentMonitorWorkspace() {
           </div>
         ) : null}
 
-        <div className="mt-4 grid gap-3 md:grid-cols-3 xl:grid-cols-6">
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <StatCard
             label="Monitor"
             value={data?.settings?.enabled ? 'On' : 'Off'}
@@ -736,16 +745,6 @@ export default function MainAgentMonitorWorkspace() {
           <StatCard label="Steering" value={summary?.recent_steering_request_count ?? 0} />
         </div>
       </div>
-
-      {data ? (
-        <RoutingPanel
-          key={JSON.stringify(data.notification_route ?? {})}
-          data={data}
-          isSaving={routeMutation.isPending}
-          actorUserId={actorUserId}
-          onSave={(payload) => routeMutation.mutate(payload)}
-        />
-      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card className="border-neutral-200 dark:border-white/10">
@@ -820,6 +819,16 @@ export default function MainAgentMonitorWorkspace() {
           </CardContent>
         </Card>
       </div>
+
+      {data ? (
+        <RoutingPanel
+          key={JSON.stringify(data.notification_route ?? {})}
+          data={data}
+          isSaving={routeMutation.isPending}
+          actorUserId={actorUserId}
+          onSave={(payload) => routeMutation.mutate(payload)}
+        />
+      ) : null}
 
       {repoWriteRequests.length > 0 ? (
         <Card className="border-amber-200 bg-amber-50">

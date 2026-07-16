@@ -1,8 +1,5 @@
-import {
-  agencyApiClient,
-  appApiClient,
-} from '@/lib/api/clientInstances';
-import { currentUserHeaders } from '@/lib/api/backend/identity';
+import { agencyApiClient, appApiClient } from '@/lib/api/clientInstances';
+import { currentUserHeaders, localCredentialHeaders } from '@/lib/api/backend/identity';
 import { backendRoutes } from '@/lib/api/backend/routes';
 import type { CrudListResponse } from '@/types/api';
 import type { AuthUser } from '@/types/auth';
@@ -20,7 +17,51 @@ export interface BackendUser {
   provider?: string | null;
   provider_subject?: string | null;
   provider_account_id?: string | null;
+  local_credentials_enabled?: boolean;
   metadata: Record<string, unknown>;
+}
+
+export interface BackendUserProfilePatch {
+  display_name: string;
+  timezone: string;
+}
+
+export interface BackendLocalCredentialsPatch {
+  email: string;
+  current_password: string;
+  new_password?: string;
+}
+
+export interface BackendLocalCredentialsUpdate {
+  user: BackendUser;
+  reauthentication_required: boolean;
+  revoked_sessions: number;
+}
+
+export interface BackendUserProfilePreferences {
+  displayName: string | null;
+  timezone: string | null;
+}
+
+export function getBackendUserProfilePreferences(
+  user: BackendUser | null | undefined
+): BackendUserProfilePreferences {
+  const candidate = user?.metadata?.profile_preferences;
+  if (!candidate || typeof candidate !== 'object') {
+    return { displayName: null, timezone: null };
+  }
+
+  const preferences = candidate as Record<string, unknown>;
+  return {
+    displayName:
+      typeof preferences.display_name === 'string' && preferences.display_name.trim()
+        ? preferences.display_name.trim()
+        : null,
+    timezone:
+      typeof preferences.timezone === 'string' && preferences.timezone.trim()
+        ? preferences.timezone.trim()
+        : null,
+  };
 }
 
 function toBackendUserPayload(user: AuthUser): Record<string, unknown> {
@@ -45,6 +86,15 @@ export const usersApi = {
   getCurrentUser() {
     return appApiClient.get<BackendUser>('/api/backend-users/me');
   },
+  updateCurrentUserProfile(patch: BackendUserProfilePatch) {
+    return appApiClient.patch<BackendUser>('/api/backend-users/me/profile', patch);
+  },
+  updateLocalCredentials(patch: BackendLocalCredentialsPatch) {
+    return appApiClient.patch<BackendLocalCredentialsUpdate>(
+      '/api/backend-users/me/credentials',
+      patch
+    );
+  },
   getUser(userId: string) {
     return appApiClient.get<BackendUser>(`/api/backend-users/${userId}`);
   },
@@ -61,7 +111,7 @@ export const backendUsersApi = {
       backendRoutes.users.sync(),
       toBackendUserPayload(user),
       {
-        headers: internalApiKey ? { 'x-agency-internal-api-key': internalApiKey } : undefined,
+        headers: currentUserHeaders(user, internalApiKey),
       }
     );
   },
@@ -73,12 +123,43 @@ export const backendUsersApi = {
       },
     });
   },
-  getUser(userId: string) {
-    return agencyApiClient.get<BackendUser>(backendRoutes.users.byId(userId));
+  updateCurrentUserProfile(
+    user: AuthUser,
+    patch: BackendUserProfilePatch,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.patch<BackendUser>(backendRoutes.users.profile(), patch, {
+      headers: {
+        ...currentUserHeaders(user),
+        ...(internalApiKey ? { 'x-agency-internal-api-key': internalApiKey } : {}),
+      },
+    });
   },
-  searchUsers(email: string) {
+  updateLocalCredentials(
+    user: AuthUser,
+    patch: BackendLocalCredentialsPatch,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.patch<BackendLocalCredentialsUpdate>(
+      backendRoutes.auth.credentials(),
+      patch,
+      {
+        headers: {
+          ...localCredentialHeaders(user),
+          ...(internalApiKey ? { 'x-agency-internal-api-key': internalApiKey } : {}),
+        },
+      }
+    );
+  },
+  getUser(userId: string, user: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.get<BackendUser>(backendRoutes.users.byId(userId), {
+      headers: currentUserHeaders(user, internalApiKey),
+    });
+  },
+  searchUsers(email: string, user: AuthUser, internalApiKey?: string | null) {
     return agencyApiClient.get<CrudListResponse<BackendUser>>(backendRoutes.users.list(), {
       query: { email },
+      headers: currentUserHeaders(user, internalApiKey),
     });
   },
 };

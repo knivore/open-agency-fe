@@ -47,7 +47,9 @@ function MetricTile({ icon, label, value }: { icon: ReactNode; label: string; va
         {icon}
         <span>{label}</span>
       </div>
-      <div className="mt-2 text-base font-semibold text-neutral-950 dark:text-slate-100">{value}</div>
+      <div className="mt-2 text-base font-semibold text-neutral-950 dark:text-slate-100">
+        {value}
+      </div>
     </div>
   );
 }
@@ -131,7 +133,9 @@ export default function WorkflowObservabilitySummary({
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">Model usage</div>
+          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+            Model usage
+          </div>
           <div className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white dark:divide-white/10 dark:border-white/10 dark:bg-slate-950/72">
             {models.length > 0 ? (
               models.map((item) => (
@@ -143,7 +147,9 @@ export default function WorkflowObservabilitySummary({
                     <div className="truncate text-sm font-medium text-neutral-950 dark:text-slate-100">
                       {item.model}
                     </div>
-                    <div className="truncate text-xs text-neutral-500 dark:text-slate-400">{item.provider}</div>
+                    <div className="truncate text-xs text-neutral-500 dark:text-slate-400">
+                      {item.provider}
+                    </div>
                   </div>
                   <div className="shrink-0 text-right text-sm font-medium text-neutral-900 dark:text-slate-200">
                     {formatNumber(item.total_tokens)}
@@ -159,7 +165,9 @@ export default function WorkflowObservabilitySummary({
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">Agent usage</div>
+          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+            Agent usage
+          </div>
           <div className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white dark:divide-white/10 dark:border-white/10 dark:bg-slate-950/72">
             {agents.length > 0 ? (
               agents.map((item) => (
@@ -189,19 +197,25 @@ export default function WorkflowObservabilitySummary({
         </div>
 
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">Fallback health</div>
+          <div className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+            Fallback health
+          </div>
           <div className="divide-y divide-neutral-200 rounded-md border border-neutral-200 bg-white dark:divide-white/10 dark:border-white/10 dark:bg-slate-950/72">
             {fallbackCount > 0 || fallbackFailureCount > 0 ? (
               <>
                 <div className="flex items-center justify-between gap-3 px-3 py-2">
-                  <div className="text-sm font-medium text-neutral-950 dark:text-slate-100">Fallback rate</div>
+                  <div className="text-sm font-medium text-neutral-950 dark:text-slate-100">
+                    Fallback rate
+                  </div>
                   <div className="text-sm font-medium text-neutral-900 dark:text-slate-200">
                     {(fallbackRate * 100).toFixed(1)}%
                   </div>
                 </div>
                 {fallbackPrimaryModels.map(([label, count]) => (
                   <div key={label} className="flex items-center justify-between gap-3 px-3 py-2">
-                    <div className="min-w-0 truncate text-sm text-neutral-700 dark:text-slate-300">{label}</div>
+                    <div className="min-w-0 truncate text-sm text-neutral-700 dark:text-slate-300">
+                      {label}
+                    </div>
                     <Badge variant="outline">{formatNumber(count)}</Badge>
                   </div>
                 ))}

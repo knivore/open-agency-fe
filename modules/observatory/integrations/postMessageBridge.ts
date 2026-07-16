@@ -52,7 +52,7 @@ export function createObservatoryPostMessageReceiver({
     }
 
     const sourceId = message.data.sourceId ?? OBSERVATORY_POST_MESSAGE_SOURCE_ID;
-    if (!registry.validateSourceOrigin(sourceId, message.origin)) {
+    if (!registry.validateSourceOrigin(sourceId, message.origin, targetWindow.location.origin)) {
       onIssues?.([
         {
           path: 'origin',

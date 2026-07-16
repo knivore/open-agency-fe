@@ -541,6 +541,43 @@ describe('AgencyGraphPanel', () => {
     );
   });
 
+  it('exposes keyboard search, focus, overview, and mobile graph guidance', async () => {
+    getMemoryNeighborhoodMock.mockResolvedValue({
+      nodes: [
+        {
+          id: 'memory-1',
+          type: 'Memory',
+          properties: { summary: 'Memory One' },
+        },
+      ],
+      edges: [],
+      meta: {},
+    });
+
+    renderPanel();
+    await screen.findByTestId('memory-sigma-graph-canvas');
+
+    fireEvent.keyDown(window, { key: '/' });
+    await waitFor(() => expect(screen.getByLabelText('Agency graph search')).toHaveFocus());
+    expect(screen.getByLabelText('Agency graph mobile summary')).toHaveTextContent(
+      '1 nodes · 0 links'
+    );
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Select first node' }));
+    fireEvent.keyDown(window, { key: 'f' });
+    expect(screen.getByRole('button', { name: 'Agency graph view Focus' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+
+    fireEvent.keyDown(window, { key: '0' });
+    expect(screen.getByRole('button', { name: 'Agency graph view Overview' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+  });
+
   it('shows multiple workflow runs in fallback mode for a workflow root', async () => {
     listExecutionsMock.mockResolvedValue({
       items: [

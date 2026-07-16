@@ -156,10 +156,10 @@ The frontend does not require Azure AD in dev mode.
 
 Login flow:
 
-1. Open `http://localhost:3000/login`
-2. Enter `DEV_AUTH_EMAIL`
-3. Enter `DEV_AUTH_PASSWORD`
-4. Submit the form
+1. On a fresh install, open `http://localhost:3000` and create the first local admin on `/setup`.
+2. After that account exists, open `http://localhost:3000/login`.
+3. Enter the admin email and password.
+4. Submit the form.
 
 The session is handled by `next-auth` credentials mode and the frontend API client attaches the dev access token automatically after login.
 

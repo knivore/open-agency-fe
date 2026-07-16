@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { EventSourceSigmaGraphRealtimeAdapter } from '@/modules/sigma-graph/realtime';
 import { InMemorySigmaGraphController } from '@/modules/sigma-graph/store';
-import type {
-  SigmaGraphConnectionStatus,
-  SigmaGraphDocument,
-} from '@/modules/sigma-graph/types';
+import type { SigmaGraphConnectionStatus, SigmaGraphDocument } from '@/modules/sigma-graph/types';
 
 export interface AgencyGraphRealtimeDocumentOptions {
   snapshotDocument: SigmaGraphDocument | null;

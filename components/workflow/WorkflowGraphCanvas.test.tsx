@@ -591,7 +591,10 @@ describe('WorkflowGraphCanvas', () => {
       screen.queryAllByRole('button', { name: 'Open Dependency connection settings' })
     ).toHaveLength(0);
     expect(screen.queryAllByText('Dep')).toHaveLength(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Legend' }));
     expect(screen.getAllByText('Dependency')).toHaveLength(1);
+    expect(screen.queryByText('Graph minimap enabled')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Show workflow minimap' }));
     expect(screen.getByText('Graph minimap enabled')).toBeInTheDocument();
 
     fireEvent.change(screen.getByRole('combobox', { name: 'Jump to workflow graph node' }), {
@@ -603,9 +606,8 @@ describe('WorkflowGraphCanvas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Detailed' }));
 
     expect(
-      screen.getAllByRole('button', { name: 'Open Dependency connection settings' })
-    ).toHaveLength(edges.length);
-
+      screen.queryAllByRole('button', { name: 'Open Dependency connection settings' })
+    ).toHaveLength(0);
     fireEvent.click(screen.getByRole('button', { name: 'Clean' }));
 
     expect(
@@ -619,6 +621,169 @@ describe('WorkflowGraphCanvas', () => {
     );
     expect(screen.getByText('Selected: Task 1')).toBeInTheDocument();
     expect(screen.getByText('1 downstream')).toBeInTheDocument();
+  });
+
+  it('keeps every workflow node visible in both clean and detailed read-only modes', () => {
+    const cleanWorkflow = {
+      ...workflow,
+      id: 'workflow-large-clean-view',
+    };
+    const taskNodes = Array.from({ length: 10 }, (_, index) => ({
+      id: `workflow-task-${index + 1}`,
+      type: 'workflow.task',
+      label: `Task ${index + 1}`,
+    }));
+    const supportNodes = [
+      ...Array.from({ length: 4 }, (_, index) => ({
+        id: `workflow-agent-${index + 1}`,
+        type: 'workflow.agent',
+        label: `Support agent ${index + 1}`,
+      })),
+      ...Array.from({ length: 3 }, (_, index) => ({
+        id: `workflow-tool-${index + 1}`,
+        type: 'workflow.tool',
+        label: `Support tool ${index + 1}`,
+      })),
+    ];
+
+    window.localStorage.removeItem('agency.workflowGraphDensity:workflow-large-clean-view');
+    render(
+      <WorkflowGraphCanvas
+        readOnly
+        workflow={cleanWorkflow}
+        document={{
+          schemaVersion: '1.0',
+          nodes: [...taskNodes, ...supportNodes],
+          edges: taskNodes.slice(1).map((node, index) => ({
+            id: `edge-${index + 1}`,
+            source: taskNodes[index].id,
+            target: node.id,
+            type: 'workflow.dependency',
+          })),
+        }}
+      />
+    );
+
+    expect(screen.getByText('Graph nodes: 17')).toBeInTheDocument();
+    expect(screen.getByText('Support agent 1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detailed' }));
+
+    expect(screen.getByText('Graph nodes: 17')).toBeInTheDocument();
+    expect(screen.getByText('Support agent 1')).toBeInTheDocument();
+    window.localStorage.removeItem('agency.workflowGraphDensity:workflow-large-clean-view');
+  });
+
+  it('opens the graph focused on the workflow entrypoint task', () => {
+    render(
+      <WorkflowGraphCanvas
+        workflow={{ ...workflow, entrypoint: 'task-2' }}
+        document={{
+          schemaVersion: '1.0',
+          nodes: [
+            {
+              id: 'workflow-task-task-1',
+              type: 'workflow.task',
+              label: 'First task',
+              data: { taskId: 'task-1' },
+            },
+            {
+              id: 'workflow-task-task-2',
+              type: 'workflow.task',
+              label: 'Entrypoint task',
+              data: { taskId: 'task-2' },
+            },
+          ],
+          edges: [],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Focus node: workflow-task-task-2 rev 0')).toBeInTheDocument();
+  });
+
+  it('uses the same complete node set and arrangement controls in edit mode', () => {
+    const editableWorkflow = {
+      ...workflow,
+      id: 'workflow-large-clean-edit',
+    };
+    const taskNodes = Array.from({ length: 10 }, (_, index) => ({
+      id: `workflow-task-${index + 1}`,
+      type: 'workflow.task',
+      label: `Task ${index + 1}`,
+    }));
+    const supportNodes = Array.from({ length: 7 }, (_, index) => ({
+      id: `workflow-agent-${index + 1}`,
+      type: 'workflow.agent',
+      label: `Support agent ${index + 1}`,
+    }));
+    window.localStorage.removeItem('agency.workflowGraphDensity:workflow-large-clean-edit');
+    render(
+      <WorkflowGraphCanvas
+        workflow={editableWorkflow}
+        document={{
+          schemaVersion: '1.0',
+          nodes: [...taskNodes, ...supportNodes],
+          edges: taskNodes.slice(1).map((node, index) => ({
+            id: `edge-${index + 1}`,
+            source: taskNodes[index].id,
+            target: node.id,
+            type: 'workflow.dependency',
+          })),
+        }}
+      />
+    );
+
+    expect(screen.getByText('Graph nodes: 17')).toBeInTheDocument();
+    expect(screen.getByText('Support agent 1')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Arrange:/ }));
+
+    expect(screen.getByText('Support agent 1 position: 96, 96')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detailed' }));
+
+    expect(screen.getByText('Graph nodes: 17')).toBeInTheDocument();
+    expect(screen.getByText('Support agent 1')).toBeInTheDocument();
+    expect(screen.getByText('Support agent 3 position: 1256, 96')).toBeInTheDocument();
+    expect(screen.getByText('Support agent 4 position: 96, 496')).toBeInTheDocument();
+    window.localStorage.removeItem('agency.workflowGraphDensity:workflow-large-clean-edit');
+  });
+
+  it('arranges a tool directly above its linked agent even in a later agent lane', () => {
+    const agentNodes = Array.from({ length: 5 }, (_, index) => ({
+      id: `workflow-agent-agent-${index + 1}`,
+      type: 'workflow.agent',
+      label: `Agent ${index + 1}`,
+      data: { agentId: `agent-${index + 1}` },
+    }));
+    const toolNode = {
+      id: 'workflow-tool-linked-tools',
+      type: 'workflow.tool',
+      label: 'Tools',
+      data: { toolIds: ['search'], toolNames: ['Search'] },
+    };
+
+    render(
+      <WorkflowGraphCanvas
+        workflow={{ ...workflow, id: 'workflow-linked-tool-layout' }}
+        document={{
+          schemaVersion: '1.0',
+          nodes: [...agentNodes, toolNode],
+          edges: [
+            {
+              id: 'tool-access',
+              source: toolNode.id,
+              target: agentNodes[4].id,
+              type: 'workflow.tool',
+            },
+          ],
+        }}
+      />
+    );
+
+    expect(screen.getByText('Tools position: 96, 296')).toBeInTheDocument();
+    expect(screen.getByText('Agent 5 position: 96, 616')).toBeInTheDocument();
   });
 
   it('persists the workflow graph density preference per workflow', () => {
@@ -848,6 +1013,51 @@ describe('WorkflowGraphCanvas', () => {
     expect(screen.getByText('1 tool')).toBeInTheDocument();
   });
 
+  it('opens a linked tool node as tools instead of opening its linked agent', () => {
+    const onSelectAgent = vi.fn();
+    const onSelectTool = vi.fn();
+
+    render(
+      <WorkflowGraphCanvas
+        workflow={{
+          ...workflow,
+          agent_definitions: [{ id: 'agent-1', name: 'Researcher', role: 'Find evidence' }],
+          metadata: {
+            workflow_graph_tool_nodes: [
+              {
+                id: 'tools-test',
+                toolIds: ['catalog-tool'],
+                toolNames: ['Catalog Search'],
+                agentId: 'agent-1',
+              },
+            ],
+          },
+        }}
+        includeTools
+        toolDefinitions={[
+          {
+            id: 'catalog-tool',
+            name: 'catalog.search',
+            display_name: 'Catalog Search',
+            description: 'Searches the catalog.',
+          },
+        ]}
+        onSelectAgent={onSelectAgent}
+        onSelectTool={onSelectTool}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Open Tools' }));
+
+    expect(onSelectTool).toHaveBeenCalledWith(
+      '__workflow_tool_list__',
+      ['catalog-tool'],
+      'workflow-tool-tools-test'
+    );
+    expect(onSelectAgent).toHaveBeenCalledWith(null);
+    expect(onSelectAgent).not.toHaveBeenCalledWith('agent-1');
+  });
+
   it('keeps selected tool names visible after adding another tool group node', () => {
     render(
       <WorkflowGraphCanvas
@@ -1057,6 +1267,8 @@ describe('WorkflowGraphCanvas', () => {
 
     const toolbar = screen.getByText('Graph view').parentElement?.parentElement;
 
+    expect(toolbar).not.toHaveTextContent('Edge pill opens details');
+    fireEvent.click(screen.getByRole('button', { name: 'Legend' }));
     expect(toolbar).toHaveTextContent('Edge pill opens details');
     expect(toolbar).toHaveTextContent('Static link');
     expect(toolbar).toHaveTextContent('Live transfer');

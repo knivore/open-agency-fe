@@ -719,6 +719,7 @@ vi.mock('@/components/library/shadcn/tooltip', () => ({
 }));
 
 vi.mock('@/components/library/shadcn/button', () => ({
+  buttonVariants: () => '',
   Button: ({
     children,
     ...props
@@ -2926,7 +2927,8 @@ describe('WorkflowDetailWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Select Graph Tool' }));
 
     expect(screen.getByRole('heading', { name: '1 workflow tools' })).toBeInTheDocument();
-    expect(screen.getByText('Tool List')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Equipped tools' })).toBeInTheDocument();
+    expect(screen.getByText('Available tools')).toBeInTheDocument();
     expect(screen.getAllByText('Search Tool').length).toBeGreaterThan(0);
     expect(
       screen.getByRole('button', { name: 'Remove access from Agent One' })
@@ -3030,7 +3032,8 @@ describe('WorkflowDetailWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
 
     expect(screen.getByRole('heading', { name: 'Agent One tools' })).toBeInTheDocument();
-    expect(screen.getByText('Tool List')).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: 'Equipped tools' })).toBeInTheDocument();
+    expect(screen.getByText('Available tools')).toBeInTheDocument();
     expect(
       screen.getByText(/Graph available tools: Run Command, Analyze Screenshot/)
     ).toBeInTheDocument();

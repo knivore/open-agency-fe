@@ -17,7 +17,12 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     await syncCurrentBackendUser(user);
     const { id } = await params;
     const payload = await req.json().catch(() => ({}));
-    const credential = await backendCredentialsApi.rotateCredential(id, payload, user, getInternalApiKey());
+    const credential = await backendCredentialsApi.rotateCredential(
+      id,
+      payload,
+      user,
+      getInternalApiKey()
+    );
     return NextResponse.json(credential);
   } catch (error) {
     return proxyErrorResponse(error);

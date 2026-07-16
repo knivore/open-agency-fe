@@ -1,6 +1,6 @@
 'use client';
 
-import { type ComponentType, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import type {
   ExecutionEventRecord,
@@ -16,6 +16,7 @@ import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
 import {
+  type LucideIcon,
   ActivitySquare,
   CircleAlert,
   Clock3,
@@ -23,15 +24,19 @@ import {
   List,
   PlayCircle,
   RefreshCw,
+  Search,
+  SlidersHorizontal,
+  X,
 } from 'lucide-react';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/library/shadcn/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/library/shadcn/select';
 import PageHeader from '@/components/app-shell/PageHeader';
 import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import {
@@ -40,8 +45,10 @@ import {
   RunsLoadingCard,
 } from '@/components/runs/components/RunsState';
 import RunSessionsTable from '@/components/runs/components/RunSessionsTable';
+import RunsSavedViews from '@/components/runs/components/RunsSavedViews';
 import { useRunsModule } from '@/components/runs/context';
-import { useRunsWorkspace } from '@/components/runs/hooks/useRunsWorkspace';
+import { type RunsStatusFilter, useRunsWorkspace } from '@/components/runs/hooks/useRunsWorkspace';
+import { formatRunStatus } from '@/lib/runs/runPresentation';
 import ObservatoryRuntimeSurface, {
   type ObservatoryRuntimeAgentSource,
   type ObservatoryRuntimePreviewMode,
@@ -55,36 +62,64 @@ import {
 
 type RunsVisibleViewMode = RunViewMode | 'observatory';
 
-function RunMetricCard({
+function RunHealthMetric({
   description,
   icon: Icon,
   label,
   tone,
   value,
+  onSelect,
+  selected = false,
 }: {
   description: string;
-  icon: ComponentType<{ className?: string }>;
+  icon: LucideIcon;
   label: string;
   tone: 'active' | 'failed' | 'runtime' | 'waiting';
   value: number;
+  onSelect?: () => void;
+  selected?: boolean;
 }) {
-  return (
-    <Card className="agency-run-metric relative overflow-hidden" data-tone={tone}>
-      <CardHeader className="flex-row items-start justify-between gap-4">
-        <div>
-          <CardTitle className="text-base">{label}</CardTitle>
-          <CardDescription className="mt-1">{description}</CardDescription>
+  const content = (
+    <>
+      <span className="agency-run-metric-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
+        <Icon className="size-[1.05rem] stroke-[1.75]" aria-hidden="true" />
+      </span>
+      <div className="min-w-0">
+        <div className="flex items-baseline gap-2">
+          <p className="text-xl font-semibold tracking-[-0.03em] text-(--agency-shell-text)">
+            {value}
+          </p>
+          <p className="text-sm font-semibold text-(--agency-shell-text)">{label}</p>
         </div>
-        <span className="agency-run-metric-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
-          <Icon className="size-[1.05rem] stroke-[1.75]" />
-        </span>
-      </CardHeader>
-      <CardContent>
-        <p className="text-2xl font-semibold tracking-[-0.03em] text-(--agency-shell-text)">
-          {value}
+        <p className="truncate text-xs text-(--agency-shell-muted)" title={description}>
+          {description}
         </p>
-      </CardContent>
-    </Card>
+      </div>
+    </>
+  );
+  const className =
+    'agency-run-metric relative flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border px-3 py-3 text-left sm:px-4';
+
+  if (onSelect) {
+    return (
+      <button
+        type="button"
+        className={className}
+        data-tone={tone}
+        data-selected={selected ? 'true' : undefined}
+        aria-pressed={selected}
+        onClick={onSelect}
+        title={`Filter runs: ${label}`}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div className={className} data-tone={tone}>
+      {content}
+    </div>
   );
 }
 
@@ -92,7 +127,10 @@ const OBSERVATORY_WORKING_RUN_STATUSES = new Set([
   'created',
   'queued',
   'running',
+  'waiting_for_input',
   'waiting_for_approval',
+  'waiting_for_event',
+  'sleeping',
   'paused',
   'cancelling',
 ]);
@@ -268,6 +306,14 @@ export default function RunsWorkspace() {
   const focusedWorkflowName = focusedWorkflowId
     ? (workflowNamesById.get(focusedWorkflowId) ?? focusedWorkflowId)
     : null;
+  const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all';
+  const statusCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    runs.forEach((run) => counts.set(run.status, (counts.get(run.status) ?? 0) + 1));
+    counts.set('active', activeCount);
+    counts.set('waiting', waitingCount);
+    return counts;
+  }, [activeCount, runs, waitingCount]);
   const assistantPageContext = useMemo(() => {
     return {
       surface: 'runs.list' as const,
@@ -348,7 +394,6 @@ export default function RunsWorkspace() {
           title="Runs"
           description="Loading execution runs from the transformed backend."
         />
-        {observatoryAgentControls}
       </div>
     );
   }
@@ -361,7 +406,6 @@ export default function RunsWorkspace() {
           message={runsQuery.error.message}
           onRetry={() => runsQuery.refetch()}
         />
-        {observatoryAgentControls}
       </div>
     );
   }
@@ -402,7 +446,6 @@ export default function RunsWorkspace() {
             </>
           }
         />
-        {observatoryAgentControls}
         <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
           <TabsContent value="list" className="mt-0">
             <RunsEmptyCard
@@ -414,16 +457,19 @@ export default function RunsWorkspace() {
           </TabsContent>
           <TabsContent value="observatory" className="mt-0">
             {observatoryHasMounted ? (
-              <ObservatoryRuntimeSurface
-                agents={observatoryAgents}
-                layoutSource="repo"
-                mode="viewer"
-                runtimeObjectOverlays={false}
-                runtimeContext={observatoryRuntimeContext}
-                runtimePreviewMode={observatoryRuntimePreviewMode}
-                runs={observatoryRuntimeRuns}
-                useLayoutAgentsWhenEmpty
-              />
+              <div className="space-y-4">
+                {observatoryAgentControls}
+                <ObservatoryRuntimeSurface
+                  agents={observatoryAgents}
+                  layoutSource="repo"
+                  mode="viewer"
+                  runtimeObjectOverlays={false}
+                  runtimeContext={observatoryRuntimeContext}
+                  runtimePreviewMode={observatoryRuntimePreviewMode}
+                  runs={observatoryRuntimeRuns}
+                  useLayoutAgentsWhenEmpty
+                />
+              </div>
             ) : null}
           </TabsContent>
         </Tabs>
@@ -443,7 +489,7 @@ export default function RunsWorkspace() {
             <Badge variant="outline">{runs.length} total</Badge>
             <Badge variant="outline">{activeCount} active</Badge>
             {statusFilter !== 'all' ? (
-              <Badge variant="secondary">Filtered: {statusFilter}</Badge>
+              <Badge variant="secondary">Filtered: {formatRunStatus(statusFilter)}</Badge>
             ) : null}
           </>
         }
@@ -474,54 +520,37 @@ export default function RunsWorkspace() {
         }
       />
 
-      <div className="flex flex-col gap-3 md:flex-row md:items-center">
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search workflow name, runtime, status, or error"
-          className="md:max-w-md"
-        />
-        <div className="flex flex-wrap gap-2">
-          {statusFilters.map((filter) => (
-            <Button
-              key={filter}
-              type="button"
-              variant={statusFilter === filter ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setStatusFilter(filter)}
-            >
-              {filter === 'all' ? 'All statuses' : filter}
-            </Button>
-          ))}
-        </div>
-      </div>
-      {observatoryAgentControls}
-
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <RunMetricCard
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Run health summary">
+        <RunHealthMetric
           label="Active"
-          description="Runs that still need supervision."
+          description="Still executing or queued"
           value={activeCount}
           icon={PlayCircle}
           tone="active"
+          selected={statusFilter === 'active'}
+          onSelect={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
         />
-        <RunMetricCard
+        <RunHealthMetric
           label="Waiting"
-          description="Runs blocked on approval or input."
+          description="Needs approval or input"
           value={waitingCount}
           icon={Clock3}
           tone="waiting"
+          selected={statusFilter === 'waiting'}
+          onSelect={() => setStatusFilter(statusFilter === 'waiting' ? 'all' : 'waiting')}
         />
-        <RunMetricCard
+        <RunHealthMetric
           label="Failed"
-          description="Runs that need debugging."
+          description="Needs investigation"
           value={failedCount}
           icon={CircleAlert}
           tone="failed"
+          selected={statusFilter === 'failed'}
+          onSelect={() => setStatusFilter(statusFilter === 'failed' ? 'all' : 'failed')}
         />
-        <RunMetricCard
-          label="Runtime adapters"
-          description="Distinct runtimes in this result set."
+        <RunHealthMetric
+          label="Runtimes"
+          description="Distinct adapters in use"
           value={runtimeCount}
           icon={Cpu}
           tone="runtime"
@@ -530,32 +559,111 @@ export default function RunsWorkspace() {
 
       <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
         <TabsContent value="list" className="mt-0">
-          {filteredRuns.length === 0 ? (
-            <RunsEmptyCard
-              title="No matching runs"
-              description="Adjust the current search or status filter to see more execution records."
-              actionLabel="Clear filters"
-              onAction={() => {
-                setSearch('');
-                setStatusFilter('all');
-              }}
-            />
-          ) : (
-            <RunSessionsTable runs={filteredRuns} workflowNamesById={workflowNamesById} />
-          )}
+          <div className="space-y-4">
+            <section
+              aria-label="Filter execution runs"
+              className="rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel) p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]"
+            >
+              <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_15rem_auto] lg:items-end">
+                <label className="space-y-1.5">
+                  <span className="text-xs font-semibold text-(--agency-shell-text)">
+                    Search runs
+                  </span>
+                  <span className="relative block">
+                    <Search
+                      className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)"
+                      aria-hidden="true"
+                    />
+                    <Input
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Workflow, run ID, runtime, or error"
+                      className="pl-9"
+                    />
+                  </span>
+                </label>
+                <label className="space-y-1.5">
+                  <span className="text-xs font-semibold text-(--agency-shell-text)">Status</span>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(value) => setStatusFilter(value as RunsStatusFilter)}
+                  >
+                    <SelectTrigger aria-label="Filter runs by status">
+                      <SlidersHorizontal className="mr-2 size-4 text-(--agency-shell-muted)" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {statusFilters.map((filter) => (
+                          <SelectItem key={filter} value={filter}>
+                            {filter === 'all'
+                              ? `All statuses (${runs.length})`
+                              : `${formatRunStatus(filter)} (${statusCounts.get(filter) ?? 0})`}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </label>
+                <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 lg:justify-end">
+                  <span className="text-sm text-(--agency-shell-muted)" aria-live="polite">
+                    {filteredRuns.length} {filteredRuns.length === 1 ? 'run' : 'runs'}
+                  </span>
+                  <RunsSavedViews
+                    search={search}
+                    status={statusFilter}
+                    onApply={(view) => {
+                      setSearch(view.search);
+                      setStatusFilter(view.status);
+                    }}
+                  />
+                  {hasActiveFilters ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSearch('');
+                        setStatusFilter('all');
+                      }}
+                    >
+                      <X data-icon="inline-start" className="size-4" aria-hidden="true" />
+                      Clear
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            </section>
+            {filteredRuns.length === 0 ? (
+              <RunsEmptyCard
+                title="No matching runs"
+                description="Adjust the current search or status filter to see more execution records."
+                actionLabel="Clear filters"
+                onAction={() => {
+                  setSearch('');
+                  setStatusFilter('all');
+                }}
+              />
+            ) : (
+              <RunSessionsTable runs={filteredRuns} workflowNamesById={workflowNamesById} />
+            )}
+          </div>
         </TabsContent>
         <TabsContent value="observatory" className="mt-0">
           {observatoryHasMounted ? (
-            <ObservatoryRuntimeSurface
-              agents={observatoryAgents}
-              layoutSource="repo"
-              mode="viewer"
-              runtimeObjectOverlays={false}
-              runtimeContext={observatoryRuntimeContext}
-              runtimePreviewMode={observatoryRuntimePreviewMode}
-              runs={observatoryRuntimeRuns}
-              useLayoutAgentsWhenEmpty
-            />
+            <div className="space-y-4">
+              {observatoryAgentControls}
+              <ObservatoryRuntimeSurface
+                agents={observatoryAgents}
+                layoutSource="repo"
+                mode="viewer"
+                runtimeObjectOverlays={false}
+                runtimeContext={observatoryRuntimeContext}
+                runtimePreviewMode={observatoryRuntimePreviewMode}
+                runs={observatoryRuntimeRuns}
+                useLayoutAgentsWhenEmpty
+              />
+            </div>
           ) : null}
         </TabsContent>
       </Tabs>

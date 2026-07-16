@@ -95,25 +95,31 @@ export default function DiagnosticsWorkspace() {
 
   if (!showDiagnostics) {
     return (
-      <div className="mx-auto flex min-h-[calc(100vh-8rem)] max-w-3xl items-center px-4 py-10">
-        <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-          <CardBody className="space-y-5 p-8">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
-              <SlidersHorizontal className="h-7 w-7" />
+      <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+        <PageHeader
+          className="mb-6"
+          icon={Stethoscope}
+          tone="run"
+          title="Diagnostics"
+          description="Optional backend capabilities, graph health, run coverage, and module availability."
+        />
+        <Card className="max-w-2xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+          <CardBody className="flex flex-col gap-5 p-6 sm:flex-row sm:items-start">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
+              <SlidersHorizontal className="h-6 w-6" />
             </div>
-            <div>
-              <h1 className="text-2xl font-semibold text-neutral-950 dark:text-slate-50">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl font-semibold text-neutral-950 dark:text-slate-50">
                 Diagnostics are hidden
-              </h1>
-              <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-slate-300">
-                Enable diagnostics from Profile to show this site-wide operations surface. Keeping
-                this opt-in prevents every product page from carrying dev-style controls while still
-                giving operators one place to inspect system health.
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-slate-300">
+                Enable this operator workspace when you need site-wide system health. The setting
+                can be changed again from Profile.
               </p>
+              <Button className="mt-4" color="primary" onPress={() => setShowDiagnostics(true)}>
+                Enable Diagnostics
+              </Button>
             </div>
-            <Button color="primary" onPress={() => setShowDiagnostics(true)}>
-              Enable Diagnostics
-            </Button>
           </CardBody>
         </Card>
       </div>

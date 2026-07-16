@@ -22,13 +22,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/library/shadcn/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/library/shadcn/dialog';
+import { DialogClose } from '@/components/library/shadcn/dialog';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
 import { ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import {
   WorkflowReadOnlySummaryField,
@@ -698,279 +693,287 @@ export default function WorkflowGovernancePanel({
       </Card>
 
       {activeItem ? (
-        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
-          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{activeItem.title ?? activeItem.record_id}</DialogTitle>
-              <DialogDescription>
-                {activeItem.record_kind.replace(/_/g, ' ')} · {activeItem.status} ·{' '}
-                {activeItem.priority}
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="flex flex-col gap-4">
-              <section className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
-                <h4 className="text-sm font-semibold text-foreground">Record detail</h4>
-                <dl className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                  <div>
-                    <dt className="font-medium text-foreground">Record id</dt>
-                    <dd className="break-all">{activeItem.record_id}</dd>
-                  </div>
-                  <div>
-                    <dt className="font-medium text-foreground">Approval request</dt>
-                    <dd className="break-all">{activeItem.approval_request_id ?? 'Not linked'}</dd>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <dt className="font-medium text-foreground">Next actions</dt>
-                    <dd>{activeItem.next_actions.join(', ')}</dd>
-                  </div>
-                  {activeItem.audit_reason ? (
-                    <div className="sm:col-span-2">
-                      <dt className="font-medium text-foreground">Audit reason</dt>
-                      <dd>{activeItem.audit_reason}</dd>
-                    </div>
-                  ) : null}
-                </dl>
-              </section>
-
-              <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
-                <h4 className="text-sm font-semibold text-foreground">Linked evidence</h4>
-                {activeItem.evidence_links.length ? (
-                  <div className="flex flex-col gap-2">
-                    {activeItem.evidence_links.map((link) => (
-                      <div
-                        key={String(link.id)}
-                        className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground"
-                      >
-                        <p className="font-medium text-foreground">
-                          {String(link.label ?? link.document_id)}
-                        </p>
-                        <p className="mt-1 text-xs text-muted-foreground">
-                          {String(link.document_id)}
-                        </p>
-                        {typeof link.summary === 'string' && link.summary ? (
-                          <p className="mt-2">{link.summary}</p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No uploaded documents are currently linked to this record.
-                  </p>
-                )}
-              </section>
-
-              <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
-                <h4 className="text-sm font-semibold text-foreground">Activity</h4>
-                {activeActivity.length ? (
-                  <div className="flex flex-col gap-3">
-                    {activeActivity.map((event, index) => (
-                      <div
-                        key={`${readStringAtPath(event, ['kind']) ?? 'event'}-${readStringAtPath(event, ['timestamp']) ?? index}`}
-                        className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {readStringAtPath(event, ['title']) ?? 'Governance event'}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {formatActivityTimestamp(readStringAtPath(event, ['timestamp']))}
-                              {readStringAtPath(event, ['actor'])
-                                ? ` · ${readStringAtPath(event, ['actor'])}`
-                                : ''}
-                            </p>
-                          </div>
-                          {readStringAtPath(event, ['kind']) ? (
-                            <Badge variant="outline">{readStringAtPath(event, ['kind'])}</Badge>
-                          ) : null}
-                        </div>
-                        {readStringAtPath(event, ['summary']) ? (
-                          <p className="mt-2">{readStringAtPath(event, ['summary'])}</p>
-                        ) : null}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No governance activity has been derived for this record yet.
-                  </p>
-                )}
-              </section>
-
-              <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
-                <h4 className="text-sm font-semibold text-foreground">Suggested documents</h4>
-                {detailSuggestions?.items?.length ? (
-                  <div className="flex flex-col gap-2">
-                    {detailSuggestions.items.map((suggestion) => (
-                      <div
-                        key={String(suggestion.document.id)}
-                        className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {String(suggestion.summary.headline ?? suggestion.document.filename)}
-                            </p>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {suggestion.reason}
-                            </p>
-                          </div>
-                          <Badge variant="outline">Score {suggestion.score}</Badge>
-                        </div>
-                        {suggestion.matched_terms.length ? (
-                          <p className="mt-2 text-xs text-muted-foreground">
-                            Matched terms: {suggestion.matched_terms.join(', ')}
-                          </p>
-                        ) : null}
-                        <div className="mt-3">
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={!editable || actionMutation.isPending}
-                            onClick={() => {
-                              if (!activeItem) {
-                                return;
-                              }
-                              void actionMutation.mutateAsync({
-                                action: 'attach_evidence',
-                                item: activeItem,
-                                documentId: String(suggestion.document.id),
-                                summary: suggestion.reason,
-                              });
-                            }}
-                          >
-                            Attach This Document
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    No document suggestions are currently available.
-                  </p>
-                )}
-              </section>
-
-              {latestBundleResult && latestBundleResult.record_id === activeItem.record_id ? (
-                <section className="flex flex-col gap-2 rounded-lg border border-emerald-300/60 bg-emerald-500/10 p-4 text-emerald-950 dark:border-emerald-400/20 dark:text-emerald-100">
-                  <h4 className="text-sm font-semibold">Latest bundle result</h4>
-                  <div className="flex flex-col gap-2 text-sm">
-                    <p>Dry run: {latestBundleResult.dry_run ? 'Yes' : 'No'}</p>
-                    <p>Planned steps: {latestBundleResult.planned_steps.length}</p>
-                    <p>Applied steps: {latestBundleResult.applied_steps.length}</p>
-                  </div>
-                </section>
-              ) : null}
-
-              <section className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
-                <h4 className="text-sm font-semibold text-foreground">Direct actions</h4>
-                <p className="text-sm text-muted-foreground">
-                  Run a single operator action without executing the full governance bundle.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    disabled={
-                      !editable ||
-                      actionMutation.isPending ||
-                      activeItemIsManuallyClosed ||
-                      activeItemHasApprovalLink
-                    }
-                    onClick={() => {
-                      void actionMutation.mutateAsync({
-                        action: 'request_approval',
-                        item: activeItem,
-                      });
-                    }}
-                  >
-                    Request Approval Only
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={
-                      !editable ||
-                      actionMutation.isPending ||
-                      activeItemIsManuallyClosed ||
-                      activeItemHasApprovalLink
-                    }
-                    onClick={() => {
-                      void actionMutation.mutateAsync({
-                        action: 'resolve',
-                        item: activeItem,
-                      });
-                    }}
-                  >
-                    Resolve
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={
-                      !editable ||
-                      actionMutation.isPending ||
-                      activeItemIsManuallyClosed ||
-                      activeItemHasApprovalLink
-                    }
-                    onClick={() => {
-                      void actionMutation.mutateAsync({
-                        action: 'dismiss',
-                        item: activeItem,
-                      });
-                    }}
-                  >
-                    Dismiss
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={
-                      !editable ||
-                      actionMutation.isPending ||
-                      !activeItemIsManuallyClosed ||
-                      activeItemHasApprovalLink
-                    }
-                    onClick={() => {
-                      void actionMutation.mutateAsync({
-                        action: 'reopen',
-                        item: activeItem,
-                      });
-                    }}
-                  >
-                    Reopen
-                  </Button>
+        <AppDialog
+          open={detailOpen}
+          onOpenChange={setDetailOpen}
+          busy={actionMutation.isPending || bundleMutation.isPending}
+          size="lg"
+          icon={<ShieldCheck className="size-4" aria-hidden="true" />}
+          title={activeItem.title ?? activeItem.record_id}
+          description={`${activeItem.record_kind.replace(/_/g, ' ')} · ${activeItem.status} · ${activeItem.priority}`}
+          bodyClassName="flex flex-col gap-4"
+          footer={
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={actionMutation.isPending || bundleMutation.isPending}
+              >
+                Close details
+              </Button>
+            </DialogClose>
+          }
+        >
+          <div className="flex flex-col gap-4">
+            <section className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
+              <h4 className="text-sm font-semibold text-foreground">Record detail</h4>
+              <dl className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
+                <div>
+                  <dt className="font-medium text-foreground">Record id</dt>
+                  <dd className="break-all">{activeItem.record_id}</dd>
                 </div>
-                {activeItemHasApprovalLink ? (
-                  <p className="text-xs text-amber-700">
-                    Manual lifecycle actions are disabled while this record is linked to an approval
-                    request.
-                  </p>
-                ) : null}
-                {!editable ? (
-                  <p className="text-xs text-amber-700">
-                    Switch to edit mode to run direct governance actions.
-                  </p>
-                ) : null}
-              </section>
-
-              {latestActionResult && latestActionResult.record_id === activeItem.record_id ? (
-                <section className="space-y-2 rounded-md border border-sky-200 bg-sky-50 p-4">
-                  <h4 className="text-sm font-semibold text-sky-950">Latest direct action</h4>
-                  <div className="space-y-1 text-sm text-sky-950">
-                    <p>Action: {latestActionResult.action}</p>
-                    {latestActionResult.document_id ? (
-                      <p>Document: {latestActionResult.document_id}</p>
-                    ) : null}
+                <div>
+                  <dt className="font-medium text-foreground">Approval request</dt>
+                  <dd className="break-all">{activeItem.approval_request_id ?? 'Not linked'}</dd>
+                </div>
+                <div className="sm:col-span-2">
+                  <dt className="font-medium text-foreground">Next actions</dt>
+                  <dd>{activeItem.next_actions.join(', ')}</dd>
+                </div>
+                {activeItem.audit_reason ? (
+                  <div className="sm:col-span-2">
+                    <dt className="font-medium text-foreground">Audit reason</dt>
+                    <dd>{activeItem.audit_reason}</dd>
                   </div>
-                </section>
+                ) : null}
+              </dl>
+            </section>
+
+            <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
+              <h4 className="text-sm font-semibold text-foreground">Linked evidence</h4>
+              {activeItem.evidence_links.length ? (
+                <div className="flex flex-col gap-2">
+                  {activeItem.evidence_links.map((link) => (
+                    <div
+                      key={String(link.id)}
+                      className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground"
+                    >
+                      <p className="font-medium text-foreground">
+                        {String(link.label ?? link.document_id)}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {String(link.document_id)}
+                      </p>
+                      {typeof link.summary === 'string' && link.summary ? (
+                        <p className="mt-2">{link.summary}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No uploaded documents are currently linked to this record.
+                </p>
+              )}
+            </section>
+
+            <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
+              <h4 className="text-sm font-semibold text-foreground">Activity</h4>
+              {activeActivity.length ? (
+                <div className="flex flex-col gap-3">
+                  {activeActivity.map((event, index) => (
+                    <div
+                      key={`${readStringAtPath(event, ['kind']) ?? 'event'}-${readStringAtPath(event, ['timestamp']) ?? index}`}
+                      className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {readStringAtPath(event, ['title']) ?? 'Governance event'}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">
+                            {formatActivityTimestamp(readStringAtPath(event, ['timestamp']))}
+                            {readStringAtPath(event, ['actor'])
+                              ? ` · ${readStringAtPath(event, ['actor'])}`
+                              : ''}
+                          </p>
+                        </div>
+                        {readStringAtPath(event, ['kind']) ? (
+                          <Badge variant="outline">{readStringAtPath(event, ['kind'])}</Badge>
+                        ) : null}
+                      </div>
+                      {readStringAtPath(event, ['summary']) ? (
+                        <p className="mt-2">{readStringAtPath(event, ['summary'])}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No governance activity has been derived for this record yet.
+                </p>
+              )}
+            </section>
+
+            <section className="flex flex-col gap-2 rounded-lg border border-border bg-background p-4">
+              <h4 className="text-sm font-semibold text-foreground">Suggested documents</h4>
+              {detailSuggestions?.items?.length ? (
+                <div className="flex flex-col gap-2">
+                  {detailSuggestions.items.map((suggestion) => (
+                    <div
+                      key={String(suggestion.document.id)}
+                      className="rounded-md border border-border bg-muted/20 p-3 text-sm text-muted-foreground"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-foreground">
+                            {String(suggestion.summary.headline ?? suggestion.document.filename)}
+                          </p>
+                          <p className="mt-1 text-xs text-muted-foreground">{suggestion.reason}</p>
+                        </div>
+                        <Badge variant="outline">Score {suggestion.score}</Badge>
+                      </div>
+                      {suggestion.matched_terms.length ? (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Matched terms: {suggestion.matched_terms.join(', ')}
+                        </p>
+                      ) : null}
+                      <div className="mt-3">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={!editable || actionMutation.isPending}
+                          onClick={() => {
+                            if (!activeItem) {
+                              return;
+                            }
+                            void actionMutation.mutateAsync({
+                              action: 'attach_evidence',
+                              item: activeItem,
+                              documentId: String(suggestion.document.id),
+                              summary: suggestion.reason,
+                            });
+                          }}
+                        >
+                          Attach This Document
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No document suggestions are currently available.
+                </p>
+              )}
+            </section>
+
+            {latestBundleResult && latestBundleResult.record_id === activeItem.record_id ? (
+              <section className="flex flex-col gap-2 rounded-lg border border-emerald-300/60 bg-emerald-500/10 p-4 text-emerald-950 dark:border-emerald-400/20 dark:text-emerald-100">
+                <h4 className="text-sm font-semibold">Latest bundle result</h4>
+                <div className="flex flex-col gap-2 text-sm">
+                  <p>Dry run: {latestBundleResult.dry_run ? 'Yes' : 'No'}</p>
+                  <p>Planned steps: {latestBundleResult.planned_steps.length}</p>
+                  <p>Applied steps: {latestBundleResult.applied_steps.length}</p>
+                </div>
+              </section>
+            ) : null}
+
+            <section className="flex flex-col gap-2 rounded-lg border border-border bg-muted/30 p-4">
+              <h4 className="text-sm font-semibold text-foreground">Direct actions</h4>
+              <p className="text-sm text-muted-foreground">
+                Run a single operator action without executing the full governance bundle.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  disabled={
+                    !editable ||
+                    actionMutation.isPending ||
+                    activeItemIsManuallyClosed ||
+                    activeItemHasApprovalLink
+                  }
+                  onClick={() => {
+                    void actionMutation.mutateAsync({
+                      action: 'request_approval',
+                      item: activeItem,
+                    });
+                  }}
+                >
+                  Request Approval Only
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={
+                    !editable ||
+                    actionMutation.isPending ||
+                    activeItemIsManuallyClosed ||
+                    activeItemHasApprovalLink
+                  }
+                  onClick={() => {
+                    void actionMutation.mutateAsync({
+                      action: 'resolve',
+                      item: activeItem,
+                    });
+                  }}
+                >
+                  Resolve
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={
+                    !editable ||
+                    actionMutation.isPending ||
+                    activeItemIsManuallyClosed ||
+                    activeItemHasApprovalLink
+                  }
+                  onClick={() => {
+                    void actionMutation.mutateAsync({
+                      action: 'dismiss',
+                      item: activeItem,
+                    });
+                  }}
+                >
+                  Dismiss
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={
+                    !editable ||
+                    actionMutation.isPending ||
+                    !activeItemIsManuallyClosed ||
+                    activeItemHasApprovalLink
+                  }
+                  onClick={() => {
+                    void actionMutation.mutateAsync({
+                      action: 'reopen',
+                      item: activeItem,
+                    });
+                  }}
+                >
+                  Reopen
+                </Button>
+              </div>
+              {activeItemHasApprovalLink ? (
+                <p className="text-xs text-amber-700">
+                  Manual lifecycle actions are disabled while this record is linked to an approval
+                  request.
+                </p>
               ) : null}
-            </div>
-          </DialogContent>
-        </Dialog>
+              {!editable ? (
+                <p className="text-xs text-amber-700">
+                  Switch to edit mode to run direct governance actions.
+                </p>
+              ) : null}
+            </section>
+
+            {latestActionResult && latestActionResult.record_id === activeItem.record_id ? (
+              <section className="space-y-2 rounded-md border border-sky-200 bg-sky-50 p-4">
+                <h4 className="text-sm font-semibold text-sky-950">Latest direct action</h4>
+                <div className="space-y-1 text-sm text-sky-950">
+                  <p>Action: {latestActionResult.action}</p>
+                  {latestActionResult.document_id ? (
+                    <p>Document: {latestActionResult.document_id}</p>
+                  ) : null}
+                </div>
+              </section>
+            ) : null}
+          </div>
+        </AppDialog>
       ) : null}
     </>
   );

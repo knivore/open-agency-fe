@@ -30,7 +30,11 @@ export async function POST(req: Request) {
     }
     await syncCurrentBackendUser(user);
     const payload = await req.json();
-    const credential = await backendCredentialsApi.createCredential(payload, user, getInternalApiKey());
+    const credential = await backendCredentialsApi.createCredential(
+      payload,
+      user,
+      getInternalApiKey()
+    );
     return NextResponse.json(credential);
   } catch (error) {
     return proxyErrorResponse(error);

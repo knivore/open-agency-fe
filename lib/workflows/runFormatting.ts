@@ -15,7 +15,10 @@ export function normalizeRunStatus(status?: string | null): AgentRun['status'] {
     case 'created':
     case 'queued':
     case 'running':
+    case 'waiting_for_input':
     case 'waiting_for_approval':
+    case 'waiting_for_event':
+    case 'sleeping':
     case 'paused':
     case 'cancelling':
     case 'completed':

@@ -2,11 +2,7 @@
 
 import type { ReactNode } from 'react';
 import { HelpCircle } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/library/shadcn/tooltip';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/library/shadcn/tooltip';
 import { cn } from '@/lib/utils';
 
 type WorkflowSectionTone = 'neutral' | 'emerald' | 'amber' | 'sky' | 'violet' | 'cyan' | 'red';
@@ -112,7 +108,13 @@ export function WorkflowSettingsSection({
                 : 'border-neutral-200 bg-neutral-50/60 dark:border-white/10 dark:bg-white/4';
 
   return (
-    <section className={cn('rounded-lg border p-3 shadow-sm shadow-neutral-950/3 dark:shadow-none', toneClassName, className)}>
+    <section
+      className={cn(
+        'rounded-lg border p-3 shadow-sm shadow-neutral-950/3 dark:shadow-none',
+        toneClassName,
+        className
+      )}
+    >
       <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 space-y-1">
           <h4 className="text-sm font-semibold text-neutral-900 dark:text-slate-100">{title}</h4>
@@ -163,9 +165,7 @@ export function WorkflowBooleanState({
     <span
       className={cn(
         'inline-flex items-center gap-2 font-medium',
-        enabled
-          ? 'text-emerald-700 dark:text-emerald-300'
-          : 'text-neutral-500 dark:text-slate-400'
+        enabled ? 'text-emerald-700 dark:text-emerald-300' : 'text-neutral-500 dark:text-slate-400'
       )}
     >
       <span

@@ -8,7 +8,7 @@ describe('backendRewrites', () => {
         ...process.env,
         AGENCY_FE_ENABLE_BACKEND_REWRITE: undefined,
         AGENCY_INTERNAL_API_BASE_URL: undefined,
-      }),
+      })
     ).toEqual([]);
   });
 
@@ -18,7 +18,7 @@ describe('backendRewrites', () => {
         ...process.env,
         AGENCY_FE_ENABLE_BACKEND_REWRITE: 'false',
         AGENCY_INTERNAL_API_BASE_URL: 'http://127.0.0.1:8000',
-      }),
+      })
     ).toEqual([]);
   });
 
@@ -28,7 +28,7 @@ describe('backendRewrites', () => {
         ...process.env,
         AGENCY_FE_ENABLE_BACKEND_REWRITE: 'true',
         AGENCY_INTERNAL_API_BASE_URL: 'http://127.0.0.1:8000/',
-      }),
+      })
     ).toEqual([
       {
         source: '/backend/:path*',

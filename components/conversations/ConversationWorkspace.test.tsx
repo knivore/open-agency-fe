@@ -154,7 +154,7 @@ vi.mock('@/components/library/shadcn/button', async () => {
   });
   Button.displayName = 'MockButton';
 
-  return { Button };
+  return { Button, buttonVariants: () => '' };
 });
 
 vi.mock('@/components/library/shadcn/tooltip', () => ({
@@ -247,7 +247,7 @@ describe('ConversationWorkspace', () => {
     });
     agentsApi.getAgentCatalogItem.mockResolvedValue({
       id: 'agent-main-1',
-      name: 'Agency Assistant',
+      name: 'Open Agency Assistant',
       description: 'Default assistant',
       config: {
         toolIds: [],
@@ -445,7 +445,7 @@ describe('ConversationWorkspace', () => {
     await waitFor(() => {
       expect(screen.getByText('Main Agent')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Runs as Agency Assistant')).not.toBeInTheDocument();
+    expect(screen.queryByText('Runs as Open Agency Assistant')).not.toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByText('Initial assistant reply')).toBeInTheDocument();
     });
@@ -1292,6 +1292,40 @@ describe('ConversationWorkspace', () => {
         })
       );
     });
+  });
+
+  it('offers safe page-specific prompts that only prefill the popup composer', async () => {
+    renderConversationWorkspace({
+      mode: 'popup',
+      contextMetadata: () => ({
+        page_context: {
+          surface: 'runs.detail',
+          route: '/runs/run-failed',
+          pathname: '/runs/run-failed',
+          title: 'Failed run',
+          entities: [{ type: 'run', id: 'run-failed', name: 'Failed run' }],
+          selection: { runId: 'run-failed' },
+          suggestedPrompts: [
+            {
+              id: 'explain-failure',
+              label: 'Explain the failure',
+              prompt: 'Explain why this run failed using the first actionable error.',
+              intent: 'diagnose',
+              mutates: false,
+            },
+          ],
+          updatedAt: '2026-05-27T00:00:00.000Z',
+        },
+      }),
+    });
+
+    await screen.findByText('Initial assistant reply');
+    fireEvent.click(screen.getByRole('button', { name: 'Use suggestion: Explain the failure' }));
+
+    expect(screen.getByLabelText('Message Main')).toHaveValue(
+      'Explain why this run failed using the first actionable error.'
+    );
+    expect(conversationsApi.postMessage).not.toHaveBeenCalled();
   });
 
   it('lets assistant chat invoke a published persona by slug', async () => {

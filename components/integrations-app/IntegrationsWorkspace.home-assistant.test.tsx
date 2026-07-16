@@ -72,8 +72,8 @@ describe('IntegrationsWorkspace Home Assistant', () => {
             'ambient-agent orchestration',
           ],
           ownershipNotes: [
-            'Camera analysis should run through Agency vision capabilities rather than a Smart Home-owned vision stack.',
-            'Speech session handling and conversational continuation should run through Agency speech capabilities rather than a Smart Home-owned speech stack.',
+            'Camera analysis should run through Open Agency vision capabilities rather than a Smart Home-owned vision stack.',
+            'Speech session handling and conversational continuation should run through Open Agency speech capabilities rather than a Smart Home-owned speech stack.',
           ],
           onecliTransportMode: 'proxy',
           healthSupported: false,
@@ -113,8 +113,8 @@ describe('IntegrationsWorkspace Home Assistant', () => {
               },
             ],
             agencyStores: ['installation id'],
-            completionSignal: 'Agency marks the installation active.',
-            notes: ['Connect Agency through the Smart Home path backed by Home Assistant.'],
+            completionSignal: 'Open Agency marks the installation active.',
+            notes: ['Connect Open Agency through the Smart Home path backed by Home Assistant.'],
           },
         },
       },
@@ -134,6 +134,9 @@ describe('IntegrationsWorkspace Home Assistant', () => {
       expect(credentialsApi.getConnectorCredentialCapabilities).toHaveBeenCalled();
     });
 
+    const card = await screen.findByTestId('planned-provider-card-home-tools-home-assistant');
+    fireEvent.click(within(card).getByTestId(/planned-provider-toggle-/));
+
     expect(await screen.findByText('Module ownership')).toBeInTheDocument();
     expect(screen.getByText('safe home actions')).toBeInTheDocument();
     expect(screen.getByText('camera-capable entity access')).toBeInTheDocument();
@@ -142,7 +145,6 @@ describe('IntegrationsWorkspace Home Assistant', () => {
     expect(screen.getByText('speech output')).toBeInTheDocument();
     expect(screen.getByText('speech continuation')).toBeInTheDocument();
 
-    const card = await screen.findByTestId('planned-provider-card-home-tools-home-assistant');
     await act(async () => {
       fireEvent.click(within(card).getByRole('button', { name: /List entities/i }));
     });
@@ -170,6 +172,7 @@ describe('IntegrationsWorkspace Home Assistant', () => {
     renderWorkspace();
 
     const card = await screen.findByTestId('planned-provider-card-home-tools-home-assistant');
+    fireEvent.click(within(card).getByTestId(/planned-provider-toggle-/));
     await waitFor(() => {
       expect(smartHomeApi.getAvailability).toHaveBeenCalled();
     });

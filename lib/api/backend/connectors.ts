@@ -1,7 +1,4 @@
-import {
-  agencyApiClient,
-  appApiClient,
-} from '@/lib/api/clientInstances';
+import { agencyApiClient, appApiClient } from '@/lib/api/clientInstances';
 import { backendRoutes } from '@/lib/api/backend/routes';
 import type {
   ConnectorHealthHistoryPayload,
@@ -44,6 +41,11 @@ export const connectorsApi = {
   deleteConnectorInstallation(installationId: string) {
     return appApiClient.delete<Record<string, unknown>>(
       `/api/backend-connectors/installations/${installationId}`
+    );
+  },
+  resumeConnectorSetupSession(installationId: string) {
+    return appApiClient.get<ConnectorSetupSessionPayload>(
+      `/api/backend-connectors/installations/${installationId}/setup-session`
     );
   },
   completeConnectorInstallation(installationId: string, payload: Record<string, unknown>) {
@@ -96,6 +98,12 @@ export const backendConnectorsApi = {
       {
         headers,
       }
+    );
+  },
+  resumeConnectorSetupSession(installationId: string, headers: HeadersInit) {
+    return agencyApiClient.get<ConnectorSetupSessionPayload>(
+      backendRoutes.connectors.setupSessionByInstallationId(installationId),
+      { headers }
     );
   },
   createConnectorSetupSession(

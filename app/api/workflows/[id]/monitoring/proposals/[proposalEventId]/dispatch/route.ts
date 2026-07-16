@@ -10,9 +10,7 @@ import {
 
 export async function POST(
   req: Request,
-  {
-    params,
-  }: { params: Promise<{ id: string; proposalEventId: string }> }
+  { params }: { params: Promise<{ id: string; proposalEventId: string }> }
 ) {
   try {
     const user = await getAuthenticatedUser();

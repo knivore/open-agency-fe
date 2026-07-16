@@ -8,10 +8,7 @@ import {
   unauthorizedResponse,
 } from '@/app/api/backend-users/utils';
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ providerKey: string }> }
-) {
+export async function POST(req: Request, { params }: { params: Promise<{ providerKey: string }> }) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) {

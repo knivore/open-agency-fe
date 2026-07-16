@@ -19,7 +19,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ process
     const execution = executionDetail.execution;
     const result =
       execution.status === 'failed'
-        ? execution.error ?? serializeExecutionResult(execution.output_payload)
+        ? (execution.error ?? serializeExecutionResult(execution.output_payload))
         : serializeExecutionResult(execution.output_payload);
 
     return NextResponse.json({

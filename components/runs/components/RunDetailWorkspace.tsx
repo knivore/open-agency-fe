@@ -7,6 +7,8 @@ import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 import { formatRunDateTime, formatRunError } from '@/lib/workflows/runFormatting';
+import { runStatusTone } from '@/lib/runs/runPresentation';
+import { describeWaitKind, isPausableRunStatus, readRunLifecycle } from '@/lib/runs/runLifecycle';
 import { useWorkflowRunLauncher } from '@/lib/workflows/useWorkflowRunLauncher';
 import {
   workflowExecutionEventsToGraphRuntimeEvents,
@@ -39,6 +41,7 @@ import {
   CardTitle,
 } from '@/components/library/shadcn/card';
 import PageHeader from '@/components/app-shell/PageHeader';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import {
   Accordion,
@@ -66,16 +69,21 @@ import {
   Pause,
   Play,
   RefreshCw,
+  Repeat2,
+  ShieldAlert,
   Sparkles,
   Square,
   Table2,
   User,
+  XCircle,
 } from 'lucide-react';
 import {
   RunsEmptyCard,
   RunsErrorAlert,
   RunsLoadingCard,
 } from '@/components/runs/components/RunsState';
+import RunFailureRecoveryPanel from '@/components/runs/components/RunFailureRecoveryPanel';
+import RunStatusBadge from '@/components/runs/components/RunStatusBadge';
 import { toast } from 'sonner';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
@@ -89,6 +97,15 @@ const STORY_EVENT_TYPES_WITH_FRIENDLY_LABEL = new Set([
   'llm.response.created',
 ]);
 type EventViewMode = 'story' | 'rows';
+type RunEvidenceTab =
+  | 'overview'
+  | 'agents'
+  | 'tasks'
+  | 'approvals'
+  | 'logs'
+  | 'events'
+  | 'timeline'
+  | 'artifacts';
 
 const EVENT_CHAT_PALETTE = [
   {
@@ -125,6 +142,87 @@ const EMPTY_RUN_STATE: ExecutionStateSnapshot = {
 
 function formatDate(value?: string | null) {
   return value ? new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : '—';
+}
+
+function formatLifecycleReason(value: string) {
+  return value.replace(/_/g, ' ');
+}
+
+function PersistentRunLifecyclePanel({ run }: { run: RunSessionSummary }) {
+  const { activeWait, persistentCycle } = readRunLifecycle(run.metadata);
+  if (!activeWait && !persistentCycle) {
+    return null;
+  }
+
+  const wakeAt = activeWait?.wakeAt ?? persistentCycle?.nextWakeAt ?? null;
+  const currentCycle = persistentCycle?.cycleNumber;
+  const nextCycle = persistentCycle?.nextCycleNumber;
+  const summary = activeWait
+    ? describeWaitKind(activeWait.kind)
+    : persistentCycle?.guardReason
+      ? `Paused by guard: ${formatLifecycleReason(persistentCycle.guardReason)}`
+      : 'Persistent execution lifecycle';
+
+  return (
+    <section
+      aria-label="Persistent run lifecycle"
+      className="border-y border-neutral-200 bg-neutral-50/70 px-4 py-4 dark:border-white/10 dark:bg-white/4"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200">
+            <Repeat2 className="size-[1.05rem] stroke-[1.75]" />
+          </span>
+          <div>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold text-neutral-950 dark:text-slate-100">
+                {persistentCycle ? 'Persistent monitor' : 'Durable wait'}
+              </h2>
+              {persistentCycle?.phase ? (
+                <Badge variant="outline" className="capitalize">
+                  {formatLifecycleReason(persistentCycle.phase)}
+                </Badge>
+              ) : null}
+            </div>
+            <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">{summary}</p>
+          </div>
+        </div>
+        <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+          <div>
+            <dt className="text-xs text-neutral-500 dark:text-slate-400">Current cycle</dt>
+            <dd className="mt-1 font-medium text-neutral-900 dark:text-slate-100">
+              {currentCycle ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-neutral-500 dark:text-slate-400">Next cycle</dt>
+            <dd className="mt-1 font-medium text-neutral-900 dark:text-slate-100">
+              {nextCycle ?? '—'}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-neutral-500 dark:text-slate-400">Next wake</dt>
+            <dd className="mt-1 whitespace-nowrap font-medium text-neutral-900 dark:text-slate-100">
+              {formatDate(wakeAt)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-neutral-500 dark:text-slate-400">Safety signals</dt>
+            <dd className="mt-1 font-medium text-neutral-900 dark:text-slate-100">
+              {persistentCycle
+                ? `${persistentCycle.consecutiveFailures} failures · ${persistentCycle.noProgressCycles} repeated`
+                : 'None'}
+            </dd>
+          </div>
+        </dl>
+      </div>
+      {persistentCycle?.lastError ? (
+        <p className="mt-3 text-xs text-red-700 dark:text-red-200">
+          Last cycle error: {persistentCycle.lastError}
+        </p>
+      ) : null}
+    </section>
+  );
 }
 
 function runDisplayDateTime(run: RunSessionSummary) {
@@ -170,60 +268,6 @@ function contextBadgeVariant(status: unknown) {
     return 'successful' as const;
   }
   return 'outline' as const;
-}
-
-function formatRunStatus(status: string) {
-  return status.replace(/_/g, ' ');
-}
-
-function runStatusTone(status: string) {
-  switch (status) {
-    case 'completed':
-      return {
-        card: 'border-l-emerald-500 bg-emerald-50/40 dark:bg-emerald-500/12',
-        badge:
-          'border-emerald-200 bg-emerald-100 text-emerald-800 dark:border-emerald-500/30 dark:bg-emerald-500/15 dark:text-emerald-200',
-        dot: 'bg-emerald-500',
-        text: 'text-emerald-700 dark:text-emerald-200',
-      };
-    case 'running':
-    case 'queued':
-    case 'created':
-      return {
-        card: 'border-l-sky-500 bg-sky-50/50 dark:bg-sky-500/12',
-        badge:
-          'border-sky-200 bg-sky-100 text-sky-800 dark:border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-200',
-        dot: 'bg-sky-500',
-        text: 'text-sky-700 dark:text-sky-200',
-      };
-    case 'waiting_for_approval':
-    case 'paused':
-    case 'cancelling':
-      return {
-        card: 'border-l-amber-500 bg-amber-50/50 dark:bg-amber-500/12',
-        badge:
-          'border-amber-200 bg-amber-100 text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/15 dark:text-amber-200',
-        dot: 'bg-amber-500',
-        text: 'text-amber-700 dark:text-amber-200',
-      };
-    case 'failed':
-    case 'cancelled':
-      return {
-        card: 'border-l-red-500 bg-red-50/50 dark:bg-red-500/12',
-        badge:
-          'border-red-200 bg-red-100 text-red-800 dark:border-red-500/30 dark:bg-red-500/15 dark:text-red-200',
-        dot: 'bg-red-500',
-        text: 'text-red-700 dark:text-red-200',
-      };
-    default:
-      return {
-        card: 'border-l-neutral-400 bg-neutral-50/70 dark:bg-white/4',
-        badge:
-          'border-neutral-200 bg-neutral-100 text-neutral-700 dark:border-white/10 dark:bg-white/6 dark:text-neutral-200',
-        dot: 'bg-neutral-400',
-        text: 'text-neutral-600 dark:text-neutral-300',
-      };
-  }
 }
 
 function containerStatusTone(status?: string | null) {
@@ -392,20 +436,6 @@ interface NativeApprovalActivity {
   source?: 'event' | 'metadata' | 'persisted';
 }
 
-function RunStatusBadge({ status, className }: { status: string; className?: string }) {
-  const tone = runStatusTone(status);
-
-  return (
-    <Badge
-      variant="outline"
-      className={cn('inline-flex items-center gap-1.5 capitalize', tone.badge, className)}
-    >
-      <span className={cn('h-2 w-2 rounded-full', tone.dot)} aria-hidden="true" />
-      {formatRunStatus(status)}
-    </Badge>
-  );
-}
-
 function SummaryCard({
   title,
   value,
@@ -438,6 +468,61 @@ function SummaryCard({
         {description ? (
           <div className="mt-2 text-xs text-neutral-500 dark:text-neutral-400">{description}</div>
         ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function RunEvidenceNavigator({
+  pendingApprovals,
+  artifacts,
+  events,
+  logs,
+  onSelect,
+}: {
+  pendingApprovals: number;
+  artifacts: number;
+  events: number;
+  logs: number;
+  onSelect: (tab: RunEvidenceTab) => void;
+}) {
+  const destinations: Array<{ label: string; tab: RunEvidenceTab; count?: number }> = [
+    { label: 'Approvals', tab: 'approvals', count: pendingApprovals },
+    { label: 'Logs', tab: 'logs', count: logs },
+    { label: 'Events', tab: 'events', count: events },
+    { label: 'Timeline', tab: 'timeline' },
+    { label: 'Artifacts', tab: 'artifacts', count: artifacts },
+  ];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Execution evidence</CardTitle>
+        <CardDescription>
+          Jump directly to approvals, runtime activity, graph progress, or generated files.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+        {destinations.map((destination) => (
+          <Button
+            key={destination.tab}
+            type="button"
+            variant={
+              destination.tab === 'approvals' && pendingApprovals > 0 ? 'default' : 'outline'
+            }
+            className="justify-between"
+            onClick={() => onSelect(destination.tab)}
+          >
+            {destination.label}
+            {destination.count !== undefined ? (
+              <span className="text-xs">
+                {destination.tab === 'approvals' && destination.count > 0
+                  ? `(${destination.count})`
+                  : destination.count}
+              </span>
+            ) : null}
+          </Button>
+        ))}
       </CardContent>
     </Card>
   );
@@ -817,6 +902,89 @@ function nativeApprovalDecisionLabel(activity: NativeApprovalActivity, delegatio
     return 'Delegation eligible';
   }
   return 'Human-held';
+}
+
+function ActiveApprovalCheckpointPanel({
+  approval,
+  waitId,
+  workerReleased,
+  pending,
+  onDecision,
+  onReview,
+}: {
+  approval: NativeApprovalActivity | null;
+  waitId?: string | null;
+  workerReleased: boolean;
+  pending: boolean;
+  onDecision: (toolId: string, action: 'approve' | 'reject') => void;
+  onReview: () => void;
+}) {
+  if (!approval) {
+    return null;
+  }
+
+  return (
+    <section
+      aria-label="Approval checkpoint"
+      className="border-y border-amber-200 bg-amber-50/70 px-4 py-4 dark:border-amber-500/30 dark:bg-amber-500/8"
+    >
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 dark:border-amber-500/30 dark:bg-slate-950 dark:text-amber-200">
+            <ShieldAlert className="size-[1.05rem] stroke-[1.75]" />
+          </span>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="font-semibold text-neutral-950 dark:text-slate-100">
+                Approval required for {approval.toolName}
+              </h2>
+              <Badge variant="secondary">Checkpoint saved</Badge>
+              <Badge variant="outline">
+                {workerReleased ? 'Worker released' : 'Releasing worker'}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-neutral-700 dark:text-slate-300">
+              The run is suspended before this tool call. A decision wakes the run and resumes from
+              this checkpoint without replaying completed steps.
+            </p>
+            <p className="mt-2 truncate font-mono text-xs text-neutral-500 dark:text-slate-400">
+              {approval.taskId ? `Task ${approval.taskId}` : 'Current task'}
+              {waitId ? ` · Wait ${waitId}` : ''}
+            </p>
+          </div>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          {approval.approvalRequestId ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => onDecision(approval.toolId, 'approve')}
+                disabled={pending}
+              >
+                <CheckCircle2 data-icon="inline-start" />
+                Approve and resume
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => onDecision(approval.toolId, 'reject')}
+                disabled={pending}
+              >
+                <XCircle data-icon="inline-start" />
+                Reject and resume
+              </Button>
+            </>
+          ) : (
+            <Button type="button" size="sm" variant="outline" onClick={onReview}>
+              Review approval
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
+  );
 }
 
 function deriveNativeApprovalActivities(
@@ -2231,11 +2399,20 @@ function StructuredRuntimeLogs({ logs }: { logs?: RunLogEntry }) {
   );
 }
 
+function runLogEvidenceCount(logs?: RunLogEntry) {
+  const workflowLogCount = logs?.workflow_logs?.length ?? 0;
+  const agentLogCount =
+    logs?.agent_logs?.reduce((total, group) => total + group.logs.length, 0) ?? 0;
+  const rawLogCount = logs?.raw_container_logs?.trim() || logs?.logs?.trim() ? 1 : 0;
+  return workflowLogCount + agentLogCount + rawLogCount;
+}
+
 export default function RunDetailWorkspace({ runId }: { runId: string }) {
   const { api } = useRunsModule();
   const searchParams = useSearchParams();
   const [selectedRerunAdapterId, setSelectedRerunAdapterId] = useState('');
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>('story');
+  const [evidenceTab, setEvidenceTab] = useState<RunEvidenceTab>('events');
   const {
     runQuery,
     timelineQuery,
@@ -2296,6 +2473,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     'Unknown workflow';
   const runHeaderDateTime = runDisplayDateTime(run);
   const runHeaderTitle = `${workflowLabel} - ${runHeaderDateTime} (${run.id})`;
+  const shortRunId = run.id.length > 18 ? `${run.id.slice(0, 8)}…${run.id.slice(-4)}` : run.id;
   const governanceEvents = (governanceEventsQuery.data?.items ?? []).filter((event) =>
     RUN_GOVERNANCE_EVENT_TYPES.includes(event.event_type)
   );
@@ -2327,6 +2505,9 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     () => deriveNativeApprovalActivities(executionEvents, run.metadata, persistedNativeApprovals),
     [executionEvents, run.metadata, persistedNativeApprovals]
   );
+  const pendingApprovalCount =
+    linkedApprovals.filter((approval) => approval.status === 'pending').length +
+    nativeApprovals.filter((approval) => approval.status === 'pending').length;
   const {
     runtimeAdaptersQuery,
     runnableRuntimeAdapters,
@@ -2552,7 +2733,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         currentNodeId: run.currentNodeId ?? null,
         startedAt: run.startedAt ?? null,
         completedAt: run.completedAt ?? null,
-        canPause: run.status === 'running',
+        canPause: isPausableRunStatus(run.status),
         canResume: run.status === 'paused',
         canCancel: !TERMINAL_STATUSES.has(run.status),
         linkedMessageCount: linkedMessages.length,
@@ -2571,7 +2752,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
       },
       allowedActions: [
         'run.inspect',
-        ...(run.status === 'running' ? ['run.pause'] : []),
+        ...(isPausableRunStatus(run.status) ? ['run.pause'] : []),
         ...(run.status === 'paused' ? ['run.resume'] : []),
         ...(!TERMINAL_STATUSES.has(run.status) ? ['run.cancel'] : []),
         ...(pendingNativeApproval ? ['run.approve_request', 'run.reject_request'] : []),
@@ -2633,9 +2814,14 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     );
   }
 
-  const canPause = run.status === 'running';
+  const canPause = isPausableRunStatus(run.status);
   const canResume = run.status === 'paused';
   const canCancel = !TERMINAL_STATUSES.has(run.status);
+  const runLifecycle = readRunLifecycle(run.metadata);
+  const activeNativeApproval =
+    run.status === 'waiting_for_approval'
+      ? (nativeApprovals.find((approval) => approval.status === 'pending') ?? null)
+      : null;
   const statusTone = runStatusTone(run.status);
   const containerStatus = run.container?.status || 'Not attached';
 
@@ -2699,12 +2885,29 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     await rerunPromise;
   };
 
+  const openEvidenceTab = (tab: RunEvidenceTab) => {
+    setEvidenceTab(tab);
+    // The evidence panels live below the operational summary; wait for Radix to reveal the
+    // selected panel before scrolling so recovery links never target hidden tab content.
+    window.requestAnimationFrame(() => {
+      const evidence = document.getElementById('run-evidence');
+      const activeTab = evidence?.querySelector<HTMLElement>('[role="tab"][data-state="active"]');
+      (activeTab ?? evidence)?.scrollIntoView?.({
+        behavior: 'smooth',
+        block: 'start',
+        inline: 'center',
+      });
+    });
+  };
+
   return (
     <div className="space-y-6">
       <PageHeader
         eyebrow="Run"
-        title={runHeaderTitle}
-        description={`Workflow: ${workflowLabel}`}
+        icon={ListChecks}
+        tone="run"
+        title={workflowLabel}
+        description="Execution details, outputs, and runtime evidence."
         meta={
           <>
             <RunStatusBadge status={run.status} />
@@ -2715,10 +2918,18 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
               <Clock3 className="mr-1 h-3 w-3" />
               Started {formatDate(run.startedAt)}
             </Badge>
+            <Badge variant="outline" className="font-mono font-normal" title={run.id}>
+              Run {shortRunId}
+            </Badge>
           </>
         }
         actions={
           <>
+            {pendingApprovalCount > 0 ? (
+              <Button type="button" onClick={() => openEvidenceTab('approvals')}>
+                Review approvals ({pendingApprovalCount})
+              </Button>
+            ) : null}
             {workflowBackHref ? (
               <Button asChild type="button" variant="outline">
                 <Link href={workflowBackHref}>Back to Workflow Runs</Link>
@@ -2735,35 +2946,71 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
               />
               Refresh
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handlePause}
-              disabled={!canPause || pauseMutation.isPending}
-            >
-              <Pause className="mr-2 h-4 w-4" />
-              {pauseMutation.isPending ? 'Pausing...' : 'Pause'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleResume}
-              disabled={!canResume || resumeMutation.isPending}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              {resumeMutation.isPending ? 'Resuming...' : 'Resume'}
-            </Button>
-            <Button
-              type="button"
-              variant="destructive"
-              onClick={handleCancel}
-              disabled={!canCancel || cancelMutation.isPending}
-            >
-              <Square className="mr-2 h-4 w-4" />
-              {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
-            </Button>
+            {canPause ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handlePause}
+                disabled={pauseMutation.isPending}
+              >
+                <Pause className="mr-2 h-4 w-4" />
+                {pauseMutation.isPending ? 'Pausing...' : 'Pause'}
+              </Button>
+            ) : null}
+            {canResume ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleResume}
+                disabled={resumeMutation.isPending}
+              >
+                <Play className="mr-2 h-4 w-4" />
+                {resumeMutation.isPending ? 'Resuming...' : 'Resume'}
+              </Button>
+            ) : null}
+            {canCancel ? (
+              <ConfirmActionDialog
+                title="Cancel this run?"
+                description={
+                  runLifecycle.persistentCycle
+                    ? 'Cancellation stops this monitor and all future cycles. Completed cycle outputs and existing evidence remain available, but this run cannot be resumed.'
+                    : 'Cancellation stops future execution work for this run. Completed work and existing evidence remain available, but this action cannot resume the same active execution.'
+                }
+                confirmLabel="Cancel run"
+                pendingLabel="Cancelling..."
+                pending={cancelMutation.isPending}
+                destructive
+                onConfirm={handleCancel}
+                trigger={
+                  <Button type="button" variant="destructive" disabled={cancelMutation.isPending}>
+                    <Square data-icon="inline-start" />
+                    {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
+                  </Button>
+                }
+              />
+            ) : null}
           </>
         }
+      />
+
+      {run.status === 'failed' ? (
+        <RunFailureRecoveryPanel
+          events={executionEvents}
+          onInspectTimeline={() => openEvidenceTab('timeline')}
+          runError={run.error}
+          workflowId={run.workflowId}
+        />
+      ) : null}
+
+      <PersistentRunLifecyclePanel run={run} />
+
+      <ActiveApprovalCheckpointPanel
+        approval={activeNativeApproval}
+        waitId={runLifecycle.activeWait?.waitId}
+        workerReleased={!run.workerId}
+        pending={nativeApprovalDecisionMutation.isPending}
+        onDecision={(toolId, action) => void handleNativeApprovalDecision(toolId, action)}
+        onReview={() => openEvidenceTab('approvals')}
       />
 
       <div className="grid gap-4 lg:grid-cols-12">
@@ -2840,31 +3087,56 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         </SummaryCard>
       </div>
 
-      <WorkflowRuntimeAdapterPanel
-        title="Rerun Configuration"
-        description="Native stays the default rerun path when this workflow allows it. Switch adapters here only when you want this rerun to target a different runtime."
-        selectLabel="Runtime adapter for the next run"
-        selectId="run-detail-rerun-adapter"
-        adapters={runnableRuntimeAdapters}
-        selectedAdapterId={effectiveSelectedRerunAdapterId}
-        preferredAdapterId={preferredRuntimeAdapterId}
-        currentAdapterId={run.runtimeAdapterId}
-        isPending={rerunMutation.isPending}
-        isDisabled={!run.workflowId || runtimeAdaptersQuery.isLoading}
-        actionVariant="outline"
-        actionContent={
-          <>
-            <Play className="mr-2 h-4 w-4" />
-            {rerunMutation.isPending
-              ? 'Starting...'
-              : `Run Again${effectiveSelectedRerunAdapterId ? ` With ${effectiveSelectedRerunAdapterId}` : ''}`}
-          </>
-        }
-        onAdapterChange={setSelectedRerunAdapterId}
-        onAction={() => {
-          void handleRerun();
-        }}
+      <RunEvidenceNavigator
+        pendingApprovals={pendingApprovalCount}
+        artifacts={artifactsQuery.data?.items.length ?? 0}
+        events={executionEvents.length}
+        logs={runLogEvidenceCount(logsQuery.data)}
+        onSelect={openEvidenceTab}
       />
+
+      <section id="run-rerun-configuration" aria-label="Rerun configuration">
+        <WorkflowRuntimeAdapterPanel
+          title="Rerun Configuration"
+          description="Native stays the default rerun path when this workflow allows it. Switch adapters here only when you want this rerun to target a different runtime."
+          selectLabel="Runtime adapter for the next run"
+          selectId="run-detail-rerun-adapter"
+          adapters={runnableRuntimeAdapters}
+          selectedAdapterId={effectiveSelectedRerunAdapterId}
+          preferredAdapterId={preferredRuntimeAdapterId}
+          currentAdapterId={run.runtimeAdapterId}
+          isPending={rerunMutation.isPending}
+          isDisabled={!run.workflowId || runtimeAdaptersQuery.isLoading}
+          onAdapterChange={setSelectedRerunAdapterId}
+          action={
+            <ConfirmActionDialog
+              title="Start another workflow run?"
+              description={`This starts a new execution with ${effectiveSelectedRerunAdapterId || 'the selected adapter'}. Review the failure guidance first because rerunning can repeat external tool side effects and provider costs.`}
+              confirmLabel="Start rerun"
+              pendingLabel="Starting..."
+              pending={rerunMutation.isPending}
+              onConfirm={handleRerun}
+              trigger={
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={
+                    !run.workflowId ||
+                    runtimeAdaptersQuery.isLoading ||
+                    rerunMutation.isPending ||
+                    !effectiveSelectedRerunAdapterId
+                  }
+                >
+                  <Play data-icon="inline-start" />
+                  {rerunMutation.isPending
+                    ? 'Starting...'
+                    : `Run Again${effectiveSelectedRerunAdapterId ? ` With ${effectiveSelectedRerunAdapterId}` : ''}`}
+                </Button>
+              }
+            />
+          }
+        />
+      </section>
 
       <Card>
         <CardHeader>
@@ -3143,15 +3415,17 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Runtime Error</CardTitle>
-          <CardDescription>Normalized from backend execution detail.</CardDescription>
-        </CardHeader>
-        <CardContent className="text-sm text-neutral-600 dark:text-neutral-300">
-          {formatRunError(run.error)}
-        </CardContent>
-      </Card>
+      {run.error || run.status === 'failed' ? (
+        <Card id="run-error">
+          <CardHeader>
+            <CardTitle>Runtime Error</CardTitle>
+            <CardDescription>Normalized from backend execution detail.</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-neutral-600 dark:text-neutral-300">
+            {formatRunError(run.error)}
+          </CardContent>
+        </Card>
+      ) : null}
 
       <RunOutputs
         outputPayload={run.outputPayload}
@@ -3203,17 +3477,50 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         </CardContent>
       </Card>
 
-      <Tabs defaultValue="events">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="agents">Agents</TabsTrigger>
-          <TabsTrigger value="tasks">Tasks</TabsTrigger>
-          <TabsTrigger value="approvals">Approvals</TabsTrigger>
-          <TabsTrigger value="logs">Logs</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger>
-          <TabsTrigger value="timeline">Timeline</TabsTrigger>
-          <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
-        </TabsList>
+      <Tabs
+        id="run-evidence"
+        value={evidenceTab}
+        onValueChange={(value) => setEvidenceTab(value as RunEvidenceTab)}
+      >
+        <div className="overflow-x-auto pb-1">
+          <TabsList className="w-max min-w-full justify-start" aria-label="Run evidence sections">
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="agents">Agents</TabsTrigger>
+            <TabsTrigger value="tasks">Tasks</TabsTrigger>
+            <TabsTrigger
+              value="approvals"
+              aria-label={
+                pendingApprovalCount > 0
+                  ? `Approvals, ${pendingApprovalCount} pending`
+                  : 'Approvals'
+              }
+            >
+              Approvals
+              {pendingApprovalCount > 0 ? (
+                <span className="ml-1 text-xs">({pendingApprovalCount})</span>
+              ) : null}
+            </TabsTrigger>
+            <TabsTrigger value="logs">
+              Logs
+              <span aria-hidden="true" className="ml-1 text-xs text-(--agency-shell-muted)">
+                {runLogEvidenceCount(logsQuery.data)}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="events">
+              Events
+              <span aria-hidden="true" className="ml-1 text-xs text-(--agency-shell-muted)">
+                {executionEvents.length}
+              </span>
+            </TabsTrigger>
+            <TabsTrigger value="timeline">Timeline</TabsTrigger>
+            <TabsTrigger value="artifacts">
+              Artifacts
+              <span aria-hidden="true" className="ml-1 text-xs text-(--agency-shell-muted)">
+                {artifactsQuery.data?.items.length ?? 0}
+              </span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="overview">
           <Card>
@@ -3351,7 +3658,9 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
                             </details>
                           ) : null}
                         </div>
-                        {approval.status === 'pending' ? (
+                        {/* Event history can outlive the backend request that made the run wait.
+                            Only persisted requests are safe to expose as actionable decisions. */}
+                        {approval.status === 'pending' && approval.approvalRequestId ? (
                           <div className="mt-3 flex flex-wrap gap-2">
                             <Button
                               type="button"
@@ -3374,6 +3683,15 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
                             >
                               Reject
                             </Button>
+                          </div>
+                        ) : approval.status === 'pending' && !nativeApprovalsQuery.isLoading ? (
+                          <div
+                            role="status"
+                            className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
+                          >
+                            This run reports a pending approval, but the backend no longer has an
+                            active request to approve or reject. Refresh the run; if it remains
+                            unavailable, start the run again.
                           </div>
                         ) : null}
                       </div>
@@ -3690,7 +4008,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="timeline">
+        <TabsContent id="run-timeline" value="timeline">
           <Card>
             <CardHeader>
               <CardTitle>Observability Timeline</CardTitle>

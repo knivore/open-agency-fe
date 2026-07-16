@@ -57,7 +57,7 @@ npm install
 npm run dev
 ```
 
-5. Open [http://localhost:3000](http://localhost:3000) and sign in at `/login` with `DEV_AUTH_EMAIL` and `DEV_AUTH_PASSWORD`.
+5. Open [http://localhost:3000](http://localhost:3000). On a fresh backend, Open Agency opens `/setup` so you can create the first local admin account, then complete runtime setup. After that, use `/login` with those admin credentials.
 
 To start the local backend dependencies, OneCLI, Langfuse, backend API, and frontend together:
 
@@ -277,7 +277,7 @@ npm run typecheck
 
 ## Observatory
 
-`Observatory` is the frontend runtime visualization surface for Agency. It lives in
+`Observatory` is the frontend runtime visualization surface for Open Agency. It lives in
 [`modules/observatory`](modules/observatory)
 and exposes these app routes:
 
@@ -348,6 +348,30 @@ The frontend supports degraded operation when backend connector schema routes ar
 - connector setup falls back from schema lookups to connector capabilities
 - setup dialogs can fall back to planned connector metadata
 - WhatsApp fallback still surfaces `phone_number_id`
+
+### Embedded OneCLI credential setup
+
+Set the browser-visible OneCLI dashboard URL at frontend build time:
+
+```env
+NEXT_PUBLIC_ONECLI_APP_URL=http://127.0.0.1:10254
+```
+
+Integrations exposes an **Open OneCLI** quick link and embeds the connector's OneCLI credential screen after Open Agency
+creates an owner-scoped setup session. Configure OneCLI on a separate origin (a different host, scheme, or port); Open Agency
+refuses to iframe a same-origin OneCLI URL. This ensures Open Agency JavaScript cannot inspect OneCLI credential fields.
+Setup URLs contain only non-secret prefill values such as host, path, connection name, header name, and value format.
+
+Routing is verified against OneCLI `v1.27.0`: supported native providers use `/connections?connect=<provider>`, verified
+header-injection connectors use a prefilled Generic Secret form, and other connectors open OneCLI's secret chooser
+without guessing provider configuration. Re-check OneCLI's app registry and Generic Secret query contract when the
+image is upgraded.
+
+The backend capability field `runtimeSecretRequired` controls whether Open Agency must request an encrypted runtime mirror.
+Telegram is currently the only exception because its token is embedded in the Bot API URL path. Discord can use the
+owner-scoped OneCLI header proxy and therefore completes without sending its token back to Open Agency. OneCLI `v1.27.0`
+does not emit an Open Agency completion event, so the Integrations dialog retains an explicit **Complete setup** action and
+status polling around the iframe. A new-tab fallback is always available for authentication or OAuth popup restrictions.
 
 Tool definitions from the backend use split identities: `id` is stable registry identity, `name` is the callable-safe
 agent/runtime name, and `display_name` is the human label. Frontend tool lists should render labels with

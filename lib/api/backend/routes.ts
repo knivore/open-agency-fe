@@ -1,3 +1,5 @@
+import { encodePathSegment } from '@/lib/api/path';
+
 export const backendRoutes = {
   root: () => '/',
   capabilities: () => '/capabilities',
@@ -5,11 +7,14 @@ export const backendRoutes = {
     root: () => '/health',
     db: () => '/health/db',
   },
+  auth: {
+    credentials: () => '/auth/me/credentials',
+  },
   agents: {
     list: () => '/agents',
     create: () => '/agents',
-    byId: (agentId: string) => `/agents/${agentId}`,
-    executions: (agentId: string) => `/agents/${agentId}/executions`,
+    byId: (agentId: string) => `/agents/${encodePathSegment(agentId)}`,
+    executions: (agentId: string) => `/agents/${encodePathSegment(agentId)}/executions`,
     importFormats: () => '/agents/import/formats',
     importPreview: () => '/agents/import/preview',
     importCommit: () => '/agents/import/commit',
@@ -20,28 +25,33 @@ export const backendRoutes = {
     list: () => '/conversations',
     create: () => '/conversations',
     resolveChannel: (channelType: string) =>
-      `/integrations/conversations/channels/${encodeURIComponent(channelType)}/resolve`,
+      `/integrations/conversations/channels/${encodePathSegment(channelType)}/resolve`,
     deliverChannelConversation: (conversationId: string) =>
-      `/integrations/conversations/channels/${encodeURIComponent(conversationId)}/deliver`,
+      `/integrations/conversations/channels/${encodePathSegment(conversationId)}/deliver`,
     channelIdentityMappings: () => '/integrations/conversations/channel-identity-mappings',
     mainAgent: () => '/conversations/main-agent-profile',
     updateMainAgent: () => '/conversations/main-agent-profile',
-    byId: (conversationId: string) => `/conversations/${conversationId}`,
-    messages: (conversationId: string) => `/conversations/${conversationId}/messages`,
-    contextUsage: (conversationId: string) => `/conversations/${conversationId}/context-usage`,
-    compact: (conversationId: string) => `/conversations/${conversationId}/compact`,
-    compactPacks: (conversationId: string) => `/conversations/${conversationId}/compact-packs`,
-    stream: (conversationId: string) => `/conversations/${conversationId}/stream`,
+    byId: (conversationId: string) => `/conversations/${encodePathSegment(conversationId)}`,
+    messages: (conversationId: string) =>
+      `/conversations/${encodePathSegment(conversationId)}/messages`,
+    contextUsage: (conversationId: string) =>
+      `/conversations/${encodePathSegment(conversationId)}/context-usage`,
+    compact: (conversationId: string) =>
+      `/conversations/${encodePathSegment(conversationId)}/compact`,
+    compactPacks: (conversationId: string) =>
+      `/conversations/${encodePathSegment(conversationId)}/compact-packs`,
+    stream: (conversationId: string) =>
+      `/conversations/${encodePathSegment(conversationId)}/stream`,
     approvalRequests: (conversationId: string) =>
-      `/conversations/${conversationId}/approval-requests`,
+      `/conversations/${encodePathSegment(conversationId)}/approval-requests`,
     approveApprovalRequest: (approvalRequestId: string) =>
-      `/conversations/approval-requests/${approvalRequestId}/approve`,
+      `/conversations/approval-requests/${encodePathSegment(approvalRequestId)}/approve`,
     rejectApprovalRequest: (approvalRequestId: string) =>
-      `/conversations/approval-requests/${approvalRequestId}/reject`,
+      `/conversations/approval-requests/${encodePathSegment(approvalRequestId)}/reject`,
     requestChangesToApprovalRequest: (approvalRequestId: string) =>
-      `/conversations/approval-requests/${approvalRequestId}/request-changes`,
+      `/conversations/approval-requests/${encodePathSegment(approvalRequestId)}/request-changes`,
     splitApprovalRequest: (approvalRequestId: string) =>
-      `/conversations/approval-requests/${approvalRequestId}/split`,
+      `/conversations/approval-requests/${encodePathSegment(approvalRequestId)}/split`,
   },
   mainAgentMonitor: {
     commandCenter: () => '/main-agent/monitor',
@@ -51,56 +61,60 @@ export const backendRoutes = {
     list: () => '/goals',
     create: () => '/goals',
     operatorView: () => '/goals/operator-view',
-    byId: (goalId: string) => `/goals/${encodeURIComponent(goalId)}`,
-    operatorDetail: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/operator-detail`,
-    operatorActions: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/operator-actions`,
-    evidence: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/evidence`,
-    evaluate: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/evaluate`,
-    plan: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/plan`,
-    replan: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/replan`,
+    byId: (goalId: string) => `/goals/${encodePathSegment(goalId)}`,
+    operatorDetail: (goalId: string) => `/goals/${encodePathSegment(goalId)}/operator-detail`,
+    operatorActions: (goalId: string) => `/goals/${encodePathSegment(goalId)}/operator-actions`,
+    evidence: (goalId: string) => `/goals/${encodePathSegment(goalId)}/evidence`,
+    evaluate: (goalId: string) => `/goals/${encodePathSegment(goalId)}/evaluate`,
+    plan: (goalId: string) => `/goals/${encodePathSegment(goalId)}/plan`,
+    replan: (goalId: string) => `/goals/${encodePathSegment(goalId)}/replan`,
     supervisorFindings: (goalId: string) =>
-      `/goals/${encodeURIComponent(goalId)}/supervisor-findings`,
+      `/goals/${encodePathSegment(goalId)}/supervisor-findings`,
     supervisorDecisions: (goalId: string) =>
-      `/goals/${encodeURIComponent(goalId)}/supervisor-decisions`,
-    memorySummary: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/memory-summary`,
-    pause: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/pause`,
-    resume: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/resume`,
-    cancel: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/cancel`,
-    complete: (goalId: string) => `/goals/${encodeURIComponent(goalId)}/complete`,
+      `/goals/${encodePathSegment(goalId)}/supervisor-decisions`,
+    memorySummary: (goalId: string) => `/goals/${encodePathSegment(goalId)}/memory-summary`,
+    pause: (goalId: string) => `/goals/${encodePathSegment(goalId)}/pause`,
+    resume: (goalId: string) => `/goals/${encodePathSegment(goalId)}/resume`,
+    cancel: (goalId: string) => `/goals/${encodePathSegment(goalId)}/cancel`,
+    complete: (goalId: string) => `/goals/${encodePathSegment(goalId)}/complete`,
   },
   tools: {
     list: () => '/tools',
     create: () => '/tools',
-    byId: (toolId: string) => `/tools/${toolId}`,
+    byId: (toolId: string) => `/tools/${encodePathSegment(toolId)}`,
     generatedPackages: () => '/tools/generated/packages',
     generatedPackageById: (packageId: string) =>
-      `/tools/generated/packages/${encodeURIComponent(packageId)}`,
+      `/tools/generated/packages/${encodePathSegment(packageId)}`,
     generatedPackageScaffold: () => '/tools/generated/packages/scaffold',
     generatedPackagePublish: () => '/tools/generated/packages/publish',
     validate: () => '/tools/validate',
-    test: (toolId: string) => `/tools/${toolId}/test`,
+    test: (toolId: string) => `/tools/${encodePathSegment(toolId)}/test`,
     contracts: () => '/tools/contracts',
-    contractByName: (toolName: string) => `/tools/contracts/${toolName}`,
-    run: (toolName: string) => `/tools/${toolName}/run`,
+    contractByName: (toolName: string) => `/tools/contracts/${encodePathSegment(toolName)}`,
+    run: (toolName: string) => `/tools/${encodePathSegment(toolName)}/run`,
   },
   modelProviders: {
     list: () => '/model-providers',
     create: () => '/model-providers',
-    byId: (providerId: string) => `/model-providers/${providerId}`,
-    health: (providerId: string) => `/model-providers/${providerId}/health`,
-    test: (providerId: string) => `/model-providers/${providerId}/test`,
-    models: (providerId: string) => `/model-providers/${providerId}/models`,
-    authorize: (providerId: string) => `/model-providers/${providerId}/authorize`,
-    callbackComplete: (providerId: string) => `/model-providers/${providerId}/callback-complete`,
-    deviceAuthorize: (providerId: string) => `/model-providers/${providerId}/device-authorize`,
-    deviceComplete: (providerId: string) => `/model-providers/${providerId}/device-complete`,
+    byId: (providerId: string) => `/model-providers/${encodePathSegment(providerId)}`,
+    health: (providerId: string) => `/model-providers/${encodePathSegment(providerId)}/health`,
+    test: (providerId: string) => `/model-providers/${encodePathSegment(providerId)}/test`,
+    models: (providerId: string) => `/model-providers/${encodePathSegment(providerId)}/models`,
+    authorize: (providerId: string) =>
+      `/model-providers/${encodePathSegment(providerId)}/authorize`,
+    callbackComplete: (providerId: string) =>
+      `/model-providers/${encodePathSegment(providerId)}/callback-complete`,
+    deviceAuthorize: (providerId: string) =>
+      `/model-providers/${encodePathSegment(providerId)}/device-authorize`,
+    deviceComplete: (providerId: string) =>
+      `/model-providers/${encodePathSegment(providerId)}/device-complete`,
   },
   modelProfiles: {
     list: () => '/model-profiles',
     create: () => '/model-profiles',
-    byId: (profileId: string) => `/model-profiles/${profileId}`,
-    health: (profileId: string) => `/model-profiles/${profileId}/health`,
-    test: (profileId: string) => `/model-profiles/${profileId}/test`,
+    byId: (profileId: string) => `/model-profiles/${encodePathSegment(profileId)}`,
+    health: (profileId: string) => `/model-profiles/${encodePathSegment(profileId)}/health`,
+    test: (profileId: string) => `/model-profiles/${encodePathSegment(profileId)}/test`,
   },
   memories: {
     list: () => '/memories',
@@ -112,65 +126,69 @@ export const backendRoutes = {
     backfillDailySummaries: () => '/memories/daily-summaries/backfill',
     backfillCompactPacks: () => '/memories/compact/backfill',
     exclusionById: (memoryId: string, exclusionId: string) =>
-      `/memories/${memoryId}/exclusions/${exclusionId}`,
-    exclusionsByMemoryId: (memoryId: string) => `/memories/${memoryId}/exclusions`,
-    documentById: (documentId: string) => `/memories/documents/${documentId}`,
-    byId: (memoryId: string) => `/memories/${memoryId}`,
+      `/memories/${encodePathSegment(memoryId)}/exclusions/${encodePathSegment(exclusionId)}`,
+    exclusionsByMemoryId: (memoryId: string) =>
+      `/memories/${encodePathSegment(memoryId)}/exclusions`,
+    documentById: (documentId: string) => `/memories/documents/${encodePathSegment(documentId)}`,
+    byId: (memoryId: string) => `/memories/${encodePathSegment(memoryId)}`,
   },
   documents: {
     list: () => '/documents',
-    byId: (documentId: string) => `/documents/${documentId}`,
+    byId: (documentId: string) => `/documents/${encodePathSegment(documentId)}`,
     ingest: () => '/documents/ingest',
     intelligence: () => '/documents/intelligence',
   },
   personas: {
     list: () => '/persona',
     create: () => '/persona',
-    byId: (personaId: string) => `/persona/${personaId}`,
-    versions: (personaId: string) => `/persona/${personaId}/versions`,
-    workflowUsages: (personaId: string) => `/persona/${personaId}/workflow-usages`,
-    graphContext: (personaId: string) => `/persona/${personaId}/graph-context`,
+    byId: (personaId: string) => `/persona/${encodePathSegment(personaId)}`,
+    versions: (personaId: string) => `/persona/${encodePathSegment(personaId)}/versions`,
+    workflowUsages: (personaId: string) =>
+      `/persona/${encodePathSegment(personaId)}/workflow-usages`,
+    graphContext: (personaId: string) => `/persona/${encodePathSegment(personaId)}/graph-context`,
     rollbackVersion: (personaId: string, versionId: string) =>
-      `/persona/${personaId}/versions/${versionId}/rollback`,
-    sources: (personaId: string) => `/persona/${personaId}/sources`,
-    export: (personaId: string) => `/persona/${personaId}/export`,
+      `/persona/${encodePathSegment(personaId)}/versions/${encodePathSegment(versionId)}/rollback`,
+    sources: (personaId: string) => `/persona/${encodePathSegment(personaId)}/sources`,
+    export: (personaId: string) => `/persona/${encodePathSegment(personaId)}/export`,
     governanceLabels: () => '/persona-factory/governance-labels',
     itemTypes: () => '/persona-factory/item-types',
     distill: () => '/persona-factory/distill',
     feedback: () => '/persona-factory/feedback',
     runs: () => '/persona-factory/runs',
-    runById: (runId: string) => `/persona-factory/runs/${runId}`,
-    runItems: (runId: string) => `/persona-factory/runs/${runId}/items`,
-    runSourceMap: (runId: string) => `/persona-factory/runs/${runId}/source-map`,
+    runById: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}`,
+    runItems: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}/items`,
+    runSourceMap: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}/source-map`,
     runSource: (runId: string, sourceKey: string) =>
-      `/persona-factory/runs/${runId}/sources/${encodeURIComponent(sourceKey)}`,
+      `/persona-factory/runs/${encodePathSegment(runId)}/sources/${encodePathSegment(sourceKey)}`,
     runSourceClassification: (runId: string, sourceKey: string) =>
-      `/persona-factory/runs/${runId}/sources/${encodeURIComponent(sourceKey)}/classification`,
+      `/persona-factory/runs/${encodePathSegment(runId)}/sources/${encodePathSegment(sourceKey)}/classification`,
     redistillRunSource: (runId: string, sourceKey: string) =>
-      `/persona-factory/runs/${runId}/sources/${encodeURIComponent(sourceKey)}/redistill`,
-    item: (itemId: string) => `/persona-factory/items/${itemId}`,
-    approveItem: (itemId: string) => `/persona-factory/items/${itemId}/approve`,
-    rejectItem: (itemId: string) => `/persona-factory/items/${itemId}/reject`,
+      `/persona-factory/runs/${encodePathSegment(runId)}/sources/${encodePathSegment(sourceKey)}/redistill`,
+    item: (itemId: string) => `/persona-factory/items/${encodePathSegment(itemId)}`,
+    approveItem: (itemId: string) => `/persona-factory/items/${encodePathSegment(itemId)}/approve`,
+    rejectItem: (itemId: string) => `/persona-factory/items/${encodePathSegment(itemId)}/reject`,
     bulkReviewItems: () => '/persona-factory/items/bulk-review',
-    bulkReviewRunItems: (runId: string) => `/persona-factory/runs/${runId}/items/bulk-review`,
+    bulkReviewRunItems: (runId: string) =>
+      `/persona-factory/runs/${encodePathSegment(runId)}/items/bulk-review`,
     previewBulkReviewRunItems: (runId: string) =>
-      `/persona-factory/runs/${runId}/items/bulk-review/preview`,
-    normalizeRun: (runId: string) => `/persona-factory/runs/${runId}/normalize`,
-    synthesizeRun: (runId: string) => `/persona-factory/runs/${runId}/synthesize-package`,
-    runPackage: (runId: string) => `/persona-factory/runs/${runId}/package`,
-    approveRun: (runId: string) => `/persona-factory/runs/${runId}/approve`,
-    publishRun: (runId: string) => `/persona-factory/runs/${runId}/publish`,
+      `/persona-factory/runs/${encodePathSegment(runId)}/items/bulk-review/preview`,
+    normalizeRun: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}/normalize`,
+    synthesizeRun: (runId: string) =>
+      `/persona-factory/runs/${encodePathSegment(runId)}/synthesize-package`,
+    runPackage: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}/package`,
+    approveRun: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}/approve`,
+    publishRun: (runId: string) => `/persona-factory/runs/${encodePathSegment(runId)}/publish`,
   },
   mcpServers: {
     list: () => '/mcp-servers',
     create: () => '/mcp-servers',
-    byId: (serverId: string) => `/mcp-servers/${serverId}`,
+    byId: (serverId: string) => `/mcp-servers/${encodePathSegment(serverId)}`,
     discover: () => '/mcp-servers/discover',
   },
   runtimeAdapters: {
     list: () => '/runtime-adapters',
     create: () => '/runtime-adapters',
-    byId: (adapterId: string) => `/runtime-adapters/${adapterId}`,
+    byId: (adapterId: string) => `/runtime-adapters/${encodePathSegment(adapterId)}`,
   },
   connectorRegistry: {
     categories: () => '/integrations/categories',
@@ -183,110 +201,125 @@ export const backendRoutes = {
     list: () => '/api/devices',
     audit: () => '/api/devices/audit',
     eventBusHealth: () => '/api/physical/events/health',
-    state: (deviceId: string) => `/api/devices/${encodeURIComponent(deviceId)}/state`,
-    commands: (deviceId: string) => `/api/devices/${encodeURIComponent(deviceId)}/commands`,
-    events: (deviceId: string) => `/api/devices/${encodeURIComponent(deviceId)}/events`,
+    state: (deviceId: string) => `/api/devices/${encodePathSegment(deviceId)}/state`,
+    commands: (deviceId: string) => `/api/devices/${encodePathSegment(deviceId)}/commands`,
+    events: (deviceId: string) => `/api/devices/${encodePathSegment(deviceId)}/events`,
   },
   connectors: {
     aggregateHistory: () => '/integrations/connectors/history',
     createSetupSession: (providerKey: string) =>
-      `/integrations/connectors/${providerKey}/setup-sessions`,
+      `/integrations/connectors/${encodePathSegment(providerKey)}/setup-sessions`,
     installations: () => '/integrations/connectors/installations',
     installationById: (installationId: string) =>
-      `/integrations/connectors/installations/${installationId}`,
+      `/integrations/connectors/installations/${encodePathSegment(installationId)}`,
+    setupSessionByInstallationId: (installationId: string) =>
+      `/integrations/connectors/installations/${encodePathSegment(installationId)}/setup-session`,
     completeInstallation: (installationId: string) =>
-      `/integrations/connectors/installations/${installationId}/complete`,
+      `/integrations/connectors/installations/${encodePathSegment(installationId)}/complete`,
     rotateInstallation: (installationId: string) =>
-      `/integrations/connectors/installations/${installationId}/rotate`,
-    health: (credentialId: string) => `/integrations/connectors/${credentialId}/health`,
-    test: (credentialId: string) => `/integrations/connectors/${credentialId}/test`,
-    history: (credentialId: string) => `/integrations/connectors/${credentialId}/history`,
+      `/integrations/connectors/installations/${encodePathSegment(installationId)}/rotate`,
+    health: (credentialId: string) =>
+      `/integrations/connectors/${encodePathSegment(credentialId)}/health`,
+    test: (credentialId: string) =>
+      `/integrations/connectors/${encodePathSegment(credentialId)}/test`,
+    history: (credentialId: string) =>
+      `/integrations/connectors/${encodePathSegment(credentialId)}/history`,
   },
   users: {
     me: () => '/me',
+    profile: () => '/me/profile',
     sync: () => '/users/sync',
     list: () => '/users',
-    byId: (userId: string) => `/users/${userId}`,
+    byId: (userId: string) => `/users/${encodePathSegment(userId)}`,
   },
   workflows: {
     list: () => '/workflows',
     create: () => '/workflows',
-    byId: (workflowId: string) => `/workflows/${workflowId}`,
-    sharedMemory: (workflowId: string) => `/workflows/${workflowId}/shared-memory`,
-    memoryLinks: (workflowId: string) => `/workflows/${workflowId}/memory-links`,
+    byId: (workflowId: string) => `/workflows/${encodePathSegment(workflowId)}`,
+    sharedMemory: (workflowId: string) =>
+      `/workflows/${encodePathSegment(workflowId)}/shared-memory`,
+    memoryLinks: (workflowId: string) => `/workflows/${encodePathSegment(workflowId)}/memory-links`,
     memoryLinkById: (workflowId: string, linkId: string) =>
-      `/workflows/${workflowId}/memory-links/${linkId}`,
-    monitoring: (workflowId: string) => `/workflows/${workflowId}/monitoring`,
-    monitoringEvents: (workflowId: string) => `/workflows/${workflowId}/monitoring/events`,
+      `/workflows/${encodePathSegment(workflowId)}/memory-links/${encodePathSegment(linkId)}`,
+    monitoring: (workflowId: string) => `/workflows/${encodePathSegment(workflowId)}/monitoring`,
+    monitoringEvents: (workflowId: string) =>
+      `/workflows/${encodePathSegment(workflowId)}/monitoring/events`,
     monitoringProposalDispatch: (workflowId: string, proposalEventId: string) =>
-      `/workflows/${workflowId}/monitoring/proposals/${proposalEventId}/dispatch`,
-    steeringApprovals: (workflowId: string) => `/workflows/${workflowId}/steering-approvals`,
+      `/workflows/${encodePathSegment(workflowId)}/monitoring/proposals/${encodePathSegment(proposalEventId)}/dispatch`,
+    steeringApprovals: (workflowId: string) =>
+      `/workflows/${encodePathSegment(workflowId)}/steering-approvals`,
     governanceReviewQueue: (workflowId: string) =>
-      `/workflows/${workflowId}/governance/review-queue`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/review-queue`,
     governanceDocumentSuggest: (workflowId: string) =>
-      `/workflows/${workflowId}/governance/document-suggest`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/document-suggest`,
     governanceBundle: (workflowId: string, recordKind: string, recordId: string) =>
-      `/workflows/${workflowId}/governance/bundle/${encodeURIComponent(recordKind)}/${encodeURIComponent(recordId)}`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/bundle/${encodePathSegment(recordKind)}/${encodePathSegment(recordId)}`,
     governanceActionAttachEvidence: (workflowId: string, recordKind: string, recordId: string) =>
-      `/workflows/${workflowId}/governance/action/${encodeURIComponent(recordKind)}/${encodeURIComponent(recordId)}/attach-evidence`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/action/${encodePathSegment(recordKind)}/${encodePathSegment(recordId)}/attach-evidence`,
     governanceActionRequestApproval: (workflowId: string, recordKind: string, recordId: string) =>
-      `/workflows/${workflowId}/governance/action/${encodeURIComponent(recordKind)}/${encodeURIComponent(recordId)}/request-approval`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/action/${encodePathSegment(recordKind)}/${encodePathSegment(recordId)}/request-approval`,
     governanceActionResolve: (workflowId: string, recordKind: string, recordId: string) =>
-      `/workflows/${workflowId}/governance/action/${encodeURIComponent(recordKind)}/${encodeURIComponent(recordId)}/resolve`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/action/${encodePathSegment(recordKind)}/${encodePathSegment(recordId)}/resolve`,
     governanceActionDismiss: (workflowId: string, recordKind: string, recordId: string) =>
-      `/workflows/${workflowId}/governance/action/${encodeURIComponent(recordKind)}/${encodeURIComponent(recordId)}/dismiss`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/action/${encodePathSegment(recordKind)}/${encodePathSegment(recordId)}/dismiss`,
     governanceActionReopen: (workflowId: string, recordKind: string, recordId: string) =>
-      `/workflows/${workflowId}/governance/action/${encodeURIComponent(recordKind)}/${encodeURIComponent(recordId)}/reopen`,
-    runtimeGovernance: (workflowId: string) => `/workflows/${workflowId}/runtime-governance`,
+      `/workflows/${encodePathSegment(workflowId)}/governance/action/${encodePathSegment(recordKind)}/${encodePathSegment(recordId)}/reopen`,
+    runtimeGovernance: (workflowId: string) =>
+      `/workflows/${encodePathSegment(workflowId)}/runtime-governance`,
     personaVersionNotices: (workflowId: string) =>
-      `/workflows/${workflowId}/persona-version-notices`,
+      `/workflows/${encodePathSegment(workflowId)}/persona-version-notices`,
     personaAgentUseLatest: (workflowId: string, agentId: string) =>
-      `/workflows/${workflowId}/persona-agents/${agentId}/use-latest`,
+      `/workflows/${encodePathSegment(workflowId)}/persona-agents/${encodePathSegment(agentId)}/use-latest`,
     personaAgentKeepCurrent: (workflowId: string, agentId: string) =>
-      `/workflows/${workflowId}/persona-agents/${agentId}/keep-current`,
+      `/workflows/${encodePathSegment(workflowId)}/persona-agents/${encodePathSegment(agentId)}/keep-current`,
     agentPromote: (workflowId: string, agentId: string) =>
-      `/workflows/${workflowId}/agents/${agentId}/promote`,
-    executions: (workflowId: string) => `/workflows/${workflowId}/executions`,
-    startExecution: (workflowId: string) => `/workflows/${workflowId}/executions/start`,
-    versions: (workflowId: string) => `/workflows/${workflowId}/versions`,
+      `/workflows/${encodePathSegment(workflowId)}/agents/${encodePathSegment(agentId)}/promote`,
+    executions: (workflowId: string) => `/workflows/${encodePathSegment(workflowId)}/executions`,
+    startExecution: (workflowId: string) =>
+      `/workflows/${encodePathSegment(workflowId)}/executions/start`,
+    versions: (workflowId: string) => `/workflows/${encodePathSegment(workflowId)}/versions`,
     version: (workflowId: string, revision: number) =>
-      `/workflows/${workflowId}/versions/${revision}`,
-    clone: (workflowId: string) => `/workflows/${workflowId}/clone`,
+      `/workflows/${encodePathSegment(workflowId)}/versions/${encodePathSegment(revision)}`,
+    clone: (workflowId: string) => `/workflows/${encodePathSegment(workflowId)}/clone`,
     validate: () => '/workflows/validate',
   },
   executions: {
     list: () => '/executions',
     active: () => '/executions/active',
     runtimeRevisions: () => '/executions/runtime/revisions',
-    runtimeRevisionById: (revisionId: string) => `/executions/runtime/revisions/${revisionId}`,
+    runtimeRevisionById: (revisionId: string) =>
+      `/executions/runtime/revisions/${encodePathSegment(revisionId)}`,
     runtimeContainers: () => '/executions/runtime/containers',
     runtimeMetrics: () => '/executions/runtime/metrics',
     runtimeContainerLogs: (containerId: string) =>
-      `/executions/runtime/containers/${containerId}/logs`,
+      `/executions/runtime/containers/${encodePathSegment(containerId)}/logs`,
     runtimeReconcile: () => '/executions/runtime/reconcile',
     create: () => '/executions',
-    byId: (executionId: string) => `/executions/${executionId}`,
-    start: (executionId: string) => `/executions/${executionId}/start`,
-    pause: (executionId: string) => `/executions/${executionId}/pause`,
-    resume: (executionId: string) => `/executions/${executionId}/resume`,
+    byId: (executionId: string) => `/executions/${encodePathSegment(executionId)}`,
+    start: (executionId: string) => `/executions/${encodePathSegment(executionId)}/start`,
+    pause: (executionId: string) => `/executions/${encodePathSegment(executionId)}/pause`,
+    resume: (executionId: string) => `/executions/${encodePathSegment(executionId)}/resume`,
     retryTask: (executionId: string, taskId: string) =>
-      `/executions/${executionId}/tasks/${taskId}/retry`,
+      `/executions/${encodePathSegment(executionId)}/tasks/${encodePathSegment(taskId)}/retry`,
     resumeFromCheckpoint: (executionId: string) =>
-      `/executions/${executionId}/resume-from-checkpoint`,
-    cancel: (executionId: string) => `/executions/${executionId}/cancel`,
-    approve: (executionId: string) => `/executions/${executionId}/approve`,
-    reject: (executionId: string) => `/executions/${executionId}/reject`,
-    events: (executionId: string) => `/executions/${executionId}/events`,
-    usage: (executionId: string) => `/executions/${executionId}/usage`,
-    contextUsage: (executionId: string) => `/executions/${executionId}/context-usage`,
-    approvals: (executionId: string) => `/executions/${executionId}/approvals`,
-    artifacts: (executionId: string) => `/executions/${executionId}/artifacts`,
+      `/executions/${encodePathSegment(executionId)}/resume-from-checkpoint`,
+    cancel: (executionId: string) => `/executions/${encodePathSegment(executionId)}/cancel`,
+    approve: (executionId: string) => `/executions/${encodePathSegment(executionId)}/approve`,
+    reject: (executionId: string) => `/executions/${encodePathSegment(executionId)}/reject`,
+    events: (executionId: string) => `/executions/${encodePathSegment(executionId)}/events`,
+    usage: (executionId: string) => `/executions/${encodePathSegment(executionId)}/usage`,
+    contextUsage: (executionId: string) =>
+      `/executions/${encodePathSegment(executionId)}/context-usage`,
+    approvals: (executionId: string) => `/executions/${encodePathSegment(executionId)}/approvals`,
+    artifacts: (executionId: string) => `/executions/${encodePathSegment(executionId)}/artifacts`,
     artifactImagesStream: (executionId: string) =>
-      `/executions/${executionId}/artifacts/images/stream`,
-    hitlStream: (executionId: string) => `/executions/${executionId}/hitl/stream`,
-    hitlReply: (executionId: string) => `/executions/${executionId}/hitl/reply`,
-    runtimeLogs: (executionId: string) => `/executions/${executionId}/runtime/logs`,
-    stream: (executionId: string) => `/executions/${executionId}/stream`,
+      `/executions/${encodePathSegment(executionId)}/artifacts/images/stream`,
+    hitlStream: (executionId: string) =>
+      `/executions/${encodePathSegment(executionId)}/hitl/stream`,
+    hitlReply: (executionId: string) => `/executions/${encodePathSegment(executionId)}/hitl/reply`,
+    runtimeLogs: (executionId: string) =>
+      `/executions/${encodePathSegment(executionId)}/runtime/logs`,
+    stream: (executionId: string) => `/executions/${encodePathSegment(executionId)}/stream`,
   },
   storage: {
     presigned: () => '/storage/presigned',
@@ -294,35 +327,46 @@ export const backendRoutes = {
   schedules: {
     list: () => '/schedules',
     create: () => '/schedules',
-    byId: (scheduleId: string) => `/schedules/${scheduleId}`,
-    enable: (scheduleId: string) => `/schedules/${scheduleId}/enable`,
-    disable: (scheduleId: string) => `/schedules/${scheduleId}/disable`,
-    triggerNow: (scheduleId: string) => `/schedules/${scheduleId}/trigger-now`,
+    byId: (scheduleId: string) => `/schedules/${encodePathSegment(scheduleId)}`,
+    enable: (scheduleId: string) => `/schedules/${encodePathSegment(scheduleId)}/enable`,
+    disable: (scheduleId: string) => `/schedules/${encodePathSegment(scheduleId)}/disable`,
+    triggerNow: (scheduleId: string) => `/schedules/${encodePathSegment(scheduleId)}/trigger-now`,
   },
   observability: {
-    executionTimeline: (executionId: string) => `/observability/executions/${executionId}/timeline`,
-    executionGraph: (executionId: string) => `/observability/executions/${executionId}/graph`,
-    agentMetrics: (agentId: string) => `/observability/agents/${agentId}/metrics`,
-    workflowMetrics: (workflowId: string) => `/observability/workflows/${workflowId}/metrics`,
-    workflowGraph: (workflowId: string) => `/observability/workflows/${workflowId}/graph`,
+    executionTimeline: (executionId: string) =>
+      `/observability/executions/${encodePathSegment(executionId)}/timeline`,
+    executionGraph: (executionId: string) =>
+      `/observability/executions/${encodePathSegment(executionId)}/graph`,
+    agentMetrics: (agentId: string) =>
+      `/observability/agents/${encodePathSegment(agentId)}/metrics`,
+    workflowMetrics: (workflowId: string) =>
+      `/observability/workflows/${encodePathSegment(workflowId)}/metrics`,
+    workflowGraph: (workflowId: string) =>
+      `/observability/workflows/${encodePathSegment(workflowId)}/graph`,
     modelUsage: () => '/observability/models/usage',
     apiTokenActivity: () => '/observability/api-tokens/activity',
   },
   graphRead: {
     status: () => '/graph/read/status',
-    node: (nodeId: string) => `/graph/read/nodes/${nodeId}`,
-    neighborhood: (nodeId: string) => `/graph/read/nodes/${nodeId}/neighborhood`,
-    expand: (nodeId: string) => `/graph/read/nodes/${nodeId}/expand`,
+    node: (nodeId: string) => `/graph/read/nodes/${encodePathSegment(nodeId)}`,
+    neighborhood: (nodeId: string) => `/graph/read/nodes/${encodePathSegment(nodeId)}/neighborhood`,
+    expand: (nodeId: string) => `/graph/read/nodes/${encodePathSegment(nodeId)}/expand`,
     search: () => '/graph/read/search',
     workflowNeighborhood: (workflowId: string) =>
-      `/graph/read/workflows/${workflowId}/neighborhood`,
-    workflowLineage: (workflowId: string) => `/graph/read/workflows/${workflowId}/lineage`,
-    runNeighborhood: (runId: string) => `/graph/read/runs/${runId}/neighborhood`,
-    agentNeighborhood: (agentId: string) => `/graph/read/agents/${agentId}/neighborhood`,
-    toolNeighborhood: (toolId: string) => `/graph/read/tools/${toolId}/neighborhood`,
-    memoryNeighborhood: (memoryId: string) => `/graph/read/memories/${memoryId}/neighborhood`,
-    entityNeighborhood: (entityId: string) => `/graph/read/entities/${entityId}/neighborhood`,
-    taskNeighborhood: (taskId: string) => `/graph/read/tasks/${taskId}/neighborhood`,
+      `/graph/read/workflows/${encodePathSegment(workflowId)}/neighborhood`,
+    workflowLineage: (workflowId: string) =>
+      `/graph/read/workflows/${encodePathSegment(workflowId)}/lineage`,
+    runNeighborhood: (runId: string) => `/graph/read/runs/${encodePathSegment(runId)}/neighborhood`,
+    agentNeighborhood: (agentId: string) =>
+      `/graph/read/agents/${encodePathSegment(agentId)}/neighborhood`,
+    toolNeighborhood: (toolId: string) =>
+      `/graph/read/tools/${encodePathSegment(toolId)}/neighborhood`,
+    memoryNeighborhood: (memoryId: string) =>
+      `/graph/read/memories/${encodePathSegment(memoryId)}/neighborhood`,
+    entityNeighborhood: (entityId: string) =>
+      `/graph/read/entities/${encodePathSegment(entityId)}/neighborhood`,
+    taskNeighborhood: (taskId: string) =>
+      `/graph/read/tasks/${encodePathSegment(taskId)}/neighborhood`,
   },
   graphStream: {
     deltas: () => '/graph/stream/deltas',
@@ -330,24 +374,28 @@ export const backendRoutes = {
   profile: {
     apiTokens: () => '/api-tokens',
     apiTokenScopes: () => '/api-tokens/scopes',
-    revokeApiToken: (tokenId: string) => `/api-tokens/${tokenId}/revoke`,
+    revokeApiToken: (tokenId: string) => `/api-tokens/${encodePathSegment(tokenId)}/revoke`,
     credentials: () => '/credentials',
     connectorCredentialSchema: (providerKey: string) =>
-      `/credentials/connectors/${providerKey}/schema`,
+      `/credentials/connectors/${encodePathSegment(providerKey)}/schema`,
     resolveConnectorCredential: () => '/credentials/connectors/resolve',
     validateConnectorCredential: (providerKey: string) =>
-      `/credentials/connectors/${providerKey}/validate`,
-    createConnectorCredential: (providerKey: string) => `/credentials/connectors/${providerKey}`,
-    credentialById: (credentialId: string) => `/credentials/${credentialId}`,
-    updateConnectorCredential: (credentialId: string) => `/credentials/${credentialId}/connector`,
-    revokeCredential: (credentialId: string) => `/credentials/${credentialId}/revoke`,
-    rotateCredential: (credentialId: string) => `/credentials/${credentialId}/rotate`,
+      `/credentials/connectors/${encodePathSegment(providerKey)}/validate`,
+    createConnectorCredential: (providerKey: string) =>
+      `/credentials/connectors/${encodePathSegment(providerKey)}`,
+    credentialById: (credentialId: string) => `/credentials/${encodePathSegment(credentialId)}`,
+    updateConnectorCredential: (credentialId: string) =>
+      `/credentials/${encodePathSegment(credentialId)}/connector`,
+    revokeCredential: (credentialId: string) =>
+      `/credentials/${encodePathSegment(credentialId)}/revoke`,
+    rotateCredential: (credentialId: string) =>
+      `/credentials/${encodePathSegment(credentialId)}/rotate`,
   },
   a2a: {
     agentCard: () => '/.well-known/agent-card.json',
     createTask: () => '/a2a/tasks',
-    taskById: (taskId: string) => `/a2a/tasks/${taskId}`,
-    taskMessages: (taskId: string) => `/a2a/tasks/${taskId}/messages`,
-    taskArtifacts: (taskId: string) => `/a2a/tasks/${taskId}/artifacts`,
+    taskById: (taskId: string) => `/a2a/tasks/${encodePathSegment(taskId)}`,
+    taskMessages: (taskId: string) => `/a2a/tasks/${encodePathSegment(taskId)}/messages`,
+    taskArtifacts: (taskId: string) => `/a2a/tasks/${encodePathSegment(taskId)}/artifacts`,
   },
 } as const;

@@ -6,6 +6,7 @@ import type {
   ReactNode,
   TextareaHTMLAttributes,
 } from 'react';
+import { forwardRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -138,10 +139,15 @@ vi.mock('@/components/agent-app/StatePanels', () => ({
 }));
 
 vi.mock('@/components/library/shadcn/button', () => ({
-  Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>
-      {children}
-    </button>
+  buttonVariants: () => '',
+  Button: forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
+    function ButtonMock({ children, ...props }, ref) {
+      return (
+        <button ref={ref} type="button" {...props}>
+          {children}
+        </button>
+      );
+    }
   ),
 }));
 
@@ -166,6 +172,7 @@ vi.mock('@/components/library/shadcn/badge', () => ({
 vi.mock('@/components/library/shadcn/dialog', () => ({
   Dialog: ({ children, open }: { children: ReactNode; open?: boolean }) =>
     open ? <>{children}</> : null,
+  DialogClose: ({ children }: { children: ReactNode }) => <>{children}</>,
   DialogContent: ({ children }: { children: ReactNode }) => <div role="dialog">{children}</div>,
   DialogDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   DialogFooter: ({ children }: { children: ReactNode }) => <footer>{children}</footer>,
@@ -1122,10 +1129,9 @@ describe('PersonaFactoryWorkspace', () => {
     renderWorkspace({ initialPersonaId: 'persona-1', viewMode: 'detail' });
 
     fireEvent.click(await screen.findByRole('button', { name: 'Delete persona' }));
-    expect(screen.getByRole('button', { name: 'Confirm delete' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Cancel delete' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Keep persona' })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete persona' }));
 
     await waitFor(() => {
       expect(personasApi.archivePersona).toHaveBeenCalledWith('persona-1');

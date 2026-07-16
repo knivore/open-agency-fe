@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ListChecks } from 'lucide-react';
 import type { RunSessionSummary } from '@/types/runtime';
 import {
   Card,
@@ -44,24 +44,29 @@ export default function RunSessionsTable({
   );
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Execution Runs</CardTitle>
-        <CardDescription>
-          Select a run to inspect its full execution detail, logs, events, timeline, and artifacts.
-        </CardDescription>
+    <Card className="overflow-hidden">
+      <CardHeader className="flex-row items-start justify-between gap-4 border-b border-(--agency-shell-border)">
+        <div>
+          <CardTitle>Execution history</CardTitle>
+          <CardDescription className="mt-1">
+            Open a run for its timeline, logs, tool activity, approvals, and artifacts.
+          </CardDescription>
+        </div>
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-(--agency-control-border) bg-(--agency-control-bg) text-(--agency-shell-muted)">
+          <ListChecks className="size-4" aria-hidden="true" />
+        </span>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Workflow</TableHead>
-              <TableHead className="text-center">Status</TableHead>
-              <TableHead className="hidden text-center md:table-cell">Started</TableHead>
-              <TableHead className="hidden text-center md:table-cell">Completed</TableHead>
-              <TableHead className="hidden text-center lg:table-cell">Container</TableHead>
-              <TableHead>Error</TableHead>
-              <TableHead className="text-right">Details</TableHead>
+              <TableHead className="hidden sm:table-cell">Status</TableHead>
+              <TableHead className="hidden md:table-cell">Started</TableHead>
+              <TableHead className="hidden lg:table-cell">Latest evidence</TableHead>
+              <TableHead className="text-right">
+                <span className="sr-only">Inspect</span>
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -75,7 +80,7 @@ export default function RunSessionsTable({
           </TableBody>
         </Table>
         {runs.length > RUNS_PER_PAGE ? (
-          <div className="mt-4 flex flex-col gap-3 border-t pt-4 text-sm text-neutral-600 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-col gap-3 border-t border-(--agency-shell-border) px-4 py-4 text-sm text-(--agency-shell-muted) md:flex-row md:items-center md:justify-between">
             <p>
               Showing {pageStartIndex + 1}-{pageEndIndex} of {runs.length} runs
             </p>

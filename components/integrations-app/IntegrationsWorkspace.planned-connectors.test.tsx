@@ -17,6 +17,12 @@ describe('IntegrationsWorkspace planned connectors', () => {
   setupIntegrationsWorkspaceTest();
 
   async function clickCardButton(card: HTMLElement, name: RegExp) {
+    if (!within(card).queryByRole('button', { name })) {
+      fireEvent.click(within(card).getByTestId(/planned-provider-toggle-/));
+      await waitFor(() => {
+        expect(within(card).getByRole('button', { name })).toBeInTheDocument();
+      });
+    }
     await act(async () => {
       fireEvent.click(within(card).getByRole('button', { name }));
     });
@@ -77,13 +83,24 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(window.location.search).toContain('integration-tab=llm-models');
   });
 
+  it('offers a quick link to the OneCLI connections workspace', async () => {
+    renderWorkspace();
+
+    const onecliLink = await screen.findByRole('link', { name: /Open OneCLI/i });
+    const onecliUrl = new URL(onecliLink.getAttribute('href') ?? '');
+
+    expect(onecliUrl.hostname).toBe(window.location.hostname);
+    expect(onecliUrl.port).toBe('10254');
+    expect(onecliUrl.pathname).toBe('/connections');
+    expect(onecliLink).toHaveAttribute('target', '_blank');
+  });
+
   it('discovers an enabled MCP server immediately after creating it', async () => {
     mcpServersApi.createMcpServer.mockResolvedValue({
       id: 'agency-ai-media-lab',
       name: 'AI Media Lab MCP',
       transport: 'stdio',
-      command:
-        '/Users/kehchinleong/Documents/Personal/Agency/agency/.venv/bin/agency-ai-media-lab-mcp',
+      command: '/opt/open-agency/.venv/bin/agency-ai-media-lab-mcp',
       args: [],
       url: null,
       env_refs: [],
@@ -98,8 +115,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     fireEvent.change(textboxes[0], { target: { value: 'AI Media Lab MCP' } });
     fireEvent.change(textboxes[1], {
       target: {
-        value:
-          '/Users/kehchinleong/Documents/Personal/Agency/agency/.venv/bin/agency-ai-media-lab-mcp',
+        value: '/opt/open-agency/.venv/bin/agency-ai-media-lab-mcp',
       },
     });
     fireEvent.click(within(dialog).getByRole('checkbox', { name: /Enabled/i }));
@@ -217,7 +233,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const customProviders: IntegrationProvider[] = [
       ...Array.from({ length: 24 }, (_, index) => ({
         id: `agency.tool.${index + 1}`,
-        name: `Agency Tool ${index + 1}`,
+        name: `Open Agency Tool ${index + 1}`,
         categoryId: 'custom',
         kind: 'tool' as const,
         status: 'available' as const,
@@ -237,7 +253,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
         },
         raw: {
           id: `agency.tool.${index + 1}`,
-          name: `Agency Tool ${index + 1}`,
+          name: `Open Agency Tool ${index + 1}`,
           input_schema: { type: 'object', properties: {} },
           output_schema: { type: 'object', properties: {} },
           tags: ['workflow'],
@@ -307,7 +323,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     await waitFor(() => {
       expect(screen.getByText('Shared MCP 2')).toBeInTheDocument();
     });
-    expect(screen.queryByText('Agency Tool 1')).not.toBeInTheDocument();
+    expect(screen.queryByText('Open Agency Tool 1')).not.toBeInTheDocument();
     expect(window.location.search).toContain('integration-search-custom=Shared+MCP+2');
   });
 
@@ -612,9 +628,10 @@ describe('IntegrationsWorkspace planned connectors', () => {
       'planned-provider-card-productivity-microsoft-365'
     );
 
-    expect(microsoftCard).toHaveAttribute('aria-pressed', 'true');
+    const microsoftToggle = within(microsoftCard).getByTestId(/planned-provider-toggle-/);
+    expect(microsoftToggle).toHaveAttribute('aria-expanded', 'true');
     await waitFor(() => {
-      expect(document.activeElement).toBe(microsoftCard);
+      expect(document.activeElement).toBe(microsoftToggle);
     });
   });
 
@@ -679,7 +696,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
       ).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId('planned-provider-card-communications-telegram'));
+    fireEvent.click(screen.getByTestId('planned-provider-toggle-communications-telegram'));
     expect(window.location.search).toContain('integration-connector=communications-telegram');
 
     fireEvent.click(screen.getByRole('tab', { name: /Custom/i }));
@@ -748,7 +765,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     });
   });
 
-  it('supports keyboard selection for planned connector cards', async () => {
+  it('uses a native disclosure button for keyboard-compatible connector selection', async () => {
     const communicationsCategory: IntegrationCategory = {
       id: 'communications',
       name: 'Communications',
@@ -798,10 +815,12 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId(
       'planned-provider-card-communications-telegram'
     );
-    fireEvent.keyDown(connectorCard, { key: 'Enter' });
+    const connectorToggle = within(connectorCard).getByTestId(/planned-provider-toggle-/);
+    expect(connectorToggle.tagName).toBe('BUTTON');
+    fireEvent.click(connectorToggle);
 
     expect(window.location.search).toContain('integration-connector=communications-telegram');
-    expect(connectorCard).toHaveAttribute('aria-pressed', 'true');
+    expect(connectorToggle).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('does not select the connector when clicking setup actions inside the card', async () => {
@@ -854,6 +873,11 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId(
       'planned-provider-card-communications-telegram'
     );
+
+    expect(within(connectorCard).getByText('Setup guide available')).toBeInTheDocument();
+    expect(
+      within(connectorCard).getByText('Ready to connect — review requirements or start setup now.')
+    ).toBeInTheDocument();
 
     await clickCardButton(connectorCard, /Set up connector/i);
     expect(await screen.findByRole('heading', { name: /Set up Telegram/i })).toBeInTheDocument();
@@ -932,11 +956,21 @@ describe('IntegrationsWorkspace planned connectors', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('onecli-copy-row-credential_ref')).toHaveTextContent(
-        'onecli://users/user-integrations/telegram-bot/connector-installation-telegram'
+      expect(screen.getByTestId('onecli-copy-row-custom_connection_key')).toHaveTextContent(
+        'agency-telegram-bot-connectorins'
       );
     });
+    expect(screen.getByTitle('Telegram secure setup in OneCLI')).toBeInTheDocument();
+    expect(screen.getByText('Secure OneCLI workspace')).toBeInTheDocument();
     expect(screen.queryByLabelText('OneCLI Credential Ref')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Abandon setup/i }));
+    await waitFor(() => {
+      expect(connectorsApi.deleteConnectorInstallation).toHaveBeenCalledWith(
+        'connector-installation-telegram'
+      );
+    });
+    expect(screen.queryByTitle('Telegram secure setup in OneCLI')).not.toBeInTheDocument();
   });
 
   it('allows a configured connector to add another setup instead of only updating', async () => {
@@ -989,6 +1023,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId(
       'planned-provider-card-communications-telegram'
     );
+    fireEvent.click(within(connectorCard).getByTestId(/planned-provider-toggle-/));
 
     expect(within(connectorCard).getByRole('button', { name: /Add another setup/i }));
     expect(within(connectorCard).getByRole('button', { name: /Update credential/i }));
@@ -1111,11 +1146,8 @@ describe('IntegrationsWorkspace planned connectors', () => {
       'planned-provider-card-communications-telegram'
     );
 
-    expect(within(connectorCard).getByRole('button', { name: /Delete selected instance/i }));
     await clickCardButton(connectorCard, /Delete selected instance/i);
-    fireEvent.click(
-      within(connectorCard).getByRole('button', { name: /Confirm delete selected/i })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Delete instance/i }));
 
     await waitFor(() => {
       expect(connectorsApi.deleteConnectorInstallation).toHaveBeenCalledWith(
@@ -1256,6 +1288,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId(
       'planned-provider-card-communications-telegram'
     );
+    fireEvent.click(within(connectorCard).getByTestId(/planned-provider-toggle-/));
 
     expect(within(connectorCard).getByText(/Multiple instances detected/i)).toBeInTheDocument();
     fireEvent.change(within(connectorCard).getByLabelText(/Active instance/i), {
@@ -1263,13 +1296,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
     });
     await clickCardButton(connectorCard, /Delete selected instance/i);
 
-    expect(
-      within(connectorCard).getByRole('button', { name: /Confirm delete selected/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Delete instance/i })).toBeInTheDocument();
 
-    fireEvent.click(
-      within(connectorCard).getByRole('button', { name: /Confirm delete selected/i })
-    );
+    fireEvent.click(screen.getByRole('button', { name: /Delete instance/i }));
 
     await waitFor(() => {
       expect(connectorsApi.deleteConnectorInstallation).toHaveBeenCalledWith(
@@ -1350,7 +1379,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(screen.getByLabelText('webhook_public_key')).toHaveValue('abcdef123456');
   });
 
-  it('renders the backend-issued owner-scoped OneCLI ref after setup starts', async () => {
+  it('renders only the backend-issued session resource name after setup starts', async () => {
     const communicationsCategory: IntegrationCategory = {
       id: 'communications',
       name: 'Communications',
@@ -1416,33 +1445,26 @@ describe('IntegrationsWorkspace planned connectors', () => {
     });
     expect(screen.queryByLabelText('Device Code')).not.toBeInTheDocument();
     expect(screen.queryByLabelText('OneCLI Credential Ref')).not.toBeInTheDocument();
-    expect(screen.getByTestId('onecli-copy-row-device_code')).toHaveTextContent('CONNECTOR');
-    expect(screen.getByTestId('onecli-copy-row-credential_ref')).toHaveTextContent(
-      'onecli://users/user-integrations/telegram-bot/connector-installation-telegram'
-    );
+    expect(screen.queryByTestId('onecli-copy-row-device_code')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('onecli-copy-row-credential_ref')).not.toBeInTheDocument();
     expect(screen.getByText('Copy into OneCLI')).toBeInTheDocument();
+    expect(screen.queryByTestId('provider-setup-guide-telegram-bot')).not.toBeInTheDocument();
+    expect(screen.getByText('Connect in OneCLI')).toBeInTheDocument();
     expect(screen.queryByText('Store in OneCLI')).not.toBeInTheDocument();
-    expect(screen.queryByText('Agency keeps')).not.toBeInTheDocument();
+    expect(screen.queryByText('Open Agency keeps')).not.toBeInTheDocument();
     expect(screen.queryByText('agency_user_id')).not.toBeInTheDocument();
     expect(screen.getByTestId('onecli-copy-row-custom_connection_key')).toHaveTextContent('Name');
     expect(screen.getByTestId('onecli-copy-row-custom_connection_key')).toHaveTextContent(
-      'telegram-bot'
+      'agency-telegram-bot-connectorins'
     );
     expect(screen.getByTestId('onecli-copy-row-secret_bot_token')).toHaveTextContent(
       'Secret value'
     );
     expect(screen.getByText('Paste Telegram Bot API token from BotFather')).toBeInTheDocument();
     expect(screen.getByText(/Setup notes/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        /Store the Telegram bot token in OneCLI, but keep delivery and health checks direct/i
-      )
-    ).toBeInTheDocument();
-    expect(screen.getByText('Agency installation id')).toBeInTheDocument();
-    expect(screen.getByText('Device code')).toBeInTheDocument();
-    expect(screen.getByTestId('onecli-copy-row-credential_ref')).toHaveTextContent(
-      'onecli://users/user-integrations/telegram-bot/connector-installation-telegram'
-    );
+    expect(screen.getByText(/Telegram uses OneCLI URL-path injection/i)).toBeInTheDocument();
+    expect(screen.queryByText('Open Agency installation id')).not.toBeInTheDocument();
+    expect(screen.queryByText('Device code')).not.toBeInTheDocument();
     expect(
       within(screen.getByTestId('onecli-copy-row-secret_bot_token')).getByRole('button', {
         name: /Provider secret/i,
@@ -1450,12 +1472,12 @@ describe('IntegrationsWorkspace planned connectors', () => {
     ).toBeDisabled();
 
     fireEvent.click(
-      within(screen.getByTestId('onecli-copy-row-device_code')).getByRole('button', {
+      within(screen.getByTestId('onecli-copy-row-custom_connection_key')).getByRole('button', {
         name: /Copy/i,
       })
     );
 
-    expect(writeClipboardText).toHaveBeenCalledWith('CONNECTOR');
+    expect(writeClipboardText).toHaveBeenCalledWith('agency-telegram-bot-connectorins');
   });
 
   it('rewrites internal OneCLI setup URLs to the browser host before rendering them', async () => {
@@ -1502,7 +1524,13 @@ describe('IntegrationsWorkspace planned connectors', () => {
       displayName: 'Telegram',
       authModel: 'bot token',
       providerAliases: ['telegram'],
-      onecliTransportMode: 'direct',
+      onecliTransportMode: 'proxy',
+      onecliSecretProfile: {
+        hostPattern: 'api.telegram.org',
+        pathPattern: '/bot*',
+        injectionTarget: 'url_path',
+        pathTemplate: '/bot{value}',
+      },
       healthSupported: false,
       requiredMetadata: [],
       supportedSecretRefSchemes: ['onecli://', 'env://', 'env:'],
@@ -1542,17 +1570,17 @@ describe('IntegrationsWorkspace planned connectors', () => {
       });
     });
 
-    const setupUrlInput = await screen.findByLabelText('Setup URL');
-    const setupUrl = new URL((setupUrlInput as HTMLInputElement).value);
+    const embeddedSetup = await screen.findByTitle('Telegram secure setup in OneCLI');
+    const setupUrl = new URL(embeddedSetup.getAttribute('src') ?? '');
     const installationIdInput = await screen.findByLabelText('Installation id');
 
-    expect(screen.getByText('Direct capable')).toBeInTheDocument();
     expect(setupUrl.hostname).toBe(window.location.hostname);
     expect(setupUrl.port).toBe('10254');
-    expect(setupUrl.searchParams.get('provider')).toBe('telegram-bot');
-    expect(setupUrl.searchParams.get('agency_installation_id')).toBe(
-      'connector-installation-telegram'
-    );
+    expect(setupUrl.pathname).toBe('/connections/custom');
+    expect(setupUrl.searchParams.get('create')).toBe('generic');
+    expect(setupUrl.searchParams.get('host')).toBe('api.telegram.org');
+    expect(setupUrl.searchParams.has('provider')).toBe(false);
+    expect(setupUrl.searchParams.has('agency_installation_id')).toBe(false);
     expect((installationIdInput as HTMLInputElement).value).toBe('connector-installation-telegram');
   });
 
@@ -1601,6 +1629,13 @@ describe('IntegrationsWorkspace planned connectors', () => {
       authModel: 'bot token',
       providerAliases: ['discord'],
       onecliTransportMode: 'proxy',
+      onecliSecretProfile: {
+        hostPattern: 'discord.com',
+        pathPattern: '/api/v10/*',
+        injectionTarget: 'header',
+        headerName: 'Authorization',
+        valueFormat: 'Bot {value}',
+      },
       healthSupported: true,
       requiredMetadata: [],
       supportedSecretRefSchemes: ['onecli://', 'env://', 'env:'],
@@ -1623,30 +1658,47 @@ describe('IntegrationsWorkspace planned connectors', () => {
       registrySource: 'backend',
       registryUpdatedAt: null,
     });
+    connectorsApi.createConnectorSetupSession.mockResolvedValueOnce({
+      installation: {
+        id: 'connector-installation-discord',
+        owner_user_id: 'user-integrations',
+        provider: 'discord-bot',
+        name: 'Discord',
+        onecli_credential_ref: 'onecli://users/user-integrations/discord-bot/provisional',
+        status: 'setup_pending',
+        setup_session_id: 'connector-installation-discord',
+        setup_started_at: '2099-01-01T00:00:00Z',
+        setup_expires_at: '2099-01-01T00:30:00Z',
+        metadata: {},
+      },
+      setup_url: 'http://onecli:10254/',
+      device_code: 'CONNECTOR',
+      onecli_credential_ref: 'onecli://users/user-integrations/discord-bot/provisional',
+      onecli_resource_name: 'agency-discord-bot-connectorins',
+      expires_at: '2099-01-01T00:30:00Z',
+    });
 
     renderWorkspace();
 
     const connectorCard = await screen.findByTestId('planned-provider-card-communications-discord');
     await clickCardButton(connectorCard, /Set up connector/i);
 
-    expect(await screen.findByText('Direct capable')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
     expect(await screen.findByText('Copy into OneCLI')).toBeInTheDocument();
     expect(screen.getByText(/Connections, Custom, Generic Secret/i)).toBeInTheDocument();
     expect(screen.getByTestId('onecli-copy-row-custom_connection_key')).toHaveTextContent(
-      'discord-bot'
+      'agency-discord-bot-connectorins'
     );
-    expect(screen.getByTestId('onecli-copy-row-secret_value')).toHaveTextContent(
-      'Paste Discord bot token from Discord Developer Portal'
+    expect(screen.getByTestId('onecli-copy-row-secret_bot_token')).toHaveTextContent(
+      'Paste Bot token from Discord'
     );
     expect(screen.getByTestId('onecli-copy-row-host_pattern')).toHaveTextContent('discord.com');
     expect(screen.getByTestId('onecli-copy-row-header_name')).toHaveTextContent('Authorization');
     expect(screen.getByTestId('onecli-copy-row-path_pattern')).toHaveTextContent('/api/v10/*');
     expect(screen.getByTestId('onecli-copy-row-value_format')).toHaveTextContent('Bot {value}');
-    expect(screen.getByTestId('onecli-copy-row-credential_ref')).toHaveTextContent(
-      'onecli://users/user-integrations/discord-bot/{agency_installation_id}'
-    );
+    expect(screen.queryByTestId('onecli-copy-row-credential_ref')).not.toBeInTheDocument();
     expect(
-      within(screen.getByTestId('onecli-copy-row-secret_value')).getByRole('button', {
+      within(screen.getByTestId('onecli-copy-row-secret_bot_token')).getByRole('button', {
         name: /Provider secret/i,
       })
     ).toBeDisabled();
@@ -1662,7 +1714,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
         'onecli://users/user-integrations/discord-bot/connector-installation-discord',
       status: 'setup_pending' as const,
       setup_session_id: 'connector-installation-discord',
-      metadata: {},
+      setup_started_at: '2099-01-01T00:00:00Z',
+      setup_expires_at: '2099-01-01T00:30:00Z',
+      metadata: { webhook_public_key: 'discord-public-key' },
     };
     connectorsApi.listConnectorInstallations.mockResolvedValue({
       items: [pendingInstallation],
@@ -1670,6 +1724,14 @@ describe('IntegrationsWorkspace planned connectors', () => {
     connectorsApi.completeConnectorInstallation.mockResolvedValue({
       ...pendingInstallation,
       status: 'active',
+    });
+    connectorsApi.resumeConnectorSetupSession.mockResolvedValueOnce({
+      installation: pendingInstallation,
+      setup_url: 'http://onecli:10254/',
+      device_code: 'CONNECTOR',
+      onecli_credential_ref: pendingInstallation.onecli_credential_ref,
+      onecli_resource_name: 'agency-discord-bot-connectorins',
+      expires_at: '2099-01-01T00:30:00Z',
     });
 
     const communicationsCategory: IntegrationCategory = {
@@ -1722,40 +1784,37 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     await clickCardButton(connectorCard, /Set up connector/i);
 
-    expect(await screen.findByText('Waiting for OneCLI completion')).toBeInTheDocument();
-    expect(
-      screen.getByText(/After creating the matching OneCLI custom secret/i)
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Waiting for verification')).toBeInTheDocument();
+    expect(connectorsApi.resumeConnectorSetupSession).toHaveBeenCalledWith(
+      'connector-installation-discord'
+    );
+    expect(screen.getByLabelText('webhook_public_key')).toHaveValue('discord-public-key');
+    expect(screen.getByText(/Finish the prefilled OneCLI flow/i)).toBeInTheDocument();
     const startSetupButton = screen.queryByRole('button', { name: /Start OneCLI setup/i });
     if (startSetupButton) {
       fireEvent.click(startSetupButton);
     }
-    expect(await screen.findByLabelText('Runtime secret value')).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText('Runtime secret value'), {
-      target: { value: 'discord-runtime-secret' },
-    });
-    expect(screen.getByRole('button', { name: /Complete setup/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText('Runtime secret value')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Verify and activate/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Start OneCLI setup/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Complete setup/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', { name: /Verify and activate/i })).not.toBeDisabled();
     });
-    fireEvent.click(screen.getByRole('button', { name: /Complete setup/i }));
+    fireEvent.click(screen.getByRole('button', { name: /Verify and activate/i }));
 
     await waitFor(() => {
       expect(connectorsApi.completeConnectorInstallation).toHaveBeenCalledWith(
         'connector-installation-discord',
-        expect.objectContaining({
-          onecli_credential_ref:
-            'onecli://users/user-integrations/discord-bot/connector-installation-discord',
-          metadata: {},
-        })
+        {
+          metadata: { webhook_public_key: 'discord-public-key' },
+        }
       );
     });
     expect(connectorsApi.createConnectorSetupSession).not.toHaveBeenCalled();
   });
 
-  it('collects a runtime secret mirror for direct transport connectors before completion', async () => {
+  it('never collects or submits a provider secret during completion', async () => {
     const communicationsCategory: IntegrationCategory = {
       id: 'communications',
       name: 'Communications',
@@ -1809,46 +1868,38 @@ describe('IntegrationsWorkspace planned connectors', () => {
     await clickCardButton(connectorCard, /Set up connector/i);
     fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
 
-    expect(await screen.findByLabelText('Runtime secret value')).toBeInTheDocument();
-    expect(screen.getByText(/required for direct mode/i)).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText('Runtime secret value'), {
-      target: { value: 'telegram-runtime-secret' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: /Complete setup/i }));
+    expect(await screen.findByText('Waiting for verification')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Runtime secret value')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /Verify and activate/i }));
 
     await waitFor(() => {
       expect(connectorsApi.completeConnectorInstallation).toHaveBeenCalledWith(
         'connector-installation-telegram',
-        expect.objectContaining({
-          onecli_credential_ref:
-            'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
-          runtime_secret_value: 'telegram-runtime-secret',
+        {
           metadata: {},
-        })
+        }
       );
     });
   });
 
   it('refreshes setup status after OneCLI completes an installation', async () => {
-    connectorsApi.listConnectorInstallations
-      .mockResolvedValueOnce({ items: [] })
-      .mockResolvedValueOnce({ items: [] })
-      .mockResolvedValueOnce({
-        items: [
-          {
-            id: 'connector-installation-telegram',
-            owner_user_id: 'user-integrations',
-            provider: 'telegram-bot',
-            name: 'Telegram',
-            onecli_credential_ref:
-              'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
-            status: 'active',
-            setup_session_id: 'connector-installation-telegram',
-            metadata: {},
-          },
-        ],
-      });
+    let setupCompleted = false;
+    connectorsApi.listConnectorInstallations.mockImplementation(async () => ({
+      items: setupCompleted
+        ? [
+            {
+              id: 'connector-installation-telegram',
+              owner_user_id: 'user-integrations',
+              provider: 'telegram-bot',
+              name: 'Telegram',
+              onecli_credential_ref: 'onecli://users/user-integrations/secrets/verified-telegram',
+              status: 'active' as const,
+              setup_session_id: 'connector-installation-telegram',
+              metadata: {},
+            },
+          ]
+        : [],
+    }));
 
     const communicationsCategory: IntegrationCategory = {
       id: 'communications',
@@ -1903,10 +1954,11 @@ describe('IntegrationsWorkspace planned connectors', () => {
     await clickCardButton(connectorCard, /Set up connector/i);
     fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
 
-    expect(await screen.findByText('Waiting for OneCLI completion')).toBeInTheDocument();
+    expect(await screen.findByText('Waiting for verification')).toBeInTheDocument();
+    setupCompleted = true;
     fireEvent.click(screen.getByRole('button', { name: /Refresh status/i }));
 
-    expect(await screen.findByText('Setup completed in OneCLI')).toBeInTheDocument();
+    expect(await screen.findByText('Verified and active')).toBeInTheDocument();
     expect(screen.getByText('Status: Active')).toBeInTheDocument();
   });
 
@@ -1914,7 +1966,6 @@ describe('IntegrationsWorkspace planned connectors', () => {
     connectorsApi.createConnectorSetupSession.mockRejectedValueOnce(
       new ApiError({ status: 404, message: 'Not Found' })
     );
-
     const communicationsCategory: IntegrationCategory = {
       id: 'communications',
       name: 'Communications',
@@ -1922,19 +1973,19 @@ describe('IntegrationsWorkspace planned connectors', () => {
       status: 'planned',
       providers: [
         {
-          id: 'communications-gmail',
-          name: 'Gmail',
+          id: 'communications-telegram',
+          name: 'Telegram',
           categoryId: 'communications',
           kind: 'planned',
           status: 'planned',
-          description: 'Gmail connector',
-          capabilities: ['oauth', 'now'],
+          description: 'Telegram connector',
+          capabilities: ['bot token', 'now'],
           configFields: [],
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
             refs: [],
-            message: 'No backend credential mapped yet. Expected auth model: oauth.',
+            message: 'No backend credential mapped yet. Expected auth model: bot token.',
           },
           actions: {
             canSaveConfig: false,
@@ -1942,9 +1993,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
             canTestConnection: false,
           },
           raw: {
-            backendKey: 'gmail',
-            authModel: 'oauth',
-            summary: 'Gmail connector',
+            backendKey: 'telegram-bot',
+            authModel: 'bot token',
+            summary: 'Telegram connector',
             launchPriority: 'now',
             matchedCredentialIds: [],
             matchedCredentialNames: [],
@@ -1961,9 +2012,11 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     renderWorkspace();
 
-    const connectorCard = await screen.findByTestId('planned-provider-card-communications-gmail');
+    const connectorCard = await screen.findByTestId(
+      'planned-provider-card-communications-telegram'
+    );
     await clickCardButton(connectorCard, /Set up connector/i);
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /Start OneCLI setup/i }));
 
     expect(
       await screen.findByText(
@@ -2115,6 +2168,73 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(screen.queryByText(/Schema unavailable/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Not Found/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/phone_number_id/i).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('app_secret_ref')).toBeInTheDocument();
+    expect(screen.queryByLabelText('app_secret')).not.toBeInTheDocument();
+  });
+
+  it('labels unverifiable connector shapes as guide-only and prevents activation', async () => {
+    const communicationsCategory: IntegrationCategory = {
+      id: 'communications',
+      name: 'Communications',
+      description: 'Comms connectors.',
+      status: 'planned',
+      providers: [
+        {
+          id: 'communications-microsoft-teams',
+          name: 'Microsoft Teams',
+          categoryId: 'communications',
+          kind: 'planned',
+          status: 'planned',
+          description: 'Teams connector',
+          capabilities: ['oauth', 'later'],
+          configFields: [],
+          credentialStatus: {
+            managedByBackend: true,
+            writeSupported: true,
+            refs: [],
+            message: 'No backend credential mapped yet. Expected auth model: oauth.',
+          },
+          actions: {
+            canSaveConfig: false,
+            canEnableDisable: false,
+            canTestConnection: false,
+          },
+          raw: {
+            backendKey: 'microsoft-teams',
+            authModel: 'oauth',
+            summary: 'Teams connector',
+            launchPriority: 'later',
+            matchedCredentialIds: [],
+            matchedCredentialNames: [],
+          },
+        },
+      ],
+    };
+
+    integrationsApi.listCategories.mockResolvedValue({
+      categories: [communicationsCategory],
+      registrySource: 'backend',
+      registryUpdatedAt: null,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('0 setup-ready')).toBeInTheDocument();
+    expect(screen.getByText('1 guide-only')).toBeInTheDocument();
+    const connectorCard = screen.getByTestId(
+      'planned-provider-card-communications-microsoft-teams'
+    );
+    expect(within(connectorCard).getByText('Setup guide available')).toBeInTheDocument();
+    expect(
+      within(connectorCard).getByText(
+        'Guide only — verified OneCLI activation is not available yet.'
+      )
+    ).toBeInTheDocument();
+    await clickCardButton(connectorCard, /View setup guide/i);
+
+    expect(await screen.findByText('Setup is guide-only')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Guide only' })).toBeDisabled();
+    expect(connectorsApi.createConnectorSetupSession).not.toHaveBeenCalled();
   });
 
   it('tests a saved connector directly from a planned connector card', async () => {
@@ -2189,6 +2309,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId(
       'planned-provider-card-communications-telegram'
     );
+    fireEvent.click(within(connectorCard).getByTestId(/planned-provider-toggle-/));
 
     expect(screen.getByText(/Recent test history/i)).toBeInTheDocument();
     expect(connectorsApi.getConnectorHistory).toHaveBeenCalledWith('credential-telegram');
@@ -2285,6 +2406,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     renderWorkspace();
 
     const connectorCard = await screen.findByTestId('planned-provider-card-communications-discord');
+    fireEvent.click(within(connectorCard).getByTestId(/planned-provider-toggle-/));
 
     await waitFor(() => {
       expect(
@@ -2440,7 +2562,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
         'Failing (1)'
       );
       expect(screen.getByTestId('planned-filter-communications-never-tested')).toHaveTextContent(
-        'Not Tested (0)'
+        'Not tested (0)'
       );
     });
   });

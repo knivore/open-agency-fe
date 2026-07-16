@@ -125,7 +125,13 @@ export interface GoalCompletePayload extends JsonObject {
 }
 
 export interface GoalOperatorActionPayload extends JsonObject {
-  action: 'pause' | 'resume' | 'cancel' | 'adjust_autonomy' | 'update_success_criteria' | 'reassign';
+  action:
+    | 'pause'
+    | 'resume'
+    | 'cancel'
+    | 'adjust_autonomy'
+    | 'update_success_criteria'
+    | 'reassign';
   reason?: string | null;
   autonomy?: GoalAutonomyMode | null;
   owner_actor?: string | null;

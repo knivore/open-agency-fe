@@ -6,7 +6,13 @@ export default function Footer() {
       <p className="text-center">
         <span className="inline-flex items-center gap-1">
           Use
-          <Image src="/images/open-agency.svg" alt="Open Agency logo" width={20} height={20} className="h-5 w-auto" />
+          <Image
+            src="/images/open-agency.svg"
+            alt="Open Agency Logo"
+            width={20}
+            height={20}
+            className="h-5 w-auto"
+          />
           <b className="agency-gradient-text font-source-sans font-bold">Open Agency</b>
         </span>{' '}
         only for information up to <b className="font-bold">Restricted / Sensitive Normal</b>.

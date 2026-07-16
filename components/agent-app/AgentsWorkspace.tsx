@@ -21,14 +21,7 @@ import {
 import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../library/shadcn/dialog';
+import { DialogClose } from '../library/shadcn/dialog';
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
@@ -53,6 +46,15 @@ import {
   TooltipTrigger,
 } from '../library/shadcn/tooltip';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import AppState from '@/components/app-shell/AppState';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
+import {
+  FieldFeedback,
+  FormField,
+  FormFieldGroup,
+  FormSection,
+} from '@/components/app-shell/FormSection';
 import PageHeader from '@/components/app-shell/PageHeader';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
@@ -649,6 +651,18 @@ function ImportAgentCard({
     (sourceMode === 'paste' && !markdownText.trim()) ||
     (sourceMode === 'file' && files.length === 0) ||
     (sourceMode === 'url' && !sourceUrl.trim());
+  const importIsDirty = Boolean(
+    markdownText.trim() ||
+    sourceUrl.trim() ||
+    files.length ||
+    proposals.length ||
+    batchErrors.length ||
+    conflictStrategy !== 'create_only' ||
+    modelProfileId ||
+    enabled ||
+    approvedToolIds.length ||
+    approvedHandoffIds.length
+  );
 
   const applyProposalDefaults = (nextProposal: AgentImportProposal | null) => {
     setConflictStrategy(nextProposal?.conflicts.length ? 'update_existing' : 'create_only');
@@ -771,33 +785,35 @@ function ImportAgentCard({
   return (
     <Card className="min-w-0 overflow-hidden border-primary-100 bg-white dark:border-white/10 dark:bg-white/5">
       <div className="h-1 bg-primary-400" />
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <CardHeader className="p-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary-200 bg-primary-50 text-primary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
               <Upload className="h-5 w-5" />
             </span>
             <div>
-              <CardTitle className="text-lg">Import Markdown agent</CardTitle>
-              <CardDescription>
-                Preview external agent markdown files before creating Agency agent definitions.
+              <CardTitle className="text-base">Import Markdown agent</CardTitle>
+              <CardDescription className="hidden sm:block">
+                Preview agent Markdown before creating canonical definitions.
               </CardDescription>
             </div>
           </div>
           <Button
             type="button"
             variant="outline"
+            aria-label="Import agent"
             onClick={() => {
               setError(null);
               setIsOpen(true);
             }}
           >
             <Upload className="mr-2 h-4 w-4" />
-            Import agent
+            <span className="sm:hidden">Import</span>
+            <span className="hidden sm:inline">Import agent</span>
           </Button>
         </div>
       </CardHeader>
-      <Dialog
+      <AppDialog
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
@@ -805,352 +821,21 @@ function ImportAgentCard({
             reset();
           }
         }}
-      >
-        <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Import Markdown agent</DialogTitle>
-            <DialogDescription>
-              Review parsed instructions, conflicts, tools, and handoffs before committing.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
-            <div className="space-y-4">
-              <div className="grid gap-2 sm:grid-cols-3">
-                {(['paste', 'file', 'url'] as const).map((mode) => (
-                  <Button
-                    key={mode}
-                    type="button"
-                    variant={sourceMode === mode ? 'default' : 'outline'}
-                    disabled={isPending}
-                    onClick={() => {
-                      setSourceMode(mode);
-                      setProposals([]);
-                      setBatchErrors([]);
-                      setSelectedProposalIndex(0);
-                      setError(null);
-                    }}
-                  >
-                    {mode === 'paste' ? 'Paste' : mode === 'file' ? 'Upload' : 'URL'}
-                  </Button>
-                ))}
-              </div>
-
-              {sourceMode === 'paste' ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="agent-import-markdown">Markdown</Label>
-                  <Textarea
-                    id="agent-import-markdown"
-                    value={markdownText}
-                    onChange={(event) => {
-                      setMarkdownText(event.target.value);
-                      setProposals([]);
-                      setBatchErrors([]);
-                    }}
-                    disabled={isPending}
-                    className="min-h-72"
-                  />
-                </div>
-              ) : null}
-
-              {sourceMode === 'file' ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="agent-import-file">Markdown files</Label>
-                  <Input
-                    id="agent-import-file"
-                    type="file"
-                    multiple
-                    accept=".md,.markdown,text/markdown,text/plain"
-                    disabled={isPending}
-                    onChange={(event) => {
-                      setFiles(Array.from(event.target.files ?? []));
-                      setProposals([]);
-                      setBatchErrors([]);
-                    }}
-                  />
-                  <p className="text-xs text-neutral-500">
-                    {files.length > 0
-                      ? `${files.length} file${files.length === 1 ? '' : 's'} selected.`
-                      : 'No files selected.'}
-                  </p>
-                </div>
-              ) : null}
-
-              {sourceMode === 'url' ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor="agent-import-url">Source URL</Label>
-                  <Input
-                    id="agent-import-url"
-                    value={sourceUrl}
-                    onChange={(event) => {
-                      setSourceUrl(event.target.value);
-                      setProposals([]);
-                      setBatchErrors([]);
-                    }}
-                    disabled={isPending}
-                    placeholder="https://raw.githubusercontent.com/..."
-                  />
-                </div>
-              ) : null}
-
-              <div className="flex flex-wrap items-center gap-2">
-                <Button type="button" disabled={previewDisabled} onClick={handlePreview}>
-                  {isPending && !proposal ? 'Previewing...' : 'Preview import'}
-                </Button>
-                {proposal ? (
-                  <Button
-                    type="button"
-                    className="agency-gradient text-white hover:brightness-105"
-                    disabled={isPending}
-                    onClick={handleCommit}
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {isPending ? 'Importing...' : 'Import reviewed agent'}
-                  </Button>
-                ) : null}
-              </div>
-
-              {error ? <p className="text-xs text-red-600">{error}</p> : null}
-              {batchErrors.length > 0 ? (
-                <div className="space-y-1 rounded-md border border-red-200 bg-red-50 p-3">
-                  {batchErrors.map((item) => (
-                    <p key={`${item.code}-${item.message}`} className="text-xs text-red-700">
-                      {item.message}
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-            </div>
-
-            <div className="space-y-4">
-              {proposals.length > 1 ? (
-                <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                    Batch preview
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    {proposals.map((item, index) => (
-                      <Button
-                        key={`${item.source.sha256}-${item.agent.id}`}
-                        type="button"
-                        variant={index === selectedProposalIndex ? 'default' : 'outline'}
-                        size="sm"
-                        disabled={isPending}
-                        onClick={() => selectProposal(index)}
-                      >
-                        {item.agent.name}
-                        {proposalRequiresIndividualReview(item) ? (
-                          <AlertTriangle className="ml-2 h-3.5 w-3.5" />
-                        ) : null}
-                      </Button>
-                    ))}
-                  </div>
-                  {riskyBatchProposals.length > 0 ? (
-                    <p className="mt-3 text-xs text-amber-700">
-                      {riskyBatchProposals.length} import
-                      {riskyBatchProposals.length === 1 ? '' : 's'} require individual review.
-                    </p>
-                  ) : null}
-                </div>
-              ) : null}
-
-              {proposal ? (
-                <>
-                  <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                          Preview
-                        </p>
-                        <h3 className="mt-1 text-lg font-semibold text-neutral-900">
-                          {proposal.agent.name}
-                        </h3>
-                        <p className="mt-1 text-sm text-neutral-600">
-                          {proposal.agent.description ||
-                            proposal.agent.role ||
-                            'No description parsed.'}
-                        </p>
-                      </div>
-                      <Badge variant="secondary">{proposal.detected_format}</Badge>
-                    </div>
-                    <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
-                      <div>
-                        <dt className="text-xs uppercase tracking-[0.14em] text-neutral-500">ID</dt>
-                        <dd className="mt-1 break-all text-neutral-800">{proposal.agent.id}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs uppercase tracking-[0.14em] text-neutral-500">
-                          Source
-                        </dt>
-                        <dd className="mt-1 break-all text-neutral-800">
-                          {proposal.source.filename ||
-                            proposal.source.url ||
-                            proposal.source.source_type}
-                        </dd>
-                      </div>
-                    </dl>
-                  </div>
-
-                  {proposal.warnings.length > 0 || proposal.conflicts.length > 0 ? (
-                    <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
-                      <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-                        <AlertTriangle className="h-4 w-4" />
-                        Review required
-                      </div>
-                      {[
-                        ...proposal.conflicts.map((item) => item.message),
-                        ...proposal.warnings.map((item) => item.message),
-                      ].map((message) => (
-                        <p key={message} className="text-xs leading-5 text-amber-800">
-                          {message}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="agent-import-conflict-strategy">Commit mode</Label>
-                      <select
-                        id="agent-import-conflict-strategy"
-                        value={conflictStrategy}
-                        onChange={(event) =>
-                          setConflictStrategy(
-                            event.target.value as
-                              | 'create_only'
-                              | 'update_existing'
-                              | 'duplicate_as_new'
-                          )
-                        }
-                        disabled={isPending}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="create_only">Create only</option>
-                        <option value="update_existing">Update existing</option>
-                        <option value="duplicate_as_new">Duplicate as new</option>
-                      </select>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="agent-import-model-profile">Model profile</Label>
-                      <select
-                        id="agent-import-model-profile"
-                        value={modelProfileId}
-                        onChange={(event) => setModelProfileId(event.target.value)}
-                        disabled={isPending}
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                      >
-                        <option value="">No profile</option>
-                        {profiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-
-                  <label className="flex items-center gap-2 text-sm text-neutral-700">
-                    <input
-                      type="checkbox"
-                      checked={enabled}
-                      onChange={(event) => setEnabled(event.target.checked)}
-                      disabled={isPending}
-                    />
-                    Enable after import
-                  </label>
-
-                  <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''} />
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                        Suggested tools
-                      </p>
-                      <div className="mt-3 space-y-2">
-                        {proposal.suggested_tool_ids.length > 0 ? (
-                          proposal.suggested_tool_ids.map((suggestion) => (
-                            <label
-                              key={suggestion.tool_id}
-                              className="flex items-start gap-2 text-sm text-neutral-700"
-                            >
-                              <input
-                                type="checkbox"
-                                checked={approvedToolIds.includes(suggestion.tool_id)}
-                                disabled={isPending || !suggestion.exists}
-                                onChange={(event) =>
-                                  setApprovedToolIds((current) =>
-                                    toggleId(current, suggestion.tool_id, event.target.checked)
-                                  )
-                                }
-                                className="mt-1"
-                              />
-                              <span>
-                                <span className="font-medium text-neutral-900">
-                                  {suggestionToolLabel(suggestion, tools)}
-                                </span>
-                                <span className="block text-xs leading-5 text-neutral-500">
-                                  {suggestion.reason}
-                                </span>
-                              </span>
-                            </label>
-                          ))
-                        ) : (
-                          <p className="text-xs text-neutral-500">No tool suggestions.</p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
-                        Suggested handoffs
-                      </p>
-                      <div className="mt-3 space-y-2">
-                        {proposal.suggested_handoff_agent_ids.length > 0 ? (
-                          proposal.suggested_handoff_agent_ids.map((suggestion) => {
-                            const handoffId = suggestion.matched_agent_id ?? suggestion.agent_id;
-                            return (
-                              <label
-                                key={`${suggestion.agent_id}-${handoffId}`}
-                                className="flex items-start gap-2 text-sm text-neutral-700"
-                              >
-                                <input
-                                  type="checkbox"
-                                  checked={approvedHandoffIds.includes(handoffId)}
-                                  disabled={isPending || !suggestion.exists}
-                                  onChange={(event) =>
-                                    setApprovedHandoffIds((current) =>
-                                      toggleId(current, handoffId, event.target.checked)
-                                    )
-                                  }
-                                  className="mt-1"
-                                />
-                                <span>
-                                  <span className="font-medium text-neutral-900">
-                                    {suggestionHandoffLabel(suggestion, agents)}
-                                  </span>
-                                  <span className="block text-xs leading-5 text-neutral-500">
-                                    {suggestion.reason}
-                                  </span>
-                                </span>
-                              </label>
-                            );
-                          })
-                        ) : (
-                          <p className="text-xs text-neutral-500">No handoff suggestions.</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
-                  Preview a Markdown agent to review its Agency mapping.
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
+        dirty={importIsDirty}
+        busy={isPending}
+        onDiscard={reset}
+        size="xl"
+        icon={<Upload className="size-4" aria-hidden="true" />}
+        title="Import Markdown agent"
+        description="Review parsed instructions, conflicts, tools, and handoffs before committing the agent definition."
+        bodyClassName="flex flex-col gap-5"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
             {proposals.length > 1 ? (
               <Button
                 type="button"
@@ -1167,26 +852,362 @@ function ImportAgentCard({
             ) : null}
             <Button
               type="button"
-              className="agency-gradient text-white hover:brightness-105"
+              variant="brand"
               disabled={isPending || !proposal}
               onClick={handleCommit}
             >
               {isPending && proposal ? 'Importing...' : 'Commit import'}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => {
-                reset();
-                setIsOpen(false);
-              }}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(360px,1.1fr)]">
+          <FormSection
+            title="Import source"
+            description="Paste Markdown, upload one or more files, or load a trusted raw URL."
+            icon={<Upload className="size-4" aria-hidden="true" />}
+            contentClassName="flex flex-col gap-4"
+          >
+            <div className="grid gap-2 sm:grid-cols-3">
+              {(['paste', 'file', 'url'] as const).map((mode) => (
+                <Button
+                  key={mode}
+                  type="button"
+                  variant={sourceMode === mode ? 'brand' : 'outline'}
+                  disabled={isPending}
+                  onClick={() => {
+                    setSourceMode(mode);
+                    setProposals([]);
+                    setBatchErrors([]);
+                    setSelectedProposalIndex(0);
+                    setError(null);
+                  }}
+                >
+                  {mode === 'paste' ? 'Paste' : mode === 'file' ? 'Upload' : 'URL'}
+                </Button>
+              ))}
+            </div>
+
+            {sourceMode === 'paste' ? (
+              <FormField label="Markdown" htmlFor="agent-import-markdown" required>
+                <Textarea
+                  id="agent-import-markdown"
+                  required
+                  value={markdownText}
+                  onChange={(event) => {
+                    setMarkdownText(event.target.value);
+                    setProposals([]);
+                    setBatchErrors([]);
+                  }}
+                  disabled={isPending}
+                  className="min-h-72"
+                />
+              </FormField>
+            ) : null}
+
+            {sourceMode === 'file' ? (
+              <FormField
+                label="Markdown files"
+                htmlFor="agent-import-file"
+                description={
+                  files.length > 0
+                    ? `${files.length} file${files.length === 1 ? '' : 's'} selected.`
+                    : 'Select one or more Markdown files.'
+                }
+                required
+              >
+                <Input
+                  id="agent-import-file"
+                  type="file"
+                  required
+                  multiple
+                  accept=".md,.markdown,text/markdown,text/plain"
+                  disabled={isPending}
+                  onChange={(event) => {
+                    setFiles(Array.from(event.target.files ?? []));
+                    setProposals([]);
+                    setBatchErrors([]);
+                  }}
+                  aria-describedby="agent-import-file-feedback"
+                />
+              </FormField>
+            ) : null}
+
+            {sourceMode === 'url' ? (
+              <FormField
+                label="Source URL"
+                htmlFor="agent-import-url"
+                description="Use a direct, trusted URL that returns Markdown or plain text."
+                required
+              >
+                <Input
+                  id="agent-import-url"
+                  required
+                  value={sourceUrl}
+                  onChange={(event) => {
+                    setSourceUrl(event.target.value);
+                    setProposals([]);
+                    setBatchErrors([]);
+                  }}
+                  disabled={isPending}
+                  placeholder="https://raw.githubusercontent.com/..."
+                  aria-describedby="agent-import-url-feedback"
+                />
+              </FormField>
+            ) : null}
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" disabled={previewDisabled} onClick={handlePreview}>
+                {isPending && !proposal ? 'Previewing...' : 'Preview import'}
+              </Button>
+              {proposal ? (
+                <Button type="button" variant="brand" disabled={isPending} onClick={handleCommit}>
+                  <Save className="mr-2 h-4 w-4" />
+                  {isPending ? 'Importing...' : 'Import reviewed agent'}
+                </Button>
+              ) : null}
+            </div>
+
+            <FieldFeedback error={error} />
+            {batchErrors.length > 0 ? (
+              <div className="space-y-1 rounded-md border border-red-200 bg-red-50 p-3">
+                {batchErrors.map((item) => (
+                  <p key={`${item.code}-${item.message}`} className="text-xs text-red-700">
+                    {item.message}
+                  </p>
+                ))}
+              </div>
+            ) : null}
+          </FormSection>
+
+          <div className="space-y-4">
+            {proposals.length > 1 ? (
+              <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                  Batch preview
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {proposals.map((item, index) => (
+                    <Button
+                      key={`${item.source.sha256}-${item.agent.id}`}
+                      type="button"
+                      variant={index === selectedProposalIndex ? 'default' : 'outline'}
+                      size="sm"
+                      disabled={isPending}
+                      onClick={() => selectProposal(index)}
+                    >
+                      {item.agent.name}
+                      {proposalRequiresIndividualReview(item) ? (
+                        <AlertTriangle className="ml-2 h-3.5 w-3.5" />
+                      ) : null}
+                    </Button>
+                  ))}
+                </div>
+                {riskyBatchProposals.length > 0 ? (
+                  <p className="mt-3 text-xs text-amber-700">
+                    {riskyBatchProposals.length} import
+                    {riskyBatchProposals.length === 1 ? '' : 's'} require individual review.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
+            {proposal ? (
+              <>
+                <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                        Preview
+                      </p>
+                      <h3 className="mt-1 text-lg font-semibold text-neutral-900">
+                        {proposal.agent.name}
+                      </h3>
+                      <p className="mt-1 text-sm text-neutral-600">
+                        {proposal.agent.description ||
+                          proposal.agent.role ||
+                          'No description parsed.'}
+                      </p>
+                    </div>
+                    <Badge variant="secondary">{proposal.detected_format}</Badge>
+                  </div>
+                  <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.14em] text-neutral-500">ID</dt>
+                      <dd className="mt-1 break-all text-neutral-800">{proposal.agent.id}</dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs uppercase tracking-[0.14em] text-neutral-500">
+                        Source
+                      </dt>
+                      <dd className="mt-1 break-all text-neutral-800">
+                        {proposal.source.filename ||
+                          proposal.source.url ||
+                          proposal.source.source_type}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+
+                {proposal.warnings.length > 0 || proposal.conflicts.length > 0 ? (
+                  <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
+                      <AlertTriangle className="h-4 w-4" />
+                      Review required
+                    </div>
+                    {[
+                      ...proposal.conflicts.map((item) => item.message),
+                      ...proposal.warnings.map((item) => item.message),
+                    ].map((message) => (
+                      <p key={message} className="text-xs leading-5 text-amber-800">
+                        {message}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="agent-import-conflict-strategy">Commit mode</Label>
+                    <select
+                      id="agent-import-conflict-strategy"
+                      value={conflictStrategy}
+                      onChange={(event) =>
+                        setConflictStrategy(
+                          event.target.value as
+                            | 'create_only'
+                            | 'update_existing'
+                            | 'duplicate_as_new'
+                        )
+                      }
+                      disabled={isPending}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="create_only">Create only</option>
+                      <option value="update_existing">Update existing</option>
+                      <option value="duplicate_as_new">Duplicate as new</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="agent-import-model-profile">Model profile</Label>
+                    <select
+                      id="agent-import-model-profile"
+                      value={modelProfileId}
+                      onChange={(event) => setModelProfileId(event.target.value)}
+                      disabled={isPending}
+                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                    >
+                      <option value="">No profile</option>
+                      {profiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={enabled}
+                    onChange={(event) => setEnabled(event.target.checked)}
+                    disabled={isPending}
+                  />
+                  Enable after import
+                </label>
+
+                <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''} />
+
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                      Suggested tools
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {proposal.suggested_tool_ids.length > 0 ? (
+                        proposal.suggested_tool_ids.map((suggestion) => (
+                          <label
+                            key={suggestion.tool_id}
+                            className="flex items-start gap-2 text-sm text-neutral-700"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={approvedToolIds.includes(suggestion.tool_id)}
+                              disabled={isPending || !suggestion.exists}
+                              onChange={(event) =>
+                                setApprovedToolIds((current) =>
+                                  toggleId(current, suggestion.tool_id, event.target.checked)
+                                )
+                              }
+                              className="mt-1"
+                            />
+                            <span>
+                              <span className="font-medium text-neutral-900">
+                                {suggestionToolLabel(suggestion, tools)}
+                              </span>
+                              <span className="block text-xs leading-5 text-neutral-500">
+                                {suggestion.reason}
+                              </span>
+                            </span>
+                          </label>
+                        ))
+                      ) : (
+                        <p className="text-xs text-neutral-500">No tool suggestions.</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg border border-neutral-200 bg-white p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                      Suggested handoffs
+                    </p>
+                    <div className="mt-3 space-y-2">
+                      {proposal.suggested_handoff_agent_ids.length > 0 ? (
+                        proposal.suggested_handoff_agent_ids.map((suggestion) => {
+                          const handoffId = suggestion.matched_agent_id ?? suggestion.agent_id;
+                          return (
+                            <label
+                              key={`${suggestion.agent_id}-${handoffId}`}
+                              className="flex items-start gap-2 text-sm text-neutral-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={approvedHandoffIds.includes(handoffId)}
+                                disabled={isPending || !suggestion.exists}
+                                onChange={(event) =>
+                                  setApprovedHandoffIds((current) =>
+                                    toggleId(current, handoffId, event.target.checked)
+                                  )
+                                }
+                                className="mt-1"
+                              />
+                              <span>
+                                <span className="font-medium text-neutral-900">
+                                  {suggestionHandoffLabel(suggestion, agents)}
+                                </span>
+                                <span className="block text-xs leading-5 text-neutral-500">
+                                  {suggestion.reason}
+                                </span>
+                              </span>
+                            </label>
+                          );
+                        })
+                      ) : (
+                        <p className="text-xs text-neutral-500">No handoff suggestions.</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
+                Preview a Markdown agent to review its Open Agency mapping.
+              </div>
+            )}
+          </div>
+        </div>
+      </AppDialog>
     </Card>
   );
 }
@@ -1238,8 +1259,15 @@ function AgentCard({
   const [personaId, setPersonaId] = useState(personaIdForAgent(agent));
   const [toolIds, setToolIds] = useState<string[]>(config.toolIds);
   const [error, setError] = useState<string | null>(null);
-  const [deleteMode, setDeleteMode] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const editDirty =
+    name !== (mainAgent?.name ?? agent.name) ||
+    description !== (agent.description ?? '') ||
+    instructions !== (config.instructions ?? '') ||
+    role !== (mainAgent?.description ?? agent.role ?? '') ||
+    modelProfileId !== (config.modelProfileId ?? '') ||
+    personaId !== personaIdForAgent(agent) ||
+    JSON.stringify(toolIds) !== JSON.stringify(config.toolIds);
   const displayName = isMainAgent
     ? name.trim() || mainAgent?.name?.trim() || agent.name
     : agent.name;
@@ -1261,7 +1289,6 @@ function AgentCard({
     setPersonaId(personaIdForAgent(agent));
     setToolIds(config.toolIds);
     setError(null);
-    setDeleteMode(false);
   };
 
   const handleSave = () => {
@@ -1359,7 +1386,7 @@ function AgentCard({
         onClick={onSelect}
         onFocus={onSelect}
         className={cn(
-          'group relative min-w-0 overflow-hidden border-neutral-200 bg-white outline-none transition hover:-translate-y-0.5 hover:border-primary-200 hover:shadow-md hover:shadow-primary/10 focus:ring-2 focus:ring-primary/20 dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/20 dark:hover:shadow-cyan-950/30',
+          'group relative min-w-0 overflow-hidden border-neutral-200 bg-white outline-none transition hover:border-primary-200 hover:shadow-md hover:shadow-primary/10 focus:ring-2 focus:ring-primary/20 lg:grid lg:grid-cols-[minmax(17rem,0.75fr)_minmax(0,1.6fr)] dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/20 dark:hover:shadow-cyan-950/30',
           isMainAgent &&
             'border-success-300 bg-linear-to-br from-success-50 via-white to-primary-50 shadow-md shadow-success-200/50 hover:border-success-400 hover:shadow-lg hover:shadow-success-200/70 dark:border-emerald-400/20 dark:bg-linear-to-br dark:from-emerald-950/30 dark:via-slate-950 dark:to-cyan-950/30 dark:shadow-emerald-950/30',
           isSelected && 'ring-2',
@@ -1367,7 +1394,7 @@ function AgentCard({
         )}
       >
         <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
-        <CardHeader className="space-y-3">
+        <CardHeader className="space-y-3 border-b border-neutral-200 lg:border-r lg:border-b-0 dark:border-white/10">
           <div className="flex min-w-0 gap-3">
             <span
               className={cn(
@@ -1414,7 +1441,7 @@ function AgentCard({
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-3 text-sm text-neutral-600 dark:text-slate-300">
+        <CardContent className="space-y-3 py-5 text-sm text-neutral-600 sm:pt-5 dark:text-slate-300">
           <div className="flex flex-wrap gap-2">
             <Badge
               variant="outline"
@@ -1462,17 +1489,38 @@ function AgentCard({
             </div>
           ) : null}
           <AgentInstructionPreview instructions={instructionSummary} />
-          <AssignedToolsSummary assignedTools={assignedTools} toolCount={toolCount} tools={tools} />
-          <UploadedDocumentsList
-            scope="user"
-            agentId={agent.id}
-            tagFilter={`agent:${agent.id}`}
-            title="Agent documents"
-            description="Files currently attached to this agent's retrieval context."
-            emptyMessage="No documents attached."
-            limit={3}
-            showActions={false}
-          />
+          <Accordion
+            type="single"
+            collapsible
+            className="rounded-lg border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/3"
+          >
+            <AccordionItem value="agent-details" className="border-0">
+              <AccordionTrigger className="min-h-11 px-3 py-2.5 text-sm font-medium hover:no-underline">
+                Tools, documents, and editing
+              </AccordionTrigger>
+              <AccordionContent
+                forceMount
+                contentClassName="data-[state=closed]:hidden"
+                className="space-y-3 border-t border-neutral-200 px-3 pt-3 dark:border-white/10"
+              >
+                <AssignedToolsSummary
+                  assignedTools={assignedTools}
+                  toolCount={toolCount}
+                  tools={tools}
+                />
+                <UploadedDocumentsList
+                  scope="user"
+                  agentId={agent.id}
+                  tagFilter={`agent:${agent.id}`}
+                  title="Agent documents"
+                  description="Files currently attached to this agent's retrieval context."
+                  emptyMessage="No documents attached."
+                  limit={3}
+                  showActions={false}
+                />
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
           <Button
             type="button"
             variant="outline"
@@ -1488,54 +1536,91 @@ function AgentCard({
         </CardContent>
       </Card>
 
-      <Dialog
+      <AppDialog
         open={isEditing}
-        onOpenChange={(open) => {
-          setIsEditing(open);
-          if (!open && !isPending) {
-            resetForm();
-          }
-        }}
+        onOpenChange={setIsEditing}
+        onDiscard={resetForm}
+        dirty={editDirty}
+        busy={isPending}
+        size="xl"
+        icon={<Pencil className="size-4" aria-hidden="true" />}
+        title={`Edit ${displayName}`}
+        description="Update the agent identity and instructions first. Tools and documents remain available as supporting context."
+        bodyClassName="space-y-4"
+        footer={
+          <>
+            {!isMainAgent ? (
+              <ConfirmActionDialog
+                trigger={
+                  <Button type="button" variant="outline" disabled={isPending}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete agent
+                  </Button>
+                }
+                title={`Delete ${displayName}?`}
+                description="This permanently removes the agent definition. Workflows that reference it may require another agent before they can run."
+                cancelLabel="Keep agent"
+                confirmLabel="Delete agent"
+                pendingLabel="Deleting..."
+                pending={isPending}
+                destructive
+                onConfirm={handleDelete}
+              />
+            ) : (
+              <span className="mr-auto text-xs text-(--agency-shell-muted)">
+                The main agent cannot be deleted here.
+              </span>
+            )}
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              variant="brand"
+              disabled={isPending || !name.trim() || !instructions.trim()}
+              onClick={handleSave}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {isPending ? 'Saving...' : 'Save agent'}
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="max-h-[88vh] max-w-6xl overflow-y-auto dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(10,16,30,0.98),rgba(8,18,31,0.98))] dark:text-slate-100">
-          <DialogHeader>
-            <DialogTitle className="dark:text-slate-100">Edit {displayName}</DialogTitle>
-            <DialogDescription className="dark:text-slate-400">
-              Update the agent definition, assigned tools, and retrieval documents.
-            </DialogDescription>
-          </DialogHeader>
-
+        <FormSection
+          title="Agent definition"
+          description="Give the agent a recognizable purpose and choose the model and persona it should use."
+          icon={<Bot className="size-4" aria-hidden="true" />}
+        >
           <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor={`${agent.id}-name`}>Name</Label>
+            <div className="flex flex-col gap-4">
+              <FormField label="Name" htmlFor={`${agent.id}-name`} required>
                 <Input
                   id={`${agent.id}-name`}
+                  required
                   value={name}
                   onChange={(event) => setName(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`${agent.id}-description`}>Description</Label>
+              </FormField>
+              <FormField label="Description" htmlFor={`${agent.id}-description`} optional>
                 <Input
                   id={`${agent.id}-description`}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`${agent.id}-role`}>Role</Label>
+              </FormField>
+              <FormField label="Role" htmlFor={`${agent.id}-role`} optional>
                 <Input
                   id={`${agent.id}-role`}
                   value={role}
                   onChange={(event) => setRole(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`${agent.id}-model-profile`}>Model profile</Label>
+              </FormField>
+              <FormField label="Model profile" htmlFor={`${agent.id}-model-profile`} optional>
                 <select
                   id={`${agent.id}-model-profile`}
                   value={modelProfileId}
@@ -1550,9 +1635,18 @@ function AgentCard({
                     </option>
                   ))}
                 </select>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`${agent.id}-persona`}>Persona</Label>
+              </FormField>
+              <FormField
+                label="Persona"
+                htmlFor={`${agent.id}-persona`}
+                description={
+                  generatedPersonaAgent
+                    ? 'Managed in Persona. Refresh workflows after publishing a newer persona version.'
+                    : 'Binding a persona adds reusable identity and expertise.'
+                }
+                optional={!generatedPersonaAgent}
+                disabled={generatedPersonaAgent}
+              >
                 <select
                   id={`${agent.id}-persona`}
                   value={personaId}
@@ -1572,22 +1666,22 @@ function AgentCard({
                     </option>
                   ))}
                 </select>
-                <p className="text-xs text-neutral-500">
-                  {generatedPersonaAgent
-                    ? 'This is a managed persona agent. Change persona behavior in Persona Factory, then refresh workflows that should use the newer persona version.'
-                    : 'Binding a persona tags this agent with reusable identity and expertise.'}
-                </p>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`${agent.id}-instructions`}>Instructions</Label>
+              </FormField>
+              <FormField
+                label="Instructions"
+                htmlFor={`${agent.id}-instructions`}
+                description="Write the durable behavior this agent should follow in every workflow."
+                required
+              >
                 <Textarea
                   id={`${agent.id}-instructions`}
+                  required
                   value={instructions}
                   onChange={(event) => setInstructions(event.target.value)}
                   disabled={isPending}
                   className="min-h-48"
                 />
-              </div>
+              </FormField>
             </div>
 
             <div className="space-y-3 rounded-xl border border-transparent dark:border-sky-300/12 dark:bg-[linear-gradient(180deg,rgba(15,29,44,0.92),rgba(9,21,35,0.94))] dark:p-3">
@@ -1612,77 +1706,24 @@ function AgentCard({
               />
             </div>
           </div>
+        </FormSection>
 
+        <FormSection
+          title="Tool access"
+          description="Optional capabilities this agent may call while it works."
+          icon={<Sparkles className="size-4" aria-hidden="true" />}
+          advanced
+        >
           <ToolAssignmentControls
             disabled={isPending}
             onChange={setToolIds}
             toolIds={toolIds}
             tools={tools}
           />
+        </FormSection>
 
-          {error ? <p className="text-xs text-red-600 dark:text-red-300">{error}</p> : null}
-
-          <DialogFooter className="items-center gap-2 sm:justify-between sm:space-x-0">
-            {isMainAgent ? (
-              <span className="text-xs text-neutral-500 dark:text-slate-400">
-                Main agent cannot be deleted here.
-              </span>
-            ) : deleteMode ? (
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={isPending}
-                  onClick={handleDelete}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {isPending ? 'Deleting...' : 'Confirm delete'}
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={isPending}
-                  onClick={() => setDeleteMode(false)}
-                >
-                  Cancel delete
-                </Button>
-              </div>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isPending}
-                onClick={() => setDeleteMode(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete agent
-              </Button>
-            )}
-            <div className="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={isPending}
-                onClick={() => {
-                  resetForm();
-                  setIsEditing(false);
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                className="agency-gradient text-white hover:brightness-105"
-                disabled={isPending || !name.trim() || !instructions.trim()}
-                onClick={handleSave}
-              >
-                <Save className="mr-2 h-4 w-4" />
-                {isPending ? 'Saving...' : 'Save'}
-              </Button>
-            </div>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <FieldFeedback error={error} />
+      </AppDialog>
     </>
   );
 }
@@ -1705,6 +1746,10 @@ function CreateAgentCard({
   const [toolIds, setToolIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [touched, setTouched] = useState<Set<'name' | 'instructions'>>(new Set());
+  const createDirty = Boolean(
+    name || description || instructions || role || modelProfileId || toolIds.length
+  );
 
   const reset = () => {
     setName('');
@@ -1714,7 +1759,13 @@ function CreateAgentCard({
     setModelProfileId('');
     setToolIds([]);
     setError(null);
+    setTouched(new Set());
   };
+  const nameError = touched.has('name') && !name.trim() ? 'Enter an agent name.' : null;
+  const instructionsError =
+    touched.has('instructions') && !instructions.trim()
+      ? 'Describe the durable behavior this agent should follow.'
+      : null;
 
   const handleCreate = () => {
     setError(null);
@@ -1743,17 +1794,16 @@ function CreateAgentCard({
   return (
     <Card className="min-w-0 overflow-hidden border-dashed border-secondary-300 bg-secondary-50/40 dark:border-cyan-400/20 dark:bg-cyan-400/6">
       <div className="h-1 bg-secondary-400" />
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <CardHeader className="p-4">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-secondary-200 bg-white text-secondary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
               <Bot className="h-5 w-5" />
             </span>
             <div>
-              <CardTitle className="text-lg">Create agent</CardTitle>
-              <CardDescription>
-                Add a standalone runtime agent. Published personas create managed persona agents
-                automatically; edit those from Persona Factory when changing persona behavior.
+              <CardTitle className="text-base">Create agent</CardTitle>
+              <CardDescription className="hidden sm:block">
+                Create a standalone runtime role. Persona-backed agents stay managed in Persona.
               </CardDescription>
             </div>
           </div>
@@ -1768,67 +1818,113 @@ function CreateAgentCard({
           </Button>
         </div>
       </CardHeader>
-      <Dialog
+      <AppDialog
         open={isOpen}
-        onOpenChange={(open) => {
-          setIsOpen(open);
-          if (!open && !isPending) {
-            reset();
-          }
-        }}
+        onOpenChange={setIsOpen}
+        onDiscard={reset}
+        dirty={createDirty}
+        busy={isPending}
+        size="lg"
+        icon={<Bot className="size-4" aria-hidden="true" />}
+        title="Create agent"
+        description="Start with a clear role and durable instructions. Model and tool access can be refined later."
+        bodyClassName="space-y-4"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              className="agency-gradient text-white hover:brightness-105"
+              disabled={isPending || !name.trim() || !instructions.trim()}
+              onClick={handleCreate}
+            >
+              {isPending ? 'Creating...' : 'Create agent'}
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create agent</DialogTitle>
-            <DialogDescription>
-              Add a canonical agent definition that can later be bound into workflows and assistant
-              behavior.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 text-sm text-neutral-600">
-            <div className="space-y-1.5">
-              <Label htmlFor="create-agent-name">Name</Label>
+        <FormSection
+          title="Identity and purpose"
+          description="Use a name and role people can distinguish in workflows and handoffs."
+          icon={<Bot className="size-4" aria-hidden="true" />}
+        >
+          <FormFieldGroup columns={2}>
+            <FormField label="Name" htmlFor="create-agent-name" error={nameError} required>
               <Input
                 id="create-agent-name"
+                required
                 value={name}
                 onChange={(event) => setName(event.target.value)}
+                onBlur={() => setTouched((current) => new Set(current).add('name'))}
                 disabled={isPending}
+                aria-invalid={Boolean(nameError)}
+                aria-describedby="create-agent-name-feedback"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-agent-description">Description</Label>
+            </FormField>
+            <FormField
+              label="Description"
+              htmlFor="create-agent-description"
+              description="Short summary shown in the agent directory."
+              optional
+            >
               <Input
                 id="create-agent-description"
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
                 disabled={isPending}
+                aria-describedby="create-agent-description-feedback"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-agent-instructions">Instructions</Label>
+            </FormField>
+            <FormField
+              label="Instructions"
+              htmlFor="create-agent-instructions"
+              description="Describe the durable behavior this agent should follow whenever it runs."
+              error={instructionsError}
+              required
+              className="sm:col-span-2"
+            >
               <Textarea
                 id="create-agent-instructions"
+                required
                 value={instructions}
                 onChange={(event) => setInstructions(event.target.value)}
+                onBlur={() => setTouched((current) => new Set(current).add('instructions'))}
                 disabled={isPending}
+                className="min-h-36"
+                aria-invalid={Boolean(instructionsError)}
+                aria-describedby="create-agent-instructions-feedback"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-agent-role">Role</Label>
+            </FormField>
+            <FormField
+              label="Role"
+              htmlFor="create-agent-role"
+              description="Optional specialty used in workflow handoffs."
+              optional
+            >
               <Input
                 id="create-agent-role"
                 value={role}
                 onChange={(event) => setRole(event.target.value)}
                 disabled={isPending}
+                aria-describedby="create-agent-role-feedback"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-agent-model-profile">Model profile</Label>
+            </FormField>
+            <FormField
+              label="Model profile"
+              htmlFor="create-agent-model-profile"
+              description="Can be assigned later from Models."
+              optional
+            >
               <select
                 id="create-agent-model-profile"
                 value={modelProfileId}
                 onChange={(event) => setModelProfileId(event.target.value)}
                 disabled={isPending}
+                aria-describedby="create-agent-model-profile-feedback"
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
               >
                 <option value="">No profile</option>
@@ -1838,41 +1934,25 @@ function CreateAgentCard({
                   </option>
                 ))}
               </select>
-            </div>
-            <div className="space-y-2">
-              <Label>Tool assignment</Label>
-              <ToolAssignmentControls
-                disabled={isPending}
-                onChange={setToolIds}
-                toolIds={toolIds}
-                tools={tools}
-              />
-            </div>
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-          </div>
-          <DialogFooter>
-            <Button
-              type="button"
-              className="agency-gradient text-white hover:brightness-105"
-              disabled={isPending || !name.trim() || !instructions.trim()}
-              onClick={handleCreate}
-            >
-              {isPending ? 'Creating...' : 'Create agent'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => {
-                reset();
-                setIsOpen(false);
-              }}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            </FormField>
+          </FormFieldGroup>
+        </FormSection>
+
+        <FormSection
+          title="Tool access"
+          description="Optional. Keep this closed unless the agent needs additional capabilities."
+          icon={<Sparkles className="size-4" aria-hidden="true" />}
+          advanced
+        >
+          <ToolAssignmentControls
+            disabled={isPending}
+            onChange={setToolIds}
+            toolIds={toolIds}
+            tools={tools}
+          />
+        </FormSection>
+        <FieldFeedback error={error} />
+      </AppDialog>
     </Card>
   );
 }
@@ -1988,7 +2068,7 @@ export default function AgentsWorkspace() {
     await mainAgentQuery.refetch();
   };
 
-  if (agentsQuery.isLoading || profilesQuery.isLoading || toolsQuery.isLoading) {
+  if (agentsQuery.isLoading || profilesQuery.isLoading) {
     return <LoadingCard title="Agents" description="Loading backend agent definitions." />;
   }
 
@@ -2008,16 +2088,6 @@ export default function AgentsWorkspace() {
         title="Failed to load behavior profiles"
         message={profilesQuery.error.message}
         onRetry={() => profilesQuery.refetch()}
-      />
-    );
-  }
-
-  if (toolsQuery.isError) {
-    return (
-      <ErrorAlert
-        title="Failed to load tools"
-        message={toolsQuery.error.message}
-        onRetry={() => toolsQuery.refetch()}
       />
     );
   }
@@ -2047,7 +2117,18 @@ export default function AgentsWorkspace() {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      {toolsQuery.isError ? (
+        <AppState
+          variant="partial"
+          compact
+          title="Tool assignments are temporarily unavailable"
+          description="You can still review and edit agent identity and instructions. Existing tool references remain attached while the tool catalog is unavailable."
+          actionLabel="Retry tools"
+          onAction={() => void toolsQuery.refetch()}
+        />
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <CreateAgentCard
           onCreated={async () => {
             await refreshAgents();
@@ -2072,7 +2153,7 @@ export default function AgentsWorkspace() {
           onAction={() => agentsQuery.refetch()}
         />
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-4">
           {displayedAgents.map((agent) => (
             <AgentCard
               key={agent.id}

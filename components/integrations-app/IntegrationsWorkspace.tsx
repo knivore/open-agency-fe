@@ -9,9 +9,9 @@ import {
   useMemo,
   useRef,
   useState,
+  useSyncExternalStore,
 } from 'react';
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { connectorsApi } from '@/lib/api/backend/connectors';
@@ -32,6 +32,7 @@ import type {
   ConnectorCapabilityDefinition,
   ConnectorHealthHistoryPayload,
   ConnectorInstallationDefinition,
+  ConnectorOneCLISecretProfileDefinition,
   ConnectorSetupSessionPayload,
   CredentialDefinition,
   IntegrationCatalogPayload,
@@ -46,24 +47,56 @@ import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
 import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../library/shadcn/dialog';
+import { DialogClose } from '../library/shadcn/dialog';
 import { Input } from '../library/shadcn/input';
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '../library/shadcn/accordion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../library/shadcn/tabs';
 import { Textarea } from '../library/shadcn/textarea';
 import PageHeader from '@/components/app-shell/PageHeader';
-import { ArrowRight, Copy, Info, PlugZap, Plus, RefreshCw, Trash2, Wrench } from 'lucide-react';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
+import {
+  FieldFeedback,
+  FormField,
+  FormFieldGroup,
+  FormSection,
+} from '@/components/app-shell/FormSection';
+import {
+  Activity,
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  ChevronDown,
+  CircleAlert,
+  Clock3,
+  Copy,
+  ExternalLink,
+  Info,
+  PlugZap,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Wrench,
+} from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import { toast } from 'sonner';
 import type { ToolDefinition } from '@/types/tools';
 import { cn } from '@/lib/utils';
 import { buildSmartHomeCapabilityMetadata } from '@/modules/smart-home/capabilityMetadata';
+import { getIntegrationSetupGuide } from '@/lib/integrations/setupGuides';
+import {
+  buildOneCLIConnectionsUrl,
+  buildOneCLIConnectorSetupUrl,
+  getOneCLIAppUrl,
+  isTrustedOneCLIEmbedUrl,
+  type OneCLIGenericSecretPrefill,
+} from '@/lib/integrations/onecliNavigation';
 
 const TOOL_TYPES = [
   'python_function',
@@ -86,8 +119,12 @@ const CATEGORY_PAGINATION_THRESHOLD = 25;
 const ONECLI_AGENCY_USER_PLACEHOLDER = '{agency_user_id}';
 const ONECLI_INSTALLATION_PLACEHOLDER = '{agency_installation_id}';
 
-function onecliTransportModeLabel(mode?: ConnectorCapabilityDefinition['onecliTransportMode']) {
-  return mode === 'direct' ? 'Direct capable' : 'Proxy-compatible';
+function subscribeToStaticBrowserLocation() {
+  return () => undefined;
+}
+
+function getServerOneCLIAppUrl() {
+  return getOneCLIAppUrl(undefined, { hostname: '', protocol: 'http:' });
 }
 
 function capabilitySurfaceLabel(surface?: ConnectorCapabilityDefinition['capabilitySurface']) {
@@ -100,7 +137,14 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
     displayName: 'Telegram',
     authModel: 'bot token',
     providerAliases: ['telegram'],
-    onecliTransportMode: 'direct',
+    onecliTransportMode: 'proxy',
+    runtimeSecretRequired: false,
+    onecliSecretProfile: {
+      hostPattern: 'api.telegram.org',
+      pathPattern: '/bot*',
+      injectionTarget: 'url_path',
+      pathTemplate: '/bot{value}',
+    },
     healthSupported: false,
     requiredMetadata: [],
     instanceIdentityMetadata: [
@@ -128,7 +172,7 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
           label: 'Webhook secret ref',
           secret: false,
           description:
-            'Store the secret reference used to verify Telegram production webhooks as Agency metadata.',
+            'Store the secret reference used to verify Telegram production webhooks as Open Agency metadata.',
         },
       ],
       agencyStores: [
@@ -140,10 +184,10 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
         'installation status',
       ],
       completionSignal:
-        'OneCLI completes the Agency installation with only the onecli:// credential ref and non-secret metadata; Agency then marks the installation active.',
+        'Open Agency verifies the session-specific OneCLI secret through the metadata API, stores its resource reference, and then marks the installation active.',
       notes: [
-        'Each setup session gets its own Agency installation id, so multiple Telegram bots can coexist without sharing a OneCLI path.',
-        'Store the Telegram bot token in OneCLI, but keep delivery and health checks direct because the bot token is embedded in the request path. Agency mirrors the same secret into a runtime secret record at completion time, so OneCLI stays the setup/storage layer for direct transport.',
+        'Each setup session gets its own Open Agency installation id, so multiple Telegram bots can coexist without sharing a OneCLI path.',
+        'Set OneCLI URL-path injection to /bot{value}. Open Agency sends a placeholder path and never stores the Telegram bot token.',
       ],
     },
   },
@@ -152,7 +196,14 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
     displayName: 'WhatsApp Cloud API',
     authModel: 'access token',
     providerAliases: ['whatsapp', 'meta-whatsapp'],
-    onecliTransportMode: 'direct',
+    onecliTransportMode: 'proxy',
+    onecliSecretProfile: {
+      hostPattern: 'graph.facebook.com',
+      pathPattern: '/*',
+      injectionTarget: 'header',
+      headerName: 'Authorization',
+      valueFormat: 'Bearer {value}',
+    },
     healthSupported: false,
     requiredMetadata: [
       {
@@ -185,14 +236,14 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
           key: 'phone_number_id',
           label: 'Phone number id',
           secret: false,
-          description: 'Store the delivery phone number id as Agency metadata.',
+          description: 'Store the delivery phone number id as Open Agency metadata.',
         },
         {
           key: 'app_secret_ref',
           label: 'App secret ref',
           secret: false,
           description:
-            'Store the app secret reference used to verify WhatsApp production webhooks as Agency metadata.',
+            'Store the app secret reference used to verify WhatsApp production webhooks as Open Agency metadata.',
         },
       ],
       agencyStores: [
@@ -204,9 +255,9 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
         'installation status',
       ],
       completionSignal:
-        'OneCLI completes the Agency installation with only the onecli:// credential ref and non-secret metadata; Agency then marks the installation active.',
+        'Open Agency verifies the session-specific OneCLI secret through the metadata API, stores its resource reference, and then marks the installation active.',
       notes: [
-        'Each setup session gets its own Agency installation id, so multiple WhatsApp installs can coexist without sharing a OneCLI path.',
+        'Each setup session gets its own Open Agency installation id, so multiple WhatsApp installs can coexist without sharing a OneCLI path.',
       ],
     },
   },
@@ -215,7 +266,14 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
     displayName: 'Discord',
     authModel: 'bot token',
     providerAliases: ['discord'],
-    onecliTransportMode: 'direct',
+    onecliTransportMode: 'proxy',
+    onecliSecretProfile: {
+      hostPattern: 'discord.com',
+      pathPattern: '/api/v10/*',
+      injectionTarget: 'header',
+      headerName: 'Authorization',
+      valueFormat: 'Bot {value}',
+    },
     healthSupported: false,
     requiredMetadata: [],
     instanceIdentityMetadata: [
@@ -241,14 +299,14 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
           label: 'Bot token',
           secret: true,
           description:
-            'Paste the Discord bot token from the application bot settings into OneCLI for connector health, HTTP delivery, and ordinary Discord server/channel chat. Discord is direct-capable, so Agency can mirror the same secret into runtime storage and use the direct path for Gateway auth, including DMs.',
+            'Paste the Discord bot token from the application bot settings into OneCLI. Open Agency uses the OneCLI proxy for health checks and REST delivery without copying the token.',
         },
         {
           key: 'webhook_public_key',
           label: 'Webhook public key',
           secret: false,
           description:
-            'Store the Discord application Public Key as Agency metadata for interaction verification. This must be the Public Key hex value, not a Discord webhook URL.',
+            'Store the Discord application Public Key as Open Agency metadata for interaction verification. This must be the Public Key hex value, not a Discord webhook URL.',
         },
       ],
       agencyStores: [
@@ -260,9 +318,9 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
         'installation status',
       ],
       completionSignal:
-        'OneCLI completes the Agency installation with only the onecli:// credential ref and non-secret metadata; Agency then marks the installation active.',
+        'Open Agency verifies the session-specific OneCLI secret through the metadata API, stores its resource reference, and then marks the installation active.',
       notes: [
-        'Each setup session gets its own Agency installation id, so multiple Discord bots can coexist without sharing a OneCLI path.',
+        'Each setup session gets its own Open Agency installation id, so multiple Discord bots can coexist without sharing a OneCLI path.',
       ],
     },
   },
@@ -326,7 +384,7 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
           label: 'Verify SSL',
           secret: false,
           description:
-            'Set whether Agency should verify the Home Assistant server certificate in production.',
+            'Set whether Open Agency should verify the Home Assistant server certificate in production.',
         },
       ],
       options: [
@@ -334,13 +392,14 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
           id: 'long-lived-token',
           name: 'Long-Lived Token',
           authModel: 'access token',
-          summary: 'Recommended for the current MVP and maps directly to Agency runtime settings.',
+          summary:
+            'Recommended for the current MVP and maps directly to Open Agency runtime settings.',
           fields: [
             {
               key: 'base_url',
               label: 'Base URL',
               secret: false,
-              description: 'Agency needs the reachable Home Assistant base URL.',
+              description: 'Open Agency needs the reachable Home Assistant base URL.',
             },
             {
               key: 'access_token',
@@ -357,7 +416,7 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
             },
           ],
           notes: [
-            "Use this for today's backend path. Agency reads Home Assistant through the stored base URL plus bearer token.",
+            "Use this for today's backend path. Open Agency reads Home Assistant through the stored base URL plus bearer token.",
           ],
         },
         {
@@ -389,24 +448,19 @@ const FALLBACK_CONNECTOR_METADATA: Record<string, ConnectorCapabilityDefinition>
         'installation status',
       ],
       completionSignal:
-        'OneCLI completes the Agency installation with only the onecli:// credential ref and non-secret metadata; Agency then marks the installation active.',
+        'Open Agency verifies the matching OneCLI resource through the metadata API, stores its reference, and then marks the installation active.',
       notes: [
-        'Connect Agency through the Smart Home path backed by Home Assistant. Aqara, Xiaomi, Google Home, and similar ecosystems should already be bridged into Home Assistant before this step.',
+        'Connect Open Agency through the Smart Home path backed by Home Assistant. Aqara, Xiaomi, Google Home, and similar ecosystems should already be bridged into Home Assistant before this step.',
       ],
     },
   },
 };
 
-const PRODUCTION_WEBHOOK_METADATA: Record<
-  string,
-  Array<{ key: string; description: string; alternatives?: string[] }>
-> = {
+const PRODUCTION_WEBHOOK_METADATA: Record<string, Array<{ key: string; description: string }>> = {
   'telegram-bot': [
     {
       key: 'webhook_secret_ref',
-      alternatives: ['webhook_secret_token'],
-      description:
-        'Telegram production webhooks require webhook_secret_ref or webhook_secret_token.',
+      description: 'Reference the secret used to verify Telegram production webhooks.',
     },
   ],
   'discord-bot': [
@@ -419,8 +473,7 @@ const PRODUCTION_WEBHOOK_METADATA: Record<
   'whatsapp-cloud-api': [
     {
       key: 'app_secret_ref',
-      alternatives: ['app_secret'],
-      description: 'WhatsApp production webhooks require app_secret_ref or app_secret.',
+      description: 'Reference the Meta app secret used to verify WhatsApp production webhooks.',
     },
   ],
 };
@@ -634,36 +687,14 @@ function buildFallbackOneCLISetupGuide(
       'installation status',
     ],
     completionSignal:
-      'OneCLI completes the Agency installation with only the onecli:// credential ref and non-secret metadata; Agency then marks the installation active.',
+      'Open Agency verifies the matching OneCLI resource through the metadata API, stores its reference, and then marks the installation active.',
     notes:
       backendKey === 'telegram-bot'
         ? [
-            'Store the Telegram bot token in OneCLI, but keep delivery and health checks direct because the bot token is embedded in the request path. Agency mirrors the same secret into a runtime secret record at completion time, so OneCLI stays the setup/storage layer for direct transport.',
+            'Set OneCLI URL-path injection to /bot{value}. Open Agency sends a placeholder path and never stores the Telegram bot token.',
           ]
         : [],
   };
-}
-
-function resolveOneCLIStoragePath(storagePath: string, agencyUserId: string) {
-  return storagePath.replaceAll(ONECLI_AGENCY_USER_PLACEHOLDER, agencyUserId);
-}
-
-function normalizeOneCLISetupUrl(setupUrl: string) {
-  try {
-    const url = new URL(setupUrl);
-
-    // OneCLI setup sessions are sometimes issued with the internal service host name.
-    // The browser needs a host it can actually resolve, so preserve the path/query but
-    // swap the hostname to the current frontend host when we see the internal alias.
-    if (url.hostname === 'onecli' && typeof window !== 'undefined' && window.location.hostname) {
-      url.hostname = window.location.hostname;
-      return url.toString();
-    }
-
-    return setupUrl;
-  } catch {
-    return setupUrl;
-  }
 }
 
 type OneCLICopyRow = {
@@ -679,165 +710,30 @@ type OneCLIGenericSecretGuide = {
   notes: string[];
 };
 
+function onecliGenericSecretPrefill(rows: OneCLICopyRow[]): OneCLIGenericSecretPrefill | undefined {
+  const rowValue = (id: string) => rows.find((row) => row.id === id)?.value;
+  const host = rowValue('host_pattern');
+  if (!host) return undefined;
+
+  return {
+    host,
+    name: rowValue('custom_connection_key'),
+    path: rowValue('path_pattern'),
+    header: rowValue('header_name'),
+    format: rowValue('value_format'),
+    parameter: rowValue('parameter_name'),
+    parameterFormat: rowValue('parameter_format'),
+  };
+}
+
 function buildOneCLIGenericSecretGuide(
   provider: IntegrationProvider,
   backendKey: string,
-  onecliStoragePath: string,
   setupSession: ConnectorSetupSessionPayload | null,
   setupGuideFields: NonNullable<ConnectorCapabilityDefinition['onecliSetupGuide']>['fields'],
+  profile?: ConnectorOneCLISecretProfileDefinition | null,
   setupGuideNotes: string[] = []
 ): OneCLIGenericSecretGuide {
-  const sessionRows: OneCLICopyRow[] = setupSession
-    ? [
-        {
-          id: 'agency_installation_id',
-          label: 'Agency installation id',
-          value: setupSession.installation.id,
-          description: 'Paste this if OneCLI asks which Agency installation to complete.',
-          copyable: true,
-        },
-        {
-          id: 'device_code',
-          label: 'Device code',
-          value: setupSession.device_code,
-          description: 'Short code that links the OneCLI setup back to Agency.',
-          copyable: true,
-        },
-      ]
-    : [];
-  const refRow: OneCLICopyRow = {
-    id: 'credential_ref',
-    label: 'Agency credential_ref',
-    value: setupSession?.onecli_credential_ref ?? onecliStoragePath,
-    description: 'OneCLI should persist the secret under this Agency-owned namespace.',
-    copyable: true,
-  };
-
-  if (backendKey === 'discord-bot') {
-    return {
-      rows: [
-        {
-          id: 'custom_connection_key',
-          label: 'Name',
-          value: backendKey,
-          description: 'Use this as the OneCLI custom connection name/key.',
-          copyable: true,
-        },
-        {
-          id: 'secret_value',
-          label: 'Secret value',
-          value: 'Paste Discord bot token from Discord Developer Portal',
-          description: 'Agency does not store this value. Paste it directly into OneCLI.',
-          copyable: false,
-        },
-        {
-          id: 'host_pattern',
-          label: 'Host pattern',
-          value: 'discord.com',
-          description: 'Matches Discord API requests.',
-          copyable: true,
-        },
-        {
-          id: 'inject_as',
-          label: 'Inject as',
-          value: 'Header',
-          description: 'Select Header in OneCLI.',
-          copyable: true,
-        },
-        {
-          id: 'header_name',
-          label: 'Header name',
-          value: 'Authorization',
-          description: 'Discord expects the bot token in the Authorization header.',
-          copyable: true,
-        },
-        {
-          id: 'path_pattern',
-          label: 'Path pattern',
-          value: '/api/v10/*',
-          description: 'Limits injection to Discord API calls.',
-          copyable: true,
-        },
-        {
-          id: 'value_format',
-          label: 'Value format',
-          value: 'Bot {value}',
-          description: 'OneCLI replaces {value} with the secret value.',
-          copyable: true,
-        },
-        refRow,
-        ...sessionRows,
-      ],
-      notes: [],
-    };
-  }
-
-  if (backendKey === 'whatsapp-cloud-api') {
-    return {
-      rows: [
-        {
-          id: 'custom_connection_key',
-          label: 'Name',
-          value: backendKey,
-          description: 'Use this as the OneCLI custom connection name/key.',
-          copyable: true,
-        },
-        {
-          id: 'secret_value',
-          label: 'Secret value',
-          value: 'Paste Meta WhatsApp Cloud API access token',
-          description: 'Agency does not store this value. Paste it directly into OneCLI.',
-          copyable: false,
-        },
-        {
-          id: 'host_pattern',
-          label: 'Host pattern',
-          value: 'graph.facebook.com',
-          description: 'Matches Meta Graph API requests.',
-          copyable: true,
-        },
-        {
-          id: 'inject_as',
-          label: 'Inject as',
-          value: 'Header',
-          description: 'Select Header in OneCLI.',
-          copyable: true,
-        },
-        {
-          id: 'header_name',
-          label: 'Header name',
-          value: 'Authorization',
-          description: 'WhatsApp Cloud API expects a bearer token header.',
-          copyable: true,
-        },
-        {
-          id: 'path_pattern',
-          label: 'Path pattern',
-          value: '/*',
-          description: 'Applies to Graph API paths for this connection.',
-          copyable: true,
-        },
-        {
-          id: 'value_format',
-          label: 'Value format',
-          value: 'Bearer {value}',
-          description: 'OneCLI replaces {value} with the access token.',
-          copyable: true,
-        },
-        {
-          id: 'metadata_phone_number_id',
-          label: 'Agency metadata',
-          value: 'phone_number_id',
-          description: 'This is non-secret metadata Agency can store for WhatsApp delivery.',
-          copyable: true,
-        },
-        refRow,
-        ...sessionRows,
-      ],
-      notes: [],
-    };
-  }
-
   const primarySecret = setupGuideFields.find((field) => field.secret);
   const fallbackSecretLabel =
     primarySecret?.label ??
@@ -847,8 +743,10 @@ function buildOneCLIGenericSecretGuide(
     {
       id: 'custom_connection_key',
       label: 'Name',
-      value: backendKey,
-      description: 'Use this as the OneCLI custom connection name/key.',
+      value: setupSession?.onecli_resource_name ?? `agency-${backendKey}-start-setup-first`,
+      description: setupSession
+        ? 'Use this exact session-specific name so Open Agency can verify the saved resource.'
+        : 'Start setup to generate the exact session-specific name.',
       copyable: true,
     },
     {
@@ -858,20 +756,98 @@ function buildOneCLIGenericSecretGuide(
         backendKey === 'telegram-bot'
           ? 'Paste Telegram Bot API token from BotFather'
           : `Paste ${fallbackSecretLabel} from ${provider.name}`,
-      description: 'Agency does not store this value. Paste it directly into OneCLI.',
+      description: 'Open Agency does not store this value. Paste it directly into OneCLI.',
       copyable: false,
     },
-    refRow,
-    ...setupGuideFields
-      .filter((field) => !field.secret)
-      .map((field) => ({
-        id: `metadata_${field.key}`,
-        label: 'Agency metadata',
-        value: field.key,
-        description: `${field.label} is non-secret metadata Agency can keep with the installation.`,
-        copyable: true,
-      })),
-    ...sessionRows,
+    ...(profile
+      ? [
+          {
+            id: 'host_pattern',
+            label: 'Host pattern',
+            value: profile.hostPattern,
+            description: 'Restricts where OneCLI may inject this secret.',
+            copyable: true,
+          },
+          ...(profile.pathPattern
+            ? [
+                {
+                  id: 'path_pattern',
+                  label: 'Path pattern',
+                  value: profile.pathPattern,
+                  description: 'Restricts injection to the provider API path.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          {
+            id: 'inject_as',
+            label: 'Inject as',
+            value:
+              profile.injectionTarget === 'url_path'
+                ? 'URL path'
+                : profile.injectionTarget === 'url_parameter'
+                  ? 'URL parameter'
+                  : 'Header',
+            description: 'Select this injection method in OneCLI.',
+            copyable: true,
+          },
+          ...(profile.headerName
+            ? [
+                {
+                  id: 'header_name',
+                  label: 'Header name',
+                  value: profile.headerName,
+                  description: 'OneCLI injects the formatted value into this header.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.valueFormat
+            ? [
+                {
+                  id: 'value_format',
+                  label: 'Value format',
+                  value: profile.valueFormat,
+                  description: 'OneCLI replaces {value} without exposing it to Open Agency.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.parameterName
+            ? [
+                {
+                  id: 'parameter_name',
+                  label: 'Parameter name',
+                  value: profile.parameterName,
+                  description: 'OneCLI injects the value into this URL parameter.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.parameterFormat
+            ? [
+                {
+                  id: 'parameter_format',
+                  label: 'Parameter format',
+                  value: profile.parameterFormat,
+                  description: 'OneCLI replaces {value} in this parameter format.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.pathTemplate
+            ? [
+                {
+                  id: 'path_template',
+                  label: 'Path template',
+                  value: profile.pathTemplate,
+                  description: 'Required for token-in-path APIs such as Telegram.',
+                  copyable: true,
+                },
+              ]
+            : []),
+        ]
+      : []),
   ];
 
   return {
@@ -880,7 +856,7 @@ function buildOneCLIGenericSecretGuide(
       ? setupGuideNotes
       : backendKey === 'telegram-bot'
         ? [
-            'Store the Telegram bot token in OneCLI, but keep delivery and health checks direct because the bot token is embedded in the request path. Agency mirrors the same secret into a runtime secret record at completion time, so OneCLI stays the setup/storage layer for direct transport.',
+            'Telegram uses OneCLI URL-path injection. Set the path template exactly to /bot{value}; Open Agency sends only a placeholder path and never stores the bot token.',
           ]
         : [],
   };
@@ -1517,7 +1493,7 @@ function ToolIntegrationSummary({
             Tool capability
           </p>
           <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-            Read-only summary for workflow assignment. Agency keeps schema and implementation
+            Read-only summary for workflow assignment. Open Agency keeps schema and implementation
             details behind the workflow and backend boundaries.
           </p>
         </div>
@@ -1624,6 +1600,17 @@ function CreateToolCard({ onCreated }: { onCreated: () => Promise<void> }) {
   });
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [touched, setTouched] = useState<Set<'name' | 'description' | 'target'>>(new Set());
+  const formIsDirty =
+    form.name !== '' ||
+    form.description !== '' ||
+    form.toolType !== 'python_function' ||
+    form.implementationType !== 'python' ||
+    form.target !== '' ||
+    form.entrypoint !== '' ||
+    form.inputSchema !== '{\n  "type": "object",\n  "properties": {}\n}' ||
+    form.outputSchema !== '{}' ||
+    form.tags !== '';
 
   const reset = () => {
     setForm({
@@ -1638,7 +1625,18 @@ function CreateToolCard({ onCreated }: { onCreated: () => Promise<void> }) {
       tags: '',
     });
     setError(null);
+    setTouched(new Set());
   };
+
+  const markTouched = (field: 'name' | 'description' | 'target') =>
+    setTouched((current) => new Set(current).add(field));
+  const nameError = touched.has('name') && !form.name.trim() ? 'Enter a tool name.' : null;
+  const descriptionError =
+    touched.has('description') && !form.description.trim() ? 'Describe what this tool does.' : null;
+  const targetError =
+    touched.has('target') && !form.target.trim()
+      ? 'Enter the implementation target this tool should call.'
+      : null;
 
   const handleCreate = async () => {
     setError(null);
@@ -1666,7 +1664,7 @@ function CreateToolCard({ onCreated }: { onCreated: () => Promise<void> }) {
         <Plus className="mr-2 h-4 w-4" />
         New tool
       </Button>
-      <Dialog
+      <AppDialog
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
@@ -1674,152 +1672,24 @@ function CreateToolCard({ onCreated }: { onCreated: () => Promise<void> }) {
             reset();
           }
         }}
-      >
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>New tool</DialogTitle>
-            <DialogDescription>
-              Create a canonical backend tool definition that agents and workflows can bind to.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Name
-                </label>
-                <Input
-                  value={form.name}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, name: event.target.value }))
-                  }
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Tool Type
-                </label>
-                <select
-                  value={form.toolType}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, toolType: event.target.value }))
-                  }
-                  disabled={isPending}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {TOOL_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                Description
-              </label>
-              <Textarea
-                value={form.description}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, description: event.target.value }))
-                }
-                disabled={isPending}
-              />
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Implementation Type
-                </label>
-                <select
-                  value={form.implementationType}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, implementationType: event.target.value }))
-                  }
-                  disabled={isPending}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {IMPLEMENTATION_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Target
-                </label>
-                <Input
-                  value={form.target}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, target: event.target.value }))
-                  }
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Entrypoint
-                </label>
-                <Input
-                  value={form.entrypoint}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, entrypoint: event.target.value }))
-                  }
-                  disabled={isPending}
-                />
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Input Schema
-                </label>
-                <Textarea
-                  className="min-h-35 font-mono text-xs"
-                  value={form.inputSchema}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, inputSchema: event.target.value }))
-                  }
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Output Schema
-                </label>
-                <Textarea
-                  className="min-h-35 font-mono text-xs"
-                  value={form.outputSchema}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, outputSchema: event.target.value }))
-                  }
-                  disabled={isPending}
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                Tags
-              </label>
-              <Input
-                value={form.tags}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, tags: event.target.value }))
-                }
-                disabled={isPending}
-                placeholder="search, internal"
-              />
-            </div>
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-          </div>
-          <DialogFooter>
+        dirty={formIsDirty}
+        busy={isPending}
+        onDiscard={reset}
+        size="lg"
+        icon={<Wrench className="size-4" aria-hidden="true" />}
+        title="New tool"
+        description="Create a canonical backend tool definition that agents and workflows can bind to."
+        bodyClassName="flex flex-col gap-3"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button
               type="button"
-              className="agency-gradient text-white hover:brightness-105"
+              variant="brand"
               disabled={
                 isPending || !form.name.trim() || !form.description.trim() || !form.target.trim()
               }
@@ -1827,20 +1697,175 @@ function CreateToolCard({ onCreated }: { onCreated: () => Promise<void> }) {
             >
               {isPending ? 'Creating...' : 'Create tool'}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => {
-                reset();
-                setIsOpen(false);
-              }}
+          </>
+        }
+      >
+        <FormSection
+          title="Tool identity"
+          description="Start with a recognizable name and a plain-language description."
+          icon={<Info className="size-4" aria-hidden="true" />}
+          contentClassName="flex flex-col gap-4"
+        >
+          <FormFieldGroup columns={2}>
+            <FormField label="Name" htmlFor="new-tool-name" error={nameError} required>
+              <Input
+                id="new-tool-name"
+                required
+                value={form.name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, name: event.target.value }))
+                }
+                onBlur={() => markTouched('name')}
+                aria-invalid={Boolean(nameError)}
+                aria-describedby="new-tool-name-feedback"
+                disabled={isPending}
+              />
+            </FormField>
+            <FormField label="Tool type" htmlFor="new-tool-type" required>
+              <select
+                id="new-tool-type"
+                value={form.toolType}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, toolType: event.target.value }))
+                }
+                disabled={isPending}
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                {TOOL_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField
+              label="Description"
+              htmlFor="new-tool-description"
+              error={descriptionError}
+              required
+              className="md:col-span-2"
             >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <Textarea
+                id="new-tool-description"
+                required
+                value={form.description}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, description: event.target.value }))
+                }
+                onBlur={() => markTouched('description')}
+                aria-invalid={Boolean(descriptionError)}
+                aria-describedby="new-tool-description-feedback"
+                disabled={isPending}
+              />
+            </FormField>
+          </FormFieldGroup>
+        </FormSection>
+
+        <FormSection
+          title="Implementation"
+          description="Tell Open Agency where the tool runs and which entrypoint it should call."
+          icon={<Wrench className="size-4" aria-hidden="true" />}
+        >
+          <FormFieldGroup columns={3}>
+            <FormField label="Implementation type" htmlFor="new-tool-implementation" required>
+              <select
+                id="new-tool-implementation"
+                value={form.implementationType}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, implementationType: event.target.value }))
+                }
+                disabled={isPending}
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                {IMPLEMENTATION_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+            <FormField label="Target" htmlFor="new-tool-target" error={targetError} required>
+              <Input
+                id="new-tool-target"
+                required
+                value={form.target}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, target: event.target.value }))
+                }
+                onBlur={() => markTouched('target')}
+                aria-invalid={Boolean(targetError)}
+                aria-describedby="new-tool-target-feedback"
+                disabled={isPending}
+              />
+            </FormField>
+            <FormField
+              label="Entrypoint"
+              htmlFor="new-tool-entrypoint"
+              description="Optional for implementations that use the target directly."
+              optional
+            >
+              <Input
+                id="new-tool-entrypoint"
+                value={form.entrypoint}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, entrypoint: event.target.value }))
+                }
+                aria-describedby="new-tool-entrypoint-feedback"
+                disabled={isPending}
+              />
+            </FormField>
+          </FormFieldGroup>
+        </FormSection>
+
+        <FormSection
+          title="Schemas and discovery"
+          description="Define structured inputs, outputs, and search tags only when the defaults are not enough."
+          advanced
+          advancedLabel="Show schemas"
+          contentClassName="flex flex-col gap-4"
+        >
+          <FormFieldGroup columns={2}>
+            <FormField label="Input schema" htmlFor="new-tool-input-schema">
+              <Textarea
+                id="new-tool-input-schema"
+                className="min-h-35 font-mono text-xs"
+                value={form.inputSchema}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, inputSchema: event.target.value }))
+                }
+                disabled={isPending}
+              />
+            </FormField>
+            <FormField label="Output schema" htmlFor="new-tool-output-schema">
+              <Textarea
+                id="new-tool-output-schema"
+                className="min-h-35 font-mono text-xs"
+                value={form.outputSchema}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, outputSchema: event.target.value }))
+                }
+                disabled={isPending}
+              />
+            </FormField>
+          </FormFieldGroup>
+          <FormField
+            label="Tags"
+            htmlFor="new-tool-tags"
+            description="Comma-separated terms that help agents discover this tool."
+            optional
+          >
+            <Input
+              id="new-tool-tags"
+              value={form.tags}
+              onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
+              disabled={isPending}
+              placeholder="search, internal"
+              aria-describedby="new-tool-tags-feedback"
+            />
+          </FormField>
+        </FormSection>
+        <FieldFeedback error={error} />
+      </AppDialog>
     </>
   );
 }
@@ -1855,6 +1880,8 @@ function CreateMcpServerCard({ onCreated }: { onCreated: () => Promise<void> }) 
   const [enabled, setEnabled] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [touched, setTouched] = useState<Set<'name' | 'command'>>(new Set());
+  const formIsDirty = Boolean(name || transport !== 'stdio' || command || args || url || enabled);
 
   const reset = () => {
     setName('');
@@ -1864,7 +1891,16 @@ function CreateMcpServerCard({ onCreated }: { onCreated: () => Promise<void> }) 
     setUrl('');
     setEnabled(false);
     setError(null);
+    setTouched(new Set());
   };
+
+  const markTouched = (field: 'name' | 'command') =>
+    setTouched((current) => new Set(current).add(field));
+  const nameError = touched.has('name') && !name.trim() ? 'Enter a server name.' : null;
+  const commandError =
+    touched.has('command') && !command.trim()
+      ? 'Enter the command used to start this MCP server.'
+      : null;
 
   const handleCreate = async () => {
     setError(null);
@@ -1913,7 +1949,7 @@ function CreateMcpServerCard({ onCreated }: { onCreated: () => Promise<void> }) 
         <Plus className="mr-2 h-4 w-4" />
         New MCP server
       </Button>
-      <Dialog
+      <AppDialog
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
@@ -1921,113 +1957,139 @@ function CreateMcpServerCard({ onCreated }: { onCreated: () => Promise<void> }) 
             reset();
           }
         }}
-      >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>New MCP server</DialogTitle>
-            <DialogDescription>
-              Create a backend MCP server definition for tool discovery and runtime use.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Name
-                </label>
-                <Input
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Transport
-                </label>
-                <select
-                  value={transport}
-                  onChange={(event) =>
-                    setTransport(event.target.value as (typeof MCP_TRANSPORT_TYPES)[number])
-                  }
-                  disabled={isPending}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {MCP_TRANSPORT_TYPES.map((type) => (
-                    <option key={type} value={type}>
-                      {type}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Command
-                </label>
-                <Input
-                  value={command}
-                  onChange={(event) => setCommand(event.target.value)}
-                  disabled={isPending}
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Args
-                </label>
-                <Input
-                  value={args}
-                  onChange={(event) => setArgs(event.target.value)}
-                  disabled={isPending}
-                  placeholder="--flag, value"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                URL
-              </label>
-              <Input
-                value={url}
-                onChange={(event) => setUrl(event.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <label className="flex items-center gap-2 text-sm text-neutral-700">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(event) => setEnabled(event.target.checked)}
-                disabled={isPending}
-              />
-              Enabled
-            </label>
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-          </div>
-          <DialogFooter>
+        dirty={formIsDirty}
+        busy={isPending}
+        onDiscard={reset}
+        size="md"
+        icon={<PlugZap className="size-4" aria-hidden="true" />}
+        title="New MCP server"
+        description="Create a backend MCP server definition for tool discovery and runtime use."
+        bodyClassName="flex flex-col gap-3"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
             <Button
               type="button"
-              className="agency-gradient text-white hover:brightness-105"
+              variant="brand"
               disabled={isPending || !name.trim() || !command.trim()}
               onClick={handleCreate}
             >
               {isPending ? 'Creating...' : 'Create MCP server'}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => {
-                reset();
-                setIsOpen(false);
-              }}
+          </>
+        }
+      >
+        <FormSection
+          title="Connection"
+          description="Choose a recognizable name and the transport used by the server."
+          icon={<PlugZap className="size-4" aria-hidden="true" />}
+        >
+          <FormFieldGroup columns={2}>
+            <FormField label="Name" htmlFor="new-mcp-name" error={nameError} required>
+              <Input
+                id="new-mcp-name"
+                required
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                onBlur={() => markTouched('name')}
+                aria-invalid={Boolean(nameError)}
+                aria-describedby="new-mcp-name-feedback"
+                disabled={isPending}
+              />
+            </FormField>
+            <FormField label="Transport" htmlFor="new-mcp-transport" required>
+              <select
+                id="new-mcp-transport"
+                value={transport}
+                onChange={(event) =>
+                  setTransport(event.target.value as (typeof MCP_TRANSPORT_TYPES)[number])
+                }
+                disabled={isPending}
+                className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
+              >
+                {MCP_TRANSPORT_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+            </FormField>
+          </FormFieldGroup>
+        </FormSection>
+
+        <FormSection
+          title="Runtime command"
+          description="Enter the executable and any arguments Open Agency should pass when starting it."
+          icon={<Wrench className="size-4" aria-hidden="true" />}
+        >
+          <FormFieldGroup columns={2}>
+            <FormField label="Command" htmlFor="new-mcp-command" error={commandError} required>
+              <Input
+                id="new-mcp-command"
+                required
+                value={command}
+                onChange={(event) => setCommand(event.target.value)}
+                onBlur={() => markTouched('command')}
+                aria-invalid={Boolean(commandError)}
+                aria-describedby="new-mcp-command-feedback"
+                disabled={isPending}
+              />
+            </FormField>
+            <FormField
+              label="Arguments"
+              htmlFor="new-mcp-args"
+              description="Comma-separated arguments passed in order."
+              optional
             >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <Input
+                id="new-mcp-args"
+                value={args}
+                onChange={(event) => setArgs(event.target.value)}
+                disabled={isPending}
+                placeholder="--flag, value"
+                aria-describedby="new-mcp-args-feedback"
+              />
+            </FormField>
+          </FormFieldGroup>
+        </FormSection>
+
+        <FormSection
+          title="Network and activation"
+          description="Only configure a URL for HTTP or SSE transports. Enable discovery when the server is ready."
+          advanced
+          advancedLabel="Show optional settings"
+          contentClassName="flex flex-col gap-4"
+        >
+          <FormField label="URL" htmlFor="new-mcp-url" optional>
+            <Input
+              id="new-mcp-url"
+              value={url}
+              onChange={(event) => setUrl(event.target.value)}
+              disabled={isPending}
+            />
+          </FormField>
+          <label className="flex items-start gap-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) p-3 text-sm text-(--agency-shell-text)">
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(event) => setEnabled(event.target.checked)}
+              disabled={isPending}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="block font-medium">Enabled after creation</span>
+              <span className="mt-0.5 block text-xs leading-5 text-(--agency-shell-muted)">
+                Open Agency will immediately discover the server&apos;s tools after saving.
+              </span>
+            </span>
+          </label>
+        </FormSection>
+        <FieldFeedback error={error} />
+      </AppDialog>
     </>
   );
 }
@@ -2242,13 +2304,8 @@ function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }
   ).length;
 
   return (
-    <div className="space-y-4">
-      <div
-        className={cn(
-          'flex items-start justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:shadow-none',
-          theme.sectionHeader
-        )}
-      >
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col items-start justify-between gap-3 border-b border-neutral-200 pb-4 sm:flex-row dark:border-white/10">
         <div>
           <h2 className={cn('text-xl font-semibold text-neutral-900', theme.title)}>
             {category.name}
@@ -2261,43 +2318,43 @@ function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }
         <ManageModelProfilesButton />
       </div>
 
-      <div className="grid gap-3 md:grid-cols-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         <div
           className={cn(
-            'rounded-lg border border-neutral-200 bg-white px-4 py-3',
+            'rounded-lg border border-neutral-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3',
             theme.panelMuted
           )}
         >
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Connections
           </p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
+          <p className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
             {connections.length}
           </p>
         </div>
         <div
           className={cn(
-            'rounded-lg border border-neutral-200 bg-white px-4 py-3',
+            'rounded-lg border border-neutral-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3',
             theme.panelMuted
           )}
         >
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Model presets
           </p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
+          <p className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
             {presets.length}
           </p>
         </div>
         <div
           className={cn(
-            'rounded-lg border border-neutral-200 bg-white px-4 py-3',
+            'rounded-lg border border-neutral-200 bg-white px-3 py-2.5 sm:px-4 sm:py-3',
             theme.panelMuted
           )}
         >
           <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Memory candidates
           </p>
-          <p className="mt-1 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
+          <p className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
             {embeddingPresetCount}
           </p>
         </div>
@@ -2309,7 +2366,7 @@ function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }
           description="Create a model to add a provider connection and first model preset."
         />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-2">
+        <div className="grid gap-3 lg:grid-cols-3">
           {connections.map(({ provider, raw }) => {
             const linkedPresets = presets.filter((preset) => {
               const rawProfile = preset.raw as unknown as ModelProfileDefinition | undefined;
@@ -2326,7 +2383,7 @@ function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }
             return (
               <Card
                 key={provider.id}
-                className={cn('relative overflow-hidden', cue.card, theme.cardShell)}
+                className={cn('relative overflow-hidden rounded-xl shadow-none', cue.card)}
               >
                 <span className={cn('absolute inset-x-0 top-0 h-1', cue.accent)} />
                 <CardHeader>
@@ -2816,7 +2873,7 @@ function communicationsSectionDescription(sectionName: string) {
     case 'Email':
       return 'Mailbox connectors for triage, drafts, outbound replies, and digests.';
     default:
-      return 'Communication connectors available for Agency setup.';
+      return 'Communication connectors available for Open Agency setup.';
   }
 }
 
@@ -2853,7 +2910,6 @@ function PlannedProviderCard({
   isSelected,
   onSelect,
   readinessState,
-  onecliUserNamespace,
   capabilityOverride,
   autoOpenSetup,
 }: {
@@ -2861,13 +2917,12 @@ function PlannedProviderCard({
   onRefresh: () => Promise<void>;
   onConnectorTestResult: (credentialId: string, result: Record<string, unknown>) => void;
   isSelected: boolean;
-  onSelect: (connectorId: string) => void;
+  onSelect: (connectorId: string | null) => void;
   readinessState: PlannedProviderFilter;
-  onecliUserNamespace: string;
   capabilityOverride?: ConnectorCapabilityDefinition | null;
   autoOpenSetup?: boolean;
 }) {
-  const cardRef = useRef<HTMLDivElement | null>(null);
+  const cardRef = useRef<HTMLButtonElement | null>(null);
   const queryClient = useQueryClient();
   const planned = provider.raw as PlannedIntegrationState | undefined;
   const backendKey = planned?.backendKey ?? '';
@@ -2884,15 +2939,25 @@ function PlannedProviderCard({
   const hasCredentials = matchedCredentialIds.length > 0;
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState(provider.name);
+  const [nameTouched, setNameTouched] = useState(false);
+  const [setupBaseline, setSetupBaseline] = useState<{
+    name: string;
+    metadata: Record<string, string>;
+  }>({ name: provider.name, metadata: {} });
   const [setupSession, setSetupSession] = useState<ConnectorSetupSessionPayload | null>(null);
+  const [onecliFrameLoaded, setOneCLIFrameLoaded] = useState(false);
+  const [setupClock, setSetupClock] = useState(() => Date.now());
   const [setupMode, setSetupMode] = useState<ConnectorSetupMode>('new');
   const [metadataValues, setMetadataValues] = useState<Record<string, string>>({});
-  const [runtimeSecretValue, setRuntimeSecretValue] = useState('');
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastHealthResult, setLastHealthResult] = useState<Record<string, unknown> | null>(null);
-  const [deleteMode, setDeleteMode] = useState(false);
   const [smartHomePreviewOpen, setSmartHomePreviewOpen] = useState(false);
   const [smartHomePreviewDomain, setSmartHomePreviewDomain] = useState('');
+  const trustedOneCLIAppUrl = useSyncExternalStore(
+    subscribeToStaticBrowserLocation,
+    getOneCLIAppUrl,
+    getServerOneCLIAppUrl
+  );
   const isUpdateMode = setupMode === 'update' && Boolean(matchedCredentialId);
   const autoOpenedSetupRef = useRef(false);
 
@@ -2958,9 +3023,17 @@ function PlannedProviderCard({
       ) ?? setupSession.installation)
     : null;
   const latestInstallation: ConnectorInstallationDefinition | null =
-    sessionInstallation ?? (setupMode === 'new' && hasCredentials ? null : providerInstallation);
+    sessionInstallation ?? (isUpdateMode ? providerInstallation : null);
   const setupSessionCompleted = latestInstallation?.status === 'active';
   const completionAvailable = canCompleteConnectorInstallation(latestInstallation);
+  const setupStage = setupSessionCompleted ? 3 : setupSession ? 2 : 1;
+  const setupExpiresAt = setupSession?.expires_at
+    ? new Date(setupSession.expires_at).getTime()
+    : null;
+  const setupSessionExpired = setupExpiresAt !== null && setupClock >= setupExpiresAt;
+  const setupMinutesRemaining = setupExpiresAt
+    ? Math.max(0, Math.ceil((setupExpiresAt - setupClock) / 60_000))
+    : null;
 
   const metadataPayload = () =>
     Object.fromEntries(
@@ -2975,14 +3048,46 @@ function PlannedProviderCard({
       setIsOpen(true);
       setSaveError(null);
       setSetupSession(null);
-      setRuntimeSecretValue('');
+      setOneCLIFrameLoaded(false);
+      let resumedSession: ConnectorSetupSessionPayload | null = null;
 
-      const [schemaResult, existingCredentialResult] = await Promise.all([
+      const [schemaResult, existingCredentialResult, installationResult] = await Promise.all([
         backendKey ? schemaQuery.refetch() : Promise.resolve({ data: null }),
         mode === 'update' && matchedCredentialId
           ? existingCredentialQuery.refetch()
           : Promise.resolve({ data: null }),
+        mode === 'new' ? installationsQuery.refetch() : Promise.resolve({ data: null }),
       ]);
+
+      if (mode === 'new') {
+        const resumable = installationResult.data?.items
+          .filter(
+            (installation) =>
+              installation.provider === backendKey &&
+              ['setup_pending', 'rotation_required'].includes(installation.status) &&
+              (!installation.setup_expires_at ||
+                new Date(installation.setup_expires_at).getTime() > Date.now())
+          )
+          .sort(
+            (left, right) =>
+              new Date(right.setup_started_at ?? 0).getTime() -
+              new Date(left.setup_started_at ?? 0).getTime()
+          )[0];
+        if (resumable) {
+          try {
+            const resumed = await connectorsApi.resumeConnectorSetupSession(resumable.id);
+            resumedSession = resumed;
+            setSetupSession(resumed);
+            setSetupClock(Date.now());
+            toast.info('Resumed your unexpired OneCLI setup session.', {
+              position: 'top-right',
+            });
+          } catch {
+            // A session can expire between the list and resume calls. The
+            // normal start action will create a fresh server-owned session.
+          }
+        }
+      }
 
       const existingCredential = existingCredentialResult.data ?? null;
       const capability = schemaResult.data ?? fallbackConnectorCapability(provider, planned);
@@ -2991,17 +3096,22 @@ function PlannedProviderCard({
         capability.instanceIdentityMetadata,
         PRODUCTION_WEBHOOK_METADATA[backendKey] ?? []
       );
-      const sourceMetadata = existingCredential?.metadata ?? {};
+      const sourceMetadata =
+        existingCredential?.metadata ?? resumedSession?.installation.metadata ?? {};
 
-      setName(existingCredential?.name ?? provider.name);
-      setMetadataValues(
-        Object.fromEntries(
-          metadataFields.map((requirement) => [
-            requirement.key,
-            toStringValue(sourceMetadata[requirement.key]),
-          ])
-        )
+      const nextName =
+        existingCredential?.name ?? resumedSession?.installation.name ?? provider.name;
+      const nextMetadata = Object.fromEntries(
+        metadataFields.map((requirement) => [
+          requirement.key,
+          toStringValue(sourceMetadata[requirement.key]),
+        ])
       );
+
+      setNameTouched(false);
+      setName(nextName);
+      setMetadataValues(nextMetadata);
+      setSetupBaseline({ name: nextName, metadata: nextMetadata });
     },
     [
       backendKey,
@@ -3011,6 +3121,7 @@ function PlannedProviderCard({
       planned,
       provider,
       schemaQuery,
+      installationsQuery,
     ]
   );
 
@@ -3036,6 +3147,9 @@ function PlannedProviderCard({
       await onRefresh();
       if (isConnectorSetupSessionPayload(result)) {
         setSetupSession(result);
+        setOneCLIFrameLoaded(false);
+        setSetupClock(Date.now());
+        setSetupBaseline({ name, metadata: metadataValues });
         toast.success('OneCLI setup session created.', { position: 'top-right' });
         return;
       }
@@ -3061,14 +3175,10 @@ function PlannedProviderCard({
 
       setSaveError(null);
       const payload: Record<string, unknown> = {
-        // Completion confirms the OneCLI-side secret exists; direct mode also mirrors the raw
-        // provider secret into Agency so runtime delivery can stay off the OneCLI proxy path.
-        onecli_credential_ref: latestInstallation.onecli_credential_ref,
+        // OneCLI metadata verification is authoritative; the browser sends no
+        // resource reference or provider secret into Open Agency.
         metadata: metadataPayload(),
       };
-      if (directTransportRequiresRuntimeSecret) {
-        payload.runtime_secret_value = runtimeSecretValue.trim();
-      }
       return connectorsApi.completeConnectorInstallation(latestInstallation.id, payload);
     },
     onSuccess: async () => {
@@ -3121,7 +3231,6 @@ function PlannedProviderCard({
       return connectorsApi.deleteConnectorInstallation(selectedDeleteInstallationId);
     },
     onSuccess: async () => {
-      setDeleteMode(false);
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['connectorInstallations'] }),
         queryClient.invalidateQueries({
@@ -3139,16 +3248,45 @@ function PlannedProviderCard({
     },
   });
 
+  const abandonSetupMutation = useMutation({
+    mutationFn: async () => {
+      if (!setupSession) throw new Error('No setup session is available to abandon.');
+      return connectorsApi.deleteConnectorInstallation(setupSession.installation.id);
+    },
+    onSuccess: async () => {
+      setSetupSession(null);
+      setOneCLIFrameLoaded(false);
+      setSaveError(null);
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['connectorInstallations'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() }),
+        onRefresh(),
+      ]);
+      toast.success('Setup session abandoned. You can start a fresh one.', {
+        position: 'top-right',
+      });
+    },
+    onError: (error) => {
+      setSaveError(error instanceof Error ? error.message : 'Failed to abandon setup session.');
+    },
+  });
+
   const effectiveCapability: ConnectorCapabilityDefinition =
     capabilityOverride ?? schemaQuery.data ?? fallbackConnectorCapability(provider, planned);
-  const onecliSetupGuide =
-    effectiveCapability.onecliSetupGuide ?? buildFallbackOneCLISetupGuide(provider, planned);
-  const onecliTransportMode = effectiveCapability.onecliTransportMode ?? 'proxy';
-  const directTransportRequiresRuntimeSecret = onecliTransportMode === 'direct';
-  const onecliStoragePath = resolveOneCLIStoragePath(
-    onecliSetupGuide.storagePath,
-    onecliUserNamespace
-  );
+  const researchedSetupGuide = getIntegrationSetupGuide(backendKey);
+  const capabilitySetupGuide = effectiveCapability.onecliSetupGuide;
+  const onecliSetupGuide = researchedSetupGuide
+    ? {
+        ...capabilitySetupGuide,
+        ...researchedSetupGuide,
+        // A live backend schema remains authoritative for the fields OneCLI accepts.
+        fields: capabilitySetupGuide?.fields ?? researchedSetupGuide.fields,
+        options: capabilitySetupGuide?.options ?? researchedSetupGuide.options,
+      }
+    : (capabilitySetupGuide ?? buildFallbackOneCLISetupGuide(provider, planned));
+  const setupSupported =
+    effectiveCapability.setupSupported ??
+    Boolean(effectiveCapability.onecliAppId || effectiveCapability.onecliSecretProfile);
   const requiredMetadata = effectiveCapability.requiredMetadata ?? [];
   const capabilitySurface = effectiveCapability.capabilitySurface ?? 'connector';
   const moduleCapabilities = effectiveCapability.moduleCapabilities ?? [];
@@ -3166,11 +3304,8 @@ function PlannedProviderCard({
     (requirement) => !(metadataValues[requirement.key] ?? '').trim()
   );
   const missingProductionWebhookMetadata = productionWebhookMetadata.some((requirement) => {
-    const keys = [requirement.key, ...(requirement.alternatives ?? [])];
-    return !keys.some((key) => (metadataValues[key] ?? '').trim());
+    return !(metadataValues[requirement.key] ?? '').trim();
   });
-  const runtimeSecretValueReady =
-    !directTransportRequiresRuntimeSecret || Boolean(runtimeSecretValue.trim());
   const healthSupported = Boolean(effectiveCapability.healthSupported);
   const historyItems = historyQuery.data?.items ?? [];
   const persistedHealthResult =
@@ -3190,13 +3325,22 @@ function PlannedProviderCard({
   const onecliGenericSecretGuide = buildOneCLIGenericSecretGuide(
     provider,
     backendKey,
-    onecliStoragePath,
     setupSession,
     onecliSetupGuide.fields,
+    effectiveCapability.onecliSecretProfile,
     onecliSetupGuide.notes ?? []
   );
   const onecliCopyRows = onecliGenericSecretGuide.rows.filter((row) => Boolean(row.value));
-  const setupUrl = setupSession ? normalizeOneCLISetupUrl(setupSession.setup_url) : null;
+  const setupUrl = setupSession
+    ? buildOneCLIConnectorSetupUrl({
+        setupUrl: setupSession.setup_url,
+        nativeAppId: effectiveCapability.onecliAppId,
+        genericSecret: onecliGenericSecretPrefill(onecliCopyRows),
+      })
+    : null;
+  const onecliEmbedIsolated = setupUrl
+    ? isTrustedOneCLIEmbedUrl(setupUrl, trustedOneCLIAppUrl)
+    : false;
   const readinessCue = plannedReadinessCue(cardReadinessState);
   const selectedCredential =
     matchedCredentials.find((credential) => credential.id === matchedCredentialId) ??
@@ -3220,6 +3364,24 @@ function PlannedProviderCard({
         `${requirement.key}: ${toStringValue(selectedCredentialMetadata[requirement.key])}`
     )
     .join(' | ');
+  const setupDirty =
+    isOpen &&
+    (name !== setupBaseline.name ||
+      JSON.stringify(metadataValues) !== JSON.stringify(setupBaseline.metadata));
+  const setupBusy =
+    saveMutation.isPending ||
+    completeInstallationMutation.isPending ||
+    abandonSetupMutation.isPending;
+  const healthFailureHint = lastHealthOk
+    ? null
+    : connectorFailureHint(toStringValue(effectiveLastHealthResult?.error));
+
+  const resetSetupForm = () => {
+    setNameTouched(false);
+    setName(setupBaseline.name);
+    setMetadataValues(setupBaseline.metadata);
+    setSaveError(null);
+  };
 
   useEffect(() => {
     if (!setupSession || !isOpen || setupSessionCompleted) {
@@ -3231,6 +3393,12 @@ function PlannedProviderCard({
     }, 4000);
     return () => window.clearInterval(interval);
   }, [installationsQuery, isOpen, queryClient, setupSession, setupSessionCompleted]);
+
+  useEffect(() => {
+    if (!isOpen || !setupExpiresAt || setupSessionCompleted) return;
+    const interval = window.setInterval(() => setSetupClock(Date.now()), 15_000);
+    return () => window.clearInterval(interval);
+  }, [isOpen, setupExpiresAt, setupSessionCompleted]);
 
   useEffect(() => {
     if (!isSelected) {
@@ -3283,465 +3451,837 @@ function PlannedProviderCard({
   return (
     <>
       <Card
-        ref={cardRef}
         data-testid={`planned-provider-card-${provider.id}`}
-        role="button"
-        tabIndex={0}
-        aria-pressed={isSelected}
         className={cn(
           'relative overflow-hidden border-dashed transition-colors dark:text-slate-100',
           readinessCue.card,
-          isSelected ? 'border-primary-500 ring-2 ring-primary-100' : ''
+          isSelected ? 'border-primary-500 ring-2 ring-primary-100 xl:col-span-2' : ''
         )}
-        onClick={() => onSelect(provider.id)}
-        onKeyDown={(event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onSelect(provider.id);
-          }
-        }}
       >
         <span className={cn('absolute inset-x-0 top-0 h-1', readinessCue.accent)} />
-        <CardHeader>
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <CardTitle className="text-lg text-neutral-950 dark:text-slate-50">
-                {provider.name}
-              </CardTitle>
-              <CardDescription className="text-neutral-600 dark:text-slate-300">
-                {provider.description || 'OneCLI-ready connector.'}
-              </CardDescription>
-            </div>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <Badge variant="secondary">
-                {backendKey === 'home-assistant' ? 'Smart Home setup' : 'Secure setup'}
-              </Badge>
-              <Badge
-                data-testid={`planned-provider-status-${provider.id}`}
-                variant={plannedReadinessBadgeVariant(cardReadinessState)}
-                className={readinessCue.badge}
-              >
-                {plannedReadinessLabel(cardReadinessState)}
-              </Badge>
-              {hasCredentials ? <Badge variant="successful">credentials ready</Badge> : null}
-              {providerInstallation ? (
-                <Badge
-                  variant={providerInstallation.status === 'active' ? 'successful' : 'outline'}
-                >
-                  {formatDisplayLabel(providerInstallation.status)}
-                </Badge>
-              ) : null}
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="outline">Backend key: {planned?.backendKey || 'tbd'}</Badge>
-            <Badge variant="outline">Auth: {planned?.authModel || 'tbd'}</Badge>
-            <Badge variant="outline">Priority: {priorityLabel(planned?.launchPriority)}</Badge>
-            <Badge variant="outline">{capabilitySurfaceLabel(capabilitySurface)}</Badge>
-          </div>
-          {capabilitySurface === 'module' ||
-          moduleCapabilities.length > 0 ||
-          agencyCapabilityDependencies.length > 0 ? (
-            <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
-                    Module ownership
-                  </p>
-                  <p className="mt-1 text-sm text-sky-900 dark:text-sky-200">
-                    Smart Home owns smart-home control and context. Voice and vision stay reusable
-                    Agency capabilities that smart-home flows call into.
-                  </p>
-                </div>
-                <Badge
-                  variant="outline"
-                  className="border-sky-300 bg-white text-sky-800 dark:border-sky-400/30 dark:bg-white/10 dark:text-sky-100"
-                >
-                  {capabilitySurfaceLabel(capabilitySurface)}
-                </Badge>
+        <CardHeader className="p-0">
+          <button
+            ref={cardRef}
+            type="button"
+            data-testid={`planned-provider-toggle-${provider.id}`}
+            aria-expanded={isSelected}
+            aria-controls={`planned-provider-details-${provider.id}`}
+            className="w-full px-5 py-5 text-left outline-none transition-colors hover:bg-(--agency-row-hover) focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+            onClick={() => onSelect(isSelected ? null : provider.id)}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <CardTitle className="text-lg text-neutral-950 dark:text-slate-50">
+                  {provider.name}
+                </CardTitle>
+                <CardDescription className="mt-1 line-clamp-2 text-neutral-600 dark:text-slate-300">
+                  {provider.description || 'OneCLI-ready connector.'}
+                </CardDescription>
+                <p className="mt-3 text-xs text-(--agency-shell-muted)">
+                  {hasCredentials
+                    ? `${matchedCredentialIds.length} saved ${matchedCredentialIds.length === 1 ? 'credential' : 'credentials'}`
+                    : 'No saved credentials'}{' '}
+                  · {planned?.authModel || 'Authentication not specified'}
+                </p>
               </div>
-              {moduleCapabilities.length > 0 ? (
-                <div className="mt-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
-                    Smart Home owns
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {moduleCapabilities.map((item) => (
-                      <Badge key={item} variant="secondary">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
-              {agencyCapabilityDependencies.length > 0 ? (
-                <div className="mt-3">
-                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
-                    Uses Agency capabilities
-                  </p>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    {agencyCapabilityDependencies.map((item) => (
-                      <Badge key={item} variant="outline">
-                        {item}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              ) : null}
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge
+                  data-testid={`planned-provider-status-${provider.id}`}
+                  variant={plannedReadinessBadgeVariant(cardReadinessState)}
+                  className={readinessCue.badge}
+                >
+                  {plannedReadinessLabel(cardReadinessState)}
+                </Badge>
+                <ChevronDown
+                  className={cn(
+                    'size-4 text-(--agency-shell-muted) transition-transform motion-reduce:transition-none',
+                    isSelected ? 'rotate-180' : null
+                  )}
+                  aria-hidden="true"
+                />
+              </div>
             </div>
-          ) : null}
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
-            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-              Credential inventory
-            </p>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-              {provider.credentialStatus.message}
-            </p>
-            {provider.credentialStatus.refs.length ? (
-              <div className="mt-3 space-y-2">
-                {provider.credentialStatus.refs.map((reference, index) => (
-                  <div key={`${reference.source ?? reference.name}-${index}`} className="space-y-1">
-                    <Badge variant="outline">{reference.name}</Badge>
-                    {reference.description ? (
-                      <p className="wrap-break-word text-xs text-neutral-500 dark:text-slate-400">
-                        {reference.description}
-                      </p>
-                    ) : null}
+          </button>
+        </CardHeader>
+        {isSelected ? (
+          <CardContent
+            id={`planned-provider-details-${provider.id}`}
+            className="space-y-4 border-t border-(--agency-shell-border) pt-5"
+          >
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">Backend key: {planned?.backendKey || 'tbd'}</Badge>
+              <Badge variant="outline">Auth: {planned?.authModel || 'tbd'}</Badge>
+              <Badge variant="outline">Priority: {priorityLabel(planned?.launchPriority)}</Badge>
+              <Badge variant="outline">{capabilitySurfaceLabel(capabilitySurface)}</Badge>
+            </div>
+            {capabilitySurface === 'module' ||
+            moduleCapabilities.length > 0 ||
+            agencyCapabilityDependencies.length > 0 ? (
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
+                      Module ownership
+                    </p>
+                    <p className="mt-1 text-sm text-sky-900 dark:text-sky-200">
+                      Smart Home owns smart-home control and context. Voice and vision stay reusable
+                      Open Agency capabilities that smart-home flows call into.
+                    </p>
                   </div>
-                ))}
+                  <Badge
+                    variant="outline"
+                    className="border-sky-300 bg-white text-sky-800 dark:border-sky-400/30 dark:bg-white/10 dark:text-sky-100"
+                  >
+                    {capabilitySurfaceLabel(capabilitySurface)}
+                  </Badge>
+                </div>
+                {moduleCapabilities.length > 0 ? (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
+                      Smart Home owns
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {moduleCapabilities.map((item) => (
+                        <Badge key={item} variant="secondary">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {agencyCapabilityDependencies.length > 0 ? (
+                  <div className="mt-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
+                      Uses Open Agency capabilities
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {agencyCapabilityDependencies.map((item) => (
+                        <Badge key={item} variant="outline">
+                          {item}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             ) : null}
-            {matchedCredentials.length > 1 ? (
-              <div className="mt-4 space-y-1">
-                <label
-                  htmlFor={`${provider.id}-active-instance`}
-                  className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400"
-                >
-                  Active instance
-                </label>
-                <select
-                  id={`${provider.id}-active-instance`}
-                  className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
-                  value={matchedCredentialId ?? ''}
-                  onChange={(event) => setSelectedCredentialId(event.target.value)}
-                  onClick={handleCardActionClick}
-                  onKeyDown={handleCardActionKeyDown}
-                >
-                  {matchedCredentials.map((credential) => (
-                    <option key={credential.id} value={credential.id}>
-                      {credentialInstanceLabel(credential)}
-                    </option>
-                  ))}
-                </select>
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+              <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                Credential inventory
+              </p>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                {provider.credentialStatus.message}
+              </p>
+              {provider.credentialStatus.refs.length ? (
+                <details className="group mt-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover)/40">
+                  <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-(--agency-shell-muted) outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                    Credential references (advanced)
+                  </summary>
+                  <div className="space-y-2 border-t border-(--agency-shell-border) px-3 py-3">
+                    {provider.credentialStatus.refs.map((reference, index) => (
+                      <div
+                        key={`${reference.source ?? reference.name}-${index}`}
+                        className="space-y-1"
+                      >
+                        <Badge variant="outline">{reference.name}</Badge>
+                        {reference.description ? (
+                          <p className="wrap-break-word text-xs text-neutral-500 dark:text-slate-400">
+                            {reference.description}
+                          </p>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              ) : null}
+              {matchedCredentials.length > 1 ? (
+                <div className="mt-4 space-y-1">
+                  <label
+                    htmlFor={`${provider.id}-active-instance`}
+                    className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400"
+                  >
+                    Active instance
+                  </label>
+                  <select
+                    id={`${provider.id}-active-instance`}
+                    className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
+                    value={matchedCredentialId ?? ''}
+                    onChange={(event) => setSelectedCredentialId(event.target.value)}
+                    onClick={handleCardActionClick}
+                    onKeyDown={handleCardActionKeyDown}
+                  >
+                    {matchedCredentials.map((credential) => (
+                      <option key={credential.id} value={credential.id}>
+                        {credentialInstanceLabel(credential)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              ) : null}
+              {hasCredentials ? (
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <ConfirmActionDialog
+                    title={`Delete ${selectedCredential?.name ?? provider.name} instance?`}
+                    description="This permanently removes the selected connector installation and its Open Agency credential reference. Workflows using this instance will need another configured credential."
+                    cancelLabel="Keep instance"
+                    confirmLabel="Delete instance"
+                    pendingLabel="Deleting..."
+                    pending={deleteMutation.isPending}
+                    destructive
+                    onConfirm={async () => {
+                      await deleteMutation.mutateAsync();
+                    }}
+                    trigger={
+                      <Button
+                        type="button"
+                        variant="outline"
+                        disabled={deleteMutation.isPending || !selectedDeleteInstallationId}
+                      >
+                        <Trash2 data-icon="inline-start" className="h-4 w-4" />
+                        Delete selected instance
+                      </Button>
+                    }
+                  />
+                </div>
+              ) : null}
+              {matchedCredentials.length > 1 ? (
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10">
+                  <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
+                    Multiple instances detected
+                  </p>
+                  <p className="mt-1 text-xs text-amber-900 dark:text-amber-200/90">
+                    Fill instance identity fields so agents can resolve the intended workspace,
+                    channel, sender, repository, bucket, folder, or mailbox before using this
+                    connector.
+                  </p>
+                </div>
+              ) : null}
+              {selectedCredential ? (
+                <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/4">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                    How agents identify this instance
+                  </p>
+                  <p className="mt-1 wrap-break-word text-sm text-neutral-700 dark:text-slate-300">
+                    {agentSelectionHint ||
+                      'Add instance identity metadata so agents do not guess between repeated connector installations.'}
+                  </p>
+                </div>
+              ) : null}
+            </div>
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+              <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                Connector setup
+              </p>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                {backendKey === 'home-assistant'
+                  ? 'Use the guided Smart Home setup first. Open Agency still stores the bridge URL and token securely behind the same connector flow.'
+                  : setupSupported
+                    ? 'Start a backend-owned OneCLI setup session for this connector.'
+                    : 'Review the researched guide. Activation stays disabled until OneCLI can verify this connector’s credential shape.'}
+              </p>
+              <div className="mt-4 flex flex-wrap gap-2">
+                {backendKey === 'home-assistant' ? (
+                  <Button asChild className="agency-gradient text-white hover:brightness-105">
+                    <Link
+                      href="/integrations/smart-home"
+                      onClick={(event) => event.stopPropagation()}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      Open guided setup
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    className="agency-gradient text-white hover:brightness-105"
+                    onClick={(event) => {
+                      handleCardActionClick(event);
+                      void openSetupDialog('new');
+                    }}
+                    onKeyDown={handleCardActionKeyDown}
+                  >
+                    {hasCredentials
+                      ? 'Add another setup'
+                      : setupSupported
+                        ? 'Set up connector'
+                        : 'View setup guide'}
+                  </Button>
+                )}
+                {backendKey === 'home-assistant' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={(event) => {
+                      handleCardActionClick(event);
+                      void openSetupDialog(hasCredentials ? 'update' : 'new');
+                    }}
+                    onKeyDown={handleCardActionKeyDown}
+                  >
+                    {hasCredentials ? 'Advanced connector setup' : 'Open connector setup'}
+                  </Button>
+                ) : null}
+                {hasCredentials ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={(event) => {
+                      handleCardActionClick(event);
+                      void openSetupDialog('update');
+                    }}
+                    onKeyDown={handleCardActionKeyDown}
+                  >
+                    Update credential
+                  </Button>
+                ) : null}
+                {hasCredentials && healthSupported ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={healthMutation.isPending}
+                    onClick={(event) => {
+                      handleCardActionClick(event);
+                      healthMutation.mutate();
+                    }}
+                    onKeyDown={handleCardActionKeyDown}
+                  >
+                    {healthMutation.isPending ? 'Testing...' : 'Test connection'}
+                  </Button>
+                ) : null}
+                {backendKey === 'home-assistant' ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={smartHomeAvailabilityQuery.isFetching || !smartHomeAvailable}
+                    onClick={(event) => {
+                      handleCardActionClick(event);
+                      setSmartHomePreviewOpen(true);
+                    }}
+                    onKeyDown={handleCardActionKeyDown}
+                  >
+                    {smartHomeAvailabilityQuery.isFetching
+                      ? 'Checking Smart Home...'
+                      : 'List entities'}
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+            {effectiveLastHealthResult ? (
+              <div
+                role={lastHealthOk ? 'status' : 'alert'}
+                className={`rounded-xl border p-4 ${
+                  lastHealthOk
+                    ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-400/25 dark:bg-emerald-500/10'
+                    : 'border-red-200 bg-red-50 dark:border-red-400/25 dark:bg-red-500/10'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span
+                      className={cn(
+                        'flex size-9 shrink-0 items-center justify-center rounded-lg border',
+                        lastHealthOk
+                          ? 'border-emerald-200 bg-white/75 text-emerald-700 dark:border-emerald-300/20 dark:bg-slate-950/45 dark:text-emerald-200'
+                          : 'border-red-200 bg-white/75 text-red-700 dark:border-red-300/20 dark:bg-slate-950/45 dark:text-red-200'
+                      )}
+                    >
+                      {lastHealthOk ? (
+                        <CheckCircle2 className="size-4" aria-hidden="true" />
+                      ) : (
+                        <CircleAlert className="size-4" aria-hidden="true" />
+                      )}
+                    </span>
+                    <div>
+                      <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
+                        {lastHealthOk ? 'Connection healthy' : 'Connection test failed'}
+                      </p>
+                      <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                        {lastHealthOk
+                          ? 'Backend health check succeeded for the saved connector credential.'
+                          : toStringValue(effectiveLastHealthResult.error) ||
+                            'Backend health check failed.'}
+                      </p>
+                      {healthFailureHint ? (
+                        <p className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-200">
+                          {healthFailureHint}
+                        </p>
+                      ) : null}
+                      <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                        {historyItems[0]
+                          ? `Tested ${formatShortTimestamp(historyItems[0].startedAt ?? historyItems[0].completedAt ?? null)}`
+                          : 'Test completed in this session'}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant={lastHealthOk ? 'successful' : 'failed'}>
+                    {lastHealthOk ? 'Healthy' : 'Failed'}
+                  </Badge>
+                </div>
+                {'audit_execution_id' in effectiveLastHealthResult ? (
+                  <p className="mt-3 text-xs text-neutral-500 dark:text-slate-400">
+                    Audit execution: {toStringValue(effectiveLastHealthResult.audit_execution_id)}
+                  </p>
+                ) : null}
               </div>
             ) : null}
             {hasCredentials ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {deleteMode ? (
-                  <>
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      onClick={() => deleteMutation.mutate()}
-                      disabled={deleteMutation.isPending || !selectedDeleteInstallationId}
-                    >
-                      {deleteMutation.isPending ? 'Deleting...' : 'Confirm delete selected'}
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={deleteMutation.isPending}
-                      onClick={() => setDeleteMode(false)}
-                    >
-                      Cancel
-                    </Button>
-                  </>
-                ) : (
-                  <Button type="button" variant="outline" onClick={() => setDeleteMode(true)}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete selected instance
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                      Recent test history
+                    </p>
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                      Latest backend audit runs for this connector credential.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={(event) => {
+                      handleCardActionClick(event);
+                      void historyQuery.refetch();
+                    }}
+                    onKeyDown={handleCardActionKeyDown}
+                    disabled={historyQuery.isFetching}
+                  >
+                    {historyQuery.isFetching ? 'Refreshing...' : 'Refresh'}
                   </Button>
+                </div>
+                {historyQuery.isLoading ? (
+                  <p className="mt-3 text-sm text-neutral-500 dark:text-slate-400">
+                    Loading connector history…
+                  </p>
+                ) : historyQuery.isError ? (
+                  <p className="mt-3 text-sm text-red-600">{historyQuery.error.message}</p>
+                ) : historyItems.length > 0 ? (
+                  <div className="mt-4 space-y-3">
+                    {historyItems.slice(0, 3).map((item) => (
+                      <div
+                        key={item.executionId}
+                        className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 dark:border-white/10 dark:bg-white/4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                              {formatShortTimestamp(item.startedAt ?? item.completedAt ?? null)}
+                            </p>
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                              {item.executionId}
+                            </p>
+                          </div>
+                          <Badge
+                            variant={
+                              item.status === 'completed'
+                                ? 'successful'
+                                : item.status === 'failed'
+                                  ? 'failed'
+                                  : 'outline'
+                            }
+                          >
+                            {item.status}
+                          </Badge>
+                        </div>
+                        {item.error ? (
+                          <p className="mt-2 text-sm text-red-600">{item.error}</p>
+                        ) : (
+                          <p className="mt-2 text-sm text-neutral-600 dark:text-slate-300">
+                            No error recorded.
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-neutral-500 dark:text-slate-400">
+                    No test runs recorded yet for this connector credential.
+                  </p>
                 )}
               </div>
             ) : null}
-            {matchedCredentials.length > 1 ? (
-              <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10">
-                <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
-                  Multiple instances detected
-                </p>
-                <p className="mt-1 text-xs text-amber-900 dark:text-amber-200/90">
-                  Fill instance identity fields so agents can resolve the intended workspace,
-                  channel, sender, repository, bucket, folder, or mailbox before using this
-                  connector.
-                </p>
-              </div>
-            ) : null}
-            {selectedCredential ? (
-              <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/4">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                  Agent selection signal
-                </p>
-                <p className="mt-1 wrap-break-word text-sm text-neutral-700 dark:text-slate-300">
-                  {agentSelectionHint ||
-                    'Add instance identity metadata so agents do not guess between repeated connector installations.'}
-                </p>
-              </div>
-            ) : null}
-          </div>
-          <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
-            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-              Connector setup
-            </p>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-              {backendKey === 'home-assistant'
-                ? 'Use the guided Smart Home setup first. Agency still stores the bridge URL and token securely behind the same connector flow.'
-                : 'Start a backend-owned OneCLI setup session for this connector.'}
-            </p>
-            <div className="mt-4 flex flex-wrap gap-2">
-              {backendKey === 'home-assistant' ? (
-                <Button asChild className="agency-gradient text-white hover:brightness-105">
-                  <Link
-                    href="/integrations/smart-home"
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
-                  >
-                    Open guided setup
-                  </Link>
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  className="agency-gradient text-white hover:brightness-105"
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    void openSetupDialog('new');
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                >
-                  {hasCredentials ? 'Add another setup' : 'Set up connector'}
-                </Button>
-              )}
-              {backendKey === 'home-assistant' ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    void openSetupDialog(hasCredentials ? 'update' : 'new');
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                >
-                  {hasCredentials ? 'Advanced connector setup' : 'Open connector setup'}
-                </Button>
-              ) : null}
-              {hasCredentials ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    void openSetupDialog('update');
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                >
-                  Update credential
-                </Button>
-              ) : null}
+          </CardContent>
+        ) : (
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 border-t border-(--agency-shell-border) px-5 pb-4 pt-4 sm:px-5 sm:pb-4 sm:pt-4">
+            <div>
+              <p className="text-xs font-medium text-(--agency-shell-text)">
+                {hasCredentials
+                  ? lastHealthResult
+                    ? lastHealthResult.ok === true
+                      ? 'Latest test passed'
+                      : 'Latest test failed'
+                    : cardReadinessState === 'healthy'
+                      ? 'Last saved test passed'
+                      : cardReadinessState === 'failing'
+                        ? 'Last saved test failed'
+                        : 'Connection has not been tested'
+                  : 'Setup guide available'}
+              </p>
+              <p className="mt-0.5 text-xs text-(--agency-shell-muted)">
+                {hasCredentials
+                  ? 'Open for instances, credential settings, and test history.'
+                  : setupSupported
+                    ? 'Ready to connect — review requirements or start setup now.'
+                    : 'Guide only — verified OneCLI activation is not available yet.'}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
               {hasCredentials && healthSupported ? (
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
                   disabled={healthMutation.isPending}
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    healthMutation.mutate();
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
+                  onClick={() => healthMutation.mutate()}
                 >
                   {healthMutation.isPending ? 'Testing...' : 'Test connection'}
                 </Button>
               ) : null}
-              {backendKey === 'home-assistant' ? (
+              {!hasCredentials ? (
                 <Button
                   type="button"
-                  variant="outline"
-                  disabled={smartHomeAvailabilityQuery.isFetching || !smartHomeAvailable}
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    setSmartHomePreviewOpen(true);
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                >
-                  {smartHomeAvailabilityQuery.isFetching
-                    ? 'Checking Smart Home...'
-                    : 'List entities'}
-                </Button>
-              ) : null}
-            </div>
-          </div>
-          {effectiveLastHealthResult ? (
-            <div
-              className={`rounded-xl border p-4 ${
-                lastHealthOk
-                  ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-400/25 dark:bg-emerald-500/10'
-                  : 'border-red-200 bg-red-50 dark:border-red-400/25 dark:bg-red-500/10'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                    Latest connector test
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                    {lastHealthOk
-                      ? 'Backend health check succeeded for the saved connector credential.'
-                      : toStringValue(effectiveLastHealthResult.error) ||
-                        'Backend health check failed.'}
-                  </p>
-                </div>
-                <Badge variant={lastHealthOk ? 'successful' : 'failed'}>
-                  {lastHealthOk ? 'healthy' : 'failed'}
-                </Badge>
-              </div>
-              {'audit_execution_id' in effectiveLastHealthResult ? (
-                <p className="mt-3 text-xs text-neutral-500 dark:text-slate-400">
-                  Audit execution: {toStringValue(effectiveLastHealthResult.audit_execution_id)}
-                </p>
-              ) : null}
-            </div>
-          ) : null}
-          {hasCredentials ? (
-            <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                    Recent test history
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                    Latest backend audit runs for this connector credential.
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
                   size="sm"
-                  onClick={(event) => {
-                    handleCardActionClick(event);
-                    void historyQuery.refetch();
-                  }}
-                  onKeyDown={handleCardActionKeyDown}
-                  disabled={historyQuery.isFetching}
+                  className="agency-gradient text-white hover:brightness-105"
+                  onClick={() => void openSetupDialog('new')}
                 >
-                  {historyQuery.isFetching ? 'Refreshing...' : 'Refresh'}
+                  {setupSupported ? 'Set up connector' : 'View setup guide'}
                 </Button>
-              </div>
-              {historyQuery.isLoading ? (
-                <p className="mt-3 text-sm text-neutral-500 dark:text-slate-400">
-                  Loading connector history…
-                </p>
-              ) : historyQuery.isError ? (
-                <p className="mt-3 text-sm text-red-600">{historyQuery.error.message}</p>
-              ) : historyItems.length > 0 ? (
-                <div className="mt-4 space-y-3">
-                  {historyItems.slice(0, 3).map((item) => (
-                    <div
-                      key={item.executionId}
-                      className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3 dark:border-white/10 dark:bg-white/4"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                            {formatShortTimestamp(item.startedAt ?? item.completedAt ?? null)}
-                          </p>
-                          <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
-                            {item.executionId}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            item.status === 'completed'
-                              ? 'successful'
-                              : item.status === 'failed'
-                                ? 'failed'
-                                : 'outline'
-                          }
-                        >
-                          {item.status}
-                        </Badge>
-                      </div>
-                      {item.error ? (
-                        <p className="mt-2 text-sm text-red-600">{item.error}</p>
-                      ) : (
-                        <p className="mt-2 text-sm text-neutral-600 dark:text-slate-300">
-                          No error recorded.
-                        </p>
-                      )}
-                    </div>
-                  ))}
-                </div>
               ) : (
-                <p className="mt-3 text-sm text-neutral-500 dark:text-slate-400">
-                  No test runs recorded yet for this connector credential.
-                </p>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onSelect(provider.id)}
+                >
+                  Manage
+                </Button>
               )}
             </div>
-          ) : null}
-        </CardContent>
+          </CardContent>
+        )}
       </Card>
 
-      <Dialog
+      <AppDialog
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
-          if (!open && !saveMutation.isPending) {
+          if (!open && !setupBusy) {
             setSaveError(null);
           }
         }}
+        dirty={setupDirty}
+        busy={setupBusy}
+        onDiscard={resetSetupForm}
+        size="xl"
+        title={isUpdateMode ? `Update ${provider.name} credential` : `Set up ${provider.name}`}
+        description={
+          isUpdateMode
+            ? 'Review the saved connection details, update only what changed, then test the connection.'
+            : 'Follow the guided handoff to create a secure connector credential.'
+        }
+        icon={<PlugZap className="size-4" aria-hidden="true" />}
+        footer={
+          <>
+            {setupSession && !setupSessionCompleted ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={setupBusy}
+                onClick={() => abandonSetupMutation.mutate()}
+              >
+                {abandonSetupMutation.isPending ? 'Abandoning...' : 'Abandon setup'}
+              </Button>
+            ) : null}
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={setupBusy}>
+                {setupSession ? 'Finish later' : 'Cancel'}
+              </Button>
+            </DialogClose>
+            <Button
+              type="button"
+              className="agency-gradient text-white hover:brightness-105"
+              disabled={
+                completionAvailable
+                  ? completeInstallationMutation.isPending ||
+                    schemaQuery.isLoading ||
+                    missingRequiredMetadata ||
+                    setupSessionExpired
+                  : saveMutation.isPending ||
+                    schemaQuery.isLoading ||
+                    !name.trim() ||
+                    !canStartSetup ||
+                    missingRequiredMetadata ||
+                    (!isUpdateMode && !setupSupported)
+              }
+              onClick={() => {
+                setNameTouched(true);
+                if (!name.trim()) return;
+                completionAvailable ? completeInstallationMutation.mutate() : saveMutation.mutate();
+              }}
+            >
+              {completionAvailable
+                ? setupSessionExpired
+                  ? 'Session expired'
+                  : completeInstallationMutation.isPending
+                    ? 'Verifying...'
+                    : 'Verify and activate'
+                : saveMutation.isPending
+                  ? isUpdateMode
+                    ? 'Saving...'
+                    : 'Starting...'
+                  : isUpdateMode
+                    ? 'Update credential'
+                    : setupSupported
+                      ? 'Start OneCLI setup'
+                      : 'Guide only'}
+            </Button>
+          </>
+        }
       >
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {isUpdateMode ? `Update ${provider.name} credential` : `Set up ${provider.name}`}
-            </DialogTitle>
-            <DialogDescription>
-              {isUpdateMode
-                ? `Backend key \`${backendKey}\`. Update the credential reference and metadata the backend uses for connector health checks.`
-                : `Backend key \`${backendKey}\`. Start a new OneCLI setup session for this connector.`}
-            </DialogDescription>
-          </DialogHeader>
+        {schemaQuery.isLoading ||
+        schemaQuery.isFetching ||
+        existingCredentialQuery.isLoading ||
+        existingCredentialQuery.isFetching ? (
+          <LoadingCard
+            title="Connector schema"
+            description="Loading connector credential requirements."
+          />
+        ) : (
+          <div className="flex flex-col gap-3">
+            <ol
+              aria-label="Connector setup progress"
+              className="grid grid-cols-3 gap-2 rounded-xl border border-neutral-200 bg-neutral-50 p-2 dark:border-white/10 dark:bg-slate-950/70"
+            >
+              {['Prepare', 'Connect in OneCLI', 'Verify'].map((label, index) => {
+                const step = index + 1;
+                const active = step === setupStage;
+                const complete = step < setupStage;
+                return (
+                  <li
+                    key={label}
+                    aria-current={active ? 'step' : undefined}
+                    className={cn(
+                      'rounded-lg px-2 py-2 text-center text-xs font-medium',
+                      active
+                        ? 'bg-sky-600 text-white shadow-sm'
+                        : complete
+                          ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-200'
+                          : 'text-neutral-500 dark:text-slate-400'
+                    )}
+                  >
+                    <span className="block text-[10px] uppercase tracking-[0.12em]">
+                      Step {step}
+                    </span>
+                    <span className="mt-0.5 block">{label}</span>
+                  </li>
+                );
+              })}
+            </ol>
 
-          {schemaQuery.isLoading ||
-          schemaQuery.isFetching ||
-          existingCredentialQuery.isLoading ||
-          existingCredentialQuery.isFetching ? (
-            <LoadingCard
-              title="Connector schema"
-              description="Loading connector credential requirements."
-            />
-          ) : (
-            <div className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1">
-                  <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                    Display Name
-                  </label>
-                  <Input
-                    aria-label="Display Name"
-                    value={name}
-                    onChange={(event) => setName(event.target.value)}
-                    disabled={saveMutation.isPending}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                    Auth Model
-                  </label>
-                  <Input aria-label="Auth Model" value={effectiveCapability.authModel} readOnly />
-                </div>
-              </div>
+            {!setupSession ? (
+              <FormSection
+                title="Connection details"
+                description="Use a name people and agents can recognize. Authentication remains managed by the connector."
+              >
+                <FormFieldGroup columns={2}>
+                  <FormField
+                    label="Display name"
+                    htmlFor={`${provider.id}-setup-display-name`}
+                    description="For example, Support Discord or Personal Telegram."
+                    error={nameTouched && !name.trim() ? 'Enter a connection name.' : undefined}
+                    required
+                  >
+                    <Input
+                      id={`${provider.id}-setup-display-name`}
+                      required
+                      aria-label="Display Name"
+                      value={name}
+                      onChange={(event) => setName(event.target.value)}
+                      onBlur={() => setNameTouched(true)}
+                      aria-invalid={nameTouched && !name.trim()}
+                      aria-describedby={`${provider.id}-setup-display-name-feedback`}
+                      disabled={saveMutation.isPending}
+                    />
+                  </FormField>
+                  <FormField
+                    label="Auth model"
+                    htmlFor={`${provider.id}-setup-auth-model`}
+                    description="Defined by this connector and cannot be changed here."
+                    disabled
+                  >
+                    <Input
+                      id={`${provider.id}-setup-auth-model`}
+                      aria-label="Auth Model"
+                      value={effectiveCapability.authModel}
+                      readOnly
+                      aria-describedby={`${provider.id}-setup-auth-model-feedback`}
+                    />
+                  </FormField>
+                </FormFieldGroup>
+              </FormSection>
+            ) : null}
 
+            {!setupSession && onecliSetupGuide.steps?.length ? (
+              <details
+                data-testid={`provider-setup-guide-${backendKey}`}
+                className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm dark:border-sky-400/20 dark:bg-slate-950/80"
+              >
+                <summary className="cursor-pointer list-none border-b border-sky-100 bg-linear-to-br from-sky-50 via-white to-cyan-50 px-4 py-4 dark:border-sky-400/15 dark:from-sky-500/12 dark:via-slate-950 dark:to-cyan-500/8">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex min-w-0 items-start gap-3">
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white shadow-sm shadow-sky-600/20 dark:bg-sky-500">
+                        <BookOpen className="size-4" aria-hidden="true" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-neutral-950 dark:text-slate-50">
+                          Provider setup guide
+                        </p>
+                        <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                          Complete the provider-side work first, then use the secure OneCLI handoff
+                          below. Secret values should never be pasted into Open Agency metadata.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {onecliSetupGuide.estimatedMinutes ? (
+                        <Badge
+                          variant="outline"
+                          className="gap-1.5 bg-white/75 dark:bg-slate-950/70"
+                        >
+                          <Clock3 className="size-3" aria-hidden="true" />
+                          About {onecliSetupGuide.estimatedMinutes} min
+                        </Badge>
+                      ) : null}
+                      {onecliSetupGuide.reviewedAt ? (
+                        <Badge variant="outline" className="bg-white/75 dark:bg-slate-950/70">
+                          Reviewed {onecliSetupGuide.reviewedAt}
+                        </Badge>
+                      ) : null}
+                    </div>
+                  </div>
+                </summary>
+
+                <div className="space-y-5 p-4">
+                  {onecliSetupGuide.prerequisites?.length ? (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                        Before you start
+                      </p>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        {onecliSetupGuide.prerequisites.map((prerequisite) => (
+                          <div
+                            key={prerequisite}
+                            className="flex gap-2 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2.5 text-xs leading-5 text-neutral-700 dark:border-white/10 dark:bg-white/4 dark:text-slate-200"
+                          >
+                            <CheckCircle2
+                              className="mt-0.5 size-3.5 shrink-0 text-sky-600 dark:text-sky-400"
+                              aria-hidden="true"
+                            />
+                            <span>{prerequisite}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      Setup steps
+                    </p>
+                    <ol className="mt-3 space-y-3">
+                      {onecliSetupGuide.steps.map((step, index) => (
+                        <li key={`${step.title}-${index}`} className="relative flex gap-3">
+                          {index < onecliSetupGuide.steps!.length - 1 ? (
+                            <span
+                              className="absolute left-[15px] top-8 h-[calc(100%+0.25rem)] w-px bg-sky-200 dark:bg-sky-400/25"
+                              aria-hidden="true"
+                            />
+                          ) : null}
+                          <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-sky-200 bg-sky-50 text-xs font-semibold text-sky-700 dark:border-sky-400/30 dark:bg-sky-500/15 dark:text-sky-200">
+                            {index + 1}
+                          </span>
+                          <div className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-3 dark:border-white/10">
+                            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                              {step.title}
+                            </p>
+                            <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                              {step.description}
+                            </p>
+                            {step.details?.length ? (
+                              <ul className="mt-2 space-y-1.5 border-l-2 border-sky-100 pl-3 text-xs leading-5 text-neutral-500 dark:border-sky-400/20 dark:text-slate-400">
+                                {step.details.map((detail) => (
+                                  <li key={detail}>{detail}</li>
+                                ))}
+                              </ul>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+
+                  <div className="grid gap-3 lg:grid-cols-2">
+                    {onecliSetupGuide.verification?.length ? (
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-400/20 dark:bg-emerald-500/8">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-100">
+                          <CheckCircle2 className="size-3.5" aria-hidden="true" />
+                          Verify it works
+                        </div>
+                        <ul className="mt-2 space-y-2 text-xs leading-5 text-emerald-900 dark:text-emerald-200">
+                          {onecliSetupGuide.verification.map((item) => (
+                            <li key={item} className="flex gap-2">
+                              <span className="mt-2 size-1 shrink-0 rounded-full bg-emerald-500" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+                    {onecliSetupGuide.troubleshooting?.length ? (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-400/20 dark:bg-amber-500/8">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-amber-950 dark:text-amber-100">
+                          <CircleAlert className="size-3.5" aria-hidden="true" />
+                          Common blockers
+                        </div>
+                        <dl className="mt-2 space-y-2 text-xs leading-5">
+                          {onecliSetupGuide.troubleshooting.map((item) => (
+                            <div key={item.issue}>
+                              <dt className="font-medium text-amber-950 dark:text-amber-100">
+                                {item.issue}
+                              </dt>
+                              <dd className="text-amber-900 dark:text-amber-200">
+                                {item.resolution}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {onecliSetupGuide.resources?.length ? (
+                    <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-4 dark:border-white/8">
+                      <span className="mr-1 text-xs font-medium text-neutral-500 dark:text-slate-400">
+                        Official documentation
+                      </span>
+                      {onecliSetupGuide.resources.map((resource) => (
+                        <a
+                          key={resource.url}
+                          href={resource.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-white/10 dark:bg-white/4 dark:text-slate-200 dark:hover:border-sky-400/30 dark:hover:bg-sky-500/10"
+                        >
+                          {resource.label}
+                          <ExternalLink className="size-3" aria-hidden="true" />
+                        </a>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </details>
+            ) : null}
+
+            {setupSession ? (
               <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/70">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
@@ -3749,194 +4289,245 @@ function PlannedProviderCard({
                       OneCLI setup
                     </p>
                     <p className="mt-1 text-xs text-neutral-500 dark:text-slate-300">
-                      Agency creates the setup session and stores only the resulting OneCLI
-                      credential reference.
+                      Open Agency verifies the matching resource through OneCLI&apos;s metadata API
+                      and stores only its reference plus non-secret metadata.
                     </p>
                   </div>
-                  <Badge
-                    variant={
-                      latestInstallation?.status === 'active'
-                        ? 'successful'
-                        : setupSession
-                          ? 'outline'
-                          : 'outline'
-                    }
-                  >
-                    {latestInstallation
-                      ? formatDisplayLabel(latestInstallation.status)
-                      : setupSession
-                        ? 'Session ready'
-                        : 'Backend-managed'}
-                  </Badge>
-                </div>
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      1. Agency
-                    </p>
-                    <p className="mt-2 text-sm text-neutral-700 dark:text-slate-200">
-                      Creates the installation and device code.
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      2. OneCLI
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">
-                        {onecliTransportModeLabel(onecliTransportMode)}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {setupMinutesRemaining !== null ? (
+                      <Badge variant={setupSessionExpired ? 'destructive' : 'outline'}>
+                        {setupSessionExpired
+                          ? 'Session expired'
+                          : `${setupMinutesRemaining} min remaining`}
                       </Badge>
-                      <p className="text-xs text-neutral-500 dark:text-slate-300">
-                        {onecliTransportMode === 'direct'
-                          ? 'OneCLI should stay out of the request path. Agency mirrors the same secret into a runtime secret record before direct delivery.'
-                          : 'OneCLI can proxy provider traffic for proxy-compatible connectors; direct connectors mirror the same secret into Agency runtime storage before delivery.'}
-                      </p>
-                    </div>
-                    <p className="mt-2 wrap-break-word text-sm text-neutral-700 dark:text-slate-200">
-                      Stores secrets at {onecliStoragePath}.
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
-                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      3. Status
-                    </p>
-                    <p className="mt-2 text-sm text-neutral-700 dark:text-slate-200">
-                      Completion changes this installation to active.
-                    </p>
-                  </div>
-                </div>
-                <div className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                        Copy into OneCLI
-                      </p>
-                      <p className="mt-1 text-xs text-neutral-500 dark:text-slate-300">
-                        In OneCLI, open Connections, Custom, Generic Secret and fill the form with
-                        these values. Secret rows are not copied from Agency; paste those values
-                        from the integration provider.
-                      </p>
-                    </div>
-                    {!setupSession ? (
-                      <Badge variant="outline">Start setup for device code</Badge>
                     ) : null}
-                  </div>
-                  {onecliGenericSecretGuide.notes.length > 0 ? (
-                    <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
-                      <div className="flex items-start gap-2">
-                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" />
-                        <div className="space-y-2">
-                          <p className="font-medium text-amber-950 dark:text-amber-100">
-                            Setup notes
-                          </p>
-                          <ul className="space-y-2">
-                            {onecliGenericSecretGuide.notes.map((note) => (
-                              <li key={note} className="flex gap-2">
-                                <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 dark:bg-amber-300" />
-                                <span>{note}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                  {onecliSetupGuide.options?.length ? (
-                    <div
-                      data-testid={`connector-setup-options-${backendKey}`}
-                      className="mt-3 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-3 dark:border-cyan-400/30 dark:bg-cyan-500/10"
+                    <Badge
+                      variant={latestInstallation?.status === 'active' ? 'successful' : 'outline'}
                     >
-                      <div className="flex items-start gap-2">
-                        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-300" />
-                        <div className="space-y-3">
-                          <div>
-                            <p className="text-xs font-medium text-cyan-950 dark:text-cyan-100">
-                              Connection modes
-                            </p>
-                            <p className="mt-1 text-xs text-cyan-900 dark:text-cyan-200">
-                              This connector supports more than one operator-facing setup path.
-                              Agency should still normalize all successful flows back to the same
-                              backend credential model.
-                            </p>
-                          </div>
-                          <div className="grid gap-2 md:grid-cols-2">
-                            {onecliSetupGuide.options.map((option) => (
-                              <div
-                                key={option.id}
-                                data-testid={`connector-setup-option-${option.id}`}
-                                className="rounded-md border border-cyan-200 bg-white px-3 py-3 dark:border-cyan-400/20 dark:bg-slate-950/75"
-                              >
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                                    {option.name}
-                                  </p>
-                                  <Badge variant="outline" className="text-[11px]">
-                                    {option.authModel}
-                                  </Badge>
-                                </div>
-                                <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
-                                  {option.summary}
-                                </p>
-                                {option.fields.length > 0 ? (
-                                  <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
-                                    Fields: {option.fields.map((field) => field.label).join(', ')}
-                                  </p>
-                                ) : null}
-                                {option.notes?.length ? (
-                                  <ul className="mt-2 space-y-1 text-xs text-neutral-600 dark:text-slate-300">
-                                    {option.notes.map((note) => (
-                                      <li key={note} className="flex gap-2">
-                                        <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500 dark:bg-cyan-300" />
-                                        <span>{note}</span>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                ) : null}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ) : null}
-                  <div className="mt-3 space-y-2">
-                    {onecliCopyRows.map((row) => (
-                      <div
-                        key={row.id}
-                        data-testid={`onecli-copy-row-${row.id}`}
-                        className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/78 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.5fr)_auto]"
-                      >
-                        <div className="min-w-0">
-                          <p className="wrap-break-word font-mono text-xs font-semibold text-neutral-900 dark:text-slate-100">
-                            {row.label}
-                          </p>
-                          <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
-                            {row.description}
-                          </p>
-                        </div>
-                        <p className="min-w-0 break-all rounded border border-neutral-200 bg-white px-2 py-2 font-mono text-xs text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-                          {row.value}
-                        </p>
-                        {row.copyable ? (
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="gap-2"
-                            onClick={() => void copyOneCLIValue(row.label, row.value)}
-                          >
-                            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
-                            Copy
-                          </Button>
-                        ) : (
-                          <Button type="button" variant="outline" size="sm" disabled>
-                            Provider secret
-                          </Button>
-                        )}
-                      </div>
-                    ))}
+                      {latestInstallation
+                        ? formatDisplayLabel(latestInstallation.status)
+                        : 'Session ready'}
+                    </Badge>
                   </div>
                 </div>
+                {setupSession && setupUrl && onecliEmbedIsolated ? (
+                  <section
+                    data-testid={`onecli-embedded-setup-${backendKey}`}
+                    className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm dark:border-sky-400/25 dark:bg-slate-950"
+                    aria-labelledby={`${provider.id}-onecli-embedded-title`}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-sky-100 bg-sky-50/70 px-4 py-3 dark:border-sky-400/15 dark:bg-sky-500/8">
+                      <div>
+                        <p
+                          id={`${provider.id}-onecli-embedded-title`}
+                          className="text-sm font-semibold text-sky-950 dark:text-sky-100"
+                        >
+                          Secure OneCLI workspace
+                        </p>
+                        <p className="mt-1 max-w-3xl text-xs leading-5 text-sky-800 dark:text-sky-200">
+                          Enter provider secrets inside this OneCLI frame. Because OneCLI is a
+                          separate origin, Open Agency cannot read the credential fields or their
+                          values.
+                        </p>
+                      </div>
+                      <Button asChild type="button" variant="outline" size="sm">
+                        <a href={setupUrl} target="_blank" rel="noreferrer">
+                          Open in OneCLI
+                          <ExternalLink className="ml-2 size-3.5" aria-hidden="true" />
+                        </a>
+                      </Button>
+                    </div>
+                    <div className="relative min-h-[32rem] bg-white dark:bg-slate-950">
+                      {!onecliFrameLoaded ? (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/92 px-6 text-center dark:bg-slate-950/92">
+                          <div>
+                            <RefreshCw
+                              className="mx-auto size-5 animate-spin text-sky-600"
+                              aria-hidden="true"
+                            />
+                            <p className="mt-3 text-sm font-medium text-neutral-800 dark:text-slate-100">
+                              Loading OneCLI securely…
+                            </p>
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                              If the workspace does not appear, use Open in OneCLI above.
+                            </p>
+                          </div>
+                        </div>
+                      ) : null}
+                      <iframe
+                        src={setupUrl}
+                        title={`${provider.name} secure setup in OneCLI`}
+                        className="h-[32rem] w-full border-0 bg-white"
+                        sandbox={
+                          effectiveCapability.onecliAppId
+                            ? 'allow-forms allow-scripts allow-same-origin allow-popups allow-popups-to-escape-sandbox'
+                            : 'allow-forms allow-scripts allow-same-origin'
+                        }
+                        allow="clipboard-write"
+                        referrerPolicy="no-referrer"
+                        onLoad={() => setOneCLIFrameLoaded(true)}
+                      />
+                    </div>
+                  </section>
+                ) : setupSession && setupUrl ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+                    <p className="font-medium">OneCLI origin is not trusted</p>
+                    <p className="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-200">
+                      This setup URL does not exactly match the configured, isolated OneCLI origin
+                      or would downgrade an HTTPS page. It is not embedded.
+                    </p>
+                    <Button asChild type="button" variant="outline" size="sm" className="mt-3">
+                      <a
+                        href={buildOneCLIConnectionsUrl(trustedOneCLIAppUrl)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Open configured OneCLI
+                        <ExternalLink className="ml-2 size-3.5" aria-hidden="true" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : null}
+                {!effectiveCapability.onecliAppId ? (
+                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                          Copy into OneCLI
+                        </p>
+                        <p className="mt-1 text-xs text-neutral-500 dark:text-slate-300">
+                          In OneCLI, open Connections, Custom, Generic Secret and fill the form with
+                          these values. Secret rows are not copied from Open Agency; paste those
+                          values from the integration provider.
+                        </p>
+                      </div>
+                      {!setupSession ? (
+                        <Badge variant="outline">Start setup for device code</Badge>
+                      ) : null}
+                    </div>
+                    {onecliGenericSecretGuide.notes.length > 0 ? (
+                      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+                        <div className="flex items-start gap-2">
+                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" />
+                          <div className="space-y-2">
+                            <p className="font-medium text-amber-950 dark:text-amber-100">
+                              Setup notes
+                            </p>
+                            <ul className="space-y-2">
+                              {onecliGenericSecretGuide.notes.map((note) => (
+                                <li key={note} className="flex gap-2">
+                                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 dark:bg-amber-300" />
+                                  <span>{note}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    {onecliSetupGuide.options?.length ? (
+                      <div
+                        data-testid={`connector-setup-options-${backendKey}`}
+                        className="mt-3 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-3 dark:border-cyan-400/30 dark:bg-cyan-500/10"
+                      >
+                        <div className="flex items-start gap-2">
+                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-300" />
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-medium text-cyan-950 dark:text-cyan-100">
+                                Connection modes
+                              </p>
+                              <p className="mt-1 text-xs text-cyan-900 dark:text-cyan-200">
+                                This connector supports more than one operator-facing setup path.
+                                Open Agency should still normalize all successful flows back to the
+                                same backend credential model.
+                              </p>
+                            </div>
+                            <div className="grid gap-2 md:grid-cols-2">
+                              {onecliSetupGuide.options.map((option) => (
+                                <div
+                                  key={option.id}
+                                  data-testid={`connector-setup-option-${option.id}`}
+                                  className="rounded-md border border-cyan-200 bg-white px-3 py-3 dark:border-cyan-400/20 dark:bg-slate-950/75"
+                                >
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                                      {option.name}
+                                    </p>
+                                    <Badge variant="outline" className="text-[11px]">
+                                      {option.authModel}
+                                    </Badge>
+                                  </div>
+                                  <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                                    {option.summary}
+                                  </p>
+                                  {option.fields.length > 0 ? (
+                                    <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                                      Fields: {option.fields.map((field) => field.label).join(', ')}
+                                    </p>
+                                  ) : null}
+                                  {option.notes?.length ? (
+                                    <ul className="mt-2 space-y-1 text-xs text-neutral-600 dark:text-slate-300">
+                                      {option.notes.map((note) => (
+                                        <li key={note} className="flex gap-2">
+                                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500 dark:bg-cyan-300" />
+                                          <span>{note}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  ) : null}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null}
+                    <div className="mt-3 space-y-2">
+                      {onecliCopyRows.map((row) => (
+                        <div
+                          key={row.id}
+                          data-testid={`onecli-copy-row-${row.id}`}
+                          className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/78 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.5fr)_auto]"
+                        >
+                          <div className="min-w-0">
+                            <p className="wrap-break-word font-mono text-xs font-semibold text-neutral-900 dark:text-slate-100">
+                              {row.label}
+                            </p>
+                            <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                              {row.description}
+                            </p>
+                          </div>
+                          <p className="min-w-0 break-all rounded border border-neutral-200 bg-white px-2 py-2 font-mono text-xs text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                            {row.value}
+                          </p>
+                          {row.copyable ? (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="gap-2"
+                              onClick={() => void copyOneCLIValue(row.label, row.value)}
+                            >
+                              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+                              Copy
+                            </Button>
+                          ) : (
+                            <Button type="button" variant="outline" size="sm" disabled>
+                              Provider secret
+                            </Button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/8 dark:text-emerald-200">
+                    Complete the provider&apos;s native connection flow inside OneCLI. Open Agency
+                    will verify a newly connected {effectiveCapability.onecliAppId} account; no
+                    credential fields or manual reference are copied back.
+                  </div>
+                )}
                 {(selectedInstallation ?? latestInstallation) ? (
                   <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-950/78">
                     <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
@@ -4001,359 +4592,266 @@ function PlannedProviderCard({
                         {installationsQuery.isFetching ? 'Refreshing...' : 'Refresh status'}
                       </Button>
                       {(selectedInstallation ?? latestInstallation)?.status === 'active' ? (
-                        <Badge variant="successful">Setup completed in OneCLI</Badge>
+                        <Badge variant="successful">Verified and active</Badge>
                       ) : (
-                        <Badge variant="outline">Waiting for OneCLI completion</Badge>
+                        <Badge variant="outline">Waiting for verification</Badge>
                       )}
                     </div>
                     {completionAvailable ? (
                       <p className="mt-3 text-xs text-neutral-500 dark:text-slate-400">
-                        After creating the matching OneCLI custom secret, complete setup to activate
-                        this installation in Agency.
+                        Finish the prefilled OneCLI flow, then choose Verify and activate. Open
+                        Agency checks the session-specific resource before activation.
                       </p>
                     ) : null}
                   </div>
                 ) : null}
-                {setupSession ? (
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      Setup URL
-                    </label>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Input
-                        aria-label="Setup URL"
-                        value={setupUrl ?? setupSession.setup_url}
-                        readOnly
-                      />
-                      <Button asChild type="button" variant="outline" size="sm">
-                        <a
-                          href={setupUrl ?? setupSession.setup_url}
-                          target="_blank"
-                          rel="noreferrer"
-                        >
-                          Open setup
-                        </a>
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
-                {latestInstallation &&
-                directTransportRequiresRuntimeSecret &&
-                latestInstallation.status !== 'active' ? (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-3 dark:border-amber-400/30 dark:bg-amber-500/10">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-amber-900 dark:text-amber-100">
-                        Runtime secret mirror
-                      </p>
-                      <Badge
-                        variant="outline"
-                        className="border-amber-300 bg-white text-amber-800 dark:border-amber-400/30 dark:bg-white/10 dark:text-amber-200"
-                      >
-                        required for direct mode
-                      </Badge>
-                    </div>
-                    <p className="mt-1 text-xs text-amber-900 dark:text-amber-200">
-                      Paste the same provider secret here so Agency can resolve it directly at
-                      runtime without routing Telegram-style traffic through OneCLI.
-                    </p>
-                    <div className="mt-3 space-y-1">
-                      <label className="text-xs font-medium uppercase tracking-[0.14em] text-amber-900 dark:text-amber-100">
-                        Runtime secret value
-                      </label>
-                      <Input
-                        aria-label="Runtime secret value"
-                        type="password"
-                        value={runtimeSecretValue}
-                        onChange={(event) => setRuntimeSecretValue(event.target.value)}
-                        disabled={saveMutation.isPending || completeInstallationMutation.isPending}
-                      />
-                    </div>
-                  </div>
-                ) : null}
               </div>
-
-              {requiredMetadata.length > 0 ? (
-                <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                    Required metadata
-                  </p>
-                  {requiredMetadata.map((requirement) => (
-                    <div key={requirement.key} className="space-y-1">
-                      <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                        {requirement.key}
-                      </label>
-                      <Input
-                        aria-label={requirement.key}
-                        value={metadataValues[requirement.key] ?? ''}
-                        onChange={(event) =>
-                          setMetadataValues((current) => ({
-                            ...current,
-                            [requirement.key]: event.target.value,
-                          }))
-                        }
-                        disabled={saveMutation.isPending || completeInstallationMutation.isPending}
-                      />
-                      <p className="text-xs text-neutral-500 dark:text-slate-400">
-                        {requirement.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {productionWebhookMetadata.length > 0 ? (
-                <div
-                  className={`space-y-3 rounded-xl border p-4 ${
-                    missingProductionWebhookMetadata
-                      ? 'border-amber-200 bg-amber-50 dark:border-amber-400/30 dark:bg-amber-500/10'
-                      : 'border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/78'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                      Production webhook verification
-                    </p>
-                    {missingProductionWebhookMetadata ? (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-300 bg-white text-amber-800 dark:border-amber-400/30 dark:bg-white/10 dark:text-amber-200"
-                      >
-                        incomplete
-                      </Badge>
-                    ) : (
-                      <Badge variant="successful">ready</Badge>
-                    )}
-                  </div>
-                  {productionWebhookMetadata.map((requirement) => {
-                    const keys = [requirement.key, ...(requirement.alternatives ?? [])];
-                    return (
-                      <div key={requirement.key} className="space-y-2">
-                        <p className="text-xs text-neutral-600 dark:text-slate-300">
-                          {requirement.description}
-                        </p>
-                        <div className="grid gap-2 md:grid-cols-2">
-                          {keys.map((key) => (
-                            <div key={key} className="space-y-1">
-                              <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                                {key}
-                              </label>
-                              <Input
-                                aria-label={key}
-                                value={metadataValues[key] ?? ''}
-                                onChange={(event) =>
-                                  setMetadataValues((current) => ({
-                                    ...current,
-                                    [key]: event.target.value,
-                                  }))
-                                }
-                                disabled={
-                                  saveMutation.isPending || completeInstallationMutation.isPending
-                                }
-                              />
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-
-              {instanceIdentityMetadata.length > 0 ? (
-                <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                    Instance identity
-                  </p>
-                  {instanceIdentityMetadata.map((requirement) => (
-                    <div key={requirement.key} className="space-y-1">
-                      <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                        {requirement.key}
-                      </label>
-                      <Input
-                        aria-label={requirement.key}
-                        value={metadataValues[requirement.key] ?? ''}
-                        onChange={(event) =>
-                          setMetadataValues((current) => ({
-                            ...current,
-                            [requirement.key]: event.target.value,
-                          }))
-                        }
-                        disabled={saveMutation.isPending || completeInstallationMutation.isPending}
-                      />
-                      <p className="text-xs text-neutral-500 dark:text-slate-400">
-                        {requirement.description}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              ) : null}
-
-              {ownershipNotes.length > 0 ? (
-                <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
-                  <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
-                    Capability boundary
-                  </p>
-                  <ul className="space-y-2 text-sm text-sky-900 dark:text-sky-200">
-                    {ownershipNotes.map((note) => (
-                      <li key={note} className="flex gap-2">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-300" />
-                        <span>{note}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
-
-              {saveError ? <p className="text-sm text-red-600">{saveError}</p> : null}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button
-              type="button"
-              className="agency-gradient text-white hover:brightness-105"
-              disabled={
-                completionAvailable
-                  ? completeInstallationMutation.isPending ||
-                    schemaQuery.isLoading ||
-                    missingRequiredMetadata ||
-                    !runtimeSecretValueReady
-                  : saveMutation.isPending ||
-                    schemaQuery.isLoading ||
-                    !name.trim() ||
-                    !canStartSetup ||
-                    missingRequiredMetadata
-              }
-              onClick={() =>
-                completionAvailable ? completeInstallationMutation.mutate() : saveMutation.mutate()
-              }
-            >
-              {completionAvailable
-                ? completeInstallationMutation.isPending
-                  ? 'Completing...'
-                  : 'Complete setup'
-                : saveMutation.isPending
-                  ? isUpdateMode
-                    ? 'Saving...'
-                    : 'Starting...'
-                  : isUpdateMode
-                    ? 'Update credential'
-                    : 'Start OneCLI setup'}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={saveMutation.isPending || completeInstallationMutation.isPending}
-              onClick={() => setIsOpen(false)}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={smartHomePreviewOpen} onOpenChange={setSmartHomePreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Smart Home entity preview</DialogTitle>
-            <DialogDescription>
-              Read-only smoke check against the live home backend route. This validates that Agency
-              can see the connected home and enumerate entities before you rely on ambient-home
-              actions.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-              <div className="space-y-1">
-                <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                  Domain filter
-                </label>
-                <Input
-                  aria-label="Smart Home domain filter"
-                  placeholder="light, sensor, camera, lock"
-                  value={smartHomePreviewDomain}
-                  onChange={(event) => setSmartHomePreviewDomain(event.target.value)}
-                />
-              </div>
-              <div className="flex items-end">
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={smartHomeEntitiesQuery.isFetching}
-                  onClick={() => void smartHomeEntitiesQuery.refetch()}
-                >
-                  {smartHomeEntitiesQuery.isFetching ? 'Refreshing...' : 'Refresh preview'}
-                </Button>
-              </div>
-            </div>
-            {!smartHomeAvailable ? (
-              <ErrorAlert
-                title="Smart Home module unavailable"
-                message={
-                  smartHomeAvailabilityQuery.data?.reason ??
-                  'The paired backend does not expose the Smart Home module right now.'
-                }
-              />
-            ) : smartHomeEntitiesQuery.isLoading ? (
-              <LoadingCard
-                title="Loading entities"
-                description="Requesting the current home entity list from the backend."
-              />
-            ) : smartHomeEntitiesQuery.isError ? (
-              <ErrorAlert
-                title="Smart Home preview failed"
-                message={formatSmartHomePreviewError(smartHomeEntitiesQuery.error)}
-              />
             ) : (
-              <div className="space-y-3">
-                <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3">
-                  <p className="text-sm font-medium text-neutral-900">
-                    {smartHomeEntitiesQuery.data?.count ?? 0} entities returned
-                  </p>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    This comes from `GET /api/smart-home/entities` on the backend, not from the
-                    fallback registry.
-                  </p>
-                </div>
-                <div className="space-y-2">
-                  {(smartHomeEntitiesQuery.data?.items ?? []).slice(0, 20).map((entity) => (
-                    <div
-                      key={entity.entity_id}
-                      className="rounded-lg border border-neutral-200 bg-white px-3 py-3"
-                    >
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <p className="text-sm font-medium text-neutral-900">
-                            {smartHomeEntityFriendlyName(entity)}
-                          </p>
-                          <p className="mt-1 font-mono text-xs text-neutral-500">
-                            {entity.entity_id}
-                          </p>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline">state: {entity.state}</Badge>
-                          {smartHomeEntityAreaName(entity) ? (
-                            <Badge variant="secondary">{smartHomeEntityAreaName(entity)}</Badge>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                {(smartHomeEntitiesQuery.data?.items ?? []).length === 0 ? (
-                  <p className="text-sm text-neutral-500">
-                    No entities matched the current filter.
-                  </p>
-                ) : null}
+              <div className="rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4 dark:border-sky-400/20 dark:bg-sky-500/8">
+                <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
+                  {setupSupported ? 'Ready for the secure OneCLI handoff' : 'Setup is guide-only'}
+                </p>
+                <p className="mt-1 text-xs leading-5 text-sky-800 dark:text-sky-200">
+                  {setupSupported
+                    ? 'Start setup to create a short-lived session. The next step opens the exact OneCLI provider flow and gives you only the non-secret values it needs.'
+                    : effectiveCapability.setupBlockReason ||
+                      'This connector does not yet have a OneCLI resource shape Open Agency can verify safely. Use the guide to prepare, but activation remains disabled.'}
+                </p>
               </div>
             )}
+
+            {requiredMetadata.length > 0 ? (
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                  Required metadata
+                </p>
+                {requiredMetadata.map((requirement) => (
+                  <div key={requirement.key} className="space-y-1">
+                    <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      {requirement.key}
+                    </label>
+                    <Input
+                      aria-label={requirement.key}
+                      value={metadataValues[requirement.key] ?? ''}
+                      onChange={(event) =>
+                        setMetadataValues((current) => ({
+                          ...current,
+                          [requirement.key]: event.target.value,
+                        }))
+                      }
+                      disabled={saveMutation.isPending || completeInstallationMutation.isPending}
+                    />
+                    <p className="text-xs text-neutral-500 dark:text-slate-400">
+                      {requirement.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {productionWebhookMetadata.length > 0 ? (
+              <div
+                className={`space-y-3 rounded-xl border p-4 ${
+                  missingProductionWebhookMetadata
+                    ? 'border-amber-200 bg-amber-50 dark:border-amber-400/30 dark:bg-amber-500/10'
+                    : 'border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/78'
+                }`}
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                    Production webhook verification
+                  </p>
+                  {missingProductionWebhookMetadata ? (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-300 bg-white text-amber-800 dark:border-amber-400/30 dark:bg-white/10 dark:text-amber-200"
+                    >
+                      incomplete
+                    </Badge>
+                  ) : (
+                    <Badge variant="successful">ready</Badge>
+                  )}
+                </div>
+                {productionWebhookMetadata.map((requirement) => (
+                  <div key={requirement.key} className="space-y-2">
+                    <p className="text-xs text-neutral-600 dark:text-slate-300">
+                      {requirement.description}
+                    </p>
+                    <div className="space-y-1">
+                      <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                        {requirement.key}
+                      </label>
+                      <Input
+                        aria-label={requirement.key}
+                        value={metadataValues[requirement.key] ?? ''}
+                        onChange={(event) =>
+                          setMetadataValues((current) => ({
+                            ...current,
+                            [requirement.key]: event.target.value,
+                          }))
+                        }
+                        disabled={saveMutation.isPending || completeInstallationMutation.isPending}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {instanceIdentityMetadata.length > 0 ? (
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                  Instance identity
+                </p>
+                {instanceIdentityMetadata.map((requirement) => (
+                  <div key={requirement.key} className="space-y-1">
+                    <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      {requirement.key}
+                    </label>
+                    <Input
+                      aria-label={requirement.key}
+                      value={metadataValues[requirement.key] ?? ''}
+                      onChange={(event) =>
+                        setMetadataValues((current) => ({
+                          ...current,
+                          [requirement.key]: event.target.value,
+                        }))
+                      }
+                      disabled={saveMutation.isPending || completeInstallationMutation.isPending}
+                    />
+                    <p className="text-xs text-neutral-500 dark:text-slate-400">
+                      {requirement.description}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {ownershipNotes.length > 0 ? (
+              <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
+                <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
+                  Capability boundary
+                </p>
+                <ul className="space-y-2 text-sm text-sky-900 dark:text-sky-200">
+                  {ownershipNotes.map((note) => (
+                    <li key={note} className="flex gap-2">
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-300" />
+                      <span>{note}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {missingRequiredMetadata ? (
+              <FieldFeedback error="Complete every required field before continuing." />
+            ) : null}
+            {saveError ? <FieldFeedback error={saveError} /> : null}
           </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setSmartHomePreviewOpen(false)}>
-              Close
+        )}
+      </AppDialog>
+      <AppDialog
+        open={smartHomePreviewOpen}
+        onOpenChange={setSmartHomePreviewOpen}
+        busy={smartHomeEntitiesQuery.isFetching}
+        size="md"
+        icon={<PlugZap className="size-4" aria-hidden="true" />}
+        title="Smart Home entity preview"
+        description="Run a read-only smoke check against the live home backend before relying on ambient-home actions."
+        bodyClassName="flex flex-col gap-4"
+        footer={
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={smartHomeEntitiesQuery.isFetching}>
+              Close preview
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DialogClose>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+            <div className="space-y-1">
+              <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
+                Domain filter
+              </label>
+              <Input
+                aria-label="Smart Home domain filter"
+                placeholder="light, sensor, camera, lock"
+                value={smartHomePreviewDomain}
+                onChange={(event) => setSmartHomePreviewDomain(event.target.value)}
+              />
+            </div>
+            <div className="flex items-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={smartHomeEntitiesQuery.isFetching}
+                onClick={() => void smartHomeEntitiesQuery.refetch()}
+              >
+                {smartHomeEntitiesQuery.isFetching ? 'Refreshing...' : 'Refresh preview'}
+              </Button>
+            </div>
+          </div>
+          {!smartHomeAvailable ? (
+            <ErrorAlert
+              title="Smart Home module unavailable"
+              message={
+                smartHomeAvailabilityQuery.data?.reason ??
+                'The paired backend does not expose the Smart Home module right now.'
+              }
+            />
+          ) : smartHomeEntitiesQuery.isLoading ? (
+            <LoadingCard
+              title="Loading entities"
+              description="Requesting the current home entity list from the backend."
+            />
+          ) : smartHomeEntitiesQuery.isError ? (
+            <ErrorAlert
+              title="Smart Home preview failed"
+              message={formatSmartHomePreviewError(smartHomeEntitiesQuery.error)}
+            />
+          ) : (
+            <div className="space-y-3">
+              <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-3">
+                <p className="text-sm font-medium text-neutral-900">
+                  {smartHomeEntitiesQuery.data?.count ?? 0} entities returned
+                </p>
+                <p className="mt-1 text-xs text-neutral-500">
+                  This comes from `GET /api/smart-home/entities` on the backend, not from the
+                  fallback registry.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {(smartHomeEntitiesQuery.data?.items ?? []).slice(0, 20).map((entity) => (
+                  <div
+                    key={entity.entity_id}
+                    className="rounded-lg border border-neutral-200 bg-white px-3 py-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-neutral-900">
+                          {smartHomeEntityFriendlyName(entity)}
+                        </p>
+                        <p className="mt-1 font-mono text-xs text-neutral-500">
+                          {entity.entity_id}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">state: {entity.state}</Badge>
+                        {smartHomeEntityAreaName(entity) ? (
+                          <Badge variant="secondary">{smartHomeEntityAreaName(entity)}</Badge>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {(smartHomeEntitiesQuery.data?.items ?? []).length === 0 ? (
+                <p className="text-sm text-neutral-500">No entities matched the current filter.</p>
+              ) : null}
+            </div>
+          )}
+        </div>
+      </AppDialog>
     </>
   );
 }
@@ -4366,7 +4864,6 @@ function PlannedCategoryPanel({
   selectedConnectorId,
   selectedConnectorAction,
   onSelectConnector,
-  onecliUserNamespace,
   connectorCapabilitiesByBackendKey,
 }: {
   category: IntegrationCategory;
@@ -4375,7 +4872,6 @@ function PlannedCategoryPanel({
   latestHistoryByCredentialId: Map<string, ConnectorHealthHistoryPayload['items'][number]>;
   selectedConnectorId: string | null;
   onSelectConnector: (connectorId: string | null) => void;
-  onecliUserNamespace: string;
   connectorCapabilitiesByBackendKey: Record<string, ConnectorCapabilityDefinition>;
   selectedConnectorAction?: string | null;
 }) {
@@ -4389,6 +4885,16 @@ function PlannedCategoryPanel({
   const configuredCount = category.providers.filter(
     (provider) => provider.status === 'configured'
   ).length;
+  const setupReadyCount = category.providers.filter((provider) => {
+    const backendKey = (provider.raw as PlannedIntegrationState | undefined)?.backendKey ?? '';
+    const capability =
+      connectorCapabilitiesByBackendKey[backendKey] ?? FALLBACK_CONNECTOR_METADATA[backendKey];
+    return (
+      capability?.setupSupported ??
+      Boolean(capability?.onecliAppId || capability?.onecliSecretProfile)
+    );
+  }).length;
+  const guideOnlyCount = category.providers.length - setupReadyCount;
   const mappedCredentialIds = category.providers
     .flatMap(
       (provider) =>
@@ -4524,58 +5030,61 @@ function PlannedCategoryPanel({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Badge variant="secondary">{category.providers.length} setup-ready</Badge>
+          <Badge variant="secondary">{setupReadyCount} setup-ready</Badge>
+          {guideOnlyCount > 0 ? <Badge variant="outline">{guideOnlyCount} guide-only</Badge> : null}
           <Badge variant="outline">{configuredCount} credential-backed</Badge>
         </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <CategorySummaryTile label="Directory" value={category.providers.length} tone="primary" />
-        <CategorySummaryTile label="Credential-backed" value={configuredCount} tone="success" />
-        <CategorySummaryTile label="Need setup" value={needsSetupCount} tone="warning" />
-        <CategorySummaryTile label="Visible" value={totalItems} />
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {[
-          { key: 'all', label: 'All', count: category.providers.length },
-          { key: 'needs-setup', label: 'Need Setup', count: needsSetupCount },
-          { key: 'healthy', label: 'Healthy', count: healthyCount },
-          { key: 'failing', label: 'Failing', count: failingCount },
-          { key: 'never-tested', label: 'Not Tested', count: neverTestedCount },
-        ].map((filter) => (
-          <Button
-            key={filter.key}
-            type="button"
-            data-testid={`planned-filter-${category.id}-${filter.key}`}
-            variant={activeFilter === filter.key ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => {
-              const nextFilter = filter.key as PlannedProviderFilter;
-              setActiveFilter(nextFilter);
-              persistPlannedCategoryFilter(category.id, nextFilter);
-              updatePage(1);
-            }}
-            className={
-              activeFilter === filter.key ? 'agency-gradient text-white hover:brightness-105' : ''
-            }
-          >
-            {filter.label} ({filter.count})
-          </Button>
-        ))}
-      </div>
-
-      <div className="space-y-4 rounded-[28px] border border-neutral-200 bg-linear-to-br from-white via-neutral-50 to-primary-50/30 p-4 shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(56,189,248,0.18),transparent_35%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.76))] dark:shadow-none">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Input
-            value={searchQuery}
-            onChange={(event) => updateSearch(event.target.value)}
-            placeholder={`Search ${category.name.toLowerCase()} connectors`}
-            className="max-w-md border-neutral-200 bg-white/95 dark:border-white/10 dark:bg-slate-950/70"
-          />
-          <p className="text-sm text-neutral-500 dark:text-slate-300">
+      <section
+        aria-label={`${category.name} connector filters`}
+        className="space-y-3 rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel) p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]"
+      >
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <label className="relative block w-full lg:max-w-md">
+            <span className="sr-only">Search {category.name.toLowerCase()} connectors</span>
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(event) => updateSearch(event.target.value)}
+              placeholder={`Search ${category.name.toLowerCase()} connectors`}
+              className="pl-9"
+            />
+          </label>
+          <p className="shrink-0 text-sm text-(--agency-shell-muted)" aria-live="polite">
             {paginationSummaryLabel(totalItems, visibleSectionItemCount, firstVisibleIndex + 1)}
           </p>
+        </div>
+        <div className="flex flex-wrap gap-2" aria-label="Connector readiness">
+          {[
+            { key: 'all', label: 'All', count: category.providers.length },
+            { key: 'needs-setup', label: 'Need setup', count: needsSetupCount },
+            { key: 'healthy', label: 'Healthy', count: healthyCount },
+            { key: 'failing', label: 'Failing', count: failingCount },
+            { key: 'never-tested', label: 'Not tested', count: neverTestedCount },
+          ].map((filter) => (
+            <Button
+              key={filter.key}
+              type="button"
+              data-testid={`planned-filter-${category.id}-${filter.key}`}
+              variant={activeFilter === filter.key ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => {
+                const nextFilter = filter.key as PlannedProviderFilter;
+                setActiveFilter(nextFilter);
+                persistPlannedCategoryFilter(category.id, nextFilter);
+                updatePage(1);
+              }}
+              className={
+                activeFilter === filter.key ? 'agency-gradient text-white hover:brightness-105' : ''
+              }
+            >
+              {filter.label} ({filter.count})
+            </Button>
+          ))}
         </div>
         <SectionJumpChips
           sections={sectionJumpItems}
@@ -4584,7 +5093,7 @@ function PlannedCategoryPanel({
             setPendingSectionId(sectionId);
           }}
         />
-      </div>
+      </section>
 
       <div className="space-y-6">
         {providerSections.map((section) => (
@@ -4594,7 +5103,7 @@ function PlannedCategoryPanel({
             className="scroll-mt-24 space-y-3"
           >
             {section.name ? (
-              <div className="rounded-2xl border border-neutral-200 bg-white/90 p-4 shadow-sm dark:border-white/10 dark:bg-white/4 dark:shadow-none">
+              <div className="border-b border-(--agency-shell-border) px-1 pb-3">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h3 className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
@@ -4604,7 +5113,7 @@ function PlannedCategoryPanel({
                       {communicationsSectionDescription(section.name)}
                     </p>
                   </div>
-                  <Badge variant="outline">
+                  <Badge variant="outline" className="gap-1">
                     {section.providers.length} connector{section.providers.length === 1 ? '' : 's'}
                   </Badge>
                 </div>
@@ -4630,7 +5139,6 @@ function PlannedCategoryPanel({
                   isSelected={provider.id === selectedConnectorId}
                   onSelect={onSelectConnector}
                   readinessState={readinessState}
-                  onecliUserNamespace={onecliUserNamespace}
                   autoOpenSetup={
                     provider.id === selectedConnectorId && selectedConnectorAction === 'start-setup'
                   }
@@ -5060,7 +5568,6 @@ function CategoryPanel({
   latestHistoryByCredentialId,
   selectedConnectorId,
   onSelectConnector,
-  onecliUserNamespace,
   connectorCapabilitiesByBackendKey,
   selectedConnectorAction,
 }: {
@@ -5070,7 +5577,6 @@ function CategoryPanel({
   latestHistoryByCredentialId: Map<string, ConnectorHealthHistoryPayload['items'][number]>;
   selectedConnectorId: string | null;
   onSelectConnector: (connectorId: string | null) => void;
-  onecliUserNamespace: string;
   connectorCapabilitiesByBackendKey: Record<string, ConnectorCapabilityDefinition>;
   selectedConnectorAction?: string | null;
 }) {
@@ -5087,7 +5593,6 @@ function CategoryPanel({
         latestHistoryByCredentialId={latestHistoryByCredentialId}
         selectedConnectorId={selectedConnectorId}
         onSelectConnector={onSelectConnector}
-        onecliUserNamespace={onecliUserNamespace}
         connectorCapabilitiesByBackendKey={connectorCapabilitiesByBackendKey}
         selectedConnectorAction={selectedConnectorAction}
       />
@@ -5369,6 +5874,7 @@ function SupportedCategoryPanel({
 }
 
 function OperationsPanel({
+  showSummary = true,
   aggregateHistoryQuery,
   mappedCredentialIds,
   healthyConnectorCount,
@@ -5387,6 +5893,7 @@ function OperationsPanel({
   credentialProviderById,
   categoryNameById,
 }: {
+  showSummary?: boolean;
   aggregateHistoryQuery: ReturnType<typeof useQuery<ConnectorHealthHistoryPayload>>;
   mappedCredentialIds: string[];
   healthyConnectorCount: number;
@@ -5435,67 +5942,79 @@ function OperationsPanel({
   };
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-            Connector operations
-          </h2>
-          <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-            Latest backend health state across configured OneCLI setup connectors.
-          </p>
-        </div>
-        {aggregateHistoryQuery.isLoading || aggregateHistoryQuery.isFetching ? (
-          <Badge variant="outline">Refreshing…</Badge>
-        ) : null}
-      </div>
-      <div className="mt-4 grid gap-3 md:grid-cols-4">
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-            Credential-backed
-          </p>
-          <p
-            data-testid="operations-credential-backed-count"
-            className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-slate-100"
-          >
-            {mappedCredentialIds.length}
-          </p>
-        </div>
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700">
-            Healthy
-          </p>
-          <p
-            data-testid="operations-healthy-count"
-            className="mt-2 text-2xl font-semibold text-emerald-900"
-          >
-            {healthyConnectorCount}
-          </p>
-        </div>
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-red-700">Failing</p>
-          <p
-            data-testid="operations-failing-count"
-            className="mt-2 text-2xl font-semibold text-red-900"
-          >
-            {failingConnectorCount}
-          </p>
-        </div>
-        <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-            Never tested
-          </p>
-          <p
-            data-testid="operations-never-tested-count"
-            className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-slate-100"
-          >
-            {neverTestedConnectorCount}
-          </p>
-        </div>
-      </div>
+    <div
+      className={cn(
+        showSummary
+          ? 'rounded-2xl border border-neutral-200 bg-white px-5 py-5 dark:border-white/10 dark:bg-white/5'
+          : 'bg-transparent'
+      )}
+    >
+      {showSummary ? (
+        <>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                Connector operations
+              </h2>
+              <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                Latest backend health state across configured OneCLI setup connectors.
+              </p>
+            </div>
+            {aggregateHistoryQuery.isLoading || aggregateHistoryQuery.isFetching ? (
+              <Badge variant="outline">Refreshing…</Badge>
+            ) : null}
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                Credential-backed
+              </p>
+              <p
+                data-testid="operations-credential-backed-count"
+                className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-slate-100"
+              >
+                {mappedCredentialIds.length}
+              </p>
+            </div>
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-500/10">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-200">
+                Healthy
+              </p>
+              <p
+                data-testid="operations-healthy-count"
+                className="mt-2 text-2xl font-semibold text-emerald-900 dark:text-emerald-100"
+              >
+                {healthyConnectorCount}
+              </p>
+            </div>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-300/20 dark:bg-red-500/10">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-red-700 dark:text-red-200">
+                Failing
+              </p>
+              <p
+                data-testid="operations-failing-count"
+                className="mt-2 text-2xl font-semibold text-red-900 dark:text-red-100"
+              >
+                {failingConnectorCount}
+              </p>
+            </div>
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                Never tested
+              </p>
+              <p
+                data-testid="operations-never-tested-count"
+                className="mt-2 text-2xl font-semibold text-neutral-900 dark:text-slate-100"
+              >
+                {neverTestedConnectorCount}
+              </p>
+            </div>
+          </div>
+        </>
+      ) : null}
 
-      <div className="mt-5">
-        <div className="flex items-start justify-between gap-3">
+      <div className={showSummary ? 'mt-5' : undefined}>
+        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row">
           <div>
             <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
               Recent connector runs
@@ -5567,7 +6086,7 @@ function OperationsPanel({
                 <div
                   key={`${provider?.id ?? item.credentialId}-${item.latestItem?.executionId ?? 'never-tested'}`}
                   data-testid={`operations-row-${item.credentialId}`}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5"
+                  className="flex flex-col items-start justify-between gap-3 rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 sm:flex-row sm:items-center dark:border-white/10 dark:bg-white/5"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -5620,7 +6139,7 @@ function OperationsPanel({
                       </div>
                     ) : null}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                     <Badge
                       variant={
                         item.state === 'healthy'
@@ -5704,13 +6223,20 @@ function OperationsPanel({
 
 export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full' | 'operations' }) {
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
   const searchParams = useSearchParams();
   const integrationTabSearchParam = searchParams.get('integration-tab');
   const integrationConnectorSearchParam = searchParams.get('integration-connector');
   const integrationConnectorActionSearchParam = searchParams.get('connector-action');
   const operationsFilterSearchParam = searchParams.get('operations-filter');
-  const onecliUserNamespace = session?.user?.id ?? ONECLI_AGENCY_USER_PLACEHOLDER;
+  const onecliAppUrl = useSyncExternalStore(
+    subscribeToStaticBrowserLocation,
+    getOneCLIAppUrl,
+    getServerOneCLIAppUrl
+  );
+  const onecliConnectionsUrl = useMemo(
+    () => buildOneCLIConnectionsUrl(onecliAppUrl),
+    [onecliAppUrl]
+  );
   const integrationsQuery = useQuery({
     queryKey: queryKeys.backendIntegrations(),
     queryFn: (): Promise<IntegrationCatalogPayload> => integrationsApi.listCategories(),
@@ -6165,8 +6691,9 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
     );
   }
 
-  const operationsPanel = (
+  const renderOperationsPanel = (showSummary = true) => (
     <OperationsPanel
+      showSummary={showSummary}
       aggregateHistoryQuery={aggregateHistoryQuery}
       mappedCredentialIds={mappedCredentialIds}
       healthyConnectorCount={healthyConnectorCount}
@@ -6198,6 +6725,12 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
           actions={
             <>
               <Button type="button" variant="outline" asChild>
+                <a href={onecliConnectionsUrl} target="_blank" rel="noreferrer">
+                  <ExternalLink className="mr-2 size-4" aria-hidden="true" />
+                  Open OneCLI
+                </a>
+              </Button>
+              <Button type="button" variant="outline" asChild>
                 <Link href="/integrations">Back to integrations</Link>
               </Button>
               <Button
@@ -6214,7 +6747,7 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
             </>
           }
         />
-        {operationsPanel}
+        {renderOperationsPanel()}
       </div>
     );
   }
@@ -6228,6 +6761,12 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
         description="Connect the models and services your workflows need. Choose an item to set it up and test it."
         actions={
           <>
+            <Button type="button" variant="outline" asChild>
+              <a href={onecliConnectionsUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="mr-2 size-4" aria-hidden="true" />
+                Open OneCLI
+              </a>
+            </Button>
             {failingConnectorCount > 0 ? (
               <Button type="button" variant="outline" asChild>
                 <Link href="/integrations?operations-filter=failing">
@@ -6250,7 +6789,69 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
         }
       />
 
-      {mappedCredentialIds.length > 0 ? operationsPanel : null}
+      {mappedCredentialIds.length > 0 ? (
+        <Accordion
+          type="single"
+          collapsible
+          defaultValue={failingConnectorCount > 0 ? 'connector-health' : undefined}
+          className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none"
+        >
+          <AccordionItem value="connector-health" className="border-0">
+            <AccordionTrigger className="px-4 py-3.5 text-left hover:no-underline sm:px-5">
+              <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                    <Activity className="size-4" aria-hidden="true" />
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold text-neutral-950 dark:text-slate-50">
+                      Connector health
+                    </p>
+                    <p className="mt-0.5 text-xs font-normal text-neutral-500 dark:text-slate-400">
+                      Review saved connector tests and rerun checks when needed.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 pr-1">
+                  <Badge variant="outline" className="gap-1">
+                    <span data-testid="operations-credential-backed-count">
+                      {mappedCredentialIds.length}
+                    </span>{' '}
+                    configured
+                  </Badge>
+                  <Badge variant="successful" className="gap-1">
+                    <span data-testid="operations-healthy-count">{healthyConnectorCount}</span>{' '}
+                    healthy
+                  </Badge>
+                  <Badge
+                    variant={failingConnectorCount > 0 ? 'failed' : 'outline'}
+                    className="gap-1"
+                  >
+                    <span data-testid="operations-failing-count">{failingConnectorCount}</span>{' '}
+                    failing
+                  </Badge>
+                  <Badge variant="outline" className="gap-1">
+                    <span data-testid="operations-never-tested-count">
+                      {neverTestedConnectorCount}
+                    </span>{' '}
+                    untested
+                  </Badge>
+                  {aggregateHistoryQuery.isLoading || aggregateHistoryQuery.isFetching ? (
+                    <Badge variant="secondary">Refreshing…</Badge>
+                  ) : null}
+                </div>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent
+              forceMount
+              contentClassName="data-[state=closed]:hidden"
+              className="border-t border-neutral-200 px-4 pt-4 sm:px-5 dark:border-white/10"
+            >
+              {renderOperationsPanel(false)}
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+      ) : null}
 
       <Tabs
         value={resolvedActiveTab}
@@ -6262,12 +6863,12 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
         }}
         className="space-y-4"
       >
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-2 rounded-[28px] border border-neutral-200 bg-linear-to-r from-white via-neutral-50 to-primary-50/35 p-2 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.86),rgba(15,23,42,0.72))] dark:shadow-none">
+        <TabsList className="h-auto w-full flex-nowrap justify-start gap-1 overflow-x-auto rounded-xl border border-neutral-200 bg-white p-1.5 shadow-sm lg:flex-wrap lg:overflow-visible dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
           {categories.map((category) => (
             <TabsTrigger
               key={category.id}
               value={category.id}
-              className="gap-2 rounded-2xl border border-transparent px-4 py-2.5 text-neutral-700 transition data-[state=active]:border-primary-200 data-[state=active]:bg-white data-[state=active]:text-neutral-950 data-[state=active]:shadow-sm dark:text-slate-300 dark:data-[state=active]:border-sky-400/30 dark:data-[state=active]:bg-white/10 dark:data-[state=active]:text-white dark:data-[state=active]:shadow-none"
+              className="shrink-0 gap-2 rounded-lg border border-transparent px-3.5 py-2 text-neutral-700 transition data-[state=active]:border-primary-200 data-[state=active]:bg-primary-50 data-[state=active]:text-neutral-950 data-[state=active]:shadow-none dark:text-slate-300 dark:data-[state=active]:border-sky-400/25 dark:data-[state=active]:bg-white/8 dark:data-[state=active]:text-white"
               onClick={() => {
                 setActiveTab(writeIntegrationTabParam(category.id));
                 if (categoryForSelectedConnector && categoryForSelectedConnector !== category.id) {
@@ -6293,7 +6894,6 @@ export default function IntegrationsWorkspace({ mode = 'full' }: { mode?: 'full'
               onSelectConnector={(connectorId) =>
                 setSelectedConnectorId(writeIntegrationConnectorParam(connectorId))
               }
-              onecliUserNamespace={onecliUserNamespace}
               connectorCapabilitiesByBackendKey={connectorCapabilitiesByBackendKey}
               selectedConnectorAction={selectedConnectorAction}
             />

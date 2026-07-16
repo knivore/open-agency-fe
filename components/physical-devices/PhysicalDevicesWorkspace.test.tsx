@@ -225,7 +225,7 @@ describe('PhysicalDevicesWorkspace', () => {
 
     expect(await screen.findByText('Physical-World Module Not Paired')).toBeInTheDocument();
     expect(screen.getByText('Module unavailable')).toBeInTheDocument();
-    expect(screen.getByText(/Other Agency pages and tools remain usable/)).toBeInTheDocument();
+    expect(screen.getByText(/Other Open Agency pages and tools remain usable/)).toBeInTheDocument();
   });
 
   it('does not call physical-devices routes when capabilities say the module is unavailable', async () => {
@@ -238,7 +238,9 @@ describe('PhysicalDevicesWorkspace', () => {
     renderWorkspace();
 
     expect(await screen.findByText('Physical-World Module Not Paired')).toBeInTheDocument();
-    expect(screen.getByText('Physical Devices module package is not installed.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Physical Devices module package is not installed.')
+    ).toBeInTheDocument();
     expect(physicalDevicesApi.listDevices).not.toHaveBeenCalled();
     expect(physicalDevicesApi.getAudit).not.toHaveBeenCalled();
     expect(physicalDevicesApi.getEventBusHealth).not.toHaveBeenCalled();

@@ -23,7 +23,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ process
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        const response = await executionsApi.streamExecutionEvents(processId, 0, user, getInternalApiKey());
+        const response = await executionsApi.streamExecutionEvents(
+          processId,
+          0,
+          user,
+          getInternalApiKey()
+        );
 
         if (!response.body) {
           throw new Error('No response body from backend');

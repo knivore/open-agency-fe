@@ -3,16 +3,20 @@
 import { type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bot,
+  ChevronLeft,
+  ChevronRight,
   Database,
   FileText,
   GitBranch,
   Hammer,
   ListChecks,
+  Map as MapIcon,
   Maximize2,
   Minimize2,
   Play,
   RotateCcw,
   Route,
+  SlidersHorizontal,
   ShieldCheck,
   Trash2,
   X,
@@ -30,6 +34,7 @@ import type {
   GraphEdge,
   GraphSelection,
   GraphNode,
+  GraphPosition,
   GraphRuntimeEvent,
   GraphToolbarAction,
 } from '@/modules/react-flow-graph/types';
@@ -72,6 +77,15 @@ import type { WorkflowCapabilityTag, WorkflowDefinition } from '@/types/workflow
 import type { ToolDefinition } from '@/types/tools';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/library/shadcn/badge';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/library/shadcn/dropdown-menu';
+import { Button } from '@/components/library/shadcn/button';
 import WorkflowGraphInspector from '@/components/workflow/WorkflowGraphInspector';
 import WorkflowGraphToolbar from '@/components/workflow/WorkflowGraphToolbar';
 import { toast } from 'sonner';
@@ -83,6 +97,302 @@ const denseWorkflowEdgeLabelThreshold = 12;
 const workflowGraphDensityStorageKeyPrefix = 'agency.workflowGraphDensity';
 
 type WorkflowGraphDensity = 'clean' | 'detailed';
+type WorkflowRelationshipKind =
+  | 'execution'
+  | 'agents'
+  | 'tools'
+  | 'memory'
+  | 'approvals'
+  | 'failureRoutes';
+
+const workflowRelationshipOptions: Array<{
+  kind: WorkflowRelationshipKind;
+  label: string;
+  description: string;
+}> = [
+  { kind: 'execution', label: 'Execution', description: 'Task dependencies and data flow' },
+  { kind: 'agents', label: 'Agents', description: 'Agent assignments' },
+  { kind: 'tools', label: 'Tools', description: 'Tool access' },
+  { kind: 'memory', label: 'Memory', description: 'Memory access' },
+  { kind: 'approvals', label: 'Approvals', description: 'Human approval gates' },
+  { kind: 'failureRoutes', label: 'Failure routes', description: 'Conditional and failure paths' },
+];
+
+function workflowRelationshipKind(edge: GraphEdge): WorkflowRelationshipKind {
+  const edgeType = readEdgeDataString(edge, 'edgeType');
+
+  if (edge.type === workflowGraphEdgeTypes.assignment) return 'agents';
+  if (edge.type === workflowGraphEdgeTypes.tool) return 'tools';
+  if (edge.type === workflowGraphEdgeTypes.memory) return 'memory';
+  if (edge.type === workflowGraphEdgeTypes.approval) return 'approvals';
+  if (
+    edge.type === workflowGraphEdgeTypes.condition ||
+    edgeType === 'conditional' ||
+    edgeType === 'failure'
+  ) {
+    return 'failureRoutes';
+  }
+
+  return 'execution';
+}
+
+function WorkflowGraphLaneBackdrop({
+  document,
+  density,
+}: {
+  document: GraphDocument;
+  density: WorkflowGraphDensity;
+}) {
+  const estimatedCardWidth = density === 'detailed' ? 448 : 320;
+  const estimatedCardHeight = density === 'detailed' ? 340 : 220;
+  const laneDefinitions = [
+    {
+      id: 'tools',
+      label: 'Tools',
+      hint: 'Capabilities available to agents',
+      nodeTypes: new Set<string>([workflowGraphNodeTypes.tool]),
+      className:
+        'border-violet-300/45 bg-violet-100/28 text-violet-800 dark:border-violet-300/18 dark:bg-violet-400/4 dark:text-violet-200',
+    },
+    {
+      id: 'agents',
+      label: 'Agents',
+      hint: 'Runtime owners and orchestrators',
+      nodeTypes: new Set<string>([workflowGraphNodeTypes.agent]),
+      className:
+        'border-cyan-300/45 bg-cyan-100/24 text-cyan-800 dark:border-cyan-300/18 dark:bg-cyan-400/4 dark:text-cyan-200',
+    },
+    {
+      id: 'execution',
+      label: 'Execution',
+      hint: 'Tasks, decisions, approvals, and outputs',
+      nodeTypes: new Set<string>([
+        workflowGraphNodeTypes.task,
+        workflowGraphNodeTypes.router,
+        workflowGraphNodeTypes.approval,
+        workflowGraphNodeTypes.artifact,
+      ]),
+      className:
+        'border-amber-300/45 bg-amber-100/22 text-amber-800 dark:border-amber-300/18 dark:bg-amber-400/4 dark:text-amber-200',
+    },
+    {
+      id: 'resources',
+      label: 'Resources',
+      hint: 'Memory and supporting workflow context',
+      nodeTypes: new Set<string>([workflowGraphNodeTypes.memory]),
+      className:
+        'border-teal-300/45 bg-teal-100/22 text-teal-800 dark:border-teal-300/18 dark:bg-teal-400/4 dark:text-teal-200',
+    },
+  ];
+
+  return (
+    <div className="pointer-events-none absolute inset-0 -z-10" aria-hidden="true">
+      {laneDefinitions.map((lane) => {
+        const nodes = document.nodes.filter(
+          (node) => lane.nodeTypes.has(node.type) && node.position
+        );
+        if (nodes.length === 0) return null;
+
+        const minX = Math.min(...nodes.map((node) => node.position?.x ?? 0)) - 48;
+        const maxX = Math.max(...nodes.map((node) => node.position?.x ?? 0));
+        const minY = Math.min(...nodes.map((node) => node.position?.y ?? 0)) - 54;
+        const maxY = Math.max(...nodes.map((node) => node.position?.y ?? 0));
+
+        return (
+          <div
+            key={lane.id}
+            className={cn('absolute rounded-[28px] border border-dashed', lane.className)}
+            style={{
+              left: minX,
+              top: minY,
+              width: Math.max(1120, maxX - minX + estimatedCardWidth + 96),
+              height: maxY - minY + estimatedCardHeight + 96,
+            }}
+          >
+            <div className="absolute left-5 top-4 flex items-baseline gap-2">
+              <span className="text-sm font-bold tracking-tight">{lane.label}</span>
+              <span className="text-[11px] font-medium opacity-65">{lane.hint}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function layoutWorkflowExecutionPath<TDocument extends GraphDocument>(
+  document: TDocument,
+  density: WorkflowGraphDensity = 'clean'
+): TDocument {
+  const executionNodeTypes = new Set<string>([
+    workflowGraphNodeTypes.task,
+    workflowGraphNodeTypes.router,
+    workflowGraphNodeTypes.approval,
+    workflowGraphNodeTypes.artifact,
+  ]);
+  const executionNodes = document.nodes.filter((node) => executionNodeTypes.has(node.type));
+  const executionNodeIds = new Set(executionNodes.map((node) => node.id));
+  const agentNodes = document.nodes.filter((node) => node.type === workflowGraphNodeTypes.agent);
+  const toolNodes = document.nodes.filter((node) => node.type === workflowGraphNodeTypes.tool);
+  const resourceNodes = document.nodes.filter(
+    (node) =>
+      !executionNodeTypes.has(node.type) &&
+      node.type !== workflowGraphNodeTypes.agent &&
+      node.type !== workflowGraphNodeTypes.tool
+  );
+  const incomingCount = new Map(executionNodes.map((node) => [node.id, 0]));
+  const outgoing = new Map(executionNodes.map((node) => [node.id, [] as string[]]));
+  const levels = new Map(executionNodes.map((node) => [node.id, 0]));
+
+  document.edges.forEach((edge) => {
+    if (!executionNodeIds.has(edge.source) || !executionNodeIds.has(edge.target)) {
+      return;
+    }
+    outgoing.get(edge.source)?.push(edge.target);
+    incomingCount.set(edge.target, (incomingCount.get(edge.target) ?? 0) + 1);
+  });
+
+  const queue = executionNodes
+    .filter((node) => (incomingCount.get(node.id) ?? 0) === 0)
+    .map((node) => node.id);
+  const visited = new Set<string>();
+
+  while (queue.length > 0) {
+    const nodeId = queue.shift();
+    if (!nodeId || visited.has(nodeId)) {
+      continue;
+    }
+    visited.add(nodeId);
+    const nextLevel = (levels.get(nodeId) ?? 0) + 1;
+
+    outgoing.get(nodeId)?.forEach((targetId) => {
+      levels.set(targetId, Math.max(levels.get(targetId) ?? 0, nextLevel));
+      const nextIncomingCount = (incomingCount.get(targetId) ?? 1) - 1;
+      incomingCount.set(targetId, nextIncomingCount);
+      if (nextIncomingCount === 0) {
+        queue.push(targetId);
+      }
+    });
+  }
+
+  const highestResolvedLevel = Math.max(0, ...levels.values());
+  executionNodes.forEach((node, index) => {
+    if (!visited.has(node.id)) {
+      levels.set(node.id, highestResolvedLevel + 1 + index);
+    }
+  });
+
+  const nodesByLevel = new Map<number, string[]>();
+  executionNodes.forEach((node) => {
+    const level = levels.get(node.id) ?? 0;
+    nodesByLevel.set(level, [...(nodesByLevel.get(level) ?? []), node.id]);
+  });
+  const maxRows = Math.max(1, ...Array.from(nodesByLevel.values(), (nodes) => nodes.length));
+  const laneColumns = density === 'detailed' ? 3 : 4;
+  // Detailed cards expose substantially more content, so their lanes need enough room
+  // for the measured card bounds and a clear connector channel between neighboring nodes.
+  const horizontalGap = density === 'detailed' ? 580 : 420;
+  const laneVerticalGap = density === 'detailed' ? 400 : 200;
+  const branchVerticalGap = density === 'detailed' ? 440 : 220;
+  const toolRows = Math.ceil(toolNodes.length / laneColumns);
+  const agentRows = Math.ceil(agentNodes.length / laneColumns);
+  const agentTop = 96 + toolRows * laneVerticalGap + (toolNodes.length > 0 ? 120 : 0);
+  const executionTop = agentTop + agentRows * laneVerticalGap + (agentNodes.length > 0 ? 120 : 0);
+  const executionCenter = executionTop + ((maxRows - 1) * branchVerticalGap) / 2;
+  const resourceTop = executionTop + maxRows * branchVerticalGap + 180;
+  const agentIndexById = new Map(agentNodes.map((node, index) => [node.id, index]));
+  const agentIndexByDefinitionId = new Map(
+    agentNodes.map((node, index) => [readDataString(node, 'agentId') || node.id, index])
+  );
+  const agentDefinitionIdByNodeId = new Map(
+    agentNodes.map((node) => [node.id, readDataString(node, 'agentId') ?? node.id])
+  );
+  const linkedAgentIdByToolNodeId = new Map(
+    document.edges.flatMap((edge) =>
+      edge.type === workflowGraphEdgeTypes.tool
+        ? [[edge.source, agentDefinitionIdByNodeId.get(edge.target) ?? null]]
+        : []
+    )
+  );
+  const toolIndexById = new Map(toolNodes.map((node, index) => [node.id, index]));
+  const resourceIndexById = new Map(resourceNodes.map((node, index) => [node.id, index]));
+
+  return {
+    ...document,
+    nodes: document.nodes.map((node) => {
+      const agentIndex = agentIndexById.get(node.id);
+      if (agentIndex !== undefined) {
+        return {
+          ...node,
+          position: {
+            x: 96 + (agentIndex % laneColumns) * horizontalGap,
+            y: agentTop + Math.floor(agentIndex / laneColumns) * laneVerticalGap,
+          },
+        };
+      }
+
+      const toolIndex = toolIndexById.get(node.id);
+      if (toolIndex !== undefined) {
+        const linkedAgentIndex = agentIndexByDefinitionId.get(
+          readDataString(node, 'agentId') ?? linkedAgentIdByToolNodeId.get(node.id) ?? ''
+        );
+        const laneIndex = linkedAgentIndex ?? toolIndex;
+        return {
+          ...node,
+          position: {
+            // Tool access flows downward into the linked agent, keeping these relationship lines short.
+            x: 96 + (laneIndex % laneColumns) * horizontalGap,
+            y: 96 + Math.floor(laneIndex / laneColumns) * laneVerticalGap,
+          },
+        };
+      }
+
+      const resourceIndex = resourceIndexById.get(node.id);
+      if (resourceIndex !== undefined) {
+        return {
+          ...node,
+          position: {
+            x: 96 + (resourceIndex % laneColumns) * horizontalGap,
+            y: resourceTop + Math.floor(resourceIndex / laneColumns) * laneVerticalGap,
+          },
+        };
+      }
+
+      const level = levels.get(node.id) ?? 0;
+      const levelNodes = nodesByLevel.get(level) ?? [node.id];
+      const row = Math.max(0, levelNodes.indexOf(node.id));
+      const centeredRow = row - (levelNodes.length - 1) / 2;
+
+      return {
+        ...node,
+        position: {
+          x: 96 + level * horizontalGap,
+          y: executionCenter + centeredRow * branchVerticalGap,
+        },
+      };
+    }),
+  };
+}
+
+function graphPositionsForDocument(document: GraphDocument) {
+  return Object.fromEntries(
+    document.nodes.flatMap((node) => (node.position ? [[node.id, node.position]] : []))
+  ) as Record<string, GraphPosition>;
+}
+
+function workflowEntrypointTaskId(workflow: WorkflowDefinition) {
+  const entrypoint = workflow.entrypoint?.trim();
+  if (!entrypoint) {
+    return null;
+  }
+
+  const referencedNode = workflow.nodes?.find((node) => node.id === entrypoint);
+  if (referencedNode?.task_id) {
+    return referencedNode.task_id;
+  }
+
+  return entrypoint.startsWith('node-') ? entrypoint.slice('node-'.length) : entrypoint;
+}
 
 function workflowGraphDensityStorageKey(workflowId: string) {
   return `${workflowGraphDensityStorageKeyPrefix}:${workflowId || 'unknown'}`;
@@ -1965,6 +2275,7 @@ function WorkflowGraphNodeCard({
   node,
   selected,
   readOnly,
+  density,
   runtimeEvent,
   runtimeEventIsCurrent = false,
   validationIssues,
@@ -1973,10 +2284,12 @@ function WorkflowGraphNodeCard({
   runtimeControls,
   relationshipHighlighted = false,
 }: GraphNodeRendererProps & {
+  density: WorkflowGraphDensity;
   runtimeControl?: WorkflowGraphNodeRuntimeControl | null;
   runtimeControls?: WorkflowGraphRuntimeControls;
   relationshipHighlighted?: boolean;
 }) {
+  const isCompact = density === 'clean' && !selected && !relationshipHighlighted;
   const tone = nodeTone(node.type);
   const runtimeClassName = runtimeStatusClassName(node.status);
   const dependencyCount = readDataNumber(node, 'dependencyCount');
@@ -2000,15 +2313,19 @@ function WorkflowGraphNodeCard({
           failureDependencyCount > 0 ? `${failureDependencyCount} failure` : null,
         ].filter((badge): badge is string => Boolean(badge))
       : [];
-  const visibleFactLimit =
-    node.type === workflowGraphNodeTypes.task
+  const visibleFactLimit = isCompact
+    ? 2
+    : node.type === workflowGraphNodeTypes.task
       ? 6
       : node.type === workflowGraphNodeTypes.tool
         ? 5
         : 3;
   const visibleFacts = facts.slice(0, visibleFactLimit);
+  const compactFallbackFact =
+    !shouldShowDescription && node.type !== workflowGraphNodeTypes.tool ? visibleFacts[0] : null;
+  const compactSupportingFacts = isCompact ? visibleFacts.slice(compactFallbackFact ? 1 : 0) : [];
   const hiddenFactCount = Math.max(0, facts.length - visibleFacts.length);
-  const visibleTaskBadges = taskBadges.slice(0, 3);
+  const visibleTaskBadges = taskBadges.slice(0, isCompact ? 2 : 3);
   const hiddenTaskBadgeCount = Math.max(0, taskBadges.length - visibleTaskBadges.length);
   const monitoringPolicyLabel = readDataString(node, 'monitoringPolicyLabel');
   const monitoringPolicyState = readDataString(node, 'monitoringPolicyState');
@@ -2092,6 +2409,10 @@ function WorkflowGraphNodeCard({
   );
   const showInputConnector = true;
   const showOutputConnector = node.type !== workflowGraphNodeTypes.approval;
+  const inputConnectorPosition =
+    node.type === workflowGraphNodeTypes.agent ? Position.Top : Position.Left;
+  const outputConnectorPosition =
+    node.type === workflowGraphNodeTypes.tool ? Position.Bottom : Position.Right;
   const monitoringPolicyClassName =
     monitoringPolicyState === 'excluded'
       ? 'border-amber-200 bg-amber-50 text-amber-800 dark:border-amber-300/30 dark:bg-amber-500/12 dark:text-amber-100'
@@ -2377,13 +2698,19 @@ function WorkflowGraphNodeCard({
       : null,
   ];
   const headerBadges = headerBadgeItems.filter((badge): badge is HeaderBadge => Boolean(badge));
-  const visibleHeaderBadges = headerBadges.slice(0, 3);
+  const visibleHeaderBadges = headerBadges.slice(0, isCompact ? 1 : 3);
   const hiddenHeaderBadgeCount = Math.max(0, headerBadges.length - visibleHeaderBadges.length);
 
   return (
     <div
       className={cn(
-        'workflow-graph-node-card relative min-w-[24rem] max-w-md cursor-grab select-none overflow-visible rounded-2xl border bg-white px-4 py-4 text-sm shadow-sm active:cursor-grabbing dark:bg-slate-950 dark:shadow-[0_22px_52px_rgba(2,8,23,0.58)]',
+        'workflow-graph-node-card relative cursor-grab select-none overflow-visible border bg-white text-sm shadow-sm active:cursor-grabbing dark:bg-slate-950 dark:shadow-[0_22px_52px_rgba(2,8,23,0.58)]',
+        isCompact
+          ? 'w-[20rem] max-w-[calc(100vw-4rem)] rounded-xl px-4 py-3.5'
+          : cn(
+              density === 'detailed' ? 'w-[28rem]' : 'w-[24rem]',
+              'max-w-[calc(100vw-4rem)] rounded-2xl px-4 py-4'
+            ),
         selected
           ? 'border-neutral-900 ring-2 ring-neutral-200 dark:border-slate-100 dark:ring-slate-300/20'
           : hasValidationErrors
@@ -2420,7 +2747,7 @@ function WorkflowGraphNodeCard({
       {showInputConnector ? (
         <Handle
           type="target"
-          position={Position.Left}
+          position={inputConnectorPosition}
           title={
             node.type === workflowGraphNodeTypes.approval
               ? 'Approval required by the linked task'
@@ -2428,7 +2755,7 @@ function WorkflowGraphNodeCard({
           }
           className="workflow-node-connector workflow-node-connector-input h-5! w-5! rounded-full! border-2! border-white! opacity-100! shadow-md transition-transform hover:scale-125! dark:border-slate-950!"
           style={{
-            left: -11,
+            ...(inputConnectorPosition === Position.Top ? { top: -11 } : { left: -11 }),
             zIndex: 10,
             backgroundColor: connectorColorForNode(node.type, 'input'),
           }}
@@ -2436,13 +2763,23 @@ function WorkflowGraphNodeCard({
           onDoubleClick={stopHandleClickPropagation}
         />
       ) : null}
-      <div className="flex items-start gap-2.5">
-        <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-900">
+      <div className={cn('flex items-start', isCompact ? 'gap-2.5' : 'gap-2.5')}>
+        <div
+          className={cn(
+            'mt-0.5 flex shrink-0 items-center justify-center border border-white/70 bg-white/90 shadow-sm dark:border-white/10 dark:bg-slate-900',
+            isCompact ? 'h-9 w-9 rounded-lg' : 'h-10 w-10 rounded-xl'
+          )}
+        >
           {tone.icon}
         </div>
         <div className="min-w-0 flex-1">
-          <div className="grid min-w-0 gap-2 pr-9">
-            <p className="min-w-0 truncate text-base font-semibold leading-6 text-neutral-900 dark:text-slate-100">
+          <div className={cn('grid min-w-0', isCompact ? 'gap-1 pr-2' : 'gap-2 pr-9')}>
+            <p
+              className={cn(
+                'min-w-0 font-semibold text-neutral-900 dark:text-slate-100',
+                isCompact ? 'line-clamp-2 text-base leading-6' : 'truncate text-base leading-6'
+              )}
+            >
               {node.label}
             </p>
             <div className="flex max-w-full flex-wrap gap-1.5 overflow-hidden">
@@ -2533,18 +2870,42 @@ function WorkflowGraphNodeCard({
               Stale memory: {runtimeLatestStaleMemorySummary}
             </p>
           ) : null}
-          {toolSummary ? (
-            <p className="mt-1 line-clamp-2 text-xs font-medium leading-5 text-orange-800 dark:text-orange-200">
-              {toolSummary}
-            </p>
+          {node.type === workflowGraphNodeTypes.tool ? (
+            <div className="mt-2 rounded-lg border border-orange-200/80 bg-orange-50/80 px-2.5 py-2 dark:border-orange-300/20 dark:bg-orange-500/10">
+              <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-orange-700 dark:text-orange-200">
+                Equipped tools
+              </p>
+              <p className="mt-0.5 line-clamp-2 text-xs font-semibold leading-5 text-orange-950 dark:text-orange-100">
+                {toolSummary ?? 'No tools assigned yet'}
+              </p>
+            </div>
           ) : null}
           {shouldShowDescription ? (
-            <p className="mt-2 line-clamp-2 text-sm leading-6 text-neutral-600 dark:text-slate-300">
+            <p
+              className={cn(
+                'mt-2 line-clamp-2 text-neutral-600 dark:text-slate-300',
+                isCompact ? 'text-xs leading-5' : 'text-sm leading-6'
+              )}
+            >
               {node.description}
             </p>
           ) : null}
+          {isCompact && compactFallbackFact ? (
+            <p className="mt-2 line-clamp-2 text-xs font-medium leading-5 text-neutral-600 dark:text-slate-300">
+              {compactFallbackFact}
+            </p>
+          ) : null}
+          {compactSupportingFacts.length > 0 ? (
+            <div className="mt-2 grid gap-1 border-l-2 border-neutral-200 pl-2.5 text-[11px] leading-4 text-neutral-500 dark:border-white/12 dark:text-slate-400">
+              {compactSupportingFacts.map((fact) => (
+                <p key={fact} className="line-clamp-1">
+                  {fact}
+                </p>
+              ))}
+            </div>
+          ) : null}
           {facts.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className={cn('mt-2 flex flex-wrap gap-1.5', isCompact && 'hidden')}>
               {visibleFacts.map((fact) => (
                 <span
                   key={fact}
@@ -2566,7 +2927,10 @@ function WorkflowGraphNodeCard({
                 <Badge
                   key={badge}
                   variant="outline"
-                  className="bg-white/80 text-[11px] dark:border-white/10 dark:bg-white/6 dark:text-slate-200"
+                  className={cn(
+                    'bg-white/80 dark:border-white/10 dark:bg-white/6 dark:text-slate-200',
+                    isCompact ? 'px-2.5 py-0.5 text-xs' : 'text-[11px]'
+                  )}
                 >
                   {badge}
                 </Badge>
@@ -2574,7 +2938,10 @@ function WorkflowGraphNodeCard({
               {hiddenTaskBadgeCount > 0 ? (
                 <Badge
                   variant="outline"
-                  className="bg-white/80 text-[11px] dark:border-white/10 dark:bg-white/6 dark:text-slate-400"
+                  className={cn(
+                    'bg-white/80 dark:border-white/10 dark:bg-white/6 dark:text-slate-400',
+                    isCompact ? 'px-2.5 py-0.5 text-xs' : 'text-[11px]'
+                  )}
                 >
                   +{hiddenTaskBadgeCount} more
                 </Badge>
@@ -2721,11 +3088,11 @@ function WorkflowGraphNodeCard({
       {showOutputConnector ? (
         <Handle
           type="source"
-          position={Position.Right}
+          position={outputConnectorPosition}
           title="Connect from this node"
           className="workflow-node-connector workflow-node-connector-output h-5! w-5! rounded-full! border-2! border-white! opacity-100! shadow-md transition-transform hover:scale-125! dark:border-slate-950!"
           style={{
-            right: -11,
+            ...(outputConnectorPosition === Position.Bottom ? { bottom: -11 } : { right: -11 }),
             zIndex: 10,
             backgroundColor: connectorColorForNode(node.type, 'output'),
           }}
@@ -3093,14 +3460,14 @@ function compactWorkflowEdgeLabel(edge: GraphEdge) {
 function workflowEdgeLabelPresentation({
   edge,
   edgeCount,
-  density,
   selected,
+  showAllLabels,
   validationIssueCount,
 }: {
   edge: GraphEdge;
   edgeCount: number;
-  density: WorkflowGraphDensity;
   selected: boolean;
+  showAllLabels: boolean;
   validationIssueCount: number;
 }) {
   const label = workflowEdgeLabel(edge);
@@ -3115,7 +3482,7 @@ function workflowEdgeLabelPresentation({
   // Dense canvases hide routine labels until the relationship is selected, but keep
   // approval, branching, and invalid edges visible because those states are operational cues.
   if (
-    density === 'detailed' ||
+    showAllLabels ||
     edgeCount < denseWorkflowEdgeLabelThreshold ||
     selected ||
     validationIssueCount > 0 ||
@@ -3139,12 +3506,12 @@ function WorkflowGraphDensityToggle({
     {
       value: 'clean',
       label: 'Clean',
-      description: 'Hide routine edge labels until selected.',
+      description: 'Keep every node visible with compact cards and quieter connection labels.',
     },
     {
       value: 'detailed',
       label: 'Detailed',
-      description: 'Show every connection label.',
+      description: 'Show expanded node details while keeping connection labels contextual.',
     },
   ];
 
@@ -3226,6 +3593,95 @@ function WorkflowGraphJumpControl({
         Go
       </button>
     </div>
+  );
+}
+
+function WorkflowSelectionNavigation({
+  previousNodeId,
+  nextNodeId,
+  onNavigate,
+}: {
+  previousNodeId: string | null;
+  nextNodeId: string | null;
+  onNavigate: (nodeId: string) => void;
+}) {
+  if (!previousNodeId && !nextNodeId) return null;
+
+  return (
+    <div className="inline-flex h-8 overflow-hidden rounded-md border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/72 dark:shadow-none">
+      <button
+        type="button"
+        disabled={!previousNodeId}
+        aria-label="Select previous connected node"
+        title="Previous connected node"
+        className="inline-flex h-8 w-8 items-center justify-center text-neutral-600 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-35 dark:text-slate-300 dark:hover:bg-white/8"
+        onClick={() => previousNodeId && onNavigate(previousNodeId)}
+      >
+        <ChevronLeft className="h-4 w-4" />
+      </button>
+      <button
+        type="button"
+        disabled={!nextNodeId}
+        aria-label="Select next connected node"
+        title="Next connected node"
+        className="inline-flex h-8 w-8 items-center justify-center border-l border-neutral-200 text-neutral-600 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-35 dark:border-white/10 dark:text-slate-300 dark:hover:bg-white/8"
+        onClick={() => nextNodeId && onNavigate(nextNodeId)}
+      >
+        <ChevronRight className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
+function WorkflowRelationshipControls({
+  visibility,
+  showAllLabels,
+  onVisibilityChange,
+  onShowAllLabelsChange,
+}: {
+  visibility: Record<WorkflowRelationshipKind, boolean>;
+  showAllLabels: boolean;
+  onVisibilityChange: (kind: WorkflowRelationshipKind, visible: boolean) => void;
+  onShowAllLabelsChange: (visible: boolean) => void;
+}) {
+  const visibleCount = workflowRelationshipOptions.filter(
+    (option) => visibility[option.kind]
+  ).length;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button type="button" variant="outline" size="sm" className="h-8 gap-1.5 px-2">
+          <SlidersHorizontal className="h-3.5 w-3.5" />
+          <span>Relationships</span>
+          <span className="rounded bg-neutral-100 px-1.5 text-[10px] text-neutral-500 dark:bg-white/8 dark:text-slate-400">
+            {visibleCount}/{workflowRelationshipOptions.length}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuLabel>Visible connections</DropdownMenuLabel>
+        {workflowRelationshipOptions.map((option) => (
+          <DropdownMenuCheckboxItem
+            key={option.kind}
+            checked={visibility[option.kind]}
+            onCheckedChange={(checked) => onVisibilityChange(option.kind, checked === true)}
+          >
+            <span className="min-w-0">
+              <span className="block font-medium">{option.label}</span>
+              <span className="block text-xs text-muted-foreground">{option.description}</span>
+            </span>
+          </DropdownMenuCheckboxItem>
+        ))}
+        <DropdownMenuSeparator />
+        <DropdownMenuCheckboxItem
+          checked={showAllLabels}
+          onCheckedChange={(checked) => onShowAllLabelsChange(checked === true)}
+        >
+          Always show connection labels
+        </DropdownMenuCheckboxItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -3382,9 +3838,26 @@ export default function WorkflowGraphCanvas({
     workflowId: workflow.id,
     density: readStoredWorkflowGraphDensity(workflow.id),
   }));
+  const [graphPositionState, setGraphPositionState] = useState<{
+    workflowId: string;
+    positions: Record<string, GraphPosition>;
+  }>(() => ({ workflowId: workflow.id, positions: {} }));
   const [graphJumpNodeId, setGraphJumpNodeId] = useState('');
   const [graphFocusNodeId, setGraphFocusNodeId] = useState<string | null>(null);
   const [graphFocusNodeRevision, setGraphFocusNodeRevision] = useState(0);
+  const [isLegendVisible, setIsLegendVisible] = useState(false);
+  const [isMiniMapVisible, setIsMiniMapVisible] = useState(false);
+  const [showAllEdgeLabels, setShowAllEdgeLabels] = useState(false);
+  const [relationshipVisibility, setRelationshipVisibility] = useState<
+    Record<WorkflowRelationshipKind, boolean>
+  >({
+    execution: true,
+    agents: true,
+    tools: true,
+    memory: true,
+    approvals: true,
+    failureRoutes: true,
+  });
   const [isExecutionTimelineVisible, setIsExecutionTimelineVisible] = useState(false);
   const [selectedRuntimeRunId, setSelectedRuntimeRunId] = useState(allRuntimeRunsValue);
   const [hasUserSelectedRuntimeRun, setHasUserSelectedRuntimeRun] = useState(false);
@@ -3395,6 +3868,13 @@ export default function WorkflowGraphCanvas({
     nodeIds: [],
     edgeIds: [],
   });
+  const [isRelationshipFocusActive, setIsRelationshipFocusActive] = useState(false);
+  const handleRelationshipVisibilityChange = useCallback(
+    (kind: WorkflowRelationshipKind, visible: boolean) => {
+      setRelationshipVisibility((current) => ({ ...current, [kind]: visible }));
+    },
+    []
+  );
   const graphDensityStorageKey = useMemo(
     () => workflowGraphDensityStorageKey(workflow.id),
     [workflow.id]
@@ -3406,6 +3886,9 @@ export default function WorkflowGraphCanvas({
   const handleGraphDensityChange = useCallback(
     (density: WorkflowGraphDensity) => {
       setGraphDensityState({ workflowId: workflow.id, density });
+      // Positions arranged for compact cards can collide as soon as their detailed
+      // content expands. Reflow on density changes while preserving later manual drags.
+      setGraphPositionState({ workflowId: workflow.id, positions: {} });
     },
     [workflow.id]
   );
@@ -3470,6 +3953,14 @@ export default function WorkflowGraphCanvas({
   );
   const displayRuntimeEvents = isExecutionTimelineVisible ? stableRuntimeEvents : undefined;
   const displayDocument = useMemo(() => {
+    const endpointUseCount = new Map<string, number>();
+    activeDocument.edges.forEach((edge) => {
+      const sourceKey = `${edge.source}:out`;
+      const targetKey = `${edge.target}:in`;
+      endpointUseCount.set(sourceKey, (endpointUseCount.get(sourceKey) ?? 0) + 1);
+      endpointUseCount.set(targetKey, (endpointUseCount.get(targetKey) ?? 0) + 1);
+    });
+
     return {
       ...activeDocument,
       nodes: activeDocument.nodes.map((node) => {
@@ -3655,28 +4146,47 @@ export default function WorkflowGraphCanvas({
           }
         }
 
+        const selectionIsActive = isRelationshipFocusActive;
+        const nodeIsRelated = relationshipHighlights.nodeIds.has(node.id);
+
         return {
           ...node,
           data: nextData,
+          style: {
+            ...(node.style ?? {}),
+            className: cn(
+              node.style?.className,
+              selectionIsActive && !nodeIsRelated ? 'graph-workflow-node-muted' : undefined
+            ),
+          },
         };
       }),
       edges: activeDocument.edges.map((edge) => {
-        if (!relationshipHighlights.edgeIds.has(edge.id)) {
-          return edge;
-        }
+        const selectionIsActive = isRelationshipFocusActive;
+        const edgeIsRelated = relationshipHighlights.edgeIds.has(edge.id);
+        const sharesRoutingChannel =
+          (endpointUseCount.get(`${edge.source}:out`) ?? 0) > 1 ||
+          (endpointUseCount.get(`${edge.target}:in`) ?? 0) > 1;
 
         return {
           ...edge,
           style: {
             ...(edge.style ?? {}),
-            className: cn(edge.style?.className, 'graph-workflow-edge-related'),
+            className: cn(
+              edge.style?.className,
+              edgeIsRelated ? 'graph-workflow-edge-related' : undefined,
+              sharesRoutingChannel ? 'graph-workflow-edge-bundled' : undefined,
+              selectionIsActive && !edgeIsRelated ? 'graph-workflow-edge-muted' : undefined
+            ),
           },
         };
       }),
     };
   }, [
     activeDocument,
+    isRelationshipFocusActive,
     relationshipHighlights.edgeIds,
+    relationshipHighlights.nodeIds,
     displayRuntimeEvents,
     memoryLinkCountsByTarget,
     observabilityMetricsByAgentId,
@@ -3685,6 +4195,45 @@ export default function WorkflowGraphCanvas({
     stableRuntimeEvents,
     workflow,
   ]);
+  const canvasDocument = useMemo(() => {
+    const arrangedDocument = layoutWorkflowExecutionPath(displayDocument, graphDensity);
+    const positionedDocument =
+      graphPositionState.workflowId !== workflow.id
+        ? arrangedDocument
+        : {
+            ...arrangedDocument,
+            nodes: arrangedDocument.nodes.map((node) => ({
+              ...node,
+              position: graphPositionState.positions[node.id] ?? node.position,
+            })),
+          };
+
+    // Manual edits remain stable until Arrange is requested again, while newly introduced
+    // nodes still receive a sensible semantic-lane position from the default layout.
+    return {
+      ...positionedDocument,
+      edges: positionedDocument.edges.filter(
+        (edge) => relationshipVisibility[workflowRelationshipKind(edge)]
+      ),
+    };
+  }, [displayDocument, graphDensity, graphPositionState, relationshipVisibility, workflow.id]);
+  const entrypointTaskId = workflowEntrypointTaskId(workflow);
+  const defaultGraphFocusNodeId = useMemo(() => {
+    const entrypointNode = entrypointTaskId
+      ? canvasDocument.nodes.find(
+          (node) =>
+            node.type === workflowGraphNodeTypes.task &&
+            readDataString(node, 'taskId') === entrypointTaskId
+        )
+      : null;
+
+    // A readable first node is a better starting point than a compressed, cropped overview.
+    return (
+      entrypointNode?.id ??
+      canvasDocument.nodes.find((node) => node.type === workflowGraphNodeTypes.task)?.id ??
+      null
+    );
+  }, [canvasDocument.nodes, entrypointTaskId]);
   const graphJumpNodes = useMemo(() => {
     const typeOrder = new Map<string, number>([
       [workflowGraphNodeTypes.task, 0],
@@ -3695,7 +4244,7 @@ export default function WorkflowGraphCanvas({
       [workflowGraphNodeTypes.artifact, 5],
     ]);
 
-    return [...displayDocument.nodes].sort((left, right) => {
+    return [...canvasDocument.nodes].sort((left, right) => {
       const leftTypeOrder = typeOrder.get(left.type) ?? 99;
       const rightTypeOrder = typeOrder.get(right.type) ?? 99;
 
@@ -3705,7 +4254,7 @@ export default function WorkflowGraphCanvas({
 
       return left.label.localeCompare(right.label);
     });
-  }, [displayDocument.nodes]);
+  }, [canvasDocument.nodes]);
   const selectedGraphJumpNodeId = graphJumpNodes.some((node) => node.id === graphJumpNodeId)
     ? graphJumpNodeId
     : '';
@@ -3717,6 +4266,13 @@ export default function WorkflowGraphCanvas({
     setGraphFocusNodeId(nodeId);
     setGraphFocusNodeRevision((revision) => revision + 1);
   }, []);
+  const selectedGraphNodeId = graphSelection.nodeIds[0] ?? null;
+  const previousConnectedNodeId = selectedGraphNodeId
+    ? (canvasDocument.edges.find((edge) => edge.target === selectedGraphNodeId)?.source ?? null)
+    : null;
+  const nextConnectedNodeId = selectedGraphNodeId
+    ? (canvasDocument.edges.find((edge) => edge.source === selectedGraphNodeId)?.target ?? null)
+    : null;
   const runtimeRunOptions = useMemo(() => {
     const latestEventTimeByRunId = new Map<string, number>();
     stableRuntimeEvents.forEach((event) => {
@@ -3856,6 +4412,20 @@ export default function WorkflowGraphCanvas({
       });
     }
 
+    actions.push({
+      id: workflowGraphActionIds.arrange,
+      label: 'Arrange',
+      description:
+        'Arrange every workflow node into readable tool, agent, execution, and resource lanes.',
+      metadata: { fitViewAfterRun: true },
+    });
+    actions.push({
+      id: workflowGraphActionIds.resetLayout,
+      label: 'Reset positions',
+      description: 'Discard manual positions and restore the semantic workflow lanes.',
+      metadata: { fitViewAfterRun: true },
+    });
+
     if (readOnly) {
       actions.push({
         id: workflowGraphActionIds.validate,
@@ -3911,13 +4481,19 @@ export default function WorkflowGraphCanvas({
     effectiveWorkflowCapabilityTags,
   ]);
   const builtInToolbarActions = useMemo<GraphBuiltInToolbarActionId[]>(
-    () => (readOnly ? [graphBuiltInToolbarActionIds.fitView] : workflowGraphBuiltInToolbarActions),
+    () =>
+      readOnly
+        ? [graphBuiltInToolbarActionIds.fitView]
+        : workflowGraphBuiltInToolbarActions.filter(
+            (actionId) => actionId !== graphBuiltInToolbarActionIds.autoLayout
+          ),
     [readOnly]
   );
   const renderWorkflowNode = useCallback(
     (props: GraphNodeRendererProps) => (
       <WorkflowGraphNodeCard
         {...props}
+        density={graphDensity}
         relationshipHighlighted={relationshipHighlights.nodeIds.has(props.node.id)}
         runtimeControl={workflowGraphRuntimeControlForNode(
           props.node,
@@ -3927,7 +4503,7 @@ export default function WorkflowGraphCanvas({
         runtimeControls={runtimeControls}
       />
     ),
-    [relationshipHighlights.nodeIds, runtimeControls, stableRuntimeEvents]
+    [graphDensity, relationshipHighlights.nodeIds, runtimeControls, stableRuntimeEvents]
   );
   const nodeRenderers = useMemo(
     () => ({
@@ -3946,6 +4522,16 @@ export default function WorkflowGraphCanvas({
     (nextDocument: GraphDocument) => {
       const normalizedDocument = normalizeWorkflowGraphEdgeTypes(nextDocument);
       const conversionIssues = validateWorkflowGraphConversionSafety(normalizedDocument);
+      const activeNodeIds = new Set(activeDocument.nodes.map((node) => node.id));
+      const preservesNodeSet =
+        normalizedDocument.nodes.length === activeDocument.nodes.length &&
+        normalizedDocument.nodes.every((node) => activeNodeIds.has(node.id));
+      if (preservesNodeSet) {
+        setGraphPositionState({
+          workflowId: workflow.id,
+          positions: graphPositionsForDocument(normalizedDocument),
+        });
+      }
       onGraphChange?.(normalizedDocument);
       if (conversionIssues.some((issue) => issue.severity === 'error')) {
         onValidationIssues?.(conversionIssues);
@@ -3954,7 +4540,7 @@ export default function WorkflowGraphCanvas({
 
       onWorkflowChange?.(graphDocumentToWorkflowDefinition(normalizedDocument, workflow));
     },
-    [onGraphChange, onValidationIssues, onWorkflowChange, workflow]
+    [activeDocument.nodes, onGraphChange, onValidationIssues, onWorkflowChange, workflow]
   );
 
   const selectCreatedTaskOrArtifactNode = useCallback(
@@ -3988,6 +4574,15 @@ export default function WorkflowGraphCanvas({
     (action: GraphToolbarAction, nextDocument: GraphDocument) => {
       if (action.id === workflowGraphActionIds.edit) {
         onStartEditing?.();
+      }
+
+      if (action.id === workflowGraphActionIds.arrange) {
+        return layoutWorkflowExecutionPath(nextDocument, graphDensity);
+      }
+
+      if (action.id === workflowGraphActionIds.resetLayout) {
+        setGraphPositionState({ workflowId: workflow.id, positions: {} });
+        return layoutWorkflowExecutionPath(nextDocument, graphDensity);
       }
 
       if (action.id === workflowGraphActionIds.addTask && !readOnly) {
@@ -4049,12 +4644,14 @@ export default function WorkflowGraphCanvas({
     },
     [
       effectiveWorkflowCapabilityTags,
+      graphDensity,
       onRunWorkflow,
       onSaveWorkflow,
       onStartEditing,
       onValidationIssues,
       readOnly,
       selectCreatedTaskOrArtifactNode,
+      workflow.id,
     ]
   );
 
@@ -4109,15 +4706,6 @@ export default function WorkflowGraphCanvas({
         return;
       }
 
-      if (agentId) {
-        onSelectEdge?.(null);
-        onSelectTool?.(null);
-        onSelectMemory?.(null);
-        onSelectArtifact?.(null);
-        onSelectAgent?.(agentId);
-        return;
-      }
-
       if (node.type === workflowGraphNodeTypes.tool) {
         onSelectAgent?.(null);
         onSelectEdge?.(null);
@@ -4125,6 +4713,15 @@ export default function WorkflowGraphCanvas({
         onSelectMemory?.(null);
         onSelectArtifact?.(null);
         onSelectTool?.(toolId ?? workflowGraphToolListSelectionId, toolIds, node.id);
+        return;
+      }
+
+      if (agentId) {
+        onSelectEdge?.(null);
+        onSelectTool?.(null);
+        onSelectMemory?.(null);
+        onSelectArtifact?.(null);
+        onSelectAgent?.(agentId);
         return;
       }
 
@@ -4206,9 +4803,18 @@ export default function WorkflowGraphCanvas({
     },
     [onSelectEdge]
   );
-  const handleSelectionChange = useCallback((selection: GraphSelection) => {
-    setGraphSelection(selection);
-  }, []);
+  const handleSelectionChange = useCallback(
+    (selection: GraphSelection) => {
+      setGraphSelection(selection);
+      const selectedNodeId = selection.nodeIds[0] ?? null;
+      setIsRelationshipFocusActive(
+        selection.edgeIds.length > 0 ||
+          graphFocusNodeRevision > 0 ||
+          Boolean(selectedNodeId && selectedNodeId !== defaultGraphFocusNodeId)
+      );
+    },
+    [defaultGraphFocusNodeId, graphFocusNodeRevision]
+  );
   const getRuntimeEventRunHref = useCallback(
     (event: GraphRuntimeEvent) => {
       const runId = runtimeRunId(event);
@@ -4230,15 +4836,15 @@ export default function WorkflowGraphCanvas({
     },
     [workflow.id]
   );
-  const edgeLabelCount = displayDocument.edges.length;
+  const edgeLabelCount = canvasDocument.edges.length;
   const renderEdgeLabel = useCallback(
     ({ edge, selected, validationIssues, onOpen }: GraphEdgeLabelRendererProps) => {
       const relationshipHighlighted = relationshipHighlights.edgeIds.has(edge.id);
       const labelPresentation = workflowEdgeLabelPresentation({
         edge,
         edgeCount: edgeLabelCount,
-        density: graphDensity,
         selected: selected || relationshipHighlighted,
+        showAllLabels: showAllEdgeLabels,
         validationIssueCount: validationIssues.length,
       });
 
@@ -4277,13 +4883,13 @@ export default function WorkflowGraphCanvas({
         </button>
       );
     },
-    [relationshipHighlights.edgeIds, edgeLabelCount, graphDensity]
+    [relationshipHighlights.edgeIds, edgeLabelCount, showAllEdgeLabels]
   );
   const renderRuntimeEvent = useCallback(
     (props: GraphRuntimeEventRendererProps) => (
-      <WorkflowGraphRuntimeEvent {...props} document={displayDocument} />
+      <WorkflowGraphRuntimeEvent {...props} document={canvasDocument} />
     ),
-    [displayDocument]
+    [canvasDocument]
   );
 
   const canvasProps = {
@@ -4295,8 +4901,8 @@ export default function WorkflowGraphCanvas({
     ),
     readOnly,
     showControls: false,
-    showMiniMap: displayDocument.nodes.length > 0,
-    focusNodeId: graphFocusNodeId,
+    showMiniMap: isMiniMapVisible && canvasDocument.nodes.length > 0,
+    focusNodeId: graphFocusNodeId ?? defaultGraphFocusNodeId,
     focusNodeRevision: graphFocusNodeRevision,
     showInspector,
     emptyContent: (
@@ -4322,10 +4928,16 @@ export default function WorkflowGraphCanvas({
     getRuntimeEventRunHref,
     fitViewOptions: {
       padding: isGraphExpanded ? 0.12 : 0.18,
+      // Large clean workflows should open at a legible zoom and remain pannable instead
+      // of compressing every node into an unreadable overview.
+      minZoom: graphDensity === 'clean' ? 0.68 : undefined,
       maxZoom: 0.95,
     },
+    edgeRouting: 'smooth-step' as const,
+    canvasBackdrop: <WorkflowGraphLaneBackdrop document={canvasDocument} density={graphDensity} />,
+    toolbarPlacement: 'docked' as const,
     layoutOptions: {
-      columns: Math.max(1, Math.ceil(Math.sqrt(displayDocument.nodes.length || 1))),
+      columns: Math.max(1, Math.ceil(Math.sqrt(canvasDocument.nodes.length || 1))),
       startX: 80,
       startY: 80,
       gapX: 720,
@@ -4359,6 +4971,9 @@ export default function WorkflowGraphCanvas({
                 {isExecutionTimelineVisible
                   ? `${visibleRuntimeEvents.length} shown from ${runtimeEventCount} events`
                   : `${runtimeEventCount} timeline event${runtimeEventCount === 1 ? '' : 's'} hidden`}
+              </div>
+              <div className="mt-0.5 truncate text-[11px] text-neutral-400 dark:text-slate-500">
+                Tools, agents, execution, and resources
               </div>
             </div>
             {isExecutionTimelineVisible ? (
@@ -4416,28 +5031,67 @@ export default function WorkflowGraphCanvas({
                   {runtimeSummary ? (
                     <WorkflowGraphRunSummaryStrip summary={runtimeSummary} />
                   ) : null}
-                  <WorkflowGraphLegend />
+                  {isLegendVisible ? <WorkflowGraphLegend /> : null}
                   <WorkflowRelationshipSummaryStrip summary={relationshipSummary} />
                 </div>
               </div>
             ) : (
               <div className="min-w-0 space-y-2">
-                <WorkflowGraphLegend />
+                {isLegendVisible ? <WorkflowGraphLegend /> : null}
                 <WorkflowRelationshipSummaryStrip summary={relationshipSummary} />
               </div>
             )}
             <div className="flex flex-wrap items-center justify-start gap-2 lg:col-span-2 lg:justify-end">
+              <button
+                type="button"
+                aria-pressed={isLegendVisible}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 text-neutral-600 shadow-sm hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                onClick={() => setIsLegendVisible((current) => !current)}
+              >
+                <GitBranch className="h-4 w-4" />
+                <span>{isLegendVisible ? 'Hide legend' : 'Legend'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={!defaultGraphFocusNodeId}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 text-neutral-600 shadow-sm hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                onClick={() => handleGraphNodeJump(defaultGraphFocusNodeId ?? '')}
+              >
+                <Route className="h-4 w-4" />
+                <span>Entrypoint</span>
+              </button>
               <WorkflowGraphJumpControl
                 nodes={graphJumpNodes}
                 selectedNodeId={selectedGraphJumpNodeId}
                 onSelectedNodeChange={setGraphJumpNodeId}
                 onJump={handleGraphNodeJump}
               />
+              <WorkflowSelectionNavigation
+                previousNodeId={previousConnectedNodeId}
+                nextNodeId={nextConnectedNodeId}
+                onNavigate={handleGraphNodeJump}
+              />
+              <WorkflowRelationshipControls
+                visibility={relationshipVisibility}
+                showAllLabels={showAllEdgeLabels}
+                onVisibilityChange={handleRelationshipVisibilityChange}
+                onShowAllLabelsChange={setShowAllEdgeLabels}
+              />
               <WorkflowGraphDensityToggle
                 density={graphDensity}
                 onDensityChange={handleGraphDensityChange}
               />
               <WorkflowGraphRuntimeControlsBar controls={runtimeControls} />
+              <button
+                type="button"
+                aria-pressed={isMiniMapVisible}
+                aria-label={isMiniMapVisible ? 'Hide workflow minimap' : 'Show workflow minimap'}
+                title={isMiniMapVisible ? 'Hide minimap' : 'Show minimap'}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                onClick={() => setIsMiniMapVisible((current) => !current)}
+              >
+                <MapIcon className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 aria-label={
@@ -4479,23 +5133,67 @@ export default function WorkflowGraphCanvas({
           </>
         ) : (
           <>
-            <div className="hidden lg:block" />
+            <div className="hidden min-w-0 lg:block">
+              <div className="font-medium text-neutral-900 dark:text-slate-100">Graph view</div>
+              <div className="truncate text-[11px] text-neutral-400 dark:text-slate-500">
+                Tools, agents, execution, and resources
+              </div>
+            </div>
             <div className="min-w-0 space-y-2">
-              <WorkflowGraphLegend />
+              {isLegendVisible ? <WorkflowGraphLegend /> : null}
               <WorkflowRelationshipSummaryStrip summary={relationshipSummary} />
             </div>
             <div className="flex flex-wrap items-center justify-start gap-2 lg:col-span-2 lg:justify-end">
+              <button
+                type="button"
+                aria-pressed={isLegendVisible}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 text-neutral-600 shadow-sm hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                onClick={() => setIsLegendVisible((current) => !current)}
+              >
+                <GitBranch className="h-4 w-4" />
+                <span>{isLegendVisible ? 'Hide legend' : 'Legend'}</span>
+              </button>
+              <button
+                type="button"
+                disabled={!defaultGraphFocusNodeId}
+                className="inline-flex h-8 items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 text-neutral-600 shadow-sm hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                onClick={() => handleGraphNodeJump(defaultGraphFocusNodeId ?? '')}
+              >
+                <Route className="h-4 w-4" />
+                <span>Entrypoint</span>
+              </button>
               <WorkflowGraphJumpControl
                 nodes={graphJumpNodes}
                 selectedNodeId={selectedGraphJumpNodeId}
                 onSelectedNodeChange={setGraphJumpNodeId}
                 onJump={handleGraphNodeJump}
               />
+              <WorkflowSelectionNavigation
+                previousNodeId={previousConnectedNodeId}
+                nextNodeId={nextConnectedNodeId}
+                onNavigate={handleGraphNodeJump}
+              />
+              <WorkflowRelationshipControls
+                visibility={relationshipVisibility}
+                showAllLabels={showAllEdgeLabels}
+                onVisibilityChange={handleRelationshipVisibilityChange}
+                onShowAllLabelsChange={setShowAllEdgeLabels}
+              />
               <WorkflowGraphDensityToggle
                 density={graphDensity}
                 onDensityChange={handleGraphDensityChange}
               />
               <WorkflowGraphRuntimeControlsBar controls={runtimeControls} />
+              <button
+                type="button"
+                aria-pressed={isMiniMapVisible}
+                aria-label={isMiniMapVisible ? 'Hide workflow minimap' : 'Show workflow minimap'}
+                title={isMiniMapVisible ? 'Hide minimap' : 'Show minimap'}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-neutral-200 bg-white text-neutral-600 shadow-sm hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                onClick={() => setIsMiniMapVisible((current) => !current)}
+              >
+                <MapIcon className="h-4 w-4" />
+              </button>
               <button
                 type="button"
                 aria-label={
@@ -4515,7 +5213,7 @@ export default function WorkflowGraphCanvas({
           </>
         )}
       </div>
-      <GraphCanvas document={displayDocument} {...canvasProps} />
+      <GraphCanvas document={canvasDocument} {...canvasProps} />
     </div>
   );
 }

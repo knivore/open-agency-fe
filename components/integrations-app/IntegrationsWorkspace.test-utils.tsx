@@ -15,6 +15,7 @@ const apiMocks = vi.hoisted(() => ({
     deleteConnectorInstallation: vi.fn(),
     completeConnectorInstallation: vi.fn(),
     createConnectorSetupSession: vi.fn(),
+    resumeConnectorSetupSession: vi.fn(),
     testConnector: vi.fn(),
     getConnectorHistory: vi.fn(),
     getAggregateConnectorHistory: vi.fn(),
@@ -253,7 +254,14 @@ export function setupIntegrationsWorkspaceTest() {
             displayName: 'Telegram',
             authModel: 'bot token',
             providerAliases: ['telegram'],
-            onecliTransportMode: 'direct',
+            onecliTransportMode: 'proxy',
+            runtimeSecretRequired: false,
+            onecliSecretProfile: {
+              hostPattern: 'api.telegram.org',
+              pathPattern: '/bot*',
+              injectionTarget: 'url_path',
+              pathTemplate: '/bot{value}',
+            },
             healthSupported: true,
             requiredMetadata: [],
             instanceIdentityMetadata: [],
@@ -264,7 +272,14 @@ export function setupIntegrationsWorkspaceTest() {
             displayName: 'Discord',
             authModel: 'bot token',
             providerAliases: ['discord'],
-            onecliTransportMode: 'direct',
+            onecliTransportMode: 'proxy',
+            onecliSecretProfile: {
+              hostPattern: 'discord.com',
+              pathPattern: '/api/v10/*',
+              injectionTarget: 'header',
+              headerName: 'Authorization',
+              valueFormat: 'Bot {value}',
+            },
             healthSupported: false,
             requiredMetadata: [],
             instanceIdentityMetadata: [],
@@ -276,6 +291,13 @@ export function setupIntegrationsWorkspaceTest() {
             authModel: 'access token',
             providerAliases: ['whatsapp', 'meta-whatsapp'],
             onecliTransportMode: 'proxy',
+            onecliSecretProfile: {
+              hostPattern: 'graph.facebook.com',
+              pathPattern: '/*',
+              injectionTarget: 'header',
+              headerName: 'Authorization',
+              valueFormat: 'Bearer {value}',
+            },
             healthSupported: false,
             requiredMetadata: [
               {
@@ -347,14 +369,37 @@ export function setupIntegrationsWorkspaceTest() {
           'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
         status: 'setup_pending',
         setup_session_id: 'connector-installation-telegram',
+        setup_started_at: '2099-01-01T00:00:00Z',
+        setup_expires_at: '2099-01-01T00:30:00Z',
         metadata: {},
       },
-      setup_url:
-        'http://onecli:10254/?agency_installation_id=connector-installation-telegram&agency_user_id=user-integrations&device_code=CONNECTOR&onecli_credential_ref=onecli%3A%2F%2Fusers%2Fuser-integrations%2Ftelegram-bot%2Fconnector-installation-telegram&provider=telegram-bot',
+      setup_url: 'http://onecli:10254/',
       device_code: 'CONNECTOR',
       onecli_credential_ref:
         'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
-      expires_at: null,
+      onecli_resource_name: 'agency-telegram-bot-connectorins',
+      expires_at: '2099-01-01T00:30:00Z',
+    });
+    connectorsApi.resumeConnectorSetupSession.mockResolvedValue({
+      installation: {
+        id: 'connector-installation-telegram',
+        owner_user_id: 'user-integrations',
+        provider: 'telegram-bot',
+        name: 'Telegram Bot',
+        onecli_credential_ref:
+          'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
+        status: 'setup_pending',
+        setup_session_id: 'connector-installation-telegram',
+        setup_started_at: '2099-01-01T00:00:00Z',
+        setup_expires_at: '2099-01-01T00:30:00Z',
+        metadata: {},
+      },
+      setup_url: 'http://onecli:10254/',
+      device_code: 'CONNECTOR',
+      onecli_credential_ref:
+        'onecli://users/user-integrations/telegram-bot/connector-installation-telegram',
+      onecli_resource_name: 'agency-telegram-bot-connectorins',
+      expires_at: '2099-01-01T00:30:00Z',
     });
     connectorsApi.completeConnectorInstallation.mockResolvedValue({
       id: 'connector-installation-telegram',

@@ -32,7 +32,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     await syncCurrentBackendUser(user);
     const { id } = await params;
     const payload = await req.json();
-    const credential = await backendCredentialsApi.updateCredential(id, payload, user, getInternalApiKey());
+    const credential = await backendCredentialsApi.updateCredential(
+      id,
+      payload,
+      user,
+      getInternalApiKey()
+    );
     return NextResponse.json(credential);
   } catch (error) {
     return proxyErrorResponse(error);

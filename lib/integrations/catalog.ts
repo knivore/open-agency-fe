@@ -358,8 +358,11 @@ function plannedProvider(
   const providerKeys = [definition.backendKey, ...(definition.providerAliases ?? [])].map((value) =>
     normalizeProviderKey(value)
   );
-  const matchedCredentials = credentials.filter((credential) =>
-    providerKeys.includes(normalizeProviderKey(credential.provider))
+  const matchedCredentials = credentials.filter(
+    (credential) =>
+      credential.status !== 'revoked' &&
+      credential.status !== 'disabled' &&
+      providerKeys.includes(normalizeProviderKey(credential.provider))
   );
   const plannedState: PlannedIntegrationState = {
     ...definition,

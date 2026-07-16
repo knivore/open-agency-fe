@@ -30,7 +30,13 @@ describe('observatory pixel platform adapter placeholders', () => {
     expect(statuses).toHaveLength(3);
     expect(statuses.every((status) => !status.enabled)).toBe(true);
     expect(statuses.every((status) => status.acceptsCurrentOrigin)).toBe(true);
-    expect(registry.validateSourceOrigin('platform-codex', 'https://example.test')).toBe(false);
+    expect(
+      registry.validateSourceOrigin(
+        'platform-codex',
+        'https://example.test',
+        'https://example.test'
+      )
+    ).toBe(false);
   });
 
   it('creates sample events compatible with the normalized runtime event contract', () => {

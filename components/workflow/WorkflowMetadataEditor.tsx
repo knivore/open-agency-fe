@@ -2,11 +2,13 @@
 
 import type { ExecutionHost } from '@/types/workflows';
 import type { WorkflowCapabilityTag } from '@/types/workflows';
+import type { JsonObject } from '@/types/api';
 import { FileText } from 'lucide-react';
 import { Button } from '../library/shadcn/button';
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
+import WorkflowPersistentCycleEditor from '@/components/workflow/WorkflowPersistentCycleEditor';
 
 interface RuntimeAdapterOption {
   id: string;
@@ -21,6 +23,7 @@ interface WorkflowMetadataEditorProps {
   defaultRuntimeAdapterId: string;
   executionHost: ExecutionHost;
   restartActiveExecutions: boolean;
+  workflowMetadata: JsonObject;
   workflowCapabilityTags: WorkflowCapabilityTag[];
   visibleTaskDefinitions: Array<{ id: string; name: string }>;
   runtimeAdapters: RuntimeAdapterOption[];
@@ -37,6 +40,7 @@ interface WorkflowMetadataEditorProps {
   onDefaultRuntimeAdapterChange: (value: string) => void;
   onExecutionHostChange: (value: ExecutionHost) => void;
   onRestartActiveExecutionsChange: (checked: boolean) => void;
+  onWorkflowMetadataChange: (metadata: JsonObject) => void;
   onWorkflowCapabilityTagsChange: (value: WorkflowCapabilityTag[]) => void;
   onSave: () => void;
 }
@@ -48,6 +52,7 @@ export default function WorkflowMetadataEditor({
   defaultRuntimeAdapterId,
   executionHost,
   restartActiveExecutions,
+  workflowMetadata,
   visibleTaskDefinitions,
   runtimeAdapters,
   workflowNameInvalid,
@@ -63,6 +68,7 @@ export default function WorkflowMetadataEditor({
   onDefaultRuntimeAdapterChange,
   onExecutionHostChange,
   onRestartActiveExecutionsChange,
+  onWorkflowMetadataChange,
   onSave,
 }: WorkflowMetadataEditorProps) {
   const activeRunsBehaviorDescription = restartActiveExecutions
@@ -193,6 +199,10 @@ export default function WorkflowMetadataEditor({
             {activeRunsBehaviorDescription}
           </p>
         </div>
+        <WorkflowPersistentCycleEditor
+          metadata={workflowMetadata}
+          onMetadataChange={onWorkflowMetadataChange}
+        />
         <div className="flex flex-col gap-3 border-t border-neutral-200 pt-3 dark:border-white/10 md:col-span-2 xl:col-span-12 sm:flex-row sm:items-center sm:justify-between">
           <p
             className={`text-xs ${

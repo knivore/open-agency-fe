@@ -51,7 +51,13 @@ describe('tool contract components', () => {
   it('renders contract list and selected contract metadata', () => {
     const onSelect = vi.fn();
 
-    render(<ToolContractList contracts={[sandboxContract]} selectedName="sandbox-edit" onSelect={onSelect} />);
+    render(
+      <ToolContractList
+        contracts={[sandboxContract]}
+        selectedName="sandbox-edit"
+        onSelect={onSelect}
+      />
+    );
 
     expect(screen.getByText('sandbox-edit')).toBeInTheDocument();
     expect(screen.getByText('Safely propose code changes.')).toBeInTheDocument();
@@ -77,7 +83,7 @@ describe('tool contract components', () => {
     render(<ToolInputForm contract={sandboxContract} isPending={false} onRun={onRun} />);
 
     fireEvent.change(screen.getByLabelText('Repository'), {
-      target: { value: '/Users/kehchinleong/Documents/Personal/Agency/agency-fe' },
+      target: { value: '/workspace/open-agency-fe' },
     });
     fireEvent.change(screen.getByLabelText('Path'), { target: { value: 'src/config.ts' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run dry-run' }));
@@ -85,10 +91,10 @@ describe('tool contract components', () => {
     await waitFor(() => {
       expect(onRun).toHaveBeenCalledWith(
         expect.objectContaining({
-          repo: '/Users/kehchinleong/Documents/Personal/Agency/agency-fe',
+          repo: '/workspace/open-agency-fe',
           dryRun: true,
           changes: [expect.objectContaining({ path: 'src/config.ts' })],
-        }),
+        })
       );
     });
   });
@@ -99,7 +105,7 @@ describe('tool contract components', () => {
         <PolicyVerdictPanel verdict={runResult.policyVerdict} />
         <DiffViewer patch={runResult.patch} />
         <ToolRunResult result={runResult} />
-      </>,
+      </>
     );
 
     expect(screen.getAllByText('no-secrets').length).toBeGreaterThan(0);

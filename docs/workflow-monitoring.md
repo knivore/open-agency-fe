@@ -124,7 +124,7 @@ with the canonical approval record.
 Each governance queue item now includes:
 
 | Field                 | Meaning                                                                                                    |
-|-----------------------|------------------------------------------------------------------------------------------------------------|
+| --------------------- | ---------------------------------------------------------------------------------------------------------- |
 | `record_kind`         | Either `improvement_proposal` or `steering_approval`.                                                      |
 | `record_id`           | Workflow-owned governance record id.                                                                       |
 | `status`              | Record status after approval sync and manual operator transitions.                                         |
@@ -156,7 +156,7 @@ a generic `updated` activity entry instead of guessing a specific operator actio
 These fields are currently visible in the Main agent monitoring panel.
 
 | UI label              | Payload field                                  | Capability                     | Meaning                                                                                                              | Impact                                                                                                                                                                                                                                             |
-|-----------------------|------------------------------------------------|--------------------------------|----------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| --------------------- | ---------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Monitor workflow      | `enabled`, `controls.enabled`                  | Workflow monitoring gate       | Controls whether the backend main-agent monitor can inspect active and recent runs for this workflow.                | When disabled, the workflow is treated as exempt. The graph labels monitored nodes as `Monitoring off`, and the exemption reason can be saved.                                                                                                     |
 | Monitoring level      | `level`, `controls.level`                      | Monitoring intensity           | Selects the policy level: `minimal`, `standard`, or `strict`.                                                        | The frontend shows this as the monitoring status. Backend policy decides how many checks, evaluations, or interventions each level enables.                                                                                                        |
 | Self monitoring       | `controls.allow_self_monitoring`               | Main-agent self-supervision    | Allows the main-agent monitor to monitor the main agent default workflow itself.                                     | Only shown when `is_main_agent_default_workflow` is true. Turning it on also enables workflow monitoring.                                                                                                                                          |
@@ -178,7 +178,7 @@ These top-level fields describe the backend's monitoring policy state. Some are 
 others are backend/operator metadata.
 
 | Field                            | Capability                   | Meaning                                                                 | Impact                                                                                                                            |
-|----------------------------------|------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| -------------------------------- | ---------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                        | Monitoring gate              | Canonical top-level on/off state for workflow monitoring.               | Drives the UI status badge and graph `Monitoring off` labels.                                                                     |
 | `level`                          | Monitoring intensity         | Canonical top-level monitoring level.                                   | Displayed as the status label unless the workflow is exempt or off.                                                               |
 | `exempted`                       | Exemption state              | Indicates the workflow is explicitly exempt from monitoring.            | UI status becomes `Exempt`; exemption reason is shown when present.                                                               |
@@ -197,7 +197,7 @@ others are backend/operator metadata.
 These fields live under `monitoring.controls`.
 
 | Field                                     | Visible | Capability                     | Meaning                                                                                | Impact                                                                                                               |
-|-------------------------------------------|---------|--------------------------------|----------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| ----------------------------------------- | ------- | ------------------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | `enabled`                                 | Yes     | Monitoring gate                | Nested copy of the monitoring enabled state.                                           | Kept aligned with top-level `enabled` by the frontend optimistic patch helper.                                       |
 | `level`                                   | Yes     | Monitoring intensity           | Nested copy of the monitoring level.                                                   | Kept aligned with top-level `level` by the frontend optimistic patch helper.                                         |
 | `store_run_summaries`                     | No      | Summary persistence            | Allows the backend monitor to store summaries of workflow runs.                        | Can provide compact historical context for later monitoring and review. Not currently editable in the panel.         |
@@ -224,7 +224,7 @@ These fields live under `monitoring.controls`.
 The `/operations/main-agent-monitor` page is intentionally broader than a single workflow panel:
 
 | Section                 | Source field                                 | Purpose                                                                                 |
-|-------------------------|----------------------------------------------|-----------------------------------------------------------------------------------------|
+| ----------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Status counters         | `summary`, `settings`, `runtime`             | Shows whether the monitor is enabled, workflow coverage, pending approvals, and ticks.  |
 | Notification routing    | `notification_route`                         | Edits the default approval inbox and optional linked chat delivery metadata.            |
 | Human attention inbox   | `pending_approvals`                          | Lets an operator approve or reject monitor-created workflow updates and steering gates. |
@@ -240,7 +240,7 @@ The delivery target is the approval conversation's channel binding. The monitor 
 intentionally stores only the provider and credential id.
 
 | Provider | Conversation target requirement                                                                        | Credential metadata requirement                                                              |
-|----------|--------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| -------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
 | Telegram | `channel_thread_id` is the Telegram `chat_id`; `channel_user_id` maps the trusted operator identity.   | Production webhooks need `webhook_secret_ref` or `webhook_secret_token`.                     |
 | Discord  | `channel_thread_id` is the Discord `channel_id`; `channel_user_id` maps the trusted operator identity. | Production webhooks need `webhook_public_key`.                                               |
 | WhatsApp | `channel_user_id` is the recipient phone number or `wa_id`.                                            | Delivery needs `phone_number_id`; production webhooks need `app_secret_ref` or `app_secret`. |
@@ -312,7 +312,7 @@ fill with identical approval requests while one is still pending.
 `GET /api/main-agent/monitor` returns `MainAgentMonitorCommandCenterResponse`:
 
 | Field                 | Purpose                                                                                     |
-|-----------------------|---------------------------------------------------------------------------------------------|
+| --------------------- | ------------------------------------------------------------------------------------------- |
 | `settings`            | Global monitor enablement, default policy, interval, stale threshold, and retention values. |
 | `runtime`             | Loop health, counters, recent actions, and the latest `main_agent_monitor.tick`.            |
 | `active_profile`      | Active main-agent profile summary, when one is configured.                                  |
@@ -356,7 +356,7 @@ The monitor workspace should make these boundaries clear to operators:
 The frontend currently recognizes these steering action IDs:
 
 | Action ID                   | Meaning                                      | Typical impact                                                           |
-|-----------------------------|----------------------------------------------|--------------------------------------------------------------------------|
+| --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
 | `request_human_review`      | Ask a human to inspect the workflow or run.  | Creates or routes a review checkpoint.                                   |
 | `request_replan`            | Ask the workflow to replan.                  | Can change the execution plan where backend/runtime supports replanning. |
 | `redirect_subagent`         | Redirect work from one sub-agent to another. | Can alter responsibility for a task or follow-up action.                 |
@@ -376,7 +376,7 @@ the Auto-apply steering UI.
 `GET /api/workflows/:id/monitoring/events` returns monitoring event groups:
 
 | Event group         | Meaning                                                         | UI impact                                                                                           |
-|---------------------|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
+| ------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
 | `findings`          | Monitor observations from run evidence.                         | Normalized into graph runtime overlays.                                                             |
 | `proposals`         | Suggested workflow improvements.                                | Rendered in the Monitor proposals panel, including approval controls when present.                  |
 | `evaluations`       | Evaluation records from monitor or evaluation-agent review.     | Normalized into graph runtime overlays.                                                             |

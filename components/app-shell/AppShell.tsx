@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
@@ -22,11 +22,13 @@ import {
   Radar,
   Router,
   SlidersHorizontal,
+  Sparkles,
   Stethoscope,
   Sun,
   TabletSmartphone,
   UserRoundCog,
   Workflow,
+  X,
 } from 'lucide-react';
 import type { IconType } from 'react-icons';
 import { useQuery } from '@tanstack/react-query';
@@ -46,6 +48,12 @@ import {
   DialogTitle,
 } from '@/components/library/shadcn/dialog';
 import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetTitle,
+} from '@/components/library/shadcn/sheet';
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -53,6 +61,7 @@ import {
 } from '@/components/library/shadcn/tooltip';
 import UserAvatar from '@/components/navbar/UserAvatar';
 import { conversationsApi } from '@/lib/api/backend/conversations';
+import { assistantOpenEvent } from '@/lib/assistant/events';
 import { physicalDevicesApi } from '@/lib/api/backend/physicalDevices';
 import { smartHomeApi } from '@/lib/api/backend/smartHome';
 import { useAgencyUserPreferences } from '@/lib/userPreferences';
@@ -60,6 +69,8 @@ import { queryKeys } from '@/lib/react-query/queryKeys';
 import { cn } from '@/lib/utils';
 
 import BackendHealthIndicator from './BackendHealthIndicator';
+import CommandPalette from './CommandPalette';
+import { rememberWorkspaceItem } from '@/lib/workspaceHistory';
 
 interface NavItem {
   name: string;
@@ -303,7 +314,7 @@ function NavigationItem({ item, onNavigate }: { item: NavItem; onNavigate?: () =
             aria-current={isActive ? 'page' : undefined}
             data-tone={item.tone}
             className={cn(
-              'agency-nav-item group relative flex min-h-10 items-center gap-3 rounded-lg px-2.5 py-2 text-sm font-medium text-(--agency-shell-muted) outline-none transition-colors',
+              'agency-nav-item group relative flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-[0.94rem] font-medium text-(--agency-shell-muted) outline-none transition-colors',
               'hover:bg-(--agency-row-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring',
               isActive && 'bg-(--agency-active-bg) text-(--agency-shell-text)'
             )}
@@ -332,7 +343,10 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       <div className="flex h-[72px] shrink-0 items-center border-b border-(--agency-shell-border) px-5">
         <Logo />
       </div>
-      <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 py-5" aria-label="Primary">
+      <nav
+        className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-5"
+        aria-label="Primary"
+      >
         {visibleNavSections.map((section) => (
           <section key={section.title} className="flex flex-col gap-1">
             <h2 className="px-3 pb-1.5 text-[0.67rem] font-semibold uppercase tracking-[0.14em] text-(--agency-shell-muted)">
@@ -344,31 +358,6 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
           </section>
         ))}
       </nav>
-      <div className="shrink-0 border-t border-(--agency-shell-border) p-3">
-        <TooltipProvider delayDuration={250}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                href="/observatory/builder"
-                onClick={onNavigate}
-                data-tone="graph"
-                className="agency-nav-item group flex items-center gap-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-control-bg) px-2.5 py-2.5 text-sm font-medium text-(--agency-shell-text) outline-none transition-colors hover:bg-(--agency-control-bg-hover) focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <span className="agency-nav-icon flex size-7 shrink-0 items-center justify-center rounded-md">
-                  <SlidersHorizontal className="size-[1.05rem] stroke-[1.75]" />
-                </span>
-                <span className="min-w-0">
-                  <span className="block truncate">Customize Observatory</span>
-                  <span className="block truncate text-[0.68rem] font-normal text-(--agency-shell-muted)">
-                    Design the live run view
-                  </span>
-                </span>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">Build your own Observatory layout</TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
     </div>
   );
 }
@@ -440,9 +429,41 @@ function ThemeToggleButton() {
   );
 }
 
-function AssistantLauncher({ label, onOpen }: { label: string; onOpen: () => void }) {
+function AssistantGlyph({
+  label,
+  icon,
+  className = 'size-5',
+}: {
+  label: string;
+  icon: 'bot' | 'sparkles' | 'initial';
+  className?: string;
+}) {
+  if (icon === 'sparkles') {
+    return <Sparkles className={cn(className, 'stroke-[1.75]')} aria-hidden="true" />;
+  }
+  if (icon === 'initial') {
+    return (
+      <span className="text-sm font-semibold" aria-hidden="true">
+        {label.slice(0, 1).toUpperCase()}
+      </span>
+    );
+  }
+  return <BotMessageSquare className={cn(className, 'stroke-[1.75]')} aria-hidden="true" />;
+}
+
+function AssistantLauncher({
+  label,
+  mode,
+  icon,
+  onOpen,
+}: {
+  label: string;
+  mode: 'floating' | 'dock' | 'hidden';
+  icon: 'bot' | 'sparkles' | 'initial';
+  onOpen: () => void;
+}) {
   const pathname = usePathname();
-  if (pathname === '/assistant') {
+  if (pathname === '/assistant' || mode === 'hidden') {
     return null;
   }
 
@@ -452,10 +473,23 @@ function AssistantLauncher({ label, onOpen }: { label: string; onOpen: () => voi
       onClick={onOpen}
       aria-label={`Open ${label}`}
       title={`Open ${label}`}
-      className="group fixed bottom-5 right-5 z-20 inline-flex size-14 items-center justify-center rounded-full bg-background p-[2px] shadow-[0_10px_30px_rgba(15,23,42,0.18)] outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-2 focus-visible:ring-ring sm:bottom-7 sm:right-7"
+      data-placement={mode}
+      className={cn(
+        'group fixed z-20 hidden items-center justify-center bg-background p-[2px] shadow-(--agency-elevation-2) outline-none motion-reduce:transition-none motion-reduce:transform-none focus-visible:ring-2 focus-visible:ring-ring sm:inline-flex',
+        mode === 'floating'
+          ? 'bottom-4 right-4 size-12 rounded-full transition-transform hover:-translate-y-0.5 sm:bottom-6 sm:right-6 sm:size-13'
+          : 'bottom-20 right-0 h-12 w-10 rounded-l-2xl border border-r-0 border-(--agency-shell-border) transition-[width] hover:w-12 focus-visible:w-12 sm:bottom-24'
+      )}
     >
-      <span className="agency-gradient flex size-full items-center justify-center rounded-full text-white">
-        <BotMessageSquare className="size-5 stroke-[1.75] transition-transform group-hover:scale-105" />
+      <span
+        className={cn(
+          'agency-gradient flex size-full items-center justify-center text-white',
+          mode === 'floating' ? 'rounded-full' : 'rounded-l-[0.85rem]'
+        )}
+      >
+        <span className="transition-transform group-hover:scale-105 motion-reduce:transform-none">
+          <AssistantGlyph label={label} icon={icon} />
+        </span>
       </span>
     </button>
   );
@@ -531,6 +565,14 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
+  const {
+    preferences: { assistantLauncherMode, assistantLauncherIcon },
+  } = useAgencyUserPreferences();
+  const visibleNavSections = useVisibleNavSections();
+  const commandPaletteRoutes = useMemo(
+    () => visibleNavSections.flatMap((section) => section.items),
+    [visibleNavSections]
+  );
   const { data: session } = useSession();
   const user = session?.user;
   const assistantDialogOpen = assistantOpen && pathname !== '/assistant';
@@ -542,27 +584,66 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
   });
   const assistantLabel = mainAgentQuery.data?.name?.trim() || 'Main Agent';
 
+  useEffect(() => {
+    const openAssistant = () => setAssistantOpen(true);
+    window.addEventListener(assistantOpenEvent, openAssistant);
+    return () => window.removeEventListener(assistantOpenEvent, openAssistant);
+  }, []);
+
+  useEffect(() => {
+    const matchingRoute = commandPaletteRoutes
+      .flatMap((item) => item)
+      .sort((left, right) => right.path.length - left.path.length)
+      .find((item) => isNavItemActive(pathname, item.path));
+    if (!matchingRoute) {
+      return;
+    }
+
+    rememberWorkspaceItem({
+      path: pathname,
+      label: matchingRoute.name,
+      description:
+        pathname === matchingRoute.path ? matchingRoute.description : `Open ${matchingRoute.name}`,
+    });
+  }, [commandPaletteRoutes, pathname]);
+
   return (
     <div className="h-dvh overflow-hidden bg-(--agency-shell-bg) text-(--agency-shell-text)">
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            className="absolute inset-0 size-full bg-slate-950/45 backdrop-blur-sm"
-            aria-label="Close navigation menu"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute inset-y-0 left-0 w-[min(88vw,18rem)] border-r border-(--agency-shell-border) bg-(--agency-sidebar-bg) shadow-2xl backdrop-blur-xl">
+      <a
+        href="#main-content"
+        className="fixed left-4 top-3 z-[70] -translate-y-20 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-lg transition-transform focus:translate-y-0 focus:outline-none focus:ring-2 focus:ring-ring motion-reduce:transition-none"
+      >
+        Skip to main content
+      </a>
+
+      <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
+        <SheetContent
+          side="left"
+          hideCloseButton
+          className="w-[min(88vw,18rem)] max-w-none p-0 lg:hidden"
+        >
+          <SheetTitle className="sr-only">Open Agency navigation</SheetTitle>
+          <SheetDescription className="sr-only">
+            Navigate between Open Agency workspace and account pages.
+          </SheetDescription>
+          <div className="relative h-full bg-(--agency-sidebar-bg) backdrop-blur-xl">
             <SidebarContent onNavigate={() => setMobileOpen(false)} />
-          </aside>
-        </div>
-      ) : null}
+            <IconButton
+              label="Close navigation menu"
+              className="absolute right-4 top-[18px]"
+              onClick={() => setMobileOpen(false)}
+            >
+              <X className="size-4" />
+            </IconButton>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <div className="flex h-full">
         <aside
           className={cn(
             'relative hidden h-full shrink-0 border-r border-(--agency-shell-border) bg-(--agency-sidebar-bg) backdrop-blur-xl transition-[width] duration-200 lg:block',
-            desktopCollapsed ? 'w-[72px]' : 'w-[272px]'
+            desktopCollapsed ? 'w-[72px]' : 'w-[280px]'
           )}
         >
           {desktopCollapsed ? (
@@ -582,7 +663,7 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-(--agency-shell-border) bg-(--agency-shell-panel) px-4 backdrop-blur-xl sm:px-6">
+          <header className="z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-(--agency-shell-border) bg-(--agency-shell-panel) px-4 backdrop-blur-xl sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
               <div className="lg:hidden">
                 <IconButton label="Open navigation menu" onClick={() => setMobileOpen(true)}>
@@ -595,7 +676,22 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
+              <CommandPalette routes={commandPaletteRoutes} />
               <ThemeToggleButton />
+              {pathname !== '/assistant' && assistantLauncherMode !== 'hidden' ? (
+                <div className="sm:hidden">
+                  <IconButton
+                    label={`Open ${assistantLabel} assistant`}
+                    onClick={() => setAssistantOpen(true)}
+                  >
+                    <AssistantGlyph
+                      label={assistantLabel}
+                      icon={assistantLauncherIcon}
+                      className="size-4"
+                    />
+                  </IconButton>
+                </div>
+              ) : null}
               <div className="hidden sm:block">
                 <BackendHealthIndicator compact showRefresh={false} />
               </div>
@@ -614,15 +710,24 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
             </div>
           </header>
 
-          <main className="agency-workspace-background min-h-0 min-w-0 flex-1 overflow-y-auto bg-(--agency-shell-bg)">
-            <div className="mx-auto w-full max-w-[1600px] px-4 pb-24 pt-6 sm:px-6 sm:pb-10 sm:pt-8 xl:px-9">
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="agency-workspace-background min-h-0 min-w-0 flex-1 overflow-y-auto bg-(--agency-shell-bg) outline-none"
+          >
+            <div className="mx-auto w-full max-w-[1520px] px-4 pb-28 pt-6 sm:px-6 sm:pb-12 sm:pt-8 xl:px-10">
               {children}
             </div>
           </main>
         </div>
       </div>
 
-      <AssistantLauncher label={assistantLabel} onOpen={() => setAssistantOpen(true)} />
+      <AssistantLauncher
+        label={assistantLabel}
+        mode={assistantLauncherMode}
+        icon={assistantLauncherIcon}
+        onOpen={() => setAssistantOpen(true)}
+      />
       <Dialog open={assistantDialogOpen} onOpenChange={setAssistantOpen}>
         <DialogContent className="flex h-[min(85dvh,760px)] max-w-5xl flex-col overflow-hidden border-(--agency-shell-border) bg-(--agency-shell-panel-strong) p-0 text-(--agency-shell-text) shadow-2xl">
           <DialogTitle className="sr-only">Ask {assistantLabel}</DialogTitle>

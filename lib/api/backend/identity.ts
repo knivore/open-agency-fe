@@ -14,3 +14,14 @@ export function currentUserHeaders(user: AuthUser, internalApiKey?: string | nul
     ...(internalApiKey ? { 'x-agency-internal-api-key': internalApiKey } : {}),
   };
 }
+
+export function localCredentialHeaders(user: AuthUser): HeadersInit {
+  return {
+    ...currentUserHeaders(user),
+    // Only Open Agency-issued local sessions are valid proof for credential changes.
+    // Do not forward fallback or external-provider access tokens as backend API keys.
+    ...(user.accessToken?.startsWith('agt_')
+      ? { Authorization: `Bearer ${user.accessToken}` }
+      : {}),
+  };
+}

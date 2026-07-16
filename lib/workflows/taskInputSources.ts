@@ -35,9 +35,7 @@ function safeMetadata(metadata: unknown): JsonObject {
     : {};
 }
 
-export function workflowTaskInputSourcesFromMetadata(
-  metadata: unknown
-): WorkflowTaskInputSource[] {
+export function workflowTaskInputSourcesFromMetadata(metadata: unknown): WorkflowTaskInputSource[] {
   const value = safeMetadata(metadata).task_input_sources;
   if (!Array.isArray(value)) {
     return [];

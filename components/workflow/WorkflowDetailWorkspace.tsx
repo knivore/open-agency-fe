@@ -77,7 +77,9 @@ import {
   useWorkflowEditorDraft,
 } from '@/components/workflow/useWorkflowEditorDraft';
 import WorkflowDetailHeader from '@/components/workflow/WorkflowDetailHeader';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import WorkflowDetailStatus from '@/components/workflow/WorkflowDetailStatus';
+import WorkflowOperationError from '@/components/workflow/WorkflowOperationError';
 import WorkflowEdgeMetadataEditor from '@/components/workflow/WorkflowEdgeMetadataEditor';
 import WorkflowGraphCanvas from '@/components/workflow/WorkflowGraphCanvas';
 import WorkflowMetadataEditor from '@/components/workflow/WorkflowMetadataEditor';
@@ -1243,6 +1245,8 @@ function toolDefinitionWithBackendSecurityDefaults(tool: ToolDefinition): ToolDe
     security: {
       ...(tool.security ?? {}),
       allow_shell: true,
+      sandbox_required: true,
+      requires_approval: true,
     },
   };
 }
@@ -1906,6 +1910,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   const isEditModeRequested = activeMode === 'edit';
   const requestedTaskId = searchParams.get('task');
   const [autoSavePhase, setAutoSavePhase] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [refreshConfirmOpen, setRefreshConfirmOpen] = useState(false);
   const [backendValidationSummary, setBackendValidationSummary] =
     useState<BackendWorkflowValidationSummary>({
       errors: [],
@@ -3758,14 +3763,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     );
   };
 
-  const handleRefresh = async () => {
-    if (
-      hasUnsavedChanges &&
-      !window.confirm('Discard unsaved workflow changes and refresh from the backend?')
-    ) {
-      return;
-    }
-
+  const refreshFromBackend = async () => {
     if (isEditing) {
       suppressEditModeStartRef.current = true;
       stopEditing();
@@ -3773,6 +3771,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     }
 
     await Promise.all([workflowQuery.refetch(), runsQuery.refetch(), schedulesQuery.refetch()]);
+  };
+
+  const handleRefresh = () => {
+    if (hasUnsavedChanges) {
+      setRefreshConfirmOpen(true);
+      return;
+    }
+    void refreshFromBackend();
   };
 
   const handleGraphValidationIssues = (issues: Array<{ severity: string; message?: string }>) => {
@@ -4995,6 +5001,10 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       assignableToolDefinitions,
       effectiveWorkflowCapabilityTags
     );
+    const equippedToolDefinitions = selectedToolIds.map((toolId) => ({
+      id: toolId,
+      tool: toolMap.get(toolId) ?? sortedToolDefinitions.find((tool) => tool.id === toolId) ?? null,
+    }));
     const recommendedToolIds = new Set(
       toolsRecommendedForWorkflowCapabilities(
         assignableToolDefinitions,
@@ -5255,7 +5265,24 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           return groups;
         }, new Map())
         .entries()
-    ).sort(([leftGroup], [rightGroup]) => leftGroup.localeCompare(rightGroup));
+    )
+      .map(
+        ([groupName, tools]) =>
+          [
+            groupName,
+            [...tools].sort((left, right) => {
+              const assignmentOrder =
+                Number(selectedToolIdSet.has(right.id)) - Number(selectedToolIdSet.has(left.id));
+              return assignmentOrder || toolDisplayName(left).localeCompare(toolDisplayName(right));
+            }),
+          ] as const
+      )
+      .sort(([leftGroup, leftTools], [rightGroup, rightTools]) => {
+        const assignmentOrder =
+          Number(rightTools.some((tool) => selectedToolIdSet.has(tool.id))) -
+          Number(leftTools.some((tool) => selectedToolIdSet.has(tool.id)));
+        return assignmentOrder || leftGroup.localeCompare(rightGroup);
+      });
     const normalizedToolSearch = toolDrawerSearch.trim().replace(/[_-]+/g, ' ').toLowerCase();
     const visibleGroupedToolDefinitions = groupedToolDefinitions
       .map(([groupName, tools]) => {
@@ -5302,340 +5329,384 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           </p>
         </div>
 
-        <div className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-200 bg-orange-50/45 p-3 dark:border-orange-400/20 dark:bg-orange-500/10">
+        <section
+          aria-label="Equipped tools"
+          className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-300/80 bg-orange-50/80 p-3 shadow-sm dark:border-orange-300/25 dark:bg-orange-500/12"
+        >
           <div className="flex items-center justify-between gap-3">
-            <Label className="text-xs font-medium uppercase tracking-[0.12em] text-orange-700 dark:text-orange-200">
-              Tool List
+            <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-orange-800 dark:text-orange-100">
+              Equipped tools
             </Label>
-            <Badge variant="outline">
-              {visibleToolCount === sortedToolDefinitions.length
-                ? `${sortedToolDefinitions.length} available`
-                : `${visibleToolCount} of ${sortedToolDefinitions.length}`}
-            </Badge>
+            <Badge variant="secondary">{selectedToolIds.length}</Badge>
           </div>
-          <Input
-            value={toolDrawerSearch}
-            onChange={(event) => setToolDrawerSearch(event.target.value)}
-            placeholder="Search tool or group"
-            aria-label="Search tools"
-          />
-
-          {sortedToolDefinitions.length === 0 ? (
-            <p className="text-sm text-neutral-500 dark:text-slate-400">No tools are available.</p>
-          ) : visibleGroupedToolDefinitions.length === 0 ? (
-            <p className="text-sm text-neutral-500 dark:text-slate-400">
-              No tools match this search.
+          {equippedToolDefinitions.length === 0 ? (
+            <p className="text-sm text-neutral-600 dark:text-slate-300">
+              No tools are equipped on this node.
             </p>
           ) : (
-            <Accordion
-              type="multiple"
-              defaultValue={visibleGroupedToolDefinitions.map(([groupName]) => groupName)}
-              className="max-h-128 space-y-2 overflow-y-auto pr-1"
-            >
-              {visibleGroupedToolDefinitions.map(([groupName, tools]) => {
-                return (
-                  <AccordionItem
-                    key={groupName}
-                    value={groupName}
-                    className="workflow-drawer-fieldset rounded-xl border border-orange-200/60 bg-orange-50/55 px-3 dark:border-orange-300/16 dark:bg-orange-500/10"
-                  >
-                    <AccordionTrigger className="py-3 text-left hover:no-underline">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span className="truncate text-sm font-semibold capitalize text-neutral-900 dark:text-slate-100">
-                          {readableToolGroupName(groupName)}
-                        </span>
-                        <Badge variant="secondary">
-                          {tools.length} {tools.length === 1 ? 'tool' : 'tools'}
-                        </Badge>
-                      </div>
-                    </AccordionTrigger>
+            <div className="space-y-2">
+              {equippedToolDefinitions.map(({ id, tool }) => (
+                <div
+                  key={id}
+                  className="rounded-lg border border-orange-200/80 bg-white/90 px-3 py-2.5 dark:border-orange-300/15 dark:bg-slate-950/70"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-semibold text-neutral-950 dark:text-slate-100">
+                      {tool ? toolDisplayName(tool) : id}
+                    </span>
+                    {tool?.tool_type ? (
+                      <Badge variant="outline">{readableToolGroupName(tool.tool_type)}</Badge>
+                    ) : null}
+                  </div>
+                  {tool?.description ? (
+                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                      {tool.description}
+                    </p>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
-                    <AccordionContent className="space-y-2 pb-3">
-                      {tools.map((tool) => {
-                        const assignedAgentIds = assignedAgentIdsForTool(tool.id);
-                        const assignedAgentIdSet = new Set(assignedAgentIds);
-                        const selected = selectedToolIdSet.has(tool.id);
-                        const binding = firstConnectorBinding(tool);
-                        const bindingProvider =
-                          binding?.provider ??
-                          connectorProviderHintForTool(tool, connectorCapabilities);
-                        const hasConnectorSignal = toolHasConnectorSignal(tool);
-                        const isHttpRequestTool = tool.id === 'agency.http.request';
-                        const runtimeParameters =
-                          selectedGraphToolNodeAgent && selected
-                            ? runtimeParametersForTool(selectedGraphToolNodeAgent, tool.id)
-                            : {};
-                        const hasRuntimeParameters = Object.keys(runtimeParameters).length > 0;
-                        const httpRequestSetupMode =
-                          httpRequestSetupModeByToolId[tool.id] ??
-                          (binding ? 'binding' : hasRuntimeParameters ? 'parameters' : 'binding');
-                        const bindingProviderCredentialCount = bindingProvider
-                          ? connectorCredentials.filter(
-                              (credential) => credential.provider === bindingProvider
-                            ).length
-                          : 0;
-                        return (
-                          <div
-                            key={tool.id}
-                            className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-200/55 bg-orange-50/50 p-3 dark:border-orange-300/14 dark:bg-orange-500/10"
-                          >
-                            <div className="min-w-0">
-                              <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                <span className="truncate font-medium text-neutral-900 dark:text-slate-100">
-                                  {toolDisplayName(tool)}
-                                </span>
-                                {selected ? <Badge variant="secondary">In node</Badge> : null}
-                                {recommendedToolIds.has(tool.id) ? (
-                                  <Badge variant="outline">Recommended</Badge>
-                                ) : null}
-                              </div>
-                              <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500 dark:text-slate-400">
-                                {tool.description || tool.id}
-                              </p>
-                            </div>
+        {isEditing ? (
+          <div className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-200 bg-orange-50/45 p-3 dark:border-orange-400/20 dark:bg-orange-500/10">
+            <div className="flex items-center justify-between gap-3">
+              <Label className="text-xs font-medium uppercase tracking-[0.12em] text-orange-700 dark:text-orange-200">
+                Available tools
+              </Label>
+              <Badge variant="outline">
+                {visibleToolCount === sortedToolDefinitions.length
+                  ? `${sortedToolDefinitions.length} available`
+                  : `${visibleToolCount} of ${sortedToolDefinitions.length}`}
+              </Badge>
+            </div>
+            <Input
+              value={toolDrawerSearch}
+              onChange={(event) => setToolDrawerSearch(event.target.value)}
+              placeholder="Search tool or group"
+              aria-label="Search tools"
+            />
 
-                            <div className="flex flex-wrap gap-2">
-                              {selectedGraphToolNodeId ? (
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="outline"
-                                  aria-label={
-                                    selectedGraphToolNodeAgent
-                                      ? `${selected ? 'Remove access from' : 'Add to'} ${linkedAgentLabel}`
-                                      : 'Connect to an agent'
-                                  }
-                                  disabled={!isEditing || !selectedGraphToolNodeAgent}
-                                  className={
-                                    selected
-                                      ? 'border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100'
-                                      : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
-                                  }
-                                  onClick={() => toggleToolNodeTool(tool.id)}
-                                >
-                                  {selectedGraphToolNodeAgent
-                                    ? selected
-                                      ? 'Remove access'
-                                      : 'Add tool'
-                                    : 'Connect to an agent'}
-                                </Button>
-                              ) : visibleAgentDefinitions.length === 0 ? (
-                                <span className="text-xs text-neutral-500 dark:text-slate-400">
-                                  Add an agent before assigning tools.
-                                </span>
-                              ) : (
-                                visibleAgentDefinitions.map((agent, agentIndex) => {
-                                  const hasAccess = assignedAgentIdSet.has(agent.id);
-                                  return (
-                                    <Button
-                                      key={`${tool.id}-${agent.id}`}
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      disabled={!isEditing}
-                                      className={
-                                        hasAccess
-                                          ? 'border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100'
-                                          : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
-                                      }
-                                      onClick={() =>
-                                        toggleAgentToolAccess(agent, agentIndex, tool.id)
-                                      }
-                                    >
-                                      {hasAccess ? 'Remove access from' : 'Add to'}{' '}
-                                      {agent.name || agent.id}
-                                    </Button>
-                                  );
-                                })
-                              )}
-                            </div>
+            {sortedToolDefinitions.length === 0 ? (
+              <p className="text-sm text-neutral-500 dark:text-slate-400">
+                No tools are available.
+              </p>
+            ) : visibleGroupedToolDefinitions.length === 0 ? (
+              <p className="text-sm text-neutral-500 dark:text-slate-400">
+                No tools match this search.
+              </p>
+            ) : (
+              <Accordion
+                type="multiple"
+                defaultValue={visibleGroupedToolDefinitions.map(([groupName]) => groupName)}
+                className="max-h-128 space-y-2 overflow-y-auto pr-1"
+              >
+                {visibleGroupedToolDefinitions.map(([groupName, tools]) => {
+                  return (
+                    <AccordionItem
+                      key={groupName}
+                      value={groupName}
+                      className="workflow-drawer-fieldset rounded-xl border border-orange-200/60 bg-orange-50/55 px-3 dark:border-orange-300/16 dark:bg-orange-500/10"
+                    >
+                      <AccordionTrigger className="py-3 text-left hover:no-underline">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate text-sm font-semibold capitalize text-neutral-900 dark:text-slate-100">
+                            {readableToolGroupName(groupName)}
+                          </span>
+                          <Badge variant="secondary">
+                            {tools.length} {tools.length === 1 ? 'tool' : 'tools'}
+                          </Badge>
+                        </div>
+                      </AccordionTrigger>
 
-                            {isHttpRequestTool && selected && selectedGraphToolNodeAgent ? (
-                              <div className="flex flex-wrap gap-2">
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={
-                                    httpRequestSetupMode === 'binding' ? 'default' : 'outline'
-                                  }
-                                  disabled={!isEditing}
-                                  onClick={() =>
-                                    setHttpRequestSetupModeByToolId((current) => ({
-                                      ...current,
-                                      [tool.id]: 'binding',
-                                    }))
-                                  }
-                                >
-                                  Use webhook credentials
-                                </Button>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant={
-                                    httpRequestSetupMode === 'parameters' ? 'default' : 'outline'
-                                  }
-                                  disabled={!isEditing}
-                                  onClick={() =>
-                                    setHttpRequestSetupModeByToolId((current) => ({
-                                      ...current,
-                                      [tool.id]: 'parameters',
-                                    }))
-                                  }
-                                >
-                                  Fill tool parameters
-                                </Button>
-                              </div>
-                            ) : null}
-
-                            {(bindingProvider || isHttpRequestTool || binding) &&
-                            (!isHttpRequestTool || httpRequestSetupMode === 'binding') ? (
-                              <form
-                                className="space-y-2 rounded-md border border-orange-200/50 bg-white/90 p-3 dark:border-orange-300/14 dark:bg-slate-950/76"
-                                onSubmit={(event) => {
-                                  event.preventDefault();
-                                  try {
-                                    saveToolConnectorBinding(tool, event.currentTarget);
-                                    toast.success('Connector binding saved.', {
-                                      position: 'top-right',
-                                    });
-                                  } catch (error) {
-                                    toast.error(
-                                      error instanceof Error
-                                        ? error.message
-                                        : 'Failed to save connector binding.',
-                                      { position: 'top-right' }
-                                    );
-                                  }
-                                }}
-                              >
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <div>
-                                    <p className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
-                                      Tool connector binding
-                                    </p>
-                                    <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
-                                      Select the credential and target fields used by{' '}
-                                      {toolDisplayName(tool)}.
-                                    </p>
-                                  </div>
-                                  {binding ? (
-                                    <Badge variant="outline">
-                                      {binding.provider} / {binding.credential_id}
-                                    </Badge>
+                      <AccordionContent className="space-y-2 pb-3">
+                        {tools.map((tool) => {
+                          const assignedAgentIds = assignedAgentIdsForTool(tool.id);
+                          const assignedAgentIdSet = new Set(assignedAgentIds);
+                          const selected = selectedToolIdSet.has(tool.id);
+                          const binding = firstConnectorBinding(tool);
+                          const bindingProvider =
+                            binding?.provider ??
+                            connectorProviderHintForTool(tool, connectorCapabilities);
+                          const hasConnectorSignal = toolHasConnectorSignal(tool);
+                          const isHttpRequestTool = tool.id === 'agency.http.request';
+                          const runtimeParameters =
+                            selectedGraphToolNodeAgent && selected
+                              ? runtimeParametersForTool(selectedGraphToolNodeAgent, tool.id)
+                              : {};
+                          const hasRuntimeParameters = Object.keys(runtimeParameters).length > 0;
+                          const httpRequestSetupMode =
+                            httpRequestSetupModeByToolId[tool.id] ??
+                            (binding ? 'binding' : hasRuntimeParameters ? 'parameters' : 'binding');
+                          const bindingProviderCredentialCount = bindingProvider
+                            ? connectorCredentials.filter(
+                                (credential) => credential.provider === bindingProvider
+                              ).length
+                            : 0;
+                          return (
+                            <div
+                              key={tool.id}
+                              className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-200/55 bg-orange-50/50 p-3 dark:border-orange-300/14 dark:bg-orange-500/10"
+                            >
+                              <div className="min-w-0">
+                                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                  <span className="truncate font-medium text-neutral-900 dark:text-slate-100">
+                                    {toolDisplayName(tool)}
+                                  </span>
+                                  {selected ? <Badge variant="secondary">In node</Badge> : null}
+                                  {recommendedToolIds.has(tool.id) ? (
+                                    <Badge variant="outline">Recommended</Badge>
                                   ) : null}
                                 </div>
-                                <ConnectorBindingFields
-                                  key={`${tool.id}-${bindingProvider || 'provider-select'}`}
-                                  binding={binding}
-                                  defaultProvider={bindingProvider}
-                                  connectorCredentials={connectorCredentials}
-                                  connectorCapabilities={connectorCapabilities}
-                                  isEditing={isEditing}
-                                  purposePlaceholder="release_automation"
-                                />
-                                <div className="flex flex-wrap gap-2">
-                                  <Button
-                                    type="submit"
-                                    size="sm"
-                                    disabled={
-                                      !isEditing ||
-                                      (!bindingProvider && !isHttpRequestTool && !binding) ||
-                                      (bindingProvider
-                                        ? bindingProviderCredentialCount === 0
-                                        : false)
-                                    }
-                                  >
-                                    Save binding
-                                  </Button>
+                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500 dark:text-slate-400">
+                                  {tool.description || tool.id}
+                                </p>
+                              </div>
+
+                              <div className="flex flex-wrap gap-2">
+                                {selectedGraphToolNodeId ? (
                                   <Button
                                     type="button"
                                     size="sm"
                                     variant="outline"
-                                    disabled={!isEditing || !binding}
-                                    onClick={(event) => {
-                                      const form = event.currentTarget.form;
-                                      if (!form) return;
-                                      saveToolConnectorBinding(tool, form, true);
-                                      toast.success('Connector binding removed.', {
-                                        position: 'top-right',
-                                      });
-                                    }}
+                                    aria-label={
+                                      selectedGraphToolNodeAgent
+                                        ? `${selected ? 'Remove access from' : 'Add to'} ${linkedAgentLabel}`
+                                        : 'Connect to an agent'
+                                    }
+                                    disabled={!isEditing || !selectedGraphToolNodeAgent}
+                                    className={
+                                      selected
+                                        ? 'border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100'
+                                        : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
+                                    }
+                                    onClick={() => toggleToolNodeTool(tool.id)}
                                   >
-                                    Clear
+                                    {selectedGraphToolNodeAgent
+                                      ? selected
+                                        ? 'Remove access'
+                                        : 'Add tool'
+                                      : 'Connect to an agent'}
+                                  </Button>
+                                ) : visibleAgentDefinitions.length === 0 ? (
+                                  <span className="text-xs text-neutral-500 dark:text-slate-400">
+                                    Add an agent before assigning tools.
+                                  </span>
+                                ) : (
+                                  visibleAgentDefinitions.map((agent, agentIndex) => {
+                                    const hasAccess = assignedAgentIdSet.has(agent.id);
+                                    return (
+                                      <Button
+                                        key={`${tool.id}-${agent.id}`}
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        disabled={!isEditing}
+                                        className={
+                                          hasAccess
+                                            ? 'border-red-200 bg-red-50 text-red-700 hover:border-red-300 hover:bg-red-100'
+                                            : 'border-emerald-200 bg-emerald-50 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-100'
+                                        }
+                                        onClick={() =>
+                                          toggleAgentToolAccess(agent, agentIndex, tool.id)
+                                        }
+                                      >
+                                        {hasAccess ? 'Remove access from' : 'Add to'}{' '}
+                                        {agent.name || agent.id}
+                                      </Button>
+                                    );
+                                  })
+                                )}
+                              </div>
+
+                              {isHttpRequestTool && selected && selectedGraphToolNodeAgent ? (
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      httpRequestSetupMode === 'binding' ? 'default' : 'outline'
+                                    }
+                                    disabled={!isEditing}
+                                    onClick={() =>
+                                      setHttpRequestSetupModeByToolId((current) => ({
+                                        ...current,
+                                        [tool.id]: 'binding',
+                                      }))
+                                    }
+                                  >
+                                    Use webhook credentials
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      httpRequestSetupMode === 'parameters' ? 'default' : 'outline'
+                                    }
+                                    disabled={!isEditing}
+                                    onClick={() =>
+                                      setHttpRequestSetupModeByToolId((current) => ({
+                                        ...current,
+                                        [tool.id]: 'parameters',
+                                      }))
+                                    }
+                                  >
+                                    Fill tool parameters
                                   </Button>
                                 </div>
-                              </form>
-                            ) : hasConnectorSignal ? (
-                              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
-                                This connector tool needs a configured provider before credentials
-                                and delivery targets can be assigned.
-                              </div>
-                            ) : null}
+                              ) : null}
 
-                            {selected &&
-                            selectedGraphToolNodeAgent &&
-                            selectedGraphToolNodeId &&
-                            isHttpRequestTool &&
-                            httpRequestSetupMode === 'binding' ? (
-                              <ToolParameterEditor
-                                key={`${selectedGraphToolNodeAgent.id}-${tool.id}-runtime-only`}
-                                tool={tool}
-                                agent={selectedGraphToolNodeAgent}
-                                isEditing={isEditing}
-                                mode="runtime-only"
-                                onSave={() => undefined}
-                                onClear={() => undefined}
-                              />
-                            ) : null}
+                              {(bindingProvider || isHttpRequestTool || binding) &&
+                              (!isHttpRequestTool || httpRequestSetupMode === 'binding') ? (
+                                <form
+                                  className="space-y-2 rounded-md border border-orange-200/50 bg-white/90 p-3 dark:border-orange-300/14 dark:bg-slate-950/76"
+                                  onSubmit={(event) => {
+                                    event.preventDefault();
+                                    try {
+                                      saveToolConnectorBinding(tool, event.currentTarget);
+                                      toast.success('Connector binding saved.', {
+                                        position: 'top-right',
+                                      });
+                                    } catch (error) {
+                                      toast.error(
+                                        error instanceof Error
+                                          ? error.message
+                                          : 'Failed to save connector binding.',
+                                        { position: 'top-right' }
+                                      );
+                                    }
+                                  }}
+                                >
+                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                    <div>
+                                      <p className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
+                                        Tool connector binding
+                                      </p>
+                                      <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                                        Select the credential and target fields used by{' '}
+                                        {toolDisplayName(tool)}.
+                                      </p>
+                                    </div>
+                                    {binding ? (
+                                      <Badge variant="outline">
+                                        {binding.provider} / {binding.credential_id}
+                                      </Badge>
+                                    ) : null}
+                                  </div>
+                                  <ConnectorBindingFields
+                                    key={`${tool.id}-${bindingProvider || 'provider-select'}`}
+                                    binding={binding}
+                                    defaultProvider={bindingProvider}
+                                    connectorCredentials={connectorCredentials}
+                                    connectorCapabilities={connectorCapabilities}
+                                    isEditing={isEditing}
+                                    purposePlaceholder="release_automation"
+                                  />
+                                  <div className="flex flex-wrap gap-2">
+                                    <Button
+                                      type="submit"
+                                      size="sm"
+                                      disabled={
+                                        !isEditing ||
+                                        (!bindingProvider && !isHttpRequestTool && !binding) ||
+                                        (bindingProvider
+                                          ? bindingProviderCredentialCount === 0
+                                          : false)
+                                      }
+                                    >
+                                      Save binding
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      disabled={!isEditing || !binding}
+                                      onClick={(event) => {
+                                        const form = event.currentTarget.form;
+                                        if (!form) return;
+                                        saveToolConnectorBinding(tool, form, true);
+                                        toast.success('Connector binding removed.', {
+                                          position: 'top-right',
+                                        });
+                                      }}
+                                    >
+                                      Clear
+                                    </Button>
+                                  </div>
+                                </form>
+                              ) : hasConnectorSignal ? (
+                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
+                                  This connector tool needs a configured provider before credentials
+                                  and delivery targets can be assigned.
+                                </div>
+                              ) : null}
 
-                            {selected &&
-                            selectedGraphToolNodeAgent &&
-                            selectedGraphToolNodeId &&
-                            (!isHttpRequestTool || httpRequestSetupMode === 'parameters') ? (
-                              <ToolParameterEditor
-                                key={`${selectedGraphToolNodeAgent.id}-${tool.id}-${JSON.stringify(
-                                  runtimeParameters
-                                )}`}
-                                tool={tool}
-                                agent={selectedGraphToolNodeAgent}
-                                isEditing={isEditing}
-                                onSave={(parameters) => {
-                                  saveToolParametersForAgent(
-                                    selectedGraphToolNodeAgent.id,
-                                    tool,
-                                    parameters
-                                  );
-                                  if (isHttpRequestTool) {
-                                    setHttpRequestSetupModeByToolId((current) => ({
-                                      ...current,
-                                      [tool.id]: 'parameters',
-                                    }));
-                                  }
-                                  toast.success('Tool parameters saved.', {
-                                    position: 'top-right',
-                                  });
-                                }}
-                                onClear={() => {
-                                  clearToolParametersForAgent(
-                                    selectedGraphToolNodeAgent.id,
-                                    tool.id
-                                  );
-                                  toast.success('Tool parameters cleared.', {
-                                    position: 'top-right',
-                                  });
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        );
-                      })}
-                    </AccordionContent>
-                  </AccordionItem>
-                );
-              })}
-            </Accordion>
-          )}
-        </div>
+                              {selected &&
+                              selectedGraphToolNodeAgent &&
+                              selectedGraphToolNodeId &&
+                              isHttpRequestTool &&
+                              httpRequestSetupMode === 'binding' ? (
+                                <ToolParameterEditor
+                                  key={`${selectedGraphToolNodeAgent.id}-${tool.id}-runtime-only`}
+                                  tool={tool}
+                                  agent={selectedGraphToolNodeAgent}
+                                  isEditing={isEditing}
+                                  mode="runtime-only"
+                                  onSave={() => undefined}
+                                  onClear={() => undefined}
+                                />
+                              ) : null}
+
+                              {selected &&
+                              selectedGraphToolNodeAgent &&
+                              selectedGraphToolNodeId &&
+                              (!isHttpRequestTool || httpRequestSetupMode === 'parameters') ? (
+                                <ToolParameterEditor
+                                  key={`${selectedGraphToolNodeAgent.id}-${tool.id}-${JSON.stringify(
+                                    runtimeParameters
+                                  )}`}
+                                  tool={tool}
+                                  agent={selectedGraphToolNodeAgent}
+                                  isEditing={isEditing}
+                                  onSave={(parameters) => {
+                                    saveToolParametersForAgent(
+                                      selectedGraphToolNodeAgent.id,
+                                      tool,
+                                      parameters
+                                    );
+                                    if (isHttpRequestTool) {
+                                      setHttpRequestSetupModeByToolId((current) => ({
+                                        ...current,
+                                        [tool.id]: 'parameters',
+                                      }));
+                                    }
+                                    toast.success('Tool parameters saved.', {
+                                      position: 'top-right',
+                                    });
+                                  }}
+                                  onClear={() => {
+                                    clearToolParametersForAgent(
+                                      selectedGraphToolNodeAgent.id,
+                                      tool.id
+                                    );
+                                    toast.success('Tool parameters cleared.', {
+                                      position: 'top-right',
+                                    });
+                                  }}
+                                />
+                              ) : null}
+                            </div>
+                          );
+                        })}
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            )}
+          </div>
+        ) : null}
 
         {!isEditing ? (
           <p className="text-xs text-neutral-500 dark:text-slate-400">
@@ -6659,7 +6730,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   };
 
   const runConfigurationTriggerClass =
-    'relative -mx-2 my-1.5 min-h-23 rounded-xl border border-primary-100/80 bg-linear-to-b from-white to-primary-50/25 px-4 pb-8 pt-4 text-left transition-all hover:border-primary-300 hover:bg-primary-50/45 hover:no-underline focus-visible:ring-2 focus-visible:ring-primary-300/45 data-[state=open]:border-primary-300 data-[state=open]:bg-white dark:border-agent-300/18 dark:bg-[linear-gradient(180deg,rgba(22,24,42,0.94),rgba(8,18,31,0.96))] dark:hover:border-agent-300/28 dark:hover:bg-[linear-gradient(180deg,rgba(27,30,52,0.96),rgba(10,20,34,0.98))] dark:focus-visible:ring-sky-300/35 dark:data-[state=open]:border-sky-300/30 dark:data-[state=open]:bg-[linear-gradient(180deg,rgba(24,28,48,0.98),rgba(10,20,34,0.98))] [&>svg]:absolute [&>svg]:bottom-2 [&>svg]:left-1/2 [&>svg]:h-7 [&>svg]:w-7 [&>svg]:-translate-x-1/2 [&>svg]:rounded-full [&>svg]:p-1 [&>svg]:text-primary-700 dark:[&>svg]:text-sky-200 [&>svg]:transition-all hover:[&>svg]:text-primary-900 dark:hover:[&>svg]:text-sky-100';
+    'relative -mx-1 my-1 min-h-20 rounded-xl border border-transparent px-3 py-3 pr-12 text-left transition-colors hover:border-primary-200 hover:bg-primary-50/55 hover:no-underline focus-visible:ring-2 focus-visible:ring-primary-300/45 data-[state=open]:border-primary-200 data-[state=open]:bg-primary-50/45 dark:hover:border-white/10 dark:hover:bg-white/4 dark:focus-visible:ring-sky-300/35 dark:data-[state=open]:border-white/10 dark:data-[state=open]:bg-white/4 [&>svg]:absolute [&>svg]:right-4 [&>svg]:top-1/2 [&>svg]:h-5 [&>svg]:w-5 [&>svg]:-translate-y-1/2 [&>svg]:text-primary-700 dark:[&>svg]:text-sky-200';
 
   const renderConfigurationTrigger = (title: string, summary: string) => (
     <div className="flex min-w-0 flex-1 items-start gap-3 pr-1">
@@ -6791,12 +6862,15 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
       <div>
         <WorkflowMonitoringProposals
-          editable={isEditing}
+          editable
           frame="inline"
           events={monitoringEventsQuery.data ?? null}
           isLoading={monitoringEventsQuery.isLoading}
           isMutating={
             monitorApprovalMutation.isPending || dispatchMonitorProposalMutation.isPending
+          }
+          onEnableImprovementProposals={() =>
+            handleMonitorControlChange('allow_improvement_proposals', true)
           }
           onSendToMainAgent={handleSendMonitorProposalToMainAgent}
           onApprovalDecision={handleMonitorApprovalDecision}
@@ -7118,23 +7192,25 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const renderWorkflowMetadataSection = () => (
     <Accordion
+      id="workflow-metadata"
       type="single"
       collapsible
-      className="rounded-xl border border-primary-100 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-950/82 dark:shadow-none"
+      defaultValue={isEditing ? 'workflow-metadata' : undefined}
+      className="agency-surface-raised rounded-xl border px-3 py-2"
     >
       <AccordionItem value="workflow-metadata" className="group border-0">
         <AccordionTrigger className={runConfigurationTriggerClass}>
           <div className="flex min-w-0 flex-1 flex-col">
             {renderConfigurationTrigger(
-              'Workflow Metadata',
+              'Configuration & governance',
               isEditing
                 ? 'Name, description, entrypoint, runtime defaults, and active-run controls'
-                : 'Saved metadata, runtime defaults, schedule, and workflow context'
+                : 'Identity, runtime defaults, schedule, monitoring, memory, and workflow settings'
             )}
-            {renderWorkflowMetadataPreview()}
           </div>
         </AccordionTrigger>
         <AccordionContent className="space-y-5 px-1 pb-4 pt-2">
+          {renderWorkflowMetadataPreview()}
           {renderDraftChangeSummary()}
           {isEditing ? (
             <WorkflowMetadataEditor
@@ -7144,6 +7220,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               defaultRuntimeAdapterId={defaultRuntimeAdapterId}
               executionHost={executionHost}
               restartActiveExecutions={restartActiveExecutions}
+              workflowMetadata={workflowMetadata}
               workflowCapabilityTags={effectiveWorkflowCapabilityTags}
               visibleTaskDefinitions={visibleTaskDefinitions}
               runtimeAdapters={runtimeAdapters}
@@ -7160,6 +7237,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               onDefaultRuntimeAdapterChange={selectDefaultRuntimeAdapter}
               onExecutionHostChange={setExecutionHost}
               onRestartActiveExecutionsChange={setRestartActiveExecutions}
+              onWorkflowMetadataChange={replaceWorkflowMetadata}
               onWorkflowCapabilityTagsChange={(nextTags: WorkflowCapabilityTag[]) =>
                 replaceWorkflowMetadata(writeWorkflowCapabilityTags(workflowMetadata, nextTags))
               }
@@ -7171,7 +7249,24 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             renderReadOnlyWorkflowMetadata()
           )}
 
-          {renderRunConfigurationSections()}
+          <section className="rounded-xl border border-neutral-200 bg-neutral-50/65 dark:border-white/10 dark:bg-white/3">
+            <div className="flex items-start justify-between gap-4 rounded-xl px-4 py-3">
+              <div>
+                <div className="font-semibold text-neutral-900 dark:text-slate-100">
+                  Advanced workflow controls
+                </div>
+                <p className="mt-1 text-sm font-normal text-neutral-500 dark:text-slate-400">
+                  Scheduling, monitoring, governance, shared memory, observability, and documents.
+                </p>
+              </div>
+              <Badge variant="outline" className="shrink-0">
+                Optional
+              </Badge>
+            </div>
+            <div className="space-y-5 border-t border-neutral-200 px-3 pb-4 pt-4 dark:border-white/10">
+              {renderRunConfigurationSections()}
+            </div>
+          </section>
         </AccordionContent>
       </AccordionItem>
     </Accordion>
@@ -7467,7 +7562,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       : undefined;
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4">
       <WorkflowDetailHeader
         workflowId={workflow.id}
         workflowName={resolvedWorkflowPreview.name}
@@ -7475,9 +7570,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         isEditing={isEditing}
         hasUnsavedChanges={hasUnsavedChanges}
         isExecuting={executeMutation.isPending}
-        onRefresh={() => {
-          void handleRefresh();
-        }}
+        onRefresh={handleRefresh}
         onStartEditing={() => {
           suppressEditModeStartRef.current = false;
           startEditing();
@@ -7490,6 +7583,18 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         }}
         onExecute={handleExecute}
         onExportWorkflow={handleExportWorkflow}
+      />
+
+      <ConfirmActionDialog
+        trigger={null}
+        open={refreshConfirmOpen}
+        onOpenChange={setRefreshConfirmOpen}
+        title="Discard unsaved workflow changes?"
+        description="Refreshing from the backend replaces the current editor draft. Saved workflow data and run history are not affected."
+        confirmLabel="Discard and refresh"
+        cancelLabel="Keep editing"
+        destructive
+        onConfirm={refreshFromBackend}
       />
 
       {outdatedPersonaVersionNotices.length > 0 ? (
@@ -7535,8 +7640,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       ) : null}
 
       {executeMutation.isError ? (
-        <ErrorAlert
-          title="Failed to start workflow"
+        <WorkflowOperationError
+          fallbackTitle="Failed to start workflow"
           message={executeMutation.error.message}
           onRetry={() => {
             void handleExecute();
@@ -7545,8 +7650,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       ) : null}
 
       {saveErrorMessage ? (
-        <ErrorAlert
-          title="Failed to save workflow"
+        <WorkflowOperationError
+          fallbackTitle="Failed to save workflow"
           message={saveErrorMessage}
           onRetry={() => {
             void handleSave();
@@ -7577,132 +7682,139 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         draftValidationIssues={draftValidationIssues}
       />
 
-      {renderWorkflowMetadataSection()}
-
       {renderPersonaQuickCreatePanel()}
 
-      <WorkflowGraphCanvas
-        workflow={resolvedWorkflowPreview}
-        readOnly={!isEditing}
-        includeTools
-        toolDefinitions={assignableToolDefinitions}
-        modelProfiles={behaviorProfiles}
-        includeMemories
-        runtimeEvents={isEditing ? undefined : workflowGraphRuntimeEvents}
-        runtimeControls={graphRuntimeControls}
-        agentObservabilityMetrics={workflowAgentObservabilityMetrics}
-        personaVersionNotices={personaVersionNotices}
-        workflowValidationIssues={isEditing ? draftValidationIssues : []}
-        memoryLinkCountsByTarget={memoryLinkCountsByTarget}
-        onWorkflowChange={(nextWorkflow) => {
-          if (isEditing) {
-            applyWorkflowDefinition(nextWorkflow);
-          }
-        }}
-        onSelectTask={(taskId) => {
-          setSelectedGraphApprovalTaskId(null);
-          setSelectedGraphAgentId(null);
-          setSelectedGraphToolId(null);
-          setSelectedGraphToolIds([]);
-          setSelectedGraphToolNodeId(null);
-          setSelectedGraphMemoryId(null);
-          setSelectedGraphArtifactId(null);
-          setSelectedGraphEdgeRef(null);
-          updateWorkflowUrl({ nextTaskId: taskId });
-        }}
-        onSelectApproval={(taskId) => {
-          setSelectedGraphApprovalTaskId(taskId);
-          setSelectedGraphAgentId(null);
-          setSelectedGraphToolId(null);
-          setSelectedGraphToolIds([]);
-          setSelectedGraphToolNodeId(null);
-          setSelectedGraphMemoryId(null);
-          setSelectedGraphArtifactId(null);
-          setSelectedGraphEdgeRef(null);
-          updateWorkflowUrl({ nextTaskId: taskId });
-        }}
-        onSelectAgent={(agentId) => {
-          setSelectedGraphApprovalTaskId(null);
-          setSelectedGraphAgentId(agentId);
-          setSelectedGraphToolId(null);
-          setSelectedGraphToolIds([]);
-          setSelectedGraphToolNodeId(null);
-          setSelectedGraphMemoryId(null);
-          setSelectedGraphArtifactId(null);
-          setSelectedGraphEdgeRef(null);
-          if (requestedTaskId) {
-            updateWorkflowUrl({ nextTaskId: null });
-          }
-        }}
-        onSelectTool={(toolId, toolIds = toolId ? [toolId] : [], toolNodeId = null) => {
-          setSelectedGraphApprovalTaskId(null);
-          setSelectedGraphToolId(toolId);
-          setSelectedGraphToolIds(toolIds);
-          setSelectedGraphToolNodeId(toolNodeId);
-          setToolDrawerSearch('');
-          setSelectedGraphAgentId(null);
-          setSelectedGraphMemoryId(null);
-          setSelectedGraphArtifactId(null);
-          setSelectedGraphEdgeRef(null);
-          if (requestedTaskId) {
-            updateWorkflowUrl({ nextTaskId: null });
-          }
-        }}
-        onSelectMemory={(memoryId) => {
-          setSelectedGraphApprovalTaskId(null);
-          setSelectedMemoryTypeTab('all');
-          setSelectedGraphMemoryId(memoryId);
-          setSelectedGraphAgentId(null);
-          setSelectedGraphToolId(null);
-          setSelectedGraphToolIds([]);
-          setSelectedGraphToolNodeId(null);
-          setSelectedGraphArtifactId(null);
-          setSelectedGraphEdgeRef(null);
-          if (requestedTaskId) {
-            updateWorkflowUrl({ nextTaskId: null });
-          }
-        }}
-        onSelectArtifact={(artifactId) => {
-          setSelectedGraphApprovalTaskId(null);
-          setSelectedGraphArtifactId(artifactId);
-          setSelectedGraphAgentId(null);
-          setSelectedGraphToolId(null);
-          setSelectedGraphToolIds([]);
-          setSelectedGraphToolNodeId(null);
-          setSelectedGraphMemoryId(null);
-          setSelectedGraphEdgeRef(null);
-          if (requestedTaskId) {
-            updateWorkflowUrl({ nextTaskId: null });
-          }
-        }}
-        onSelectEdge={(edge) => {
-          setSelectedGraphApprovalTaskId(null);
-          setSelectedGraphEdgeRef(edge ? graphEdgeReference(edge) : null);
-          if (edge) {
+      <section
+        id="workflow-graph"
+        aria-label="Workflow graph"
+        className="scroll-mt-24 rounded-2xl border border-(--agency-shell-border) bg-(--agency-surface-raised) p-2 shadow-(--agency-elevation-1) sm:p-3"
+      >
+        <WorkflowGraphCanvas
+          className="h-[28rem]! min-h-[26rem]! rounded-xl! sm:h-[30rem]! lg:h-[28rem]! lg:min-h-[26rem]!"
+          workflow={resolvedWorkflowPreview}
+          readOnly={!isEditing}
+          includeTools
+          toolDefinitions={assignableToolDefinitions}
+          modelProfiles={behaviorProfiles}
+          includeMemories
+          runtimeEvents={isEditing ? undefined : workflowGraphRuntimeEvents}
+          runtimeControls={graphRuntimeControls}
+          agentObservabilityMetrics={workflowAgentObservabilityMetrics}
+          personaVersionNotices={personaVersionNotices}
+          workflowValidationIssues={isEditing ? draftValidationIssues : []}
+          memoryLinkCountsByTarget={memoryLinkCountsByTarget}
+          onWorkflowChange={(nextWorkflow) => {
+            if (isEditing) {
+              applyWorkflowDefinition(nextWorkflow);
+            }
+          }}
+          onSelectTask={(taskId) => {
+            setSelectedGraphApprovalTaskId(null);
             setSelectedGraphAgentId(null);
             setSelectedGraphToolId(null);
             setSelectedGraphToolIds([]);
             setSelectedGraphToolNodeId(null);
             setSelectedGraphMemoryId(null);
             setSelectedGraphArtifactId(null);
+            setSelectedGraphEdgeRef(null);
+            updateWorkflowUrl({ nextTaskId: taskId });
+          }}
+          onSelectApproval={(taskId) => {
+            setSelectedGraphApprovalTaskId(taskId);
+            setSelectedGraphAgentId(null);
+            setSelectedGraphToolId(null);
+            setSelectedGraphToolIds([]);
+            setSelectedGraphToolNodeId(null);
+            setSelectedGraphMemoryId(null);
+            setSelectedGraphArtifactId(null);
+            setSelectedGraphEdgeRef(null);
+            updateWorkflowUrl({ nextTaskId: taskId });
+          }}
+          onSelectAgent={(agentId) => {
+            setSelectedGraphApprovalTaskId(null);
+            setSelectedGraphAgentId(agentId);
+            setSelectedGraphToolId(null);
+            setSelectedGraphToolIds([]);
+            setSelectedGraphToolNodeId(null);
+            setSelectedGraphMemoryId(null);
+            setSelectedGraphArtifactId(null);
+            setSelectedGraphEdgeRef(null);
             if (requestedTaskId) {
               updateWorkflowUrl({ nextTaskId: null });
             }
-          }
-        }}
-        onValidationIssues={handleGraphValidationIssues}
-        onStartEditing={() => {
-          suppressEditModeStartRef.current = false;
-          startEditing();
-          updateWorkflowUrl({ nextMode: 'edit' });
-        }}
-        onSaveWorkflow={() => {
-          void handleSave();
-        }}
-        onRunWorkflow={handleExecute}
-        saveWorkflowDisabled={!isEditing || updateMutation.isPending}
-        runWorkflowDisabled={isEditing || executeMutation.isPending}
-      />
+          }}
+          onSelectTool={(toolId, toolIds = toolId ? [toolId] : [], toolNodeId = null) => {
+            setSelectedGraphApprovalTaskId(null);
+            setSelectedGraphToolId(toolId);
+            setSelectedGraphToolIds(toolIds);
+            setSelectedGraphToolNodeId(toolNodeId);
+            setToolDrawerSearch('');
+            setSelectedGraphAgentId(null);
+            setSelectedGraphMemoryId(null);
+            setSelectedGraphArtifactId(null);
+            setSelectedGraphEdgeRef(null);
+            if (requestedTaskId) {
+              updateWorkflowUrl({ nextTaskId: null });
+            }
+          }}
+          onSelectMemory={(memoryId) => {
+            setSelectedGraphApprovalTaskId(null);
+            setSelectedMemoryTypeTab('all');
+            setSelectedGraphMemoryId(memoryId);
+            setSelectedGraphAgentId(null);
+            setSelectedGraphToolId(null);
+            setSelectedGraphToolIds([]);
+            setSelectedGraphToolNodeId(null);
+            setSelectedGraphArtifactId(null);
+            setSelectedGraphEdgeRef(null);
+            if (requestedTaskId) {
+              updateWorkflowUrl({ nextTaskId: null });
+            }
+          }}
+          onSelectArtifact={(artifactId) => {
+            setSelectedGraphApprovalTaskId(null);
+            setSelectedGraphArtifactId(artifactId);
+            setSelectedGraphAgentId(null);
+            setSelectedGraphToolId(null);
+            setSelectedGraphToolIds([]);
+            setSelectedGraphToolNodeId(null);
+            setSelectedGraphMemoryId(null);
+            setSelectedGraphEdgeRef(null);
+            if (requestedTaskId) {
+              updateWorkflowUrl({ nextTaskId: null });
+            }
+          }}
+          onSelectEdge={(edge) => {
+            setSelectedGraphApprovalTaskId(null);
+            setSelectedGraphEdgeRef(edge ? graphEdgeReference(edge) : null);
+            if (edge) {
+              setSelectedGraphAgentId(null);
+              setSelectedGraphToolId(null);
+              setSelectedGraphToolIds([]);
+              setSelectedGraphToolNodeId(null);
+              setSelectedGraphMemoryId(null);
+              setSelectedGraphArtifactId(null);
+              if (requestedTaskId) {
+                updateWorkflowUrl({ nextTaskId: null });
+              }
+            }
+          }}
+          onValidationIssues={handleGraphValidationIssues}
+          onStartEditing={() => {
+            suppressEditModeStartRef.current = false;
+            startEditing();
+            updateWorkflowUrl({ nextMode: 'edit' });
+          }}
+          onSaveWorkflow={() => {
+            void handleSave();
+          }}
+          onRunWorkflow={handleExecute}
+          saveWorkflowDisabled={!isEditing || updateMutation.isPending}
+          runWorkflowDisabled={isEditing || executeMutation.isPending}
+        />
+      </section>
+
+      {renderWorkflowMetadataSection()}
 
       {renderSelectedNodeDrawer()}
     </div>

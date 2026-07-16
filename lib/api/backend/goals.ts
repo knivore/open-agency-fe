@@ -56,7 +56,10 @@ export const goalsApi = {
     );
   },
   applyOperatorAction(goalId: string, payload: GoalOperatorActionPayload) {
-    return agencyApiClient.post<GoalDefinition>(backendRoutes.goals.operatorActions(goalId), payload);
+    return agencyApiClient.post<GoalDefinition>(
+      backendRoutes.goals.operatorActions(goalId),
+      payload
+    );
   },
   planGoal(goalId: string, payload: GoalPlanPayload = {}) {
     return agencyApiClient.post<GoalDefinition>(backendRoutes.goals.plan(goalId), {

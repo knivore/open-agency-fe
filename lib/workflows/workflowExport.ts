@@ -149,28 +149,32 @@ export function buildWorkflowExportPackage(
   const modelProfileById = new Map(
     (options.availableModelProfiles ?? []).map((profile) => [profile.id, profile])
   );
-  const workflowToolById = new Map((workflow.tool_definitions ?? []).map((tool) => [tool.id, tool]));
+  const workflowToolById = new Map(
+    (workflow.tool_definitions ?? []).map((tool) => [tool.id, tool])
+  );
   const availableToolById = new Map((options.availableTools ?? []).map((tool) => [tool.id, tool]));
   const importNotes: string[] = [];
 
-  const modelProfiles = referencedModelProfileIds(workflow).map<WorkflowExportModelProfile>((id) => {
-    const profile = modelProfileById.get(id);
-    if (!profile) {
-      importNotes.push(`Model profile "${id}" must be mapped locally during import.`);
+  const modelProfiles = referencedModelProfileIds(workflow).map<WorkflowExportModelProfile>(
+    (id) => {
+      const profile = modelProfileById.get(id);
+      if (!profile) {
+        importNotes.push(`Model profile "${id}" must be mapped locally during import.`);
+        return {
+          id,
+          status: 'referenced',
+        };
+      }
+
       return {
         id,
-        status: 'referenced',
+        name: profile.name,
+        provider: profile.provider,
+        model: profile.model,
+        status: 'available',
       };
     }
-
-    return {
-      id,
-      name: profile.name,
-      provider: profile.provider,
-      model: profile.model,
-      status: 'available',
-    };
-  });
+  );
 
   const tools = referencedToolIds(workflow).map<WorkflowExportTool>((id) => {
     const workflowTool = workflowToolById.get(id);
@@ -315,9 +319,7 @@ export function createWorkflowDefinitionFromExportPackage(
   const toolIdsForImport = (toolIds: string[] | undefined) =>
     Array.from(
       new Set(
-        (toolIds ?? [])
-          .map(toolIdForImport)
-          .filter((toolId): toolId is string => Boolean(toolId))
+        (toolIds ?? []).map(toolIdForImport).filter((toolId): toolId is string => Boolean(toolId))
       )
     );
 

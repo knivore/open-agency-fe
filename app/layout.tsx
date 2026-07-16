@@ -2,8 +2,8 @@ import './globals.css';
 import { auth } from '@/auth';
 import Providers from '@/app/providers';
 import { InlineScript } from '@/app/inline-script';
+import AppToaster from '@/components/app-shell/AppToaster';
 import type { Metadata } from 'next';
-import { Toaster } from 'sonner';
 import React from 'react';
 
 const themeInitScript = `
@@ -21,7 +21,7 @@ const themeInitScript = `
 export const metadata: Metadata = {
   title: 'Open Agency',
   description:
-    'Open Agency is an open-source control plane for building, operating, and observing agentic workflows.',
+    'Open Agency is a local operating harness for designing, running, and inspecting agentic workflows, agents, models, tools, and integrations.',
   icons: {
     icon: {
       url: '/images/open-agency.svg',
@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
         <Providers session={session}>
           {children}
           {/*<Footer />*/}
-          <Toaster />
+          <AppToaster />
         </Providers>
       </body>
     </html>

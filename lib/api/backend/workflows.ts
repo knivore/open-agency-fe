@@ -64,6 +64,11 @@ export const workflowsApi = {
       `/api/workflows/${workflowId}`
     );
   },
+  cloneWorkflow(workflowId: string) {
+    return appApiClient
+      .post<{ data: WorkflowDefinition }>(`/api/workflows/${workflowId}`, {})
+      .then((response) => response.data);
+  },
   // Workflow version history is a canonical backend read and does not need a
   // frontend BFF hop when the browser already has backend credentials.
   listWorkflowVersions(workflowId: string) {
@@ -276,8 +281,18 @@ export const mainAgentMonitorApi = {
 };
 
 export const backendWorkflowsApi = {
-  getWorkflow(workflowId: string) {
-    return agencyApiClient.get<WorkflowDefinition>(backendRoutes.workflows.byId(workflowId));
+  listWorkflows(user: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.get<CrudListResponse<WorkflowDefinition>>(
+      backendRoutes.workflows.list(),
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
+  },
+  getWorkflow(workflowId: string, user: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.get<WorkflowDefinition>(backendRoutes.workflows.byId(workflowId), {
+      headers: currentUserHeaders(user, internalApiKey),
+    });
   },
   createWorkflow(
     payload: WorkflowDefinition | Record<string, unknown>,

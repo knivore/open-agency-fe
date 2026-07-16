@@ -10,10 +10,10 @@ const isLocalAppEnv = process.env.NEXT_PUBLIC_APP_ENV === 'local';
 const hasDevCredentialConfig = Boolean(process.env.DEV_AUTH_EMAIL && process.env.DEV_AUTH_PASSWORD);
 const hasAzureAuthConfig = Boolean(
   process.env.AD_PRIVATE_KEY &&
-    process.env.X5T &&
-    process.env.AZURE_AD_CLIENT_ID &&
-    process.env.AZURE_AD_TENANT_ID &&
-    process.env.REDIRECT_URL
+  process.env.X5T &&
+  process.env.AZURE_AD_CLIENT_ID &&
+  process.env.AZURE_AD_TENANT_ID &&
+  process.env.REDIRECT_URL
 );
 const isDevAuthEnabled =
   process.env.NEXT_PUBLIC_AGENCY_DEV_AUTH_ENABLED === 'true' ||
@@ -87,7 +87,8 @@ const nextAuth: NextAuthResult = NextAuth(async (req: NextRequest | undefined) =
           token.email = user.email;
           token.picture = user.image;
           token.accessToken = (user as { accessToken?: string }).accessToken || null;
-          token.authMode = ((user as { authMode?: AuthMode }).authMode || (isDevAuthEnabled ? 'dev' : 'prod')) as AuthMode;
+          token.authMode = ((user as { authMode?: AuthMode }).authMode ||
+            (isDevAuthEnabled ? 'dev' : 'prod')) as AuthMode;
         }
 
         return token;

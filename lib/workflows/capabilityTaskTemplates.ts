@@ -47,9 +47,9 @@ const CAPABILITY_TASK_TEMPLATES: Record<
       'Add a starter task for image analysis, camera review, or scene understanding.',
     name: 'Vision task',
     description:
-      'Analyze imagery, camera snapshots, or visual state with Agency vision capabilities.',
+      'Analyze imagery, camera snapshots, or visual state with Open Agency vision capabilities.',
     instructions:
-      'Use Agency vision capabilities to inspect the relevant image or camera input and return a structured summary for the workflow.',
+      'Use Open Agency vision capabilities to inspect the relevant image or camera input and return a structured summary for the workflow.',
     expectedOutput: 'Structured scene analysis or visual summary',
   },
   voice: {
@@ -59,9 +59,9 @@ const CAPABILITY_TASK_TEMPLATES: Record<
       'Add a starter task for speech input, announcements, or conversational continuation.',
     name: 'Speech task',
     description:
-      'Handle speech input, spoken output, or conversational continuation with Agency speech capabilities.',
+      'Handle speech input, spoken output, or conversational continuation with Open Agency speech capabilities.',
     instructions:
-      'Use Agency speech capabilities to listen, speak, or continue a conversational turn as part of the workflow.',
+      'Use Open Agency speech capabilities to listen, speak, or continue a conversational turn as part of the workflow.',
     expectedOutput: 'Transcript, spoken response, or conversational continuation state',
   },
 };

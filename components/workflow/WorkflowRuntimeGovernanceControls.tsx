@@ -187,7 +187,9 @@ export default function WorkflowRuntimeGovernanceControls({
   const header = (
     <div className="space-y-1.5">
       <CardTitle className="text-base">Runtime governance</CardTitle>
-      <CardDescription>Execution policy, token budget, and context compaction controls.</CardDescription>
+      <CardDescription>
+        Execution policy, token budget, and context compaction controls.
+      </CardDescription>
     </div>
   );
 
@@ -549,8 +551,8 @@ export default function WorkflowRuntimeGovernanceControls({
             </WorkflowSummaryField>
             <WorkflowSummaryField label="Approval mode" help={helpText.approvalMode}>
               <WorkflowStateValue>
-                {approvalModeOptions.find((option) => option.value === selectedApprovalMode)?.label ??
-                  selectedApprovalMode}
+                {approvalModeOptions.find((option) => option.value === selectedApprovalMode)
+                  ?.label ?? selectedApprovalMode}
               </WorkflowStateValue>
             </WorkflowSummaryField>
             <WorkflowSummaryField label="Max runtime" help={helpText.maxRuntimeSeconds}>
@@ -559,7 +561,9 @@ export default function WorkflowRuntimeGovernanceControls({
               </WorkflowStateValue>
             </WorkflowSummaryField>
             <WorkflowSummaryField label="Max retries" help={helpText.maxRetries}>
-              <WorkflowStateValue>{readOnlyNumber(executionPolicy?.max_retries)}</WorkflowStateValue>
+              <WorkflowStateValue>
+                {readOnlyNumber(executionPolicy?.max_retries)}
+              </WorkflowStateValue>
             </WorkflowSummaryField>
             <WorkflowSummaryField label="Concurrency cap" help={helpText.concurrencyLimit}>
               <WorkflowStateValue>

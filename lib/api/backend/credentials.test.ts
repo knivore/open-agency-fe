@@ -42,8 +42,14 @@ describe('credentialsApi.getConnectorCredentialSchema', () => {
 
     const result = await credentialsApi.getConnectorCredentialSchema('telegram-bot');
 
-    expect(appGetMock).toHaveBeenNthCalledWith(1, '/api/backend-credentials/connectors/telegram-bot/schema');
-    expect(appGetMock).toHaveBeenNthCalledWith(2, '/api/backend-credentials/connectors/capabilities');
+    expect(appGetMock).toHaveBeenNthCalledWith(
+      1,
+      '/api/backend-credentials/connectors/telegram-bot/schema'
+    );
+    expect(appGetMock).toHaveBeenNthCalledWith(
+      2,
+      '/api/backend-credentials/connectors/capabilities'
+    );
     expect(result.displayName).toBe('Telegram');
   });
 });

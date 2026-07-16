@@ -52,12 +52,19 @@ export default function ToolContractList({
                 {riskLabels.length ? (
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {riskLabels.slice(0, 4).map((label) => (
-                      <Badge key={label} variant={selected ? 'secondary' : 'outline'} className="font-mono text-[11px]">
+                      <Badge
+                        key={label}
+                        variant={selected ? 'secondary' : 'outline'}
+                        className="font-mono text-[11px]"
+                      >
                         {label}
                       </Badge>
                     ))}
                     {riskLabels.length > 4 ? (
-                      <Badge variant={selected ? 'secondary' : 'outline'} className="font-mono text-[11px]">
+                      <Badge
+                        variant={selected ? 'secondary' : 'outline'}
+                        className="font-mono text-[11px]"
+                      >
                         +{riskLabels.length - 4}
                       </Badge>
                     ) : null}

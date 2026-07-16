@@ -6,18 +6,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { workflowsApi } from '@/lib/api/backend/workflows';
 import { queryKeys } from '@/lib/react-query/queryKeys';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/library/shadcn/alert-dialog';
 import { Button } from '@/components/library/shadcn/button';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 
 interface WorkflowDeleteActionProps {
   workflowId: string;
@@ -67,37 +57,28 @@ export default function WorkflowDeleteAction({
       position: 'top-right',
     });
   };
+  const resolvedTrigger =
+    trigger === null
+      ? null
+      : (trigger ?? (
+          <Button type="button" variant={variant} size={size}>
+            {label}
+          </Button>
+        ));
 
   return (
-    <AlertDialog open={open} onOpenChange={onOpenChange}>
-      {trigger !== null ? (
-        <AlertDialogTrigger asChild>
-          {trigger ?? (
-            <Button type="button" variant={variant} size={size}>
-              {label}
-            </Button>
-          )}
-        </AlertDialogTrigger>
-      ) : null}
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete workflow</AlertDialogTitle>
-          <AlertDialogDescription>
-            This will remove <span className="font-medium text-foreground">{workflowName}</span>{' '}
-            from the canonical workflow catalog.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            disabled={deleteMutation.isPending}
-            onClick={handleDelete}
-          >
-            {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+    <ConfirmActionDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      trigger={resolvedTrigger}
+      title="Delete workflow?"
+      description={`This permanently removes ${workflowName} from the canonical workflow catalog. This action cannot be undone.`}
+      cancelLabel="Keep workflow"
+      confirmLabel="Delete workflow"
+      pendingLabel="Deleting workflow..."
+      pending={deleteMutation.isPending}
+      destructive
+      onConfirm={handleDelete}
+    />
   );
 }

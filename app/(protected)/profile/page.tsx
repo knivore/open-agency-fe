@@ -2,33 +2,47 @@
 
 import { apiTokensApi } from '@/lib/api/backend/apiTokens';
 import { profileApi } from '@/lib/api/backend/profile';
-import { usersApi } from '@/lib/api/backend/users';
+import { getBackendUserProfilePreferences, usersApi } from '@/lib/api/backend/users';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { useAgencyUserPreferences } from '@/lib/userPreferences';
 import { useMemo, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Checkbox } from '@/components/library/shadcn/checkbox';
-import PageHeader from '@/components/app-shell/PageHeader';
+import { Badge } from '@/components/library/shadcn/badge';
+import { Button } from '@/components/library/shadcn/button';
+import { Card, CardContent, CardHeader } from '@/components/library/shadcn/card';
+import { Input } from '@/components/library/shadcn/input';
 import {
-  Card,
-  CardHeader,
-  CardBody,
-  Button,
-  Spinner,
-  Chip,
   Table,
-  TableHeader,
   TableBody,
-  TableColumn,
-  TableRow,
   TableCell,
-  Input,
-} from '@nextui-org/react';
-import { AlertCircle, CircleUserRound, Globe2, Key, SlidersHorizontal } from 'lucide-react';
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/library/shadcn/table';
+import PageHeader from '@/components/app-shell/PageHeader';
+import { FieldFeedback, FormField, FormSection } from '@/components/app-shell/FormSection';
+import OpenVoiceSettingsCard from '@/components/profile/OpenVoiceSettingsCard';
+import LocalSignInSettingsCard from '@/components/profile/LocalSignInSettingsCard';
+import PersonalProfileSettingsCard from '@/components/profile/PersonalProfileSettingsCard';
+import {
+  AlertCircle,
+  BotMessageSquare,
+  ChevronDown,
+  CircleUserRound,
+  EyeOff,
+  Globe2,
+  Key,
+  LoaderCircle,
+  PanelRight,
+  SlidersHorizontal,
+  Sparkles,
+} from 'lucide-react';
 import type { AuthUser } from '@/types/auth';
-import type { ApiTokenScopeDefinition } from '@/types/apiTokens';
+import type { ApiTokenDefinition, ApiTokenScopeDefinition } from '@/types/apiTokens';
 
 const FALLBACK_TOKEN_SCOPES: ApiTokenScopeDefinition[] = [
   {
@@ -123,7 +137,7 @@ const FALLBACK_TOKEN_SCOPES: ApiTokenScopeDefinition[] = [
   },
 ];
 
-function formatDateTime(value?: string | null) {
+function formatDateTime(value?: string | null, timezone?: string | null) {
   if (!value) {
     return 'Never';
   }
@@ -131,6 +145,7 @@ function formatDateTime(value?: string | null) {
   return new Intl.DateTimeFormat('en', {
     dateStyle: 'medium',
     timeStyle: 'short',
+    timeZone: timezone || undefined,
   }).format(new Date(value));
 }
 
@@ -161,6 +176,12 @@ function groupTokenScopes(scopes: ApiTokenScopeDefinition[]) {
   );
 }
 
+function isBackendManagedSessionToken(token: ApiTokenDefinition) {
+  // Local password sign-in persists its short-lived bearer secret in the same backend store.
+  // Keep that implementation detail out of the automation-key management surface.
+  return token.metadata?.issued_by === 'local_auth' && token.metadata?.session === true;
+}
+
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const queryClient = useQueryClient();
@@ -170,9 +191,12 @@ export default function ProfilePage() {
   const [tokenScopes, setTokenScopes] = useState<string[]>(['workflows:run']);
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
+  const [tokenNameTouched, setTokenNameTouched] = useState(false);
   const {
-    preferences: { showDiagnostics },
+    preferences: { showDiagnostics, assistantLauncherMode, assistantLauncherIcon },
     setShowDiagnostics,
+    setAssistantLauncherMode,
+    setAssistantLauncherIcon,
   } = useAgencyUserPreferences();
 
   const backendUserQuery = useQuery({
@@ -203,6 +227,7 @@ export default function ProfilePage() {
   });
 
   const apiTokenRows = apiTokensQuery.data?.items ?? [];
+  const automationKeyRows = apiTokenRows.filter((token) => !isBackendManagedSessionToken(token));
   const availableTokenScopes = tokenScopesQuery.data?.items ?? FALLBACK_TOKEN_SCOPES;
   const groupedTokenScopes = groupTokenScopes(availableTokenScopes);
   const selectedTokenScopes = useMemo(() => {
@@ -214,7 +239,10 @@ export default function ProfilePage() {
     const filtered = tokenScopes.filter((scopeId) => allowedScopeIds.has(scopeId));
     return filtered.length > 0 ? filtered : defaultTokenScopes(availableTokenScopes);
   }, [availableTokenScopes, tokenScopes]);
+  const tokenNameError =
+    tokenNameTouched && !tokenName.trim() ? 'Enter a name for this automation key.' : null;
   const backendUser = backendUserQuery.data;
+  const profilePreferences = getBackendUserProfilePreferences(backendUser);
   const displayName = backendUser?.display_name || user?.name || 'User';
   const displayEmail = backendUser?.email || user?.email || 'No email provided';
   const displayImage = backendUser?.avatar_url || user?.image;
@@ -223,7 +251,7 @@ export default function ProfilePage() {
     mutationFn: () => {
       const name = tokenName.trim();
       if (!name) {
-        throw new Error('Token name is required.');
+        throw new Error('Automation key name is required.');
       }
       if (selectedTokenScopes.length === 0) {
         throw new Error('Select at least one scope.');
@@ -234,10 +262,11 @@ export default function ProfilePage() {
       setRevealedToken(token.token);
       setTokenName('');
       setTokenScopes(defaultTokenScopes(availableTokenScopes));
+      setTokenNameTouched(false);
       await queryClient.invalidateQueries({ queryKey: ['profileApiTokens'] });
     },
     onError: (error) => {
-      setTokenError(error instanceof Error ? error.message : 'Failed to create API token.');
+      setTokenError(error instanceof Error ? error.message : 'Failed to create automation key.');
     },
   });
 
@@ -247,14 +276,14 @@ export default function ProfilePage() {
       await queryClient.invalidateQueries({ queryKey: ['profileApiTokens'] });
     },
     onError: (error) => {
-      setTokenError(error instanceof Error ? error.message : 'Failed to revoke API token.');
+      setTokenError(error instanceof Error ? error.message : 'Failed to revoke automation key.');
     },
   });
 
   const renderSupportChip = (supported: boolean, label: string) => (
-    <Chip color={supported ? 'success' : 'warning'} variant="flat" size="sm" radius="full">
+    <Badge variant={supported ? 'successful' : 'outline'}>
       {label}: {supported ? 'Yes' : 'No'}
-    </Chip>
+    </Badge>
   );
 
   const toggleScope = (scopeId: string, checked: boolean) => {
@@ -271,7 +300,7 @@ export default function ProfilePage() {
   if (status === 'loading') {
     return (
       <div className="flex min-h-[calc(100vh-76px)] items-center justify-center">
-        <Spinner size="lg" color="primary" />
+        <LoaderCircle className="size-7 animate-spin text-primary" aria-label="Loading profile" />
       </div>
     );
   }
@@ -283,8 +312,8 @@ export default function ProfilePage() {
         <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
         <h1 className="text-2xl font-bold text-center mb-2">Authentication Required</h1>
         <p className="text-gray-600 text-center mb-6">Please sign in to view your profile</p>
-        <Button color="primary" href="/login" as="a">
-          Sign In
+        <Button asChild>
+          <a href="/login">Sign In</a>
         </Button>
       </div>
     );
@@ -297,29 +326,25 @@ export default function ProfilePage() {
         icon={CircleUserRound}
         tone="profile"
         title="Profile"
-        description="Manage your backend identity mapping and personal access tokens for scripted or server-to-server access."
+        description="Manage personal settings, browser preferences, Open Agency defaults, and automation access."
         actions={
           <>
-            <Chip
-              variant="flat"
-              color="default"
-              className="bg-white dark:bg-white/10 dark:text-slate-100"
-            >
-              {apiTokenRows.length} token{apiTokenRows.length === 1 ? '' : 's'}
-            </Chip>
-            <Chip variant="flat" color={backendUser ? 'success' : 'warning'}>
+            <Badge variant="secondary">
+              {automationKeyRows.length} automation key{automationKeyRows.length === 1 ? '' : 's'}
+            </Badge>
+            <Badge variant={backendUser ? 'successful' : 'outline'}>
               {backendUser ? 'Identity synced' : 'Identity pending'}
-            </Chip>
+            </Badge>
           </>
         }
       />
 
-      <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-        <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-          <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 p-0 dark:border-white/10 dark:bg-white/5">
-            <div className="flex w-full flex-col items-center px-6 py-8 text-center">
+      <div className="grid gap-5">
+        <Card className="overflow-hidden border border-neutral-200 bg-white shadow-sm lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,2fr)] dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 p-0 lg:border-r lg:border-b-0 dark:border-white/10 dark:bg-white/5">
+            <div className="flex w-full items-center gap-4 px-5 py-5 text-left sm:px-6">
               {displayImage ? (
-                <div className="relative mb-4 h-24 w-24 overflow-hidden rounded-full ring-4 ring-white">
+                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-4 ring-white dark:ring-white/10">
                   <Image
                     src={displayImage}
                     alt={`${displayName}'s profile`}
@@ -329,29 +354,26 @@ export default function ProfilePage() {
                   />
                 </div>
               ) : (
-                <div className="mb-4 flex h-24 w-24 items-center justify-center rounded-full bg-primary-50 text-primary-900">
-                  <CircleUserRound className="h-12 w-12" />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-900 dark:bg-primary-500/10 dark:text-primary-200">
+                  <CircleUserRound className="h-8 w-8" />
                 </div>
               )}
-              <p className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
-                {displayName}
-              </p>
-              <p className="mt-1 break-all text-sm text-neutral-500 dark:text-slate-400">
-                {displayEmail}
-              </p>
-              <Chip
-                className="mt-4"
-                color={backendUser ? 'success' : 'warning'}
-                variant="flat"
-                size="sm"
-              >
-                {backendUser ? 'Backend identity synced' : 'Awaiting backend sync'}
-              </Chip>
+              <div className="min-w-0">
+                <p className="truncate text-xl font-semibold text-neutral-900 dark:text-slate-100">
+                  {displayName}
+                </p>
+                <p className="mt-1 truncate text-sm text-neutral-500 dark:text-slate-400">
+                  {displayEmail}
+                </p>
+                <Badge className="mt-2" variant={backendUser ? 'successful' : 'outline'}>
+                  {backendUser ? 'Backend identity synced' : 'Awaiting backend sync'}
+                </Badge>
+              </div>
             </div>
           </CardHeader>
-          <CardBody className="p-0">
-            <div className="divide-y divide-neutral-200 dark:divide-white/10">
-              <div className="px-6 py-4">
+          <CardContent className="p-0">
+            <div className="divide-y divide-neutral-200 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-white/10">
+              <div className="px-5 py-4 sm:px-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                   Backend User ID
                 </p>
@@ -359,39 +381,45 @@ export default function ProfilePage() {
                   {backendUser?.id || 'Pending sync'}
                 </p>
               </div>
-              <div className="px-6 py-4">
+              <div className="px-5 py-4 sm:px-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                   Status
                 </p>
                 <div className="mt-2">
-                  <Chip
-                    color={backendUser?.status === 'active' ? 'success' : 'warning'}
-                    variant="flat"
-                    size="sm"
-                  >
+                  <Badge variant={backendUser?.status === 'active' ? 'successful' : 'outline'}>
                     {backendUser?.status || 'unknown'}
-                  </Chip>
+                  </Badge>
                 </div>
               </div>
-              <div className="px-6 py-4">
+              <div className="px-5 py-4 sm:px-6">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                   Session Source
                 </p>
                 <p className="mt-2 text-sm text-neutral-700 dark:text-slate-300">
-                  {user?.authMode === 'dev' ? 'Developer auth' : 'NextAuth session'}
+                  {backendUser?.local_credentials_enabled
+                    ? 'Local password'
+                    : user?.authMode === 'dev'
+                      ? 'Developer auth'
+                      : 'NextAuth session'}
                 </p>
               </div>
             </div>
             {backendUserQuery.isError ? (
               <div className="border-t border-amber-200 bg-amber-50 px-6 py-4 text-sm text-amber-800">
                 Backend user profile is not available yet. The frontend session is still active, but
-                token ownership requires backend identity sync.
+                automation-key ownership requires backend identity sync.
               </div>
             ) : null}
-          </CardBody>
+          </CardContent>
         </Card>
 
-        <div className="space-y-6">
+        {backendUser ? <PersonalProfileSettingsCard user={backendUser} /> : null}
+
+        {backendUser?.local_credentials_enabled ? (
+          <LocalSignInSettingsCard user={backendUser} />
+        ) : null}
+
+        <div className="flex flex-col gap-5">
           <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
             <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
               <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -404,26 +432,34 @@ export default function ProfilePage() {
                   </div>
                   <p className="mt-2 max-w-2xl text-sm text-neutral-600 dark:text-slate-300">
                     Use these values when another service asks where to reach this Open Agency
-                    backend. Tunnel changes are configured from setup and take effect after Agency
-                    restarts.
+                    backend. Tunnel changes are configured from setup and take effect after Open
+                    Agency restarts.
                   </p>
                 </div>
-                {publicEndpointQuery.isFetching ? (
-                  <Spinner size="sm" color="primary" />
-                ) : (
-                  <Chip
-                    color={publicEndpointQuery.data?.current_public_url ? 'success' : 'warning'}
-                    variant="flat"
-                    size="sm"
-                  >
-                    {publicEndpointQuery.data?.current_public_url
-                      ? 'Tunnel active'
-                      : 'Tunnel pending'}
-                  </Chip>
-                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  {publicEndpointQuery.isFetching ? (
+                    <LoaderCircle
+                      className="size-4 animate-spin text-primary"
+                      aria-label="Refreshing endpoint"
+                    />
+                  ) : (
+                    <Badge
+                      variant={
+                        publicEndpointQuery.data?.current_public_url ? 'successful' : 'outline'
+                      }
+                    >
+                      {publicEndpointQuery.data?.current_public_url
+                        ? 'Tunnel active'
+                        : 'Tunnel pending'}
+                    </Badge>
+                  )}
+                  <Button asChild size="sm" variant="outline">
+                    <Link href="/setup#public-tunnel">Manage tunnel</Link>
+                  </Button>
+                </div>
               </div>
             </CardHeader>
-            <CardBody className="space-y-5">
+            <CardContent className="flex flex-col gap-5 pt-5 sm:pt-6">
               {publicEndpointQuery.isError ? (
                 <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
                   Could not load the current public endpoint. Reopen setup after the launcher has
@@ -481,8 +517,10 @@ export default function ProfilePage() {
                   </p>
                 </div>
               ) : null}
-            </CardBody>
+            </CardContent>
           </Card>
+
+          <OpenVoiceSettingsCard id="openvoice" />
 
           <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
             <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
@@ -491,79 +529,202 @@ export default function ProfilePage() {
                   <div className="flex items-center gap-2">
                     <SlidersHorizontal className="h-5 w-5 text-primary" />
                     <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
-                      Preferences
+                      Browser preferences
                     </h2>
                   </div>
                   <p className="mt-2 max-w-2xl text-sm text-neutral-600 dark:text-slate-300">
-                    Control optional surfaces that add operational context without making the main
-                    workspace feel like a debugging console.
+                    Control interface behavior stored locally on this browser.
                   </p>
                 </div>
-                <Chip color={showDiagnostics ? 'success' : 'default'} variant="flat" size="sm">
-                  Diagnostics {showDiagnostics ? 'visible' : 'hidden'}
-                </Chip>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="secondary">This browser</Badge>
+                  <Badge variant={showDiagnostics ? 'successful' : 'outline'}>
+                    Diagnostics {showDiagnostics ? 'visible' : 'hidden'}
+                  </Badge>
+                </div>
               </div>
             </CardHeader>
-            <CardBody className="space-y-4">
-              <label className="flex cursor-pointer items-start gap-3 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 transition hover:border-primary-200 dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/25">
-                <Checkbox
-                  aria-label="Show diagnostics workspace"
-                  checked={showDiagnostics}
-                  onCheckedChange={(checked) => setShowDiagnostics(checked === true)}
-                  className="mt-0.5"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
-                    Show diagnostics workspace
-                  </p>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                    Adds a dedicated Operations diagnostics page for backend capabilities, graph
-                    status, run health, and module availability. The Agency Graph stays focused on
-                    operational insight instead of local debug controls.
-                  </p>
-                  {showDiagnostics ? (
-                    <Button
-                      as="a"
-                      href="/operations/diagnostics"
-                      className="mt-3"
-                      color="primary"
-                      size="sm"
-                      variant="flat"
-                    >
-                      Open Diagnostics
-                    </Button>
-                  ) : null}
+            <CardContent className="flex flex-col gap-3 pt-5 sm:pt-6">
+              <FormSection
+                title="Main Agent launcher"
+                description="Choose where help appears and how the launcher identifies itself."
+                icon={<BotMessageSquare className="size-4" aria-hidden="true" />}
+                contentClassName="flex flex-col gap-5"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
+                      Main Agent launcher
+                    </p>
+                    <p className="mt-1 max-w-2xl text-sm text-neutral-600 dark:text-slate-300">
+                      Keep help at the right edge, float it over the workspace, or hide the
+                      launcher. The full Assistant page remains available from navigation and
+                      search.
+                    </p>
+                  </div>
+                  <Badge variant={assistantLauncherMode === 'hidden' ? 'secondary' : 'successful'}>
+                    {assistantLauncherMode === 'hidden'
+                      ? 'Launcher hidden'
+                      : `${assistantLauncherMode} launcher`}
+                  </Badge>
                 </div>
-              </label>
-              <p className="text-xs text-neutral-500 dark:text-slate-400">
-                Preference is stored locally for this browser until a backend user-preferences API
-                is available.
-              </p>
-            </CardBody>
+
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                    Launcher placement
+                  </legend>
+                  <div
+                    className="grid gap-2 sm:grid-cols-3"
+                    role="radiogroup"
+                    aria-label="Assistant launcher placement"
+                  >
+                    {(
+                      [
+                        {
+                          id: 'dock',
+                          label: 'Right-edge dock',
+                          description: 'Tucks against the workspace edge.',
+                          icon: PanelRight,
+                        },
+                        {
+                          id: 'floating',
+                          label: 'Floating button',
+                          description: 'Keeps the familiar corner button.',
+                          icon: BotMessageSquare,
+                        },
+                        {
+                          id: 'hidden',
+                          label: 'Hidden',
+                          description: 'Use navigation or command search.',
+                          icon: EyeOff,
+                        },
+                      ] as const
+                    ).map((option) => {
+                      const Icon = option.icon;
+                      const selected = assistantLauncherMode === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setAssistantLauncherMode(option.id)}
+                          className={`rounded-xl border p-3 text-left outline-none transition focus-visible:ring-2 focus-visible:ring-primary-400 ${
+                            selected
+                              ? 'border-primary-300 bg-primary-50 text-primary-950 dark:border-violet-300/30 dark:bg-violet-400/10 dark:text-violet-100'
+                              : 'border-neutral-200 bg-white text-neutral-800 hover:border-primary-200 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-200'
+                          }`}
+                        >
+                          <Icon className="size-4" aria-hidden="true" />
+                          <span className="mt-2 block text-sm font-semibold">{option.label}</span>
+                          <span className="mt-1 block text-xs opacity-75">
+                            {option.description}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+
+                <fieldset className="flex flex-col gap-2 border-t border-neutral-200 pt-4 dark:border-white/10">
+                  <legend className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                    Launcher identity
+                  </legend>
+                  <div
+                    className="flex flex-wrap gap-2"
+                    role="radiogroup"
+                    aria-label="Assistant launcher identity"
+                  >
+                    {(
+                      [
+                        { id: 'bot', label: 'Assistant', icon: BotMessageSquare },
+                        { id: 'sparkles', label: 'Spark', icon: Sparkles },
+                        { id: 'initial', label: 'Agent initial', icon: CircleUserRound },
+                      ] as const
+                    ).map((option) => {
+                      const Icon = option.icon;
+                      const selected = assistantLauncherIcon === option.id;
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setAssistantLauncherIcon(option.id)}
+                          className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-primary-400 ${
+                            selected
+                              ? 'border-primary-300 bg-primary-50 text-primary-900 dark:border-violet-300/30 dark:bg-violet-400/10 dark:text-violet-100'
+                              : 'border-neutral-200 bg-white text-neutral-700 hover:border-primary-200 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300'
+                          }`}
+                        >
+                          <Icon className="size-4" aria-hidden="true" />
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </fieldset>
+              </FormSection>
+
+              <FormSection
+                title="Developer diagnostics"
+                description="Expose backend capability, graph, run-health, and module diagnostics only when troubleshooting."
+                advanced
+                advancedLabel="Show diagnostics setting"
+              >
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-(--agency-shell-border) bg-(--agency-row-hover) p-4 transition hover:border-primary-200">
+                  <Checkbox
+                    aria-label="Show diagnostics workspace"
+                    checked={showDiagnostics}
+                    onCheckedChange={(checked) => setShowDiagnostics(checked === true)}
+                    className="mt-0.5"
+                  />
+                  <div>
+                    <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
+                      Show diagnostics workspace
+                    </p>
+                    <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                      Adds a dedicated Operations diagnostics page for backend capabilities, graph
+                      status, run health, and module availability. The Agency Graph stays focused on
+                      operational insight instead of local debug controls.
+                    </p>
+                    {showDiagnostics ? (
+                      <Button asChild className="mt-3" size="sm" variant="outline">
+                        <a href="/operations/diagnostics">Open Diagnostics</a>
+                      </Button>
+                    ) : null}
+                  </div>
+                </label>
+                <p className="mt-3 text-xs text-neutral-500 dark:text-slate-400">
+                  Preference is stored locally for this browser until a backend user-preferences API
+                  is available.
+                </p>
+              </FormSection>
+            </CardContent>
           </Card>
 
-          <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-            <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
-              <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <Key className="h-5 w-5 text-primary" />
-                    <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
-                      Backend API Tokens
-                    </h2>
-                  </div>
-                  <p className="mt-2 max-w-2xl text-sm text-neutral-600 dark:text-slate-300">
-                    Personal access tokens for scripts, jobs, and external clients. Tokens are
-                    revealed once, stored hashed by the backend, and only grant the route families
-                    covered by their selected scopes.
-                  </p>
-                </div>
-                <Chip color="success" variant="flat" size="sm">
-                  Backend route available
-                </Chip>
-              </div>
-            </CardHeader>
-            <CardBody className="space-y-6">
+          <details
+            id="automation-keys"
+            className="group overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none"
+          >
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 sm:px-6">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-violet-300/15 dark:bg-violet-400/10 dark:text-violet-200">
+                <Key className="size-4" aria-hidden="true" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                  Automation keys
+                </span>
+                <span className="mt-0.5 block text-sm text-neutral-600 dark:text-slate-400">
+                  Give trusted scripts and services limited access to Open Agency.
+                </span>
+              </span>
+              <Badge variant="secondary" className="hidden sm:inline-flex">
+                {automationKeyRows.length} automation key{automationKeyRows.length === 1 ? '' : 's'}
+              </Badge>
+              <ChevronDown className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="flex flex-col gap-6 border-t border-neutral-200 p-5 sm:p-6 dark:border-white/10">
               <div className="flex flex-wrap gap-2">
                 {renderSupportChip(apiTokenCapability.readSupported, 'Read')}
                 {renderSupportChip(apiTokenCapability.writeSupported, 'Write')}
@@ -582,18 +743,18 @@ export default function ProfilePage() {
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
                     {apiTokenCapability.plannedRoutes.map((route) => (
-                      <Chip key={route} variant="bordered" radius="sm">
+                      <Badge key={route} variant="outline">
                         {route}
-                      </Chip>
+                      </Badge>
                     ))}
                   </div>
                 </div>
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
-                    Active Tokens
+                    Active keys
                   </p>
                   <p className="mt-3 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
-                    {apiTokenRows.filter((token) => !token.revoked_at).length}
+                    {automationKeyRows.filter((token) => !token.revoked_at).length}
                   </p>
                 </div>
                 <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
@@ -601,248 +762,249 @@ export default function ProfilePage() {
                     Scopes In Use
                   </p>
                   <p className="mt-3 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
-                    {new Set(apiTokenRows.flatMap((token) => token.scopes)).size}
+                    {new Set(automationKeyRows.flatMap((token) => token.scopes)).size}
                   </p>
                 </div>
               </div>
-            </CardBody>
-          </Card>
+            </div>
 
-          <div className="grid gap-6 2xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-            <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-              <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
-                <div>
-                  <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
-                    Create Token
-                  </h3>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                    Issue a scoped token for scripts, jobs, or backend integrations.
-                  </p>
-                </div>
-              </CardHeader>
-              <CardBody className="space-y-5">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
-                    Recommended
-                  </p>
-                  <p className="mt-2 text-sm text-neutral-700 dark:text-slate-300">
-                    Use a descriptive name and only the route families the automation needs. Most
-                    single-purpose runners should not need more than one or two scope groups.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-neutral-800 dark:text-slate-200">
-                    Token name
-                  </label>
-                  <Input
-                    aria-label="Token name"
-                    placeholder="CI runner, local automation"
-                    value={tokenName}
-                    onValueChange={setTokenName}
-                    isDisabled={createTokenMutation.isPending}
-                    variant="bordered"
-                    radius="lg"
-                    classNames={{
-                      inputWrapper:
-                        'min-h-12 border-neutral-200 bg-white shadow-none dark:border-white/10 dark:bg-slate-950/70',
-                      input: 'text-neutral-900 dark:text-slate-100',
-                    }}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-sm font-medium text-neutral-800 dark:text-slate-200">
-                      Scopes
-                    </label>
-                    <span className="text-xs text-neutral-500 dark:text-slate-400">
-                      {selectedTokenScopes.length} selected
-                    </span>
-                  </div>
-                  <div className="max-h-72 space-y-3 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
-                    {tokenScopesQuery.isLoading ? (
-                      <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400">
-                        <Spinner size="sm" color="primary" />
-                        <span>Loading allowed scopes...</span>
-                      </div>
-                    ) : (
-                      groupedTokenScopes.map((group) => (
-                        <div key={group.category} className="space-y-2">
-                          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
-                            {group.category}
-                          </p>
-                          <div className="space-y-2">
-                            {group.items.map((scope) => (
-                              <label
-                                key={scope.id}
-                                className="flex cursor-pointer items-start gap-3 rounded-xl border border-transparent px-1 py-1 transition hover:border-neutral-200 dark:hover:border-white/10"
-                              >
-                                <Checkbox
-                                  checked={selectedTokenScopes.includes(scope.id)}
-                                  disabled={createTokenMutation.isPending}
-                                  onCheckedChange={(checked) =>
-                                    toggleScope(scope.id, checked === true)
-                                  }
-                                  className="mt-0.5"
-                                />
-                                <div>
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                                      {scope.label}
-                                    </span>
-                                    <code className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700 dark:bg-white/10 dark:text-slate-300">
-                                      {scope.id}
-                                    </code>
-                                  </div>
-                                  <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
-                                    {scope.description}
-                                  </p>
-                                </div>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <p className="text-xs text-neutral-500 dark:text-slate-400">
-                    Scope definitions are maintained by the backend. Read scopes allow viewing
-                    resources, while write scopes allow creating and changing them.
-                  </p>
-                </div>
-
-                {tokenError ? (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-100">
-                    {tokenError}
-                  </div>
-                ) : null}
-                {revealedToken ? (
-                  <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/25 dark:bg-amber-500/10">
-                    <p className="mb-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
-                      Copy this token now. It will not be shown again.
-                    </p>
-                    <code className="block break-all rounded bg-white px-3 py-2 text-xs text-amber-900 dark:bg-slate-950/80 dark:text-amber-100">
-                      {revealedToken}
-                    </code>
-                  </div>
-                ) : null}
-                <Button
-                  color="primary"
-                  isLoading={createTokenMutation.isPending}
-                  isDisabled={
-                    !tokenName.trim() ||
-                    selectedTokenScopes.length === 0 ||
-                    tokenScopesQuery.isLoading
-                  }
-                  onPress={() => {
-                    setTokenError(null);
-                    setRevealedToken(null);
-                    createTokenMutation.mutate();
-                  }}
-                >
-                  Create Token
-                </Button>
-              </CardBody>
-            </Card>
-
-            <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-              <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
-                <div className="flex w-full items-center justify-between gap-3">
+            <div className="grid gap-6 border-t border-(--agency-shell-border) p-5 sm:p-6 2xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+              <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+                <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
                   <div>
                     <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
-                      Issued Tokens
+                      Create automation key
                     </h3>
                     <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                      Review scope coverage, recent usage, and revoke state for active automation
-                      clients.
+                      Issue a scoped key for scripts, jobs, or backend integrations.
                     </p>
                   </div>
-                  {apiTokensQuery.isFetching ? <Spinner size="sm" color="primary" /> : null}
-                </div>
-              </CardHeader>
-              <CardBody>
-                {apiTokensQuery.isError ? (
-                  <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-100">
-                    Failed to load API tokens.
+                </CardHeader>
+                <CardContent className="flex flex-col gap-5 pt-5 sm:pt-6">
+                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                      Recommended
+                    </p>
+                    <p className="mt-2 text-sm text-neutral-700 dark:text-slate-300">
+                      Create a key only when a trusted script or service needs Open Agency access.
+                      Use a descriptive name and only the route families that automation needs.
+                    </p>
                   </div>
-                ) : apiTokenRows.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center text-sm text-neutral-500 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-400">
-                    No API tokens have been issued yet.
-                  </div>
-                ) : (
-                  <Table
-                    aria-label="Backend API tokens"
-                    removeWrapper
-                    classNames={{
-                      table: 'dark:text-slate-200',
-                      th: 'bg-transparent text-neutral-500 dark:text-slate-400',
-                      td: 'text-neutral-700 dark:text-slate-300',
-                      tr: 'border-b border-neutral-200 dark:border-white/10',
+
+                  <FormField
+                    label="Automation key name"
+                    htmlFor="automation-key-name"
+                    description="Use a name that identifies the script, job, or service using this key."
+                    error={tokenNameError}
+                    required
+                  >
+                    <Input
+                      id="automation-key-name"
+                      aria-label="Automation key name"
+                      aria-invalid={Boolean(tokenNameError)}
+                      aria-describedby="automation-key-name-feedback"
+                      placeholder="CI runner, local automation"
+                      value={tokenName}
+                      onChange={(event) => setTokenName(event.target.value)}
+                      onBlur={() => setTokenNameTouched(true)}
+                      disabled={createTokenMutation.isPending}
+                      required
+                      className="h-12"
+                    />
+                  </FormField>
+
+                  <fieldset className="flex flex-col gap-2">
+                    <div className="flex items-center justify-between gap-3">
+                      <legend className="text-sm font-medium text-neutral-800 dark:text-slate-200">
+                        Scopes
+                      </legend>
+                      <span className="text-xs text-neutral-500 dark:text-slate-400">
+                        {selectedTokenScopes.length} selected
+                      </span>
+                    </div>
+                    <div className="flex max-h-72 flex-col gap-3 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
+                      {tokenScopesQuery.isLoading ? (
+                        <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400">
+                          <LoaderCircle className="size-4 animate-spin text-primary" />
+                          <span>Loading allowed scopes...</span>
+                        </div>
+                      ) : (
+                        groupedTokenScopes.map((group) => (
+                          <div key={group.category} className="flex flex-col gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                              {group.category}
+                            </p>
+                            <div className="flex flex-col gap-2">
+                              {group.items.map((scope) => (
+                                <label
+                                  key={scope.id}
+                                  className="flex cursor-pointer items-start gap-3 rounded-xl border border-transparent px-1 py-1 transition hover:border-neutral-200 dark:hover:border-white/10"
+                                >
+                                  <Checkbox
+                                    checked={selectedTokenScopes.includes(scope.id)}
+                                    disabled={createTokenMutation.isPending}
+                                    onCheckedChange={(checked) =>
+                                      toggleScope(scope.id, checked === true)
+                                    }
+                                    className="mt-0.5"
+                                  />
+                                  <div>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                                        {scope.label}
+                                      </span>
+                                      <code className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700 dark:bg-white/10 dark:text-slate-300">
+                                        {scope.id}
+                                      </code>
+                                    </div>
+                                    <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                                      {scope.description}
+                                    </p>
+                                  </div>
+                                </label>
+                              ))}
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                    <p className="text-xs text-neutral-500 dark:text-slate-400">
+                      Scope definitions are maintained by the backend. Read scopes allow viewing
+                      resources, while write scopes allow creating and changing them.
+                    </p>
+                  </fieldset>
+
+                  <FieldFeedback error={tokenError} />
+                  {revealedToken ? (
+                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/25 dark:bg-amber-500/10">
+                      <p className="mb-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
+                        Copy this automation key now. It will not be shown again.
+                      </p>
+                      <code className="block break-all rounded bg-white px-3 py-2 text-xs text-amber-900 dark:bg-slate-950/80 dark:text-amber-100">
+                        {revealedToken}
+                      </code>
+                    </div>
+                  ) : null}
+                  <Button
+                    disabled={
+                      !tokenName.trim() ||
+                      selectedTokenScopes.length === 0 ||
+                      tokenScopesQuery.isLoading
+                    }
+                    onClick={() => {
+                      setTokenError(null);
+                      setRevealedToken(null);
+                      createTokenMutation.mutate();
                     }}
                   >
-                    <TableHeader>
-                      <TableColumn>NAME</TableColumn>
-                      <TableColumn>SCOPES</TableColumn>
-                      <TableColumn>LAST USED</TableColumn>
-                      <TableColumn>LAST 4</TableColumn>
-                      <TableColumn>STATUS</TableColumn>
-                      <TableColumn>ACTIONS</TableColumn>
-                    </TableHeader>
-                    <TableBody>
-                      {apiTokenRows.map((token) => (
-                        <TableRow key={token.id}>
-                          <TableCell>
-                            <div>
-                              <p className="font-medium text-neutral-900 dark:text-slate-100">
-                                {token.name}
-                              </p>
-                              <p className="text-xs text-neutral-500 dark:text-slate-400">
-                                {token.prefix}...{token.last4}
-                              </p>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {token.scopes.length ? token.scopes.join(', ') : 'none'}
-                          </TableCell>
-                          <TableCell>{formatDateTime(token.last_used_at)}</TableCell>
-                          <TableCell>
-                            <code className="rounded bg-default-100 px-2 py-1 text-xs dark:bg-white/10 dark:text-slate-200">
-                              ...{token.last4}
-                            </code>
-                          </TableCell>
-                          <TableCell>
-                            <Chip
-                              color={token.revoked_at ? 'danger' : 'success'}
-                              variant="flat"
-                              size="sm"
-                            >
-                              {token.revoked_at ? 'revoked' : 'active'}
-                            </Chip>
-                          </TableCell>
-                          <TableCell>
-                            <Button
-                              size="sm"
-                              color="warning"
-                              variant="flat"
-                              isDisabled={Boolean(token.revoked_at)}
-                              isLoading={
-                                revokeTokenMutation.isPending &&
-                                revokeTokenMutation.variables === token.id
-                              }
-                              onPress={() => revokeTokenMutation.mutate(token.id)}
-                            >
-                              Revoke
-                            </Button>
-                          </TableCell>
+                    {createTokenMutation.isPending ? (
+                      <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                    ) : null}
+                    {createTokenMutation.isPending ? 'Creating...' : 'Create automation key'}
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+                <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <div>
+                      <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
+                        Automation keys
+                      </h3>
+                      <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                        Review scope coverage, recent usage, and revoke state for your scripts and
+                        services.
+                      </p>
+                    </div>
+                    {apiTokensQuery.isFetching ? (
+                      <LoaderCircle
+                        className="size-4 animate-spin text-primary"
+                        aria-label="Refreshing automation keys"
+                      />
+                    ) : null}
+                  </div>
+                </CardHeader>
+                <CardContent className="pt-5 sm:pt-6">
+                  {apiTokensQuery.isError ? (
+                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-100">
+                      Failed to load automation keys.
+                    </div>
+                  ) : automationKeyRows.length === 0 ? (
+                    <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center text-sm text-neutral-500 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-400">
+                      No automation keys have been created yet.
+                    </div>
+                  ) : (
+                    <Table aria-label="Automation keys">
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>NAME</TableHead>
+                          <TableHead>SCOPES</TableHead>
+                          <TableHead>LAST USED</TableHead>
+                          <TableHead>LAST 4</TableHead>
+                          <TableHead>STATUS</TableHead>
+                          <TableHead>ACTIONS</TableHead>
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                )}
-              </CardBody>
-            </Card>
-          </div>
+                      </TableHeader>
+                      <TableBody>
+                        {automationKeyRows.map((token) => (
+                          <TableRow key={token.id}>
+                            <TableCell>
+                              <div>
+                                <p className="font-medium text-neutral-900 dark:text-slate-100">
+                                  {token.name}
+                                </p>
+                                <p className="text-xs text-neutral-500 dark:text-slate-400">
+                                  {token.prefix}...{token.last4}
+                                </p>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {token.scopes.length ? token.scopes.join(', ') : 'none'}
+                            </TableCell>
+                            <TableCell>
+                              {formatDateTime(token.last_used_at, profilePreferences.timezone)}
+                            </TableCell>
+                            <TableCell>
+                              <code className="rounded bg-default-100 px-2 py-1 text-xs dark:bg-white/10 dark:text-slate-200">
+                                ...{token.last4}
+                              </code>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={token.revoked_at ? 'destructive' : 'successful'}>
+                                {token.revoked_at ? 'revoked' : 'active'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={
+                                  Boolean(token.revoked_at) ||
+                                  (revokeTokenMutation.isPending &&
+                                    revokeTokenMutation.variables === token.id)
+                                }
+                                onClick={() => revokeTokenMutation.mutate(token.id)}
+                              >
+                                {revokeTokenMutation.isPending &&
+                                revokeTokenMutation.variables === token.id ? (
+                                  <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                                ) : null}
+                                {revokeTokenMutation.isPending &&
+                                revokeTokenMutation.variables === token.id
+                                  ? 'Revoking...'
+                                  : 'Revoke'}
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </details>
         </div>
       </div>
     </div>

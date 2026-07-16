@@ -4,14 +4,17 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Globe2, Save } from 'lucide-react';
+import { CheckCircle2, Globe2, Save, Workflow } from 'lucide-react';
+import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
 import { Label } from '@/components/library/shadcn/label';
 import { agencyApiClient } from '@/lib/api/clientInstances';
 import { getAgencyApiBaseUrl } from '@/lib/api/config';
 import type { ModelProfileDefinition } from '@/types/integrations';
+import OpenVoiceSettingsCard from '@/components/profile/OpenVoiceSettingsCard';
 import StandaloneThemeToggle from '@/components/theme/StandaloneThemeToggle';
+import SetupConfigurationGuide from '@/modules/onboarding/components/SetupConfigurationGuide';
 
 type SetupStatus = {
   ready: boolean;
@@ -34,6 +37,14 @@ type SetupStatus = {
   };
   main_agent: {
     configured: boolean;
+  };
+  openvoice: {
+    optional: true;
+    ready: boolean;
+    supports_cloning: boolean;
+    runtime_installed: boolean;
+    checkpoints_installed: boolean;
+    default_voice: string;
   };
 };
 
@@ -66,9 +77,11 @@ type TunnelPreference = {
 
 const STATUS_URL = `${getAgencyApiBaseUrl()}/setup/status`;
 const BOOTSTRAP_URL = `${getAgencyApiBaseUrl()}/auth/bootstrap`;
-const SETUP_MODEL_PROFILE_URL = `${getAgencyApiBaseUrl()}/setup/model-profile`;
-const SETUP_MAIN_AGENT_URL = `${getAgencyApiBaseUrl()}/setup/main-agent`;
-const SETUP_RECOMMENDED_AGENTS_URL = `${getAgencyApiBaseUrl()}/setup/recommended-agents`;
+// These requests go through agencyApiClient, which already applies the
+// configured `/backend` prefix for same-origin Docker deployments.
+const SETUP_MODEL_PROFILE_URL = '/setup/model-profile';
+const SETUP_MAIN_AGENT_URL = '/setup/main-agent';
+const SETUP_RECOMMENDED_AGENTS_URL = '/setup/recommended-agents';
 const MODEL_PROFILES_URL = '/model-profiles';
 const TUNNEL_PREFERENCE_URL = '/setup/tunnel-preference';
 const CREATE_NEW_PROFILE_VALUE = '__create_new_profile__';
@@ -79,7 +92,8 @@ const BLOCKER_LABELS: Record<string, string> = {
   no_users: 'Create the local admin user.',
   no_admin_user: 'Create the local admin user.',
   no_model_profiles: 'Choose and configure at least one model provider/profile.',
-  main_agent_not_configured: 'Finish main-agent setup so Agency has a default runtime entrypoint.',
+  main_agent_not_configured:
+    'Finish main-agent setup so Open Agency has a default runtime entrypoint.',
 };
 
 type StepState = 'complete' | 'current' | 'locked';
@@ -391,7 +405,7 @@ export default function LocalSetupPage() {
       setInfoMessage(
         setupRecommendedAgents
           ? 'Runtime is configured. The main agent and recommended supporting agents are ready.'
-          : 'Runtime is configured. Agency is ready.'
+          : 'Runtime is configured. Open Agency is ready.'
       );
       await refreshStatus();
       await refreshProfiles();
@@ -418,7 +432,7 @@ export default function LocalSetupPage() {
       setTunnelProvider(preference.provider);
       setTunnelCustomDomain(preference.custom_domain ?? '');
       setInfoMessage(
-        'Tunnel preference saved. It will take precedence the next time Agency starts or restarts.'
+        'Tunnel preference saved. It will take precedence the next time Open Agency starts or restarts.'
       );
     } catch (error) {
       setErrorMessage(
@@ -456,11 +470,11 @@ export default function LocalSetupPage() {
               Local setup
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-[-0.045em] text-(--agency-shell-text) sm:text-4xl">
-              Turn this backend into your local Agency install
+              Turn this backend into your local Open Agency install
             </h1>
             <p className="mt-4 text-base leading-7 text-neutral-600 dark:text-slate-300">
               Create your local admin, connect one runnable model, then finish setting up the
-              default main agent. When these are done, Agency will stop routing you back here.
+              default main agent. When these are done, Open Agency will stop routing you back here.
             </p>
           </div>
 
@@ -485,12 +499,17 @@ export default function LocalSetupPage() {
             </div>
             <div className={`rounded-[22px] border px-4 py-4 ${stepTone(finishStepState)}`}>
               <p className="text-xs font-semibold uppercase tracking-[0.2em]">Step 3</p>
-              <p className="mt-2 text-base font-semibold">Enter Agency</p>
+              <p className="mt-2 text-base font-semibold">Enter Open Agency</p>
               <p className="mt-1 text-sm">
                 {isReady
                   ? 'Setup complete. Default landing moves to workflows.'
                   : 'The app becomes ready once all blockers are cleared.'}
               </p>
+              {isReady && sessionStatus === 'authenticated' ? (
+                <Button asChild size="sm" className="mt-3 md:hidden">
+                  <Link href="/workflows">Open workflows</Link>
+                </Button>
+              ) : null}
             </div>
           </div>
 
@@ -592,15 +611,20 @@ export default function LocalSetupPage() {
           {!canBootstrapAdmin && !isLoading && setupStatus ? (
             <div className="mt-10 rounded-3xl border border-neutral-200 bg-neutral-50 p-6 dark:border-white/10 dark:bg-[#0c1624]">
               <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
-                Step 1 is complete
+                {isReady ? 'Open Agency is ready' : 'Step 1 is complete'}
               </h2>
               <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-slate-300">
-                The local admin exists. Stay on this page to finish model and main-agent setup, or
-                sign in first if this browser session is not authenticated yet.
+                {isReady
+                  ? 'Setup is complete. Continue to workflows, or stay here to review public tunnel settings.'
+                  : 'The local admin exists. Stay on this page to finish model and main-agent setup, or sign in first if this browser session is not authenticated yet.'}
               </p>
               <div className="mt-5 flex flex-wrap gap-3">
                 <Button asChild>
-                  <Link href="/login?callbackUrl=/setup">Sign in</Link>
+                  {isReady && sessionStatus === 'authenticated' ? (
+                    <Link href="/workflows">Open workflows</Link>
+                  ) : (
+                    <Link href="/login?callbackUrl=/setup">Sign in</Link>
+                  )}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => void refreshStatus()}>
                   Refresh status
@@ -719,7 +743,7 @@ export default function LocalSetupPage() {
                         />
                         <p className="text-sm leading-6 text-neutral-600 dark:text-slate-300">
                           Keep Ollama running locally before you finish setup. The launcher starts
-                          Agency services, but it does not install Ollama for you.
+                          Open Agency services, but it does not install Ollama for you.
                         </p>
                       </div>
                     )}
@@ -763,7 +787,7 @@ export default function LocalSetupPage() {
                 />
                 <span>
                   <span className="block font-medium text-neutral-900 dark:text-slate-100">
-                    Quick setup all recommended agents
+                    Optional: add recommended supporting agents
                   </span>
                   <span className="mt-1 block text-neutral-600 dark:text-slate-300">
                     Also provision the default Coder, Embedding, and Evaluation agents so you do not
@@ -774,7 +798,7 @@ export default function LocalSetupPage() {
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? 'Configuring Agency…' : 'Finish Agency setup'}
+                  {isSubmitting ? 'Configuring Open Agency…' : 'Finish Open Agency setup'}
                 </Button>
                 <Button type="button" variant="outline" onClick={() => void refreshStatus()}>
                   Refresh status
@@ -785,6 +809,12 @@ export default function LocalSetupPage() {
               </div>
             </form>
           ) : null}
+
+          {sessionStatus === 'authenticated' ? (
+            <div className="mt-10">
+              <OpenVoiceSettingsCard id="setup-openvoice" context="setup" />
+            </div>
+          ) : null}
         </section>
 
         <aside className="agency-card rounded-2xl border p-6 sm:p-8">
@@ -792,12 +822,17 @@ export default function LocalSetupPage() {
             Readiness
           </p>
           <h2 className="mt-3 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
-            What is left
+            {isReady ? 'Ready to use' : 'What is left'}
           </h2>
           <p className="mt-3 text-sm leading-6 text-neutral-600 dark:text-slate-300">
-            Agency switches its default landing page from <code>/setup</code> to{' '}
-            <code>/workflows</code>
-            once these blockers are gone.
+            {isReady ? (
+              <>All required local services and runtime settings are configured.</>
+            ) : (
+              <>
+                Open Agency switches its default landing page from <code>/setup</code> to{' '}
+                <code>/workflows</code> once these blockers are gone.
+              </>
+            )}
           </p>
 
           <div className="mt-8 space-y-3">
@@ -817,10 +852,53 @@ export default function LocalSetupPage() {
               ))
             ) : (
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-                Setup is complete. You can continue into Agency.
+                Setup is complete. You can continue into Open Agency.
               </div>
             )}
           </div>
+
+          {isReady ? (
+            <div className="mt-6 rounded-3xl border border-primary/20 bg-(--agency-active-bg) p-5">
+              <div className="flex items-start gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+                  <Workflow className="size-5" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="font-semibold text-(--agency-shell-text)">
+                    Build your first workflow
+                  </p>
+                  <p className="mt-1 text-sm leading-6 text-(--agency-shell-muted)">
+                    The required setup is complete. Start with one agent and one task; the Main
+                    Agent can help explain or assemble the rest.
+                  </p>
+                </div>
+              </div>
+              <ol className="mt-4 space-y-2 text-sm">
+                <li className="flex items-center gap-2 text-(--agency-success-text)">
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  Model connected
+                </li>
+                <li className="flex items-center gap-2 text-(--agency-success-text)">
+                  <CheckCircle2 className="size-4" aria-hidden="true" />
+                  Main Agent ready
+                </li>
+                <li className="flex items-center gap-2 font-medium text-(--agency-shell-text)">
+                  <span className="flex size-4 items-center justify-center rounded-full border border-primary text-[0.65rem] text-primary">
+                    3
+                  </span>
+                  Create and run a small workflow
+                </li>
+              </ol>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild>
+                  <Link href="/workflows">Create first workflow</Link>
+                </Button>
+                <Button asChild variant="outline">
+                  <Link href="/assistant">Ask the Main Agent</Link>
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="mt-8 space-y-4 rounded-3xl bg-white p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] dark:border dark:border-white/10 dark:bg-[#0b1322] dark:shadow-none">
             <div>
@@ -860,17 +938,32 @@ export default function LocalSetupPage() {
             </div>
           </div>
 
+          <div className="mt-8">
+            <SetupConfigurationGuide
+              statusKnown={Boolean(setupStatus)}
+              tunnelKnown={Boolean(tunnelPreference)}
+              databaseReady={databaseReachable}
+              adminReady={hasAdmin}
+              modelReady={hasModelProfile}
+              mainAgentReady={hasMainAgent}
+              openVoiceReady={Boolean(setupStatus?.openvoice?.ready)}
+              tunnelProvider={tunnelProvider}
+            />
+          </div>
+
           <form
+            id="public-tunnel"
             className="mt-8 border-t border-neutral-200 pt-8 dark:border-white/10"
             onSubmit={handleTunnelPreferenceSave}
           >
             <div className="flex items-center gap-2 text-neutral-900 dark:text-slate-100">
               <Globe2 className="h-5 w-5" aria-hidden="true" />
               <h3 className="text-lg font-semibold">Public tunnel</h3>
+              <Badge variant="secondary">Optional</Badge>
             </div>
             <p className="mt-2 text-sm leading-6 text-neutral-600 dark:text-slate-300">
-              Agency starts with a public tunnel by default when one is available. Use the current
-              public URL below as the backend base URL for webhook callbacks and external
+              Open Agency starts with a public tunnel by default when one is available. Use the
+              current public URL below as the backend base URL for webhook callbacks and external
               integrations.
             </p>
 
@@ -923,7 +1016,7 @@ export default function LocalSetupPage() {
                 Tunnel.
                 {tunnelPreference?.requirements.cloudflare.managed_tunnel_token_configured
                   ? ' A managed tunnel token is configured.'
-                  : ' Set AGENCY_CLOUDFLARE_TUNNEL_TOKEN before restarting Agency.'}
+                  : ' Set AGENCY_CLOUDFLARE_TUNNEL_TOKEN before restarting Open Agency.'}
               </p>
             ) : null}
 
@@ -941,8 +1034,8 @@ export default function LocalSetupPage() {
                   {tunnelPreference.current_public_url}
                 </a>
                 <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
-                  For integration setup, use this as the public Agency backend base URL. Personal
-                  API tokens and account-specific setup details live on{' '}
+                  For integration setup, use this as the public Open Agency backend base URL.
+                  Personal API tokens and account-specific setup details live on{' '}
                   <Link
                     className="font-medium text-sky-700 underline dark:text-sky-300"
                     href="/profile"
@@ -954,8 +1047,8 @@ export default function LocalSetupPage() {
               </div>
             ) : (
               <div className="mt-4 rounded-2xl border border-dashed border-neutral-300 bg-white px-4 py-3 text-sm text-neutral-600 dark:border-white/10 dark:bg-[#0f1a2b] dark:text-slate-300">
-                No public tunnel URL has been reported yet. After Agency starts with a tunnel, the
-                current backend URL will appear here and on your profile.
+                No public tunnel URL has been reported yet. After Open Agency starts with a tunnel,
+                the current backend URL will appear here and on your profile.
               </div>
             )}
 
@@ -975,10 +1068,10 @@ export default function LocalSetupPage() {
 
           {isReady ? (
             <div className="mt-6 rounded-3xl border border-emerald-200 bg-emerald-50 p-5 text-sm text-emerald-900 dark:border-emerald-400/30 dark:bg-emerald-500/10 dark:text-emerald-100">
-              <p className="font-medium">Agency is ready.</p>
+              <p className="font-medium">Open Agency is ready.</p>
               <p className="mt-2 leading-6">
                 Continue into the product now. Tunnel changes saved above take effect the next time
-                Agency starts or restarts.
+                Open Agency starts or restarts.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 {sessionStatus === 'authenticated' ? (

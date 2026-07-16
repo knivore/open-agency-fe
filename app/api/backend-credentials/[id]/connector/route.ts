@@ -8,10 +8,7 @@ import {
   unauthorizedResponse,
 } from '@/app/api/backend-users/utils';
 
-export async function PUT(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const user = await getAuthenticatedUser();
     if (!user) {

@@ -39,6 +39,10 @@ vi.mock('@/lib/api/config', () => ({
   getAgencyApiBaseUrl: () => 'http://backend.test',
 }));
 
+vi.mock('@/components/profile/OpenVoiceSettingsCard', () => ({
+  default: () => <div>Optional OpenVoice settings</div>,
+}));
+
 function jsonResponse(payload: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(payload), {
     status: 200,
@@ -69,6 +73,14 @@ function setupStatus(overrides: Partial<Record<string, unknown>> = {}) {
     },
     main_agent: {
       configured: false,
+    },
+    openvoice: {
+      optional: true,
+      ready: true,
+      supports_cloning: true,
+      runtime_installed: true,
+      checkpoints_installed: true,
+      default_voice: 'friendly',
     },
     ...overrides,
   };
@@ -121,7 +133,7 @@ describe('LocalSetupPage', () => {
 
     expect(
       await screen.findByRole('heading', {
-        name: 'Turn this backend into your local Agency install',
+        name: 'Turn this backend into your local Open Agency install',
       })
     ).toBeInTheDocument();
     expect(
@@ -131,6 +143,16 @@ describe('LocalSetupPage', () => {
     expect(
       screen.queryByRole('heading', { name: 'Step 2: Connect the runtime' })
     ).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'What setup manages' })).toBeInTheDocument();
+    expect(screen.getByText('Required for readiness')).toBeInTheDocument();
+    expect(screen.getByText('Optional and configurable later')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: /Sign-in and personal settings in Profile/i })
+    ).toHaveAttribute('href', '/profile#local-sign-in');
+    expect(screen.getByRole('link', { name: /OpenVoice in Profile/i })).toHaveAttribute(
+      'href',
+      '/profile#openvoice'
+    );
   });
 
   it('bootstraps the first local admin and signs in to continue setup', async () => {
@@ -224,7 +246,8 @@ describe('LocalSetupPage', () => {
     ).toBeInTheDocument();
     expect(screen.getByLabelText('Provider')).toBeInTheDocument();
     expect(screen.getByLabelText('Model')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Finish Agency setup' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Finish Open Agency setup' })).toBeInTheDocument();
+    expect(screen.getByText('Optional: add recommended supporting agents')).toBeInTheDocument();
   });
 
   it('configures the model profile and main agent, then redirects once ready', async () => {
@@ -289,10 +312,10 @@ describe('LocalSetupPage', () => {
     fireEvent.change(await screen.findByLabelText('API key'), {
       target: { value: 'sk-test-setup' },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Agency setup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Open Agency setup' }));
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenNthCalledWith(1, 'http://backend.test/setup/model-profile', {
+      expect(postMock).toHaveBeenNthCalledWith(1, '/setup/model-profile', {
         provider: 'openai',
         model: 'gpt-4.1-mini',
         api_key: 'sk-test-setup',
@@ -301,21 +324,34 @@ describe('LocalSetupPage', () => {
     });
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenNthCalledWith(2, 'http://backend.test/setup/main-agent', {
+      expect(postMock).toHaveBeenNthCalledWith(2, '/setup/main-agent', {
         model_profile_id: 'setup-profile-openai',
         agent_name: 'Main Agent',
       });
     });
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenNthCalledWith(3, 'http://backend.test/setup/recommended-agents', {
+      expect(postMock).toHaveBeenNthCalledWith(3, '/setup/recommended-agents', {
         include_coder: true,
         include_embedding: true,
         include_evaluation: true,
       });
     });
 
-    expect(await screen.findByText('Agency is ready.')).toBeInTheDocument();
+    expect(await screen.findByText('Open Agency is ready.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Open Agency is ready' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Ready to use' })).toBeInTheDocument();
+    expect(screen.getAllByRole('link', { name: 'Open workflows' }).length).toBeGreaterThan(0);
+    expect(screen.getByText('Build your first workflow')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create first workflow' })).toHaveAttribute(
+      'href',
+      '/workflows'
+    );
+    expect(screen.getByRole('link', { name: 'Ask the Main Agent' })).toHaveAttribute(
+      'href',
+      '/assistant'
+    );
+    expect(screen.queryByRole('link', { name: 'Sign in' })).not.toBeInTheDocument();
   });
 
   it('reuses an existing model profile when one already exists', async () => {
@@ -390,17 +426,17 @@ describe('LocalSetupPage', () => {
     expect(await screen.findByLabelText('Model profile')).toBeInTheDocument();
     expect(screen.queryByLabelText('API key')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Finish Agency setup' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Finish Open Agency setup' }));
 
     await waitFor(() => {
-      expect(postMock).toHaveBeenNthCalledWith(1, 'http://backend.test/setup/main-agent', {
+      expect(postMock).toHaveBeenNthCalledWith(1, '/setup/main-agent', {
         model_profile_id: 'existing-profile',
         agent_name: 'Main Agent',
       });
     });
 
     expect(postMock).not.toHaveBeenCalledWith(
-      'http://backend.test/setup/model-profile',
+      '/setup/model-profile',
       expect.anything()
     );
   });
@@ -461,7 +497,7 @@ describe('LocalSetupPage', () => {
       });
     });
     expect(
-      await screen.findByText(/will take precedence the next time Agency starts or restarts/i)
+      await screen.findByText(/will take precedence the next time Open Agency starts or restarts/i)
     ).toBeInTheDocument();
   });
 
@@ -481,7 +517,11 @@ describe('LocalSetupPage', () => {
     render(<LocalSetupPage />);
 
     expect(await screen.findByText('https://agency.trycloudflare.com')).toBeInTheDocument();
-    expect(screen.getByText(/use this as the public Agency backend base URL/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/use this as the public Open Agency backend base URL/i)
+    ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'your profile' })).toHaveAttribute('href', '/profile');
+    expect(screen.getAllByText('Public tunnel').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Optional').length).toBeGreaterThan(0);
   });
 });

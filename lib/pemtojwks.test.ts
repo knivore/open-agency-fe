@@ -21,7 +21,10 @@ describe('generateJWKS', () => {
 
   it('normalizes escaped newlines in environment-sourced PEM values', async () => {
     const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
-    const pem = privateKey.export({ format: 'pem', type: 'pkcs8' }).toString().replace(/\n/g, '\\n');
+    const pem = privateKey
+      .export({ format: 'pem', type: 'pkcs8' })
+      .toString()
+      .replace(/\n/g, '\\n');
 
     const jwks = JSON.parse(await generateJWKS(pem, 'escaped-thumbprint'));
 

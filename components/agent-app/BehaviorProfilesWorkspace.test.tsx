@@ -55,7 +55,7 @@ vi.mock('@/components/library/shadcn/button', async () => {
   );
   Button.displayName = 'MockButton';
 
-  return { Button };
+  return { Button, buttonVariants: () => '' };
 });
 
 vi.mock('@/components/library/shadcn/input', () => ({
@@ -214,6 +214,40 @@ describe('BehaviorProfilesWorkspace', () => {
     });
   });
 
+  it('applies a clear runtime preset in the add model flow', async () => {
+    renderWorkspace();
+
+    await screen.findByText('Primary Profile');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+
+    expect(screen.getByRole('button', { name: 'Provider default runtime preset' })).toHaveAttribute(
+      'aria-pressed',
+      'true'
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Balanced runtime preset' }));
+
+    expect(screen.getByLabelText('Temperature')).toHaveValue(0.5);
+    expect(screen.getByLabelText('Max tokens')).toHaveValue(4096);
+    expect(screen.getByLabelText('Top p')).toHaveValue(1);
+    expect(
+      screen.getByText(/practical mix of consistency and variety for general assistant work/i)
+    ).toBeInTheDocument();
+  });
+
+  it('blocks model creation when runtime tuning is outside the supported range', async () => {
+    renderWorkspace();
+
+    await screen.findByText('Primary Profile');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+    fireEvent.change(screen.getByLabelText('Preset name'), { target: { value: 'Invalid Model' } });
+    fireEvent.change(screen.getByLabelText('Temperature'), { target: { value: '2.1' } });
+    fireEvent.blur(screen.getByLabelText('Temperature'));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('Temperature must be from 0 to 2.');
+    expect(screen.getByRole('button', { name: 'Add model' })).toBeDisabled();
+    expect(modelProfilesApi.createProfile).not.toHaveBeenCalled();
+  });
+
   it('updates an existing model preset through the backend model profiles api', async () => {
     renderWorkspace();
 
@@ -252,6 +286,21 @@ describe('BehaviorProfilesWorkspace', () => {
         fallback_models: [],
       });
     });
+  });
+
+  it('blocks preset updates when max tokens is not a positive whole number', async () => {
+    renderWorkspace();
+
+    await screen.findByText('Primary Profile');
+    fireEvent.click(screen.getByRole('button', { name: 'Edit preset' }));
+    fireEvent.change(screen.getByLabelText('Max tokens'), { target: { value: '4.5' } });
+    fireEvent.blur(screen.getByLabelText('Max tokens'));
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Max tokens must be a whole number from 1 to 1,000,000.'
+    );
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+    expect(modelProfilesApi.updateProfile).not.toHaveBeenCalled();
   });
 
   it('updates manual fallback models on an existing model preset', async () => {
@@ -440,7 +489,7 @@ describe('BehaviorProfilesWorkspace', () => {
       model: 'llama3:8b',
       base_url: 'http://host.docker.internal:11434',
       api_key_ref: null,
-      temperature: 0.2,
+      temperature: null,
       max_tokens: null,
       top_p: null,
       supports_tools: true,
@@ -454,6 +503,51 @@ describe('BehaviorProfilesWorkspace', () => {
         require_capability_match: true,
       },
       fallback_models: [],
+    });
+  });
+
+  it('uses a Codex model selected in the UI instead of the latest default after OAuth', async () => {
+    modelProvidersApi.createProvider.mockResolvedValue({
+      id: 'provider-codex',
+      name: 'OpenAI Codex',
+    });
+
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Primary Profile')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add Model' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New connection' }));
+    fireEvent.change(screen.getByLabelText('Provider family'), {
+      target: { value: 'openai_codex' },
+    });
+    expect(screen.getByLabelText('Model')).toHaveValue('gpt-5.5');
+
+    fireEvent.change(screen.getByLabelText('Model'), { target: { value: 'gpt-5.4-mini' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Authorize & Add' }));
+
+    await waitFor(() => {
+      expect(modelProvidersApi.authorizeProvider).toHaveBeenCalledWith(
+        'provider-codex',
+        expect.objectContaining({ authProfileId: 'default' })
+      );
+    });
+
+    fireEvent.change(screen.getByLabelText('Redirect URL or authorization code'), {
+      target: { value: 'authorization-code' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Complete & Create Model' }));
+
+    await waitFor(() => {
+      expect(modelProfilesApi.createProfile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          provider: 'provider-codex',
+          model: 'gpt-5.4-mini',
+          parameters: { oauth_profile_id: 'default' },
+        })
+      );
     });
   });
 

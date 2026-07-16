@@ -73,7 +73,8 @@ const steeringEvents: WorkflowMonitoringEventsResponse = {
 };
 
 describe('WorkflowMonitoringProposals', () => {
-  it('shows findings-only monitor state when proposals are disabled', () => {
+  it('surfaces disabled proposals and lets an operator enable them', () => {
+    const onEnableImprovementProposals = vi.fn();
     render(
       <WorkflowMonitoringProposals
         events={{
@@ -96,18 +97,17 @@ describe('WorkflowMonitoringProposals', () => {
         }}
         isLoading={false}
         isMutating={false}
+        onEnableImprovementProposals={onEnableImprovementProposals}
         onApprovalDecision={vi.fn()}
       />
     );
 
     expect(screen.getByText('Monitor review')).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Monitoring is active, but workflow-improvement proposals are disabled.'
-      )
-    ).toBeInTheDocument();
+    expect(screen.getByText('Workflow-improvement proposals are disabled.')).toBeInTheDocument();
     expect(screen.getByText('Recent findings')).toBeInTheDocument();
     expect(screen.getByText('failed execution')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Enable proposals' }));
+    expect(onEnableImprovementProposals).toHaveBeenCalledOnce();
   });
 
   it('labels proposals as advisory when no approval request is attached', () => {
@@ -150,8 +150,11 @@ describe('WorkflowMonitoringProposals', () => {
       />
     );
 
-    expect(screen.getByText('Improvement proposals are advisory-only right now.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Improvement proposals are advisory-only right now.')
+    ).toBeInTheDocument();
     expect(screen.getByText('advisory only')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('View proposal details'));
     expect(
       screen.getByText(
         'This proposal is recorded as monitor guidance. Add any operator edits or context before handing it to the main agent for review and implementation.'
@@ -165,6 +168,53 @@ describe('WorkflowMonitoringProposals', () => {
       'proposal-1',
       'Please keep the current approval gates and do not widen tool scope.'
     );
+  });
+
+  it('keeps proposal details compact and lets operators dismiss or restore them', () => {
+    window.localStorage.clear();
+    render(
+      <WorkflowMonitoringProposals
+        events={{
+          ...steeringEvents,
+          monitoring: {
+            ...steeringEvents.monitoring,
+            controls: {
+              ...steeringEvents.monitoring.controls,
+              allow_improvement_proposals: true,
+            },
+          },
+          proposals: [
+            {
+              id: 'proposal-dismiss',
+              execution_id: 'execution-1',
+              workflow_id: 'workflow-1',
+              event_type: 'monitor.improvement.proposed',
+              sequence: 4,
+              payload: {
+                proposed_change: { summary: 'Remove duplicate progress reports.' },
+                finding: { evidence: [{ execution_id: 'execution-1' }] },
+              },
+              approval_requests: [],
+            },
+          ],
+          approval_controls: [],
+        }}
+        isLoading={false}
+        isMutating={false}
+        onApprovalDecision={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('View proposal details')).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Dismiss Remove duplicate progress reports.' })
+    );
+    expect(
+      screen.getByText('All current proposals are dismissed from this list.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Restore 1 dismissed proposal' }));
+    expect(screen.getByText('Remove duplicate progress reports.')).toBeInTheDocument();
   });
 
   it('shows latest main-agent dispatch state for advisory proposals', () => {

@@ -2,25 +2,17 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import { Ban, Eye, Loader, ThumbsDown, ThumbsUp } from 'lucide-react';
+import { ArrowUpRight, CircleAlert, FileCheck2 } from 'lucide-react';
 import type { RunSessionSummary } from '@/types/runtime';
 import { TableCell, TableRow } from '@/components/library/shadcn/table';
-import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
+import RunStatusBadge from '@/components/runs/components/RunStatusBadge';
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/library/shadcn/tooltip';
-import { useRunsModule } from '@/components/runs/context';
-
-const SUCCESS_STATUSES = new Set(['completed']);
-
-function formatTimestamp(value?: string | null) {
-  return value ? new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : '—';
-}
+  describeRunEvidence,
+  formatRunDuration,
+  formatRunListDateTime,
+} from '@/lib/runs/runPresentation';
+import { cn } from '@/lib/utils';
 
 function buildRunDetailHref(execution: RunSessionSummary) {
   const href = `/runs/${encodeURIComponent(execution.id)}`;
@@ -48,182 +40,114 @@ export default function RunSessionRow({
   execution: RunSessionSummary;
   workflowName?: string;
 }) {
-  const { api } = useRunsModule();
   const router = useRouter();
-  const [rating, setRating] = useState<string | null>(null);
-  const startTime = formatTimestamp(execution.startedAt);
-  const endTime = formatTimestamp(execution.completedAt);
-  const containerLabel =
-    execution.container?.containerName || execution.container?.containerId || '—';
-  const [loading, setLoading] = useState(false);
   const detailHref = buildRunDetailHref(execution);
-  const workflowLabel = workflowName || (execution.workflowId ? 'Unnamed workflow' : '—');
-
-  const openRunDetail = () => {
-    router.push(detailHref);
-  };
-
-  const handleDownload = async () => {
-    if (!SUCCESS_STATUSES.has(execution.status)) {
-      alert('Run is not completed yet.');
-      return;
-    }
-    setLoading(true);
-    try {
-      await api.executionActions.downloadResult(execution.id);
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Download is currently unavailable.';
-      alert(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  async function rateResult(
-    currentExecution: RunSessionSummary,
-    nextRating: 'positive' | 'negative'
-  ) {
-    if (!SUCCESS_STATUSES.has(currentExecution.status)) {
-      alert('Run is not completed yet.');
-      return;
-    }
-    setRating(nextRating);
-    try {
-      await api.executionActions.rateResult(currentExecution.id, nextRating);
-    } catch (error) {
-      console.error('Error updating rating:', error);
-    }
-  }
+  const workflowLabel = workflowName || (execution.workflowId ? 'Unnamed workflow' : 'Ad hoc run');
+  const evidence = describeRunEvidence(execution);
+  const hasFailureEvidence = execution.status === 'failed' && Boolean(execution.error?.trim());
 
   return (
     <TableRow
-      className="cursor-pointer"
+      className="group cursor-pointer align-top focus-within:bg-(--agency-row-hover)"
       onClick={(event) => {
         if (!isInteractiveTarget(event.target)) {
-          openRunDetail();
+          router.push(detailHref);
         }
       }}
     >
-      <TableCell className="font-medium">
-        {execution.workflowId ? (
-          <Link
-            href={`/workflows/${execution.workflowId}`}
-            className="hover:text-primary hover:underline"
-          >
-            {workflowLabel}
-          </Link>
-        ) : (
-          '—'
-        )}
-      </TableCell>
-      <TableCell className="text-center">
-        <Badge
-          variant={
-            SUCCESS_STATUSES.has(execution.status)
-              ? 'successful'
-              : execution.status === 'failed'
-                ? 'failed'
-                : 'outline'
-          }
-          className="mx-auto flex max-w-25 items-center justify-center capitalize"
-        >
-          {execution.status}
-        </Badge>
-      </TableCell>
-      <TableCell className="hidden text-center md:table-cell">{startTime}</TableCell>
-      <TableCell className="hidden text-center md:table-cell">{endTime}</TableCell>
-      <TableCell className="hidden text-center lg:table-cell">
-        <div className="flex flex-col items-center gap-1">
-          <span className="max-w-45 truncate text-xs text-neutral-700">{containerLabel}</span>
-          <Badge variant="outline" className="capitalize">
-            {execution.container?.status || 'n/a'}
-          </Badge>
+      <TableCell className="min-w-0 py-4 sm:min-w-48">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          {execution.workflowId ? (
+            <Link
+              href={`/workflows/${execution.workflowId}`}
+              className="line-clamp-2 font-semibold text-(--agency-shell-text) underline-offset-4 hover:text-primary hover:underline"
+            >
+              {workflowLabel}
+            </Link>
+          ) : (
+            <span className="font-semibold text-(--agency-shell-text)">{workflowLabel}</span>
+          )}
+          <div className="flex min-w-0 items-center gap-2 text-xs text-(--agency-shell-muted)">
+            <span className="truncate font-mono" title={execution.id}>
+              {execution.id}
+            </span>
+            <span aria-hidden="true">·</span>
+            <span className="shrink-0">{execution.runtimeAdapterId || 'Unknown runtime'}</span>
+          </div>
+          <div className="flex flex-col gap-1.5 lg:hidden">
+            <div className="flex flex-wrap items-center gap-2 sm:hidden">
+              <RunStatusBadge status={execution.status} />
+            </div>
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-(--agency-shell-muted) md:hidden">
+              <time dateTime={execution.startedAt || execution.createdAt || undefined}>
+                {formatRunListDateTime(execution.startedAt || execution.createdAt)}
+              </time>
+              <span aria-hidden="true">·</span>
+              <span>{formatRunDuration(execution)} duration</span>
+            </div>
+            <div
+              className={cn(
+                'flex items-start gap-1.5 text-xs leading-5',
+                hasFailureEvidence
+                  ? 'text-rose-700 dark:text-rose-200'
+                  : 'text-(--agency-shell-muted)'
+              )}
+            >
+              {hasFailureEvidence ? (
+                <CircleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              ) : (
+                <FileCheck2 className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              )}
+              <span className="line-clamp-2" title={evidence}>
+                {evidence}
+              </span>
+            </div>
+          </div>
         </div>
       </TableCell>
-      <TableCell className="max-w-70 truncate text-sm text-neutral-500">
-        {execution.error || '—'}
+      <TableCell className="hidden min-w-32 py-4 sm:table-cell">
+        <RunStatusBadge status={execution.status} />
       </TableCell>
-      <TableCell className="text-right">
-        <Button asChild type="button" size="sm" variant="outline" className="gap-2">
+      <TableCell className="hidden min-w-32 py-4 md:table-cell">
+        <time
+          dateTime={execution.startedAt || execution.createdAt || undefined}
+          className="font-medium text-(--agency-shell-text)"
+        >
+          {formatRunListDateTime(execution.startedAt || execution.createdAt)}
+        </time>
+        <p className="mt-1 text-xs text-(--agency-shell-muted)">
+          {formatRunDuration(execution)} duration
+        </p>
+      </TableCell>
+      <TableCell className="hidden min-w-56 max-w-md py-4 lg:table-cell">
+        <div
+          className={cn(
+            'flex items-start gap-2 text-sm leading-5',
+            hasFailureEvidence ? 'text-rose-700 dark:text-rose-200' : 'text-(--agency-shell-muted)'
+          )}
+        >
+          {hasFailureEvidence ? (
+            <CircleAlert className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          ) : (
+            <FileCheck2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          )}
+          <span className="line-clamp-2" title={evidence}>
+            {evidence}
+          </span>
+        </div>
+      </TableCell>
+      <TableCell className="w-px py-4 text-right">
+        <Button
+          asChild
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="gap-1.5 text-(--agency-shell-muted) group-hover:text-(--agency-shell-text)"
+        >
           <Link href={detailHref} aria-label={`View run details for ${workflowLabel}`}>
-            <Eye className="h-4 w-4" />
-            Details
+            <ArrowUpRight className="size-4" aria-hidden="true" />
           </Link>
         </Button>
-      </TableCell>
-      <TableCell className="hidden">
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                aria-label="Download results"
-                title="Download results"
-                variant="ghost"
-                onClick={
-                  !SUCCESS_STATUSES.has(execution.status) || loading ? undefined : handleDownload
-                }
-                className={
-                  !SUCCESS_STATUSES.has(execution.status) ? 'cursor-not-allowed opacity-20' : ''
-                }
-              >
-                {loading ? <Loader className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Download is not wired on canonical routes yet</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </TableCell>
-      <TableCell className="hidden">
-        <TooltipProvider>
-          <div className="flex justify-center space-x-2">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Rate positively"
-                  title="Rate positively"
-                  variant="ghost"
-                  onClick={() =>
-                    !SUCCESS_STATUSES.has(execution.status)
-                      ? {}
-                      : void rateResult(execution, 'positive')
-                  }
-                  className={`flex h-8 w-8 items-center justify-center rounded border border-transparent p-1 hover:border-muted hover:bg-muted/20 ${!SUCCESS_STATUSES.has(execution.status) ? 'cursor-not-allowed opacity-20' : ''}`}
-                >
-                  <ThumbsUp
-                    className={`h-4 w-4 ${rating === 'positive' ? 'text-green-500' : ''}`}
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Rate Positively</p>
-              </TooltipContent>
-            </Tooltip>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  aria-label="Rate negatively"
-                  title="Rate negatively"
-                  variant="ghost"
-                  onClick={() =>
-                    !SUCCESS_STATUSES.has(execution.status)
-                      ? {}
-                      : void rateResult(execution, 'negative')
-                  }
-                  className={`flex h-8 w-8 items-center justify-center rounded border border-transparent p-1 hover:border-muted hover:bg-muted/20 ${!SUCCESS_STATUSES.has(execution.status) ? 'cursor-not-allowed opacity-20' : ''}`}
-                >
-                  <ThumbsDown
-                    className={`h-4 w-4 ${rating === 'negative' ? 'text-red-500' : ''}`}
-                  />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Rate Negatively</p>
-              </TooltipContent>
-            </Tooltip>
-          </div>
-        </TooltipProvider>
       </TableCell>
     </TableRow>
   );

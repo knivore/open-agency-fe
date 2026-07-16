@@ -23,7 +23,7 @@ export interface ObservatorySourceRegistry {
   getSource(sourceId: string): ObservatoryRuntimeSourceConfig | undefined;
   listSources(currentOrigin?: string): ObservatoryRuntimeSourceStatus[];
   upsertSource(source: ObservatoryRuntimeSourceConfig): void;
-  validateSourceOrigin(sourceId: string, origin: string): boolean;
+  validateSourceOrigin(sourceId: string, origin: string, currentOrigin: string): boolean;
 }
 
 export const OBSERVATORY_LOCAL_SOURCE_ID = 'local-preview';
@@ -139,13 +139,15 @@ export function createObservatorySourceRegistry(
       }
       sources.set(source.id, { ...source, allowedOrigins: [...source.allowedOrigins] });
     },
-    validateSourceOrigin(sourceId, origin) {
+    validateSourceOrigin(sourceId, origin, currentOrigin) {
       const source = sources.get(sourceId);
       if (!source?.enabled) {
         return false;
       }
 
-      return resolveAllowedOrigins(source.allowedOrigins, origin).includes(origin);
+      // "self" belongs to the receiving application, never to the sender whose
+      // MessageEvent.origin is the value this control is meant to distrust.
+      return resolveAllowedOrigins(source.allowedOrigins, currentOrigin).includes(origin);
     },
   };
 }

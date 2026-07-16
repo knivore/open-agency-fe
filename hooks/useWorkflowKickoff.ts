@@ -1,4 +1,8 @@
-import { getWorkflowRunStatus, startWorkflowById, stopWorkflowRun } from '@/app/api/utils/workflows';
+import {
+  getWorkflowRunStatus,
+  startWorkflowById,
+  stopWorkflowRun,
+} from '@/app/api/utils/workflows';
 import { toast } from 'sonner';
 import { useEffect, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
@@ -48,15 +52,16 @@ export default function useWorkflowKickoff({
   const [verboseOutput, setVerboseOutput] = useState<VerboseOutput[]>([]);
 
   const kickoffMutation = useMutation({
-    mutationFn: () => startWorkflowById(
-      workflowId,
-      inputs,
-      taskOrder,
-      agentConfigs ?? {},
-      runtimeAdapterId,
-      executionHost,
-      goalId
-    ),
+    mutationFn: () =>
+      startWorkflowById(
+        workflowId,
+        inputs,
+        taskOrder,
+        agentConfigs ?? {},
+        runtimeAdapterId,
+        executionHost,
+        goalId
+      ),
     onMutate: () => {
       setOutput(null);
       setVerboseOutput([]);

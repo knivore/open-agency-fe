@@ -565,7 +565,7 @@ export default function ForceGraph3DCanvas({
       return;
     }
     const scene = graphRef.current.scene();
-    const clusterGlowField = buildClusterGlowField(graphData.nodes, palette, sceneFrame);
+    const clusterGlowField = buildClusterGlowField(graphData.nodes, palette);
     scene.add(clusterGlowField);
 
     return () => {
@@ -811,7 +811,7 @@ export default function ForceGraph3DCanvas({
       window.requestAnimationFrame(() => commitCameraDistance(distance, true));
       lastFocusedNodeIdRef.current = primarySelectedNodeId;
     }
-  }, [graphData.nodes, primarySelectedNodeId, selectionKey]);
+  }, [commitCameraDistance, graphData.nodes, primarySelectedNodeId, selectionKey]);
 
   return (
     <div ref={containerRef} className={`relative ${className || ''}`}>
@@ -2409,11 +2409,7 @@ function themeAwareAtmosphereAccentSequence(bright: Color, muted: Color, theme: 
   ];
 }
 
-function buildClusterGlowField(
-  nodes: ForceNode[],
-  palette: ForceGraph3DPalette,
-  _sceneFrame: ForceGraph3DFrame
-) {
+function buildClusterGlowField(nodes: ForceNode[], palette: ForceGraph3DPalette) {
   const group = new Group();
   const byCluster = new Map<string, ForceNode[]>();
   nodes.forEach((node) => {

@@ -116,7 +116,7 @@ describe('IntegrationsWorkspace operations queue', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText(/Connector operations/i)).toBeInTheDocument();
+      expect(screen.getByText(/Connector health/i)).toBeInTheDocument();
     });
 
     await waitFor(() => {
@@ -785,7 +785,7 @@ describe('IntegrationsWorkspace operations queue', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText(/Connector operations/i)).toBeInTheDocument();
+      expect(screen.getByText(/Connector health/i)).toBeInTheDocument();
     });
 
     expect(screen.getByTestId('operations-row-credential-5')).toHaveTextContent('Connector 5');

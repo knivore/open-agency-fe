@@ -8,7 +8,8 @@ export function backendRewrites(env = process.env) {
     return [];
   }
 
-  const agencyInternalApiBaseUrl = env.AGENCY_INTERNAL_API_BASE_URL || 'http://127.0.0.1:8000';
+  const agencyInternalApiBaseUrl =
+    env.AGENCY_INTERNAL_API_BASE_URL || 'http://127.0.0.1:8000';
 
   return [
     {

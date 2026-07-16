@@ -29,7 +29,9 @@ export default function ToolRunResult({ result }: { result?: ToolRunResponse | n
         <CardHeader>
           <CardTitle className="flex items-center justify-between gap-3 text-base">
             Runtime verdict
-            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${resultTone[result.verdict]}`}>
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold ${resultTone[result.verdict]}`}
+            >
               {result.verdict}
             </span>
           </CardTitle>
@@ -49,7 +51,9 @@ export default function ToolRunResult({ result }: { result?: ToolRunResponse | n
           </div>
           {result.errors.length ? (
             <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-              {result.errors.map((error) => <p key={error}>{error}</p>)}
+              {result.errors.map((error) => (
+                <p key={error}>{error}</p>
+              ))}
             </div>
           ) : null}
           <PolicyVerdictPanel verdict={result.policyVerdict} />

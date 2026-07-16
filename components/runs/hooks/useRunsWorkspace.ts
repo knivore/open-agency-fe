@@ -9,16 +9,26 @@ import { useRunsModule } from '@/components/runs/context';
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 const STATUS_FILTERS = [
   'all',
+  'active',
+  'waiting',
   'running',
   'queued',
   'paused',
+  'sleeping',
+  'waiting_for_input',
   'waiting_for_approval',
+  'waiting_for_event',
   'completed',
   'failed',
   'cancelled',
 ] as const;
 const EMPTY_RUNS: RunSessionSummary[] = [];
 const FAVORITES_STORAGE_KEY = 'runs-observatory-favorites-v1';
+const WAITING_STATUSES = new Set([
+  'waiting_for_input',
+  'waiting_for_approval',
+  'waiting_for_event',
+]);
 
 export type RunsStatusFilter = (typeof STATUS_FILTERS)[number];
 
@@ -55,16 +65,21 @@ export function useRunsWorkspace({
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<RunsStatusFilter>('all');
   const viewMode: RunViewMode = 'list';
-  const setViewMode = useCallback((nextViewMode: RunViewMode) => {
-    const currentParams = new URLSearchParams(searchParams.toString());
-    if (nextViewMode === 'list') {
-      currentParams.delete('view');
-    } else {
-      currentParams.set('view', nextViewMode);
-    }
-    const nextHref = currentParams.toString() ? `${pathname}?${currentParams.toString()}` : pathname;
-    router.replace(nextHref, { scroll: false });
-  }, [pathname, router, searchParams]);
+  const setViewMode = useCallback(
+    (nextViewMode: RunViewMode) => {
+      const currentParams = new URLSearchParams(searchParams.toString());
+      if (nextViewMode === 'list') {
+        currentParams.delete('view');
+      } else {
+        currentParams.set('view', nextViewMode);
+      }
+      const nextHref = currentParams.toString()
+        ? `${pathname}?${currentParams.toString()}`
+        : pathname;
+      router.replace(nextHref, { scroll: false });
+    },
+    [pathname, router, searchParams]
+  );
 
   const runsQuery = useQuery({
     queryKey: queryKeys.activeRunSessions(),
@@ -80,33 +95,54 @@ export function useRunsWorkspace({
   const favoriteWorkflowIds = readFavoriteWorkflowIds();
   const filteredRuns = useMemo(() => {
     const normalizedSearch = search.trim().toLowerCase();
-    return runs.filter((run) => {
-      const matchesStatus = statusFilter === 'all' ? true : run.status === statusFilter;
-      const workflowName = run.workflowId ? workflowNamesById?.get(run.workflowId) : null;
-      const matchesSearch =
-        normalizedSearch.length === 0
-          ? true
-          : [run.id, run.workflowId, workflowName, run.runtimeAdapterId, run.status, run.error]
-              .filter(Boolean)
-              .some((value) => String(value).toLowerCase().includes(normalizedSearch));
-      return matchesStatus && matchesSearch;
-    }).sort((left, right) => {
-      const leftFavorite = left.workflowId ? favoriteWorkflowIds.has(left.workflowId) : false;
-      const rightFavorite = right.workflowId ? favoriteWorkflowIds.has(right.workflowId) : false;
-      if (leftFavorite !== rightFavorite) {
-        return leftFavorite ? -1 : 1;
-      }
-      return left.createdAt && right.createdAt
-        ? new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
-        : left.id.localeCompare(right.id);
-    });
+    return runs
+      .filter((run) => {
+        const matchesStatus =
+          statusFilter === 'all'
+            ? true
+            : statusFilter === 'active'
+              ? !TERMINAL_STATUSES.has(run.status)
+              : statusFilter === 'waiting'
+                ? WAITING_STATUSES.has(run.status)
+                : run.status === statusFilter;
+        const workflowName = run.workflowId ? workflowNamesById?.get(run.workflowId) : null;
+        const matchesSearch =
+          normalizedSearch.length === 0
+            ? true
+            : [run.id, run.workflowId, workflowName, run.runtimeAdapterId, run.status, run.error]
+                .filter(Boolean)
+                .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+        return matchesStatus && matchesSearch;
+      })
+      .sort((left, right) => {
+        const leftFavorite = left.workflowId ? favoriteWorkflowIds.has(left.workflowId) : false;
+        const rightFavorite = right.workflowId ? favoriteWorkflowIds.has(right.workflowId) : false;
+        if (leftFavorite !== rightFavorite) {
+          return leftFavorite ? -1 : 1;
+        }
+        return left.createdAt && right.createdAt
+          ? new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime()
+          : left.id.localeCompare(right.id);
+      });
   }, [favoriteWorkflowIds, runs, search, statusFilter, workflowNamesById]);
 
-  const activeCount = useMemo(() => runs.filter((run) => !TERMINAL_STATUSES.has(run.status)).length, [runs]);
-  const activeRuns = useMemo(() => runs.filter((run) => !TERMINAL_STATUSES.has(run.status)).slice(0, 6), [runs]);
-  const waitingCount = useMemo(() => runs.filter((run) => run.status === 'waiting_for_approval').length, [runs]);
+  const activeCount = useMemo(
+    () => runs.filter((run) => !TERMINAL_STATUSES.has(run.status)).length,
+    [runs]
+  );
+  const activeRuns = useMemo(
+    () => runs.filter((run) => !TERMINAL_STATUSES.has(run.status)).slice(0, 6),
+    [runs]
+  );
+  const waitingCount = useMemo(
+    () => runs.filter((run) => WAITING_STATUSES.has(run.status)).length,
+    [runs]
+  );
   const failedCount = useMemo(() => runs.filter((run) => run.status === 'failed').length, [runs]);
-  const runtimeCount = useMemo(() => new Set(runs.map((run) => run.runtimeAdapterId || 'unknown')).size, [runs]);
+  const runtimeCount = useMemo(
+    () => new Set(runs.map((run) => run.runtimeAdapterId || 'unknown')).size,
+    [runs]
+  );
 
   return {
     runsQuery,

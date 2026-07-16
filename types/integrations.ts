@@ -214,6 +214,22 @@ export interface ConnectorSetupGuideOptionDefinition extends JsonObject {
   notes?: string[];
 }
 
+export interface ConnectorSetupGuideStepDefinition extends JsonObject {
+  title: string;
+  description: string;
+  details?: string[];
+}
+
+export interface ConnectorSetupGuideResourceDefinition extends JsonObject {
+  label: string;
+  url: string;
+}
+
+export interface ConnectorSetupGuideTroubleshootingDefinition extends JsonObject {
+  issue: string;
+  resolution: string;
+}
+
 export interface ConnectorSetupGuideDefinition extends JsonObject {
   storagePath: string;
   fields: ConnectorSetupGuideFieldDefinition[];
@@ -221,6 +237,24 @@ export interface ConnectorSetupGuideDefinition extends JsonObject {
   agencyStores: string[];
   completionSignal: string;
   notes?: string[];
+  prerequisites?: string[];
+  steps?: ConnectorSetupGuideStepDefinition[];
+  verification?: string[];
+  troubleshooting?: ConnectorSetupGuideTroubleshootingDefinition[];
+  resources?: ConnectorSetupGuideResourceDefinition[];
+  reviewedAt?: string;
+  estimatedMinutes?: number;
+}
+
+export interface ConnectorOneCLISecretProfileDefinition extends JsonObject {
+  hostPattern: string;
+  pathPattern?: string | null;
+  injectionTarget: 'header' | 'url_parameter' | 'url_path';
+  headerName?: string | null;
+  valueFormat?: string | null;
+  parameterName?: string | null;
+  parameterFormat?: string | null;
+  pathTemplate?: string | null;
 }
 
 export interface ConnectorCapabilityDefinition extends JsonObject {
@@ -233,6 +267,11 @@ export interface ConnectorCapabilityDefinition extends JsonObject {
   dependsOnAgencyCapabilities?: string[];
   ownershipNotes?: string[];
   onecliTransportMode?: 'proxy' | 'direct';
+  runtimeSecretRequired?: boolean;
+  setupSupported?: boolean;
+  setupBlockReason?: string | null;
+  onecliAppId?: string | null;
+  onecliSecretProfile?: ConnectorOneCLISecretProfileDefinition | null;
   healthSupported?: boolean;
   requiredMetadata?: ConnectorMetadataRequirementDefinition[];
   instanceIdentityMetadata?: ConnectorMetadataRequirementDefinition[];
@@ -262,6 +301,8 @@ export interface ConnectorInstallationDefinition extends JsonObject {
   onecli_credential_ref: string;
   status: 'setup_pending' | 'active' | 'revoked' | 'disabled' | 'rotation_required';
   setup_session_id?: string | null;
+  setup_started_at?: string | null;
+  setup_expires_at?: string | null;
   last_rotated_at?: string | null;
   revoked_at?: string | null;
   metadata?: JsonObject;
@@ -272,6 +313,7 @@ export interface ConnectorSetupSessionPayload extends JsonObject {
   setup_url: string;
   device_code: string;
   onecli_credential_ref: string;
+  onecli_resource_name: string;
   expires_at?: string | null;
 }
 

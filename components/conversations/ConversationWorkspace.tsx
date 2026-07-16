@@ -50,15 +50,9 @@ import AssistantContextMenu from '@/components/conversations/AssistantContextMen
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
-import { Label } from '@/components/library/shadcn/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/library/shadcn/dialog';
+import { DialogClose } from '@/components/library/shadcn/dialog';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
+import { FormField, FormFieldGroup, FormSection } from '@/components/app-shell/FormSection';
 import {
   Tooltip,
   TooltipContent,
@@ -202,10 +196,22 @@ const compactSourceRangeOptions: Array<{ value: ConversationCompactSourceRange; 
   { value: 'older_than_recent', label: 'Older than recent' },
 ];
 
-const assistantPromptSuggestions = [
-  'Create a workflow for a new client onboarding process.',
-  'Review recent runs and summarize what needs attention.',
-  'Draft a compact handoff for this conversation.',
+const defaultAssistantPromptSuggestions: AssistantPromptSuggestion[] = [
+  {
+    id: 'create-workflow',
+    label: 'Create a workflow',
+    prompt: 'Create a workflow for a new client onboarding process.',
+  },
+  {
+    id: 'review-runs',
+    label: 'Review recent runs',
+    prompt: 'Review recent runs and summarize what needs attention.',
+  },
+  {
+    id: 'compact-handoff',
+    label: 'Draft a handoff',
+    prompt: 'Draft a compact handoff for this conversation.',
+  },
 ];
 
 const defaultCompactForm: CompactFormState = {
@@ -491,6 +497,13 @@ type AssistantPageTarget = {
   providers: string[];
 };
 
+type AssistantPromptSuggestion = {
+  id: string;
+  label: string;
+  prompt: string;
+  intent?: string;
+};
+
 function cleanLabel(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : undefined;
 }
@@ -590,6 +603,31 @@ function assistantProviderLabel(metadata: JsonObject): string | undefined {
 function assistantPageTarget(metadata: JsonObject): AssistantPageTarget | null {
   const pageContext = isRecord(metadata.page_context) ? metadata.page_context : undefined;
   return pageTargetFromContext(pageContext, assistantProviderLabels(metadata));
+}
+
+function assistantContextPromptSuggestions(metadata: JsonObject): AssistantPromptSuggestion[] {
+  const pageContext = isRecord(metadata.page_context) ? metadata.page_context : undefined;
+  const suggestions = Array.isArray(pageContext?.suggestedPrompts)
+    ? pageContext.suggestedPrompts
+    : [];
+
+  return suggestions
+    .filter((suggestion): suggestion is JsonObject => isRecord(suggestion))
+    .flatMap((suggestion) => {
+      const prompt = cleanLabel(suggestion.prompt);
+      if (!prompt) {
+        return [];
+      }
+      return [
+        {
+          id: cleanLabel(suggestion.id) ?? prompt,
+          label: cleanLabel(suggestion.label) ?? prompt,
+          prompt,
+          intent: cleanLabel(suggestion.intent),
+        },
+      ];
+    })
+    .slice(0, 3);
 }
 
 function addWorkflowId(ids: Set<string>, value: unknown) {
@@ -3321,34 +3359,57 @@ function ConversationContextUsageMeter({
 
 function AssistantEmptyState({
   mainAgentName,
+  contextLabel,
+  suggestions,
   onSelectPrompt,
 }: {
   mainAgentName: string;
+  contextLabel?: string;
+  suggestions: AssistantPromptSuggestion[];
   onSelectPrompt: (prompt: string) => void;
 }) {
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-center px-4 py-10 text-center">
+    <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-start px-4 py-8 text-center md:justify-center md:py-10">
       <div className="relative">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-lg shadow-primary/20">
-          <Bot className="h-8 w-8" />
+        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-md shadow-primary/20">
+          <Bot className="h-7 w-7" />
         </div>
         <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400" />
       </div>
       <h2 className="mt-5 text-2xl font-semibold text-slate-950 dark:text-slate-100">
-        What should we work on?
+        {contextLabel ? `What should we do with ${contextLabel}?` : 'What should we work on?'}
       </h2>
       <p className="mt-2 max-w-xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-        {mainAgentName} is ready.
+        {contextLabel
+          ? `${mainAgentName} can use the current page context. Suggestions only fill the composer so you can review them before sending.`
+          : `${mainAgentName} is your main agent. It can help set up workflows, review runs, and decide what to do next.`}
       </p>
-      <div className="mt-6 grid w-full gap-2 sm:grid-cols-3">
-        {assistantPromptSuggestions.map((suggestion) => (
+      <div className="mt-6 grid w-full gap-2">
+        {suggestions.map((suggestion) => (
           <button
-            key={suggestion}
+            key={suggestion.id}
             type="button"
-            className="min-h-20 rounded-lg border border-primary-100 bg-white px-4 py-3 text-left text-sm font-medium leading-5 text-slate-700 shadow-sm shadow-primary/5 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:shadow-none dark:hover:border-cyan-400/20 dark:hover:bg-white/10 dark:hover:text-slate-100"
-            onClick={() => onSelectPrompt(suggestion)}
+            className="group flex min-h-16 items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 text-left text-sm font-medium leading-5 text-slate-700 shadow-sm shadow-primary/5 transition hover:border-primary-300 hover:bg-primary-50 hover:text-primary-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-400 dark:border-white/10 dark:bg-white/4 dark:text-slate-200 dark:shadow-none dark:hover:border-cyan-400/20 dark:hover:bg-white/8 dark:hover:text-slate-100"
+            onClick={() => onSelectPrompt(suggestion.prompt)}
+            aria-label={`Use suggestion: ${suggestion.label}`}
           >
-            {suggestion}
+            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700 dark:bg-violet-400/10 dark:text-violet-200">
+              <Sparkles className="size-4" aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-semibold text-slate-900 dark:text-slate-100">
+                {suggestion.label}
+              </span>
+              {suggestion.prompt !== suggestion.label ? (
+                <span className="mt-0.5 block text-xs font-normal leading-5 text-slate-500 dark:text-slate-400">
+                  {suggestion.prompt}
+                </span>
+              ) : null}
+            </span>
+            <ChevronRight
+              className="size-4 shrink-0 text-slate-400 transition group-hover:translate-x-0.5 group-hover:text-primary-600"
+              aria-hidden="true"
+            />
           </button>
         ))}
       </div>
@@ -4137,6 +4198,7 @@ function ChannelTargetDialog({
   const [userId, setUserId] = useState(conversation?.channel_user_id ?? '');
   const [displayName, setDisplayName] = useState(conversation?.channel_display_name ?? '');
   const [guildId, setGuildId] = useState(savedGuildId);
+  const [touched, setTouched] = useState<Set<'thread' | 'user'>>(new Set());
 
   if (!conversation) {
     return null;
@@ -4160,6 +4222,14 @@ function ChannelTargetDialog({
     (provider === 'discord' && guildId !== savedGuildId);
   const targetSaveDisabled =
     isSaving || (threadRequired && !threadId.trim()) || (userRequired && !userId.trim());
+  const threadError =
+    threadRequired && touched.has('thread') && !threadId.trim()
+      ? `Enter the ${deliveryThreadLabel(provider).toLowerCase()}.`
+      : null;
+  const userError =
+    userRequired && touched.has('user') && !userId.trim()
+      ? `Enter the ${deliveryUserLabel(provider).toLowerCase()}.`
+      : null;
 
   function handleSave() {
     const nextMetadata = { ...metadata };
@@ -4180,120 +4250,134 @@ function ChannelTargetDialog({
   }
 
   return (
-    <Dialog open onOpenChange={(open) => (open ? undefined : onDismiss())}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-700 shadow-sm">
-              <SelectedProviderIcon className="h-5 w-5" aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <DialogTitle>Channel Target</DialogTitle>
-              <DialogDescription className="mt-1">{promptReason}</DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
+    <AppDialog
+      open
+      onOpenChange={(open) => (open ? undefined : onDismiss())}
+      dirty={targetChanged}
+      busy={isSaving}
+      size="md"
+      icon={<SelectedProviderIcon className="size-4" aria-hidden="true" />}
+      title="Channel Target"
+      description={promptReason}
+      bodyClassName="flex flex-col gap-4"
+      footer={
+        <>
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isSaving}>
+              Not now
+            </Button>
+          </DialogClose>
+          <Button type="button" disabled={targetSaveDisabled} onClick={handleSave}>
+            {isSaving ? (
+              <LoaderCircle data-icon="inline-start" className="animate-spin" aria-hidden="true" />
+            ) : null}
+            Save target
+          </Button>
+        </>
+      }
+    >
+      <FormSection
+        title="Delivery provider"
+        description="Choose the channel that owns this conversation target."
+        icon={<SelectedProviderIcon className="size-4" aria-hidden="true" />}
+        contentClassName="flex flex-wrap items-center gap-2"
+      >
+        {availableProviders.map(({ value, label, Icon }) => {
+          const isSelected = value === provider;
+          return (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() => setProvider(value)}
+              disabled={Boolean(requestedProvider)}
+              className={[
+                'flex h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-default',
+                isSelected
+                  ? 'border-primary-300 bg-primary-50 text-primary-800 shadow-sm shadow-primary/10'
+                  : 'border-slate-200 bg-white text-slate-600 hover:border-primary-200 hover:bg-slate-50 hover:text-slate-950',
+              ].join(' ')}
+            >
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span>{label}</span>
+            </button>
+          );
+        })}
+        <Badge variant={targetChanged ? 'default' : 'outline'}>
+          {targetChanged ? 'Unsaved edits' : conversation.channel_type}
+        </Badge>
+      </FormSection>
 
-        <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Provider">
-          {availableProviders.map(({ value, label, Icon }) => {
-            const isSelected = value === provider;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={isSelected}
-                onClick={() => setProvider(value)}
-                disabled={Boolean(requestedProvider)}
-                className={[
-                  'flex h-11 items-center justify-center gap-2 rounded-lg border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 disabled:cursor-default',
-                  isSelected
-                    ? 'border-primary-300 bg-primary-50 text-primary-800 shadow-sm shadow-primary/10'
-                    : 'border-slate-200 bg-white text-slate-600 hover:border-primary-200 hover:bg-slate-50 hover:text-slate-950',
-                ].join(' ')}
-              >
-                <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
-                <span>{label}</span>
-              </button>
-            );
-          })}
-          <Badge variant={targetChanged ? 'default' : 'outline'}>
-            {targetChanged ? 'Unsaved edits' : conversation.channel_type}
-          </Badge>
-        </div>
-
-        <div className="grid gap-3 md:grid-cols-2">
+      <FormSection
+        title="Destination"
+        description="Provide the provider-specific routing identifiers used to deliver replies."
+      >
+        <FormFieldGroup columns={2}>
           {provider !== 'whatsapp' ? (
-            <div className="space-y-1">
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-xs text-slate-600" htmlFor="conversation-channel-thread">
-                  {deliveryThreadLabel(provider)}
-                </Label>
-                {threadRequired ? <span className="text-xs text-slate-500">Required</span> : null}
-              </div>
+            <FormField
+              label={deliveryThreadLabel(provider)}
+              htmlFor="conversation-channel-thread"
+              error={threadError}
+              required={threadRequired}
+              optional={!threadRequired}
+            >
               <Input
                 id="conversation-channel-thread"
+                required={threadRequired}
                 value={threadId}
                 onChange={(event) => setThreadId(event.target.value)}
+                onBlur={() => setTouched((current) => new Set(current).add('thread'))}
                 placeholder={threadRequired ? 'required' : 'optional'}
+                aria-invalid={Boolean(threadError)}
+                aria-describedby="conversation-channel-thread-feedback"
               />
-            </div>
+            </FormField>
           ) : null}
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2">
-              <Label className="text-xs text-slate-600" htmlFor="conversation-channel-user">
-                {deliveryUserLabel(provider)}
-              </Label>
-              {userRequired ? <span className="text-xs text-slate-500">Required</span> : null}
-            </div>
+          <FormField
+            label={deliveryUserLabel(provider)}
+            htmlFor="conversation-channel-user"
+            error={userError}
+            required={userRequired}
+            optional={!userRequired}
+          >
             <Input
               id="conversation-channel-user"
+              required={userRequired}
               value={userId}
               onChange={(event) => setUserId(event.target.value)}
+              onBlur={() => setTouched((current) => new Set(current).add('user'))}
               placeholder={userRequired ? 'required' : 'optional'}
+              aria-invalid={Boolean(userError)}
+              aria-describedby="conversation-channel-user-feedback"
             />
-          </div>
+          </FormField>
           {provider === 'discord' ? (
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-600" htmlFor="conversation-channel-guild">
-                Guild ID
-              </Label>
+            <FormField label="Guild ID" htmlFor="conversation-channel-guild" optional>
               <Input
                 id="conversation-channel-guild"
                 value={guildId}
                 onChange={(event) => setGuildId(event.target.value)}
                 placeholder="optional"
               />
-            </div>
+            </FormField>
           ) : null}
-          <div className="space-y-1">
-            <Label className="text-xs text-slate-600" htmlFor="conversation-channel-display">
-              Display name
-            </Label>
+          <FormField
+            label="Display name"
+            htmlFor="conversation-channel-display"
+            description="Friendly label shown in Open Agency; it does not change provider routing."
+            optional
+          >
             <Input
               id="conversation-channel-display"
               value={displayName}
               onChange={(event) => setDisplayName(event.target.value)}
               placeholder="optional"
+              aria-describedby="conversation-channel-display-feedback"
             />
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onDismiss}>
-            Not now
-          </Button>
-          <Button
-            type="button"
-            disabled={targetSaveDisabled}
-            onClick={handleSave}
-            className="gap-2"
-          >
-            {isSaving ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
-            Save target
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </FormField>
+        </FormFieldGroup>
+      </FormSection>
+    </AppDialog>
   );
 }
 
@@ -4416,6 +4500,11 @@ export default function ConversationWorkspace({
 
   const currentContext = currentContextMetadata();
   const currentAssistantPageTarget = assistantPageTarget(currentContext);
+  const contextualPromptSuggestions = assistantContextPromptSuggestions(currentContext);
+  const visiblePromptSuggestions =
+    contextualPromptSuggestions.length > 0
+      ? contextualPromptSuggestions
+      : defaultAssistantPromptSuggestions;
   const currentWorkflowContextId = workflowIdFromAssistantMetadata(currentContext);
   const conversationItems = useMemo(
     () =>
@@ -5447,7 +5536,7 @@ export default function ConversationWorkspace({
 
   const historyPanel = (
     <div
-      className={`relative flex h-full min-h-0 flex-col border-slate-200 bg-slate-50 transition-opacity duration-300 dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(10,18,32,0.94)_0%,rgba(7,14,26,0.98)_100%)] ${
+      className={`relative flex h-full min-h-0 flex-col border-slate-200 bg-white transition-opacity duration-300 dark:border-white/10 dark:bg-slate-950/60 ${
         desktopHistoryOpen ? 'opacity-100' : 'opacity-0'
       }`}
     >
@@ -5493,7 +5582,7 @@ export default function ConversationWorkspace({
           </Button>
         </div>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {conversationsQuery.isLoading ? (
           <p className="px-2 text-sm text-slate-500 dark:text-slate-400">Loading history...</p>
         ) : conversationsQuery.isError ? (
@@ -5503,7 +5592,7 @@ export default function ConversationWorkspace({
             No saved conversations yet.
           </p>
         ) : (
-          <div className="space-y-2">
+          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/30">
             {conversationItems.map((item) => {
               const isActive = item.id === conversation?.id;
               return (
@@ -5511,10 +5600,10 @@ export default function ConversationWorkspace({
                   key={item.id}
                   type="button"
                   aria-label={conversationDisplayTitle(item)}
-                  className={`w-full rounded-2xl border px-3 py-3 text-left transition ${
+                  className={`w-full border-b border-slate-200 px-3 py-3 text-left transition last:border-b-0 dark:border-white/10 ${
                     isActive
-                      ? 'border-primary-300 bg-white shadow-sm shadow-primary/10 dark:border-cyan-400/30 dark:bg-[linear-gradient(180deg,rgba(18,35,58,0.94)_0%,rgba(24,28,56,0.98)_100%)] dark:shadow-[inset_0_1px_0_rgba(103,232,249,0.08)]'
-                      : 'border-primary-100 bg-white/70 hover:border-primary-200 hover:bg-white dark:border-white/8 dark:bg-slate-950/55 dark:hover:border-cyan-400/18 dark:hover:bg-slate-900/80'
+                      ? 'bg-primary-50 shadow-[inset_3px_0_0_var(--color-primary-500)] dark:bg-primary-500/10'
+                      : 'bg-white hover:bg-slate-50 dark:bg-transparent dark:hover:bg-white/5'
                   }`}
                   onClick={() => void handleOpenConversation(item.id)}
                 >
@@ -5533,9 +5622,6 @@ export default function ConversationWorkspace({
                   </div>
                   <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
                     {formatConversationTimestamp(item.updated_at)}
-                  </p>
-                  <p className="mt-1 truncate text-xs text-slate-400 dark:text-slate-500">
-                    {item.id}
                   </p>
                 </button>
               );
@@ -5712,12 +5798,14 @@ export default function ConversationWorkspace({
         className={
           isPopup
             ? 'min-h-0 flex-1 overflow-y-auto bg-white px-4 py-6 dark:bg-slate-950'
-            : 'flex-1 overflow-y-auto bg-[linear-gradient(180deg,#ffffff_0%,#f5fbff_100%)] px-4 py-6 dark:bg-[radial-gradient(circle_at_top,#0f213d_0%,#08111f_58%,#050a14_100%)]'
+            : 'flex-1 overflow-y-auto bg-slate-50/70 px-4 py-6 dark:bg-slate-950/45'
         }
       >
         {messages.length === 0 ? (
           <AssistantEmptyState
             mainAgentName={mainAgentName}
+            contextLabel={isPopup ? currentAssistantPageTarget?.label : undefined}
+            suggestions={visiblePromptSuggestions}
             onSelectPrompt={selectPromptSuggestion}
           />
         ) : (
@@ -5924,6 +6012,31 @@ export default function ConversationWorkspace({
         }
       >
         <div className="mx-auto max-w-4xl">
+          {isPopup && messages.length > 0 && contextualPromptSuggestions.length > 0 ? (
+            <div
+              className="mb-3 flex flex-col gap-2 rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2.5 dark:border-cyan-400/15 dark:bg-cyan-400/5 sm:flex-row sm:items-center"
+              aria-label="Context suggestions"
+            >
+              <div className="flex shrink-0 items-center gap-2 text-xs font-semibold text-sky-800 dark:text-cyan-200">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                Suggested here
+              </div>
+              <div className="flex min-w-0 flex-wrap gap-1.5">
+                {contextualPromptSuggestions.map((suggestion) => (
+                  <button
+                    key={suggestion.id}
+                    type="button"
+                    className="rounded-full border border-sky-200 bg-white px-2.5 py-1 text-xs font-medium text-sky-800 transition hover:border-sky-300 hover:bg-sky-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400 dark:border-cyan-300/20 dark:bg-slate-950/70 dark:text-cyan-100 dark:hover:bg-cyan-300/10"
+                    onClick={() => selectPromptSuggestion(suggestion.prompt)}
+                    aria-label={`Use suggestion: ${suggestion.label}`}
+                    title={suggestion.prompt}
+                  >
+                    {suggestion.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
           {pendingIsStale ? (
             <div className="mb-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
@@ -6165,7 +6278,7 @@ export default function ConversationWorkspace({
         mainAgentName={mainAgentName}
         mainAgentLookupError={mainAgentLookupError}
       />
-      <div className="flex h-auto bg-transparent md:h-[calc(100vh-134px)]">
+      <div className="flex h-[calc(100dvh-72px)] min-h-0 bg-transparent md:h-[calc(100vh-134px)]">
         <aside
           className={`relative hidden shrink-0 overflow-visible border-r border-primary-100 bg-primary-50/60 transition-[width,border-color] duration-300 ease-out md:block ${
             desktopHistoryOpen ? 'w-80' : 'w-0 border-r-transparent'

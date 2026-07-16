@@ -44,7 +44,9 @@ const {
   pushMock: vi.fn(),
   toast: {
     error: vi.fn(),
+    info: vi.fn(),
     success: vi.fn(),
+    warning: vi.fn(),
   },
   usersApi: {
     getCurrentUser: vi.fn(),
@@ -136,6 +138,7 @@ vi.mock('@/components/library/shadcn/sheet', () => ({
   Sheet: ({ children, open }: { children: ReactNode; open: boolean }) =>
     open ? <div>{children}</div> : null,
   SheetContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  SheetClose: ({ children }: { children: ReactNode }) => <>{children}</>,
   SheetDescription: ({ children }: { children: ReactNode }) => <p>{children}</p>,
   SheetHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
   SheetTitle: ({ children }: { children: ReactNode }) => <h2>{children}</h2>,
@@ -344,6 +347,7 @@ describe('MemoryWorkspace', () => {
     memoriesApi.listMemories.mockResolvedValue({ items: memoryItems });
     memoriesApi.listMemoryCatalog.mockResolvedValue(catalogResponse);
     memoriesApi.createMemory.mockResolvedValue(memoryItems[0]);
+    memoriesApi.updateMemory.mockResolvedValue(memoryItems[0]);
     memoriesApi.backfillCompactPacks.mockResolvedValue({
       status: 'ok',
       processed: 1,
@@ -377,6 +381,43 @@ describe('MemoryWorkspace', () => {
     fireEvent.click(screen.getAllByRole('button', { name: /open/i })[0]);
     expect(await screen.findByText('Source and lineage')).toBeInTheDocument();
     expect(screen.getByText('Superseded by')).toBeInTheDocument();
+  });
+
+  it('keeps expert filters collapsed and applies a quick memory view', async () => {
+    const { container } = renderWorkspace();
+
+    expect(await screen.findByRole('heading', { name: 'Agent Memory Ops' })).toBeInTheDocument();
+    const advancedFilters = screen.getByText('More filters').closest('details');
+    expect(advancedFilters).not.toHaveAttribute('open');
+    expect(screen.getByRole('button', { name: 'Open Document chunk' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Memory view'), {
+      target: { value: 'missing_embedding' },
+    });
+
+    expect(screen.queryByRole('button', { name: 'Open Document chunk' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Clear 1' })).toBeInTheDocument();
+    expect(container.querySelector('#filter-embedding')).toHaveValue('missing');
+  });
+
+  it('selects records and confirms a bulk archive without deleting them', async () => {
+    renderWorkspace();
+
+    expect(await screen.findByRole('heading', { name: 'Agent Memory Ops' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select Manual fact' }));
+    expect(screen.getByText('1 selected')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Archive selected' }));
+    expect(screen.getByRole('heading', { name: 'Archive 1 memories?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Archive memories' }));
+
+    await waitFor(() => {
+      expect(memoriesApi.updateMemory).toHaveBeenCalledWith('memory-manual', {
+        confirmed: true,
+        patch: { status: 'archived' },
+      });
+    });
+    expect(memoriesApi.deleteMemory).not.toHaveBeenCalled();
   });
 
   it('creates focused manual memory records from the create tab', async () => {

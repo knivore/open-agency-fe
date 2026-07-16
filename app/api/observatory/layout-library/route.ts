@@ -14,7 +14,13 @@ import {
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
 import type { ObservatoryLayoutDocument } from '@/modules/observatory/engine/world/layoutTypes';
 
-const layoutsDirectoryPath = path.join(process.cwd(), 'modules', 'observatory', 'layouts', 'library');
+const layoutsDirectoryPath = path.join(
+  process.cwd(),
+  'modules',
+  'observatory',
+  'layouts',
+  'library'
+);
 
 export async function GET() {
   try {
@@ -27,17 +33,22 @@ export async function GET() {
   } catch (error) {
     return NextResponse.json(
       {
-        issues: [{ path: 'layoutLibrary', reason: error instanceof Error ? error.message : 'Unable to read layout library.' }],
+        issues: [
+          {
+            path: 'layoutLibrary',
+            reason: error instanceof Error ? error.message : 'Unable to read layout library.',
+          },
+        ],
         message: error instanceof Error ? error.message : 'Unable to read layout library.',
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       fileId?: string;
       layout?: ObservatoryLayoutDocument;
       mode?: 'create' | 'update';
@@ -51,7 +62,7 @@ export async function POST(request: NextRequest) {
           issues: [{ path: 'layout', reason: 'Missing layout payload.' }],
           message: 'Missing layout payload.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -64,7 +75,7 @@ export async function POST(request: NextRequest) {
           ...(body.notes !== undefined ? { notes: body.notes.trim() || undefined } : {}),
         },
       },
-      'draft',
+      'draft'
     );
     const validation = validateObservatoryLayout(preparedLayout);
 
@@ -74,13 +85,19 @@ export async function POST(request: NextRequest) {
           issues: validation.issues,
           message: 'Saved layout failed validation.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
     await mkdir(layoutsDirectoryPath, { recursive: true });
     const existingEntries = await readLayoutLibrary();
-    const fileId = resolveLayoutFileId(body.fileId, body.name, validation.layout, existingEntries, body.mode ?? 'create');
+    const fileId = resolveLayoutFileId(
+      body.fileId,
+      body.name,
+      validation.layout,
+      existingEntries,
+      body.mode ?? 'create'
+    );
     const targetPath = path.join(layoutsDirectoryPath, `${fileId}.json`);
 
     if (body.mode === 'update' && !body.fileId) {
@@ -89,7 +106,7 @@ export async function POST(request: NextRequest) {
           issues: [{ path: 'fileId', reason: 'Missing fileId for update.' }],
           message: 'Missing fileId for update.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -109,17 +126,22 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        issues: [{ path: 'layoutLibrary', reason: error instanceof Error ? error.message : 'Unable to save layout snapshot.' }],
+        issues: [
+          {
+            path: 'layoutLibrary',
+            reason: error instanceof Error ? error.message : 'Unable to save layout snapshot.',
+          },
+        ],
         message: error instanceof Error ? error.message : 'Unable to save layout snapshot.',
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 export async function DELETE(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({})) as { fileId?: string };
+    const body = (await request.json().catch(() => ({}))) as { fileId?: string };
 
     if (!body.fileId) {
       return NextResponse.json(
@@ -127,7 +149,7 @@ export async function DELETE(request: NextRequest) {
           issues: [{ path: 'fileId', reason: 'Missing fileId.' }],
           message: 'Missing fileId.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -142,17 +164,24 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        issues: [{ path: 'layoutLibrary', reason: error instanceof Error ? error.message : 'Unable to delete layout snapshot.' }],
+        issues: [
+          {
+            path: 'layoutLibrary',
+            reason: error instanceof Error ? error.message : 'Unable to delete layout snapshot.',
+          },
+        ],
         message: error instanceof Error ? error.message : 'Unable to delete layout snapshot.',
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }
 
 async function readLayoutLibrary(): Promise<ObservatoryLayoutLibraryEntry[]> {
   await mkdir(layoutsDirectoryPath, { recursive: true });
-  const fileNames = (await readdir(layoutsDirectoryPath)).filter((fileName) => fileName.endsWith('.json'));
+  const fileNames = (await readdir(layoutsDirectoryPath)).filter((fileName) =>
+    fileName.endsWith('.json')
+  );
   const entries = await Promise.all(
     fileNames.map(async (fileName) => {
       const fileId = fileName.replace(/\.json$/u, '');
@@ -168,12 +197,14 @@ async function readLayoutLibrary(): Promise<ObservatoryLayoutLibraryEntry[]> {
         fileName,
         layout: validation.layout,
       };
-    }),
+    })
   );
 
   return entries.sort((left, right) => {
-    const leftTime = Date.parse(left.layout.metadata?.updatedAt ?? left.layout.metadata?.createdAt ?? '') || 0;
-    const rightTime = Date.parse(right.layout.metadata?.updatedAt ?? right.layout.metadata?.createdAt ?? '') || 0;
+    const leftTime =
+      Date.parse(left.layout.metadata?.updatedAt ?? left.layout.metadata?.createdAt ?? '') || 0;
+    const rightTime =
+      Date.parse(right.layout.metadata?.updatedAt ?? right.layout.metadata?.createdAt ?? '') || 0;
     return rightTime - leftTime;
   });
 }
@@ -183,15 +214,15 @@ function resolveLayoutFileId(
   providedName: string | undefined,
   layout: ObservatoryLayoutDocument,
   existingEntries: ObservatoryLayoutLibraryEntry[],
-  mode: 'create' | 'update',
+  mode: 'create' | 'update'
 ) {
   const baseId = sanitizeLayoutFileId(
-    providedFileId
-    ?? providedName
-    ?? layout.metadata?.name
-    ?? layout.metadata?.id
-    ?? layout.world.name
-    ?? layout.world.id,
+    providedFileId ??
+      providedName ??
+      layout.metadata?.name ??
+      layout.metadata?.id ??
+      layout.world.name ??
+      layout.world.id
   );
 
   if (mode === 'update') {

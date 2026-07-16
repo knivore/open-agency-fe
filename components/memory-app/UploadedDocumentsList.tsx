@@ -1,9 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { FileText, RefreshCw, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
+import { FileText, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { documentsApi } from '@/lib/api/backend/documents';
 import { memoriesApi } from '@/lib/api/backend/memory';
 import { queryKeys } from '@/lib/react-query/queryKeys';
@@ -17,6 +16,10 @@ import type {
 import type { MemoryDocumentDeleteResponse, MemoryRecord } from '@/types/memory';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
+import { Input } from '@/components/library/shadcn/input';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
+import { AppInlineState } from '@/components/app-shell/AppState';
+import { appFeedback } from '@/lib/appFeedback';
 
 interface UploadedDocumentsListProps {
   agentId?: string | null;
@@ -47,6 +50,14 @@ interface UploadedDocumentSummary {
   source?: string;
   tags: string[];
   textCharacters?: number;
+}
+
+interface BulkDocumentDeleteResult {
+  failed: Array<{ document: UploadedDocumentSummary; error: unknown }>;
+  removed: Array<{
+    document: UploadedDocumentSummary;
+    result: UploadedDocumentDeleteResponse | MemoryDocumentDeleteResponse;
+  }>;
 }
 
 function stringMetadataValue(memory: MemoryRecord, key: string) {
@@ -291,6 +302,8 @@ export default function UploadedDocumentsList({
   workspaceId,
 }: UploadedDocumentsListProps) {
   const queryClient = useQueryClient();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedDocumentIds, setSelectedDocumentIds] = useState<string[]>([]);
   const queryTags = useMemo(() => (tagFilter ? [tagFilter] : undefined), [tagFilter]);
   const enabled =
     (scope === 'user' && (!agentId || agentId.trim().length > 0)) ||
@@ -338,63 +351,158 @@ export default function UploadedDocumentsList({
     },
   });
 
+  const deleteDocument = (document: UploadedDocumentSummary) => {
+    if (document.hasUploadedDocument) {
+      return documentsApi.deleteDocument(document.documentId);
+    }
+    return memoriesApi.deleteDocumentMemories(document.documentId, {
+      scope,
+      workspace_id: workspaceId || undefined,
+      conversation_id: conversationId || undefined,
+      workflow_id: workflowId || undefined,
+      agent_id: agentId || undefined,
+      tags: queryTags,
+    });
+  };
+
   const deleteMutation = useMutation<
     UploadedDocumentDeleteResponse | MemoryDocumentDeleteResponse,
     Error,
     UploadedDocumentSummary
   >({
-    mutationFn: (document: UploadedDocumentSummary) => {
-      if (document.hasUploadedDocument) {
-        return documentsApi.deleteDocument(document.documentId);
-      }
-      return memoriesApi.deleteDocumentMemories(document.documentId, {
-        scope,
-        workspace_id: workspaceId || undefined,
-        conversation_id: conversationId || undefined,
-        workflow_id: workflowId || undefined,
-        agent_id: agentId || undefined,
-        tags: queryTags,
-      });
-    },
-    onSuccess: async (result) => {
+    mutationFn: deleteDocument,
+    onSuccess: async (result, document) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
+      setSelectedDocumentIds((current) =>
+        current.filter((documentId) => documentId !== document.documentId)
+      );
       const removedChunks = deletedMemoryCount(result);
       const message =
         removedChunks > 0
           ? `Removed document and ${removedChunks} retrieval chunk${removedChunks === 1 ? '' : 's'}.`
           : 'Removed uploaded document.';
-      toast.success(message, {
-        position: 'top-right',
+      appFeedback.success(message);
+    },
+    onError: (error, document) => {
+      appFeedback.error('Document could not be removed.', {
+        description:
+          error instanceof Error ? error.message : 'Failed to remove the uploaded document.',
+        action: {
+          label: 'Retry',
+          onClick: () => deleteMutation.mutate(document),
+        },
       });
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove document memories.', {
-        position: 'top-right',
-      });
+  });
+
+  const bulkDeleteMutation = useMutation<
+    BulkDocumentDeleteResult,
+    Error,
+    UploadedDocumentSummary[]
+  >({
+    mutationFn: async (documents) => {
+      const settled = await Promise.allSettled(documents.map(deleteDocument));
+      return settled.reduce<BulkDocumentDeleteResult>(
+        (summary, result, index) => {
+          const document = documents[index];
+          if (result.status === 'fulfilled') {
+            summary.removed.push({ document, result: result.value });
+          } else {
+            summary.failed.push({ document, error: result.reason });
+          }
+          return summary;
+        },
+        { failed: [], removed: [] }
+      );
+    },
+    onSuccess: async ({ failed, removed }) => {
+      await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
+      const removedIdSet = new Set(removed.map(({ document }) => document.documentId));
+      setSelectedDocumentIds((current) =>
+        current.filter((documentId) => !removedIdSet.has(documentId))
+      );
+      const removedChunks = removed.reduce(
+        (total, item) => total + deletedMemoryCount(item.result),
+        0
+      );
+
+      if (failed.length > 0) {
+        const firstError = failed[0]?.error;
+        appFeedback.warning(`${removed.length} removed, ${failed.length} could not be removed.`, {
+          description:
+            firstError instanceof Error
+              ? firstError.message
+              : 'Retry the remaining selected documents.',
+          action: {
+            label: 'Retry failed',
+            onClick: () => bulkDeleteMutation.mutate(failed.map(({ document }) => document)),
+          },
+        });
+        return;
+      }
+
+      appFeedback.success(
+        `Removed ${removed.length} document${removed.length === 1 ? '' : 's'}.`,
+        removedChunks > 0
+          ? {
+              description: `${removedChunks} retrieval chunk${removedChunks === 1 ? '' : 's'} also removed.`,
+            }
+          : undefined
+      );
     },
   });
 
   const documentSummaries = useMemo(() => {
     return query.data ?? [];
   }, [query.data]);
-
-  const handleDelete = (document: UploadedDocumentSummary) => {
-    const target =
-      document.mode === 'context'
-        ? 'Remove this context-only upload? Its extracted text will no longer be available to this chat.'
-        : `Remove ${document.filename}? This deletes the uploaded document${
-            document.chunkCount > 0
-              ? ` and ${document.chunkCount} retrieval chunk${document.chunkCount === 1 ? '' : 's'}`
-              : ''
-          }.`;
-    if (!window.confirm(target)) {
-      return;
-    }
-    deleteMutation.mutate(document);
+  const normalizedSearchQuery = searchQuery.trim().toLowerCase();
+  const filteredDocuments = useMemo(
+    () =>
+      normalizedSearchQuery
+        ? documentSummaries.filter((document) =>
+            [document.filename, document.source, ...document.tags]
+              .filter(Boolean)
+              .join(' ')
+              .toLowerCase()
+              .includes(normalizedSearchQuery)
+          )
+        : documentSummaries,
+    [documentSummaries, normalizedSearchQuery]
+  );
+  const selectedDocumentIdSet = useMemo(() => new Set(selectedDocumentIds), [selectedDocumentIds]);
+  const selectedDocuments = useMemo(
+    () => documentSummaries.filter((document) => selectedDocumentIdSet.has(document.documentId)),
+    [documentSummaries, selectedDocumentIdSet]
+  );
+  const selectableVisibleDocuments = filteredDocuments.filter(
+    (document) => document.hasUploadedDocument || document.chunkCount > 0
+  );
+  const allVisibleSelected =
+    selectableVisibleDocuments.length > 0 &&
+    selectableVisibleDocuments.every((document) => selectedDocumentIdSet.has(document.documentId));
+  const deletionPending = deleteMutation.isPending || bulkDeleteMutation.isPending;
+  const toggleDocumentSelection = (documentId: string, checked: boolean) => {
+    setSelectedDocumentIds((current) =>
+      checked
+        ? Array.from(new Set([...current, documentId]))
+        : current.filter((value) => value !== documentId)
+    );
+  };
+  const toggleVisibleSelection = (checked: boolean) => {
+    const visibleIds = selectableVisibleDocuments.map((document) => document.documentId);
+    setSelectedDocumentIds((current) => {
+      if (checked) {
+        return Array.from(new Set([...current, ...visibleIds]));
+      }
+      const visibleIdSet = new Set(visibleIds);
+      return current.filter((documentId) => !visibleIdSet.has(documentId));
+    });
   };
 
   return (
-    <section className={`space-y-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-teal-300/14 dark:bg-[linear-gradient(180deg,rgba(11,28,33,0.84),rgba(8,18,31,0.92))] ${className}`}>
+    <section
+      className={`space-y-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-teal-300/14 dark:bg-[linear-gradient(180deg,rgba(11,28,33,0.84),rgba(8,18,31,0.92))] ${className}`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">{title}</h3>
@@ -417,65 +525,207 @@ export default function UploadedDocumentsList({
         ) : null}
       </div>
 
+      {enabled && !query.isLoading && !query.isError && documentSummaries.length > 0 ? (
+        <div className="flex flex-col gap-2 border-y border-(--agency-shell-border) py-3 sm:flex-row sm:items-center sm:justify-between">
+          <label className="relative block min-w-0 flex-1 sm:max-w-sm">
+            <span className="sr-only">Search uploaded documents</span>
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)"
+              aria-hidden="true"
+            />
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search documents"
+              className="h-9 pl-9 pr-9"
+            />
+            {searchQuery ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Clear document search"
+                className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="size-3.5" aria-hidden="true" />
+              </Button>
+            ) : null}
+          </label>
+          {showActions && selectableVisibleDocuments.length > 0 ? (
+            <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-xs font-medium text-(--agency-shell-muted) hover:bg-(--agency-row-hover)">
+              <input
+                type="checkbox"
+                aria-label="Select all visible documents"
+                checked={allVisibleSelected}
+                onChange={(event) => toggleVisibleSelection(event.target.checked)}
+                className="size-4 rounded border-(--agency-shell-border) accent-primary"
+              />
+              {selectedDocuments.length > 0
+                ? `${selectedDocuments.length} selected`
+                : 'Select visible'}
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+
+      {selectedDocuments.length > 0 ? (
+        <div className="flex flex-col gap-3 rounded-lg border border-primary-200 bg-primary-50/55 px-3 py-3 sm:flex-row sm:items-center sm:justify-between dark:border-primary-300/18 dark:bg-primary-500/10">
+          <div>
+            <p className="text-sm font-semibold text-(--agency-shell-text)">
+              {selectedDocuments.length} document{selectedDocuments.length === 1 ? '' : 's'}{' '}
+              selected
+            </p>
+            <p className="mt-0.5 text-xs text-(--agency-shell-muted)">
+              Bulk removal also deletes retrieval chunks linked to these uploads.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={deletionPending}
+              onClick={() => setSelectedDocumentIds([])}
+            >
+              Clear selection
+            </Button>
+            <ConfirmActionDialog
+              trigger={
+                <Button type="button" variant="destructive" size="sm" disabled={deletionPending}>
+                  <Trash2 className="mr-2 size-4" aria-hidden="true" />
+                  Remove selected
+                </Button>
+              }
+              title={`Remove ${selectedDocuments.length} selected document${selectedDocuments.length === 1 ? '' : 's'}?`}
+              description="This permanently removes the selected uploads and any linked retrieval chunks from this context."
+              cancelLabel="Keep documents"
+              confirmLabel="Remove documents"
+              pendingLabel="Removing..."
+              pending={bulkDeleteMutation.isPending}
+              destructive
+              onConfirm={() => bulkDeleteMutation.mutate(selectedDocuments)}
+            />
+          </div>
+        </div>
+      ) : null}
+
       {!enabled ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Select a context before viewing uploads.</p>
+        <AppInlineState
+          variant="empty"
+          title="Choose a context"
+          description="Select an agent, workflow, conversation, or workspace before viewing its uploads."
+        />
       ) : query.isLoading ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">Loading uploaded documents...</p>
+        <AppInlineState
+          variant="loading"
+          title="Loading documents"
+          description="Reading uploaded files and their retrieval status."
+        />
       ) : query.isError ? (
-        <p className="text-sm text-red-600 dark:text-red-300">Failed to load uploaded documents.</p>
+        <AppInlineState
+          variant="error"
+          title="Documents unavailable"
+          description="Open Agency could not load uploads for this context. Other agent or workflow settings remain usable."
+          onAction={() => void query.refetch()}
+        />
       ) : documentSummaries.length === 0 ? (
-        <p className="text-sm text-slate-500 dark:text-slate-400">{emptyMessage}</p>
+        <AppInlineState variant="empty" title={emptyMessage} />
+      ) : filteredDocuments.length === 0 ? (
+        <AppInlineState
+          variant="empty"
+          title="No matching documents"
+          description={`No uploads match “${searchQuery.trim()}”. Clear the search to see every document.`}
+        />
       ) : (
-        <div className="space-y-2">
-          {documentSummaries.map((document) => (
+        <div className="space-y-2" role="list" aria-label={title}>
+          {filteredDocuments.map((document) => (
             <div
               key={document.documentId}
-              className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/72"
+              role="listitem"
+              className="min-w-0 rounded-lg border border-(--agency-shell-border) bg-(--agency-shell-panel) px-3 py-3 transition-colors hover:bg-(--agency-row-hover)"
             >
-              <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
-                <div className="flex min-w-0 items-start gap-2">
+              <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="flex min-w-0 items-start gap-2.5">
+                  {showActions && (document.hasUploadedDocument || document.chunkCount > 0) ? (
+                    <input
+                      type="checkbox"
+                      aria-label={`Select ${document.filename}`}
+                      checked={selectedDocumentIdSet.has(document.documentId)}
+                      onChange={(event) =>
+                        toggleDocumentSelection(document.documentId, event.target.checked)
+                      }
+                      className="mt-1 size-4 shrink-0 rounded border-(--agency-shell-border) accent-primary"
+                    />
+                  ) : null}
                   <FileText className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                       {document.filename}
                     </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">{documentDetailText(document)}</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {documentDetailText(document)}
+                    </p>
                     {documentObservabilityText(document) ? (
                       <p className="text-xs text-slate-500 dark:text-slate-400">
                         {documentObservabilityText(document)}
                       </p>
                     ) : null}
+                    {document.source ? (
+                      <p
+                        className="mt-1 max-w-xl truncate text-xs text-slate-500 dark:text-slate-400"
+                        title={document.source}
+                      >
+                        {document.source}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
-                <Badge variant="outline" className={uploadModeBadgeClass(document.mode)}>
-                  {uploadModeLabel(document.mode)}
-                </Badge>
-                {document.source ? (
-                  <span
-                    className="max-w-52 truncate text-xs text-slate-500 dark:text-slate-400"
-                    title={document.source}
-                  >
-                    {document.source}
-                  </span>
-                ) : null}
-                {showActions && (document.hasUploadedDocument || document.chunkCount > 0) ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    disabled={deleteMutation.isPending}
-                    onClick={() => handleDelete(document)}
-                    title="Remove uploaded document"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Remove
-                  </Button>
-                ) : null}
+                <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <Badge variant="outline" className={uploadModeBadgeClass(document.mode)}>
+                    {uploadModeLabel(document.mode)}
+                  </Badge>
+                  {showActions && (document.hasUploadedDocument || document.chunkCount > 0) ? (
+                    <ConfirmActionDialog
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={deletionPending}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Remove
+                        </Button>
+                      }
+                      title={`Remove ${document.filename}?`}
+                      description={
+                        document.mode === 'context'
+                          ? 'This permanently removes the upload and its extracted text from this conversation.'
+                          : `This permanently removes the uploaded document${
+                              document.chunkCount > 0
+                                ? ` and ${document.chunkCount} linked retrieval chunk${document.chunkCount === 1 ? '' : 's'}`
+                                : ''
+                            } from this context.`
+                      }
+                      cancelLabel="Keep document"
+                      confirmLabel="Remove document"
+                      pendingLabel="Removing..."
+                      pending={deleteMutation.isPending}
+                      destructive
+                      onConfirm={() => deleteMutation.mutate(document)}
+                    />
+                  ) : null}
+                </div>
               </div>
               {document.tags.length > 0 ? (
                 <div className="mt-2 flex flex-wrap gap-1.5">
                   {document.tags.slice(0, 6).map((tag) => (
-                    <Badge key={tag} variant="outline" className="bg-white dark:border-white/10 dark:bg-white/6 dark:text-slate-200">
+                    <Badge
+                      key={tag}
+                      variant="outline"
+                      className="bg-white dark:border-white/10 dark:bg-white/6 dark:text-slate-200"
+                    >
                       {tag}
                     </Badge>
                   ))}

@@ -72,10 +72,9 @@ describe('RunSessionRow', () => {
   it('renders an explicit details link to the run detail page', () => {
     renderRow();
 
-    expect(screen.getByRole('link', { name: 'View run details for Unnamed workflow' })).toHaveAttribute(
-      'href',
-      '/runs/run-1?workflowId=workflow-1&tab=runs'
-    );
+    expect(
+      screen.getByRole('link', { name: 'View run details for Unnamed workflow' })
+    ).toHaveAttribute('href', '/runs/run-1?workflowId=workflow-1&tab=runs');
   });
 
   it('renders the workflow name when one is provided', () => {
@@ -100,7 +99,18 @@ describe('RunSessionRow', () => {
       'href',
       '/workflows/workflow-1'
     );
-    expect(screen.queryByText('run-1')).not.toBeInTheDocument();
+    expect(screen.getByText('run-1')).toBeInTheDocument();
     expect(screen.queryByText('workflow-1')).not.toBeInTheDocument();
+  });
+
+  it('shows readable status and execution evidence', () => {
+    renderRow({
+      ...execution,
+      status: 'waiting_for_approval',
+      currentNodeId: 'approve-release',
+    });
+
+    expect(screen.getAllByText('waiting for approval')).toHaveLength(2);
+    expect(screen.getAllByText('Approval or input required at approve-release.')).toHaveLength(2);
   });
 });

@@ -73,7 +73,9 @@ describe('integrationsApi.listCategories', () => {
         },
       ],
     });
-    listModelProvidersMock.mockRejectedValue(new ApiError({ status: 500, message: 'Server error' }));
+    listModelProvidersMock.mockRejectedValue(
+      new ApiError({ status: 500, message: 'Server error' })
+    );
     listModelProfilesMock.mockResolvedValue({ items: [] });
     listToolsMock.mockRejectedValue(new Error('socket hang up'));
     listMcpServersMock.mockResolvedValue({ items: [] });

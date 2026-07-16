@@ -83,7 +83,7 @@ execution events expose evidence, and observability endpoints aggregate from tho
 These fields are visible in the Runtime governance panel.
 
 | UI label             | PATCH field                                 | Capability                  | Meaning                                                                             |
-|----------------------|---------------------------------------------|-----------------------------|-------------------------------------------------------------------------------------|
+| -------------------- | ------------------------------------------- | --------------------------- | ----------------------------------------------------------------------------------- |
 | Run token limit      | `tokenBudget.runTotalTokens`                | Per-run budget              | Maximum total tokens allowed for one workflow run.                                  |
 | Workflow token limit | `tokenBudget.workflowTotalTokens`           | Workflow budget             | Maximum cumulative workflow tokens where backend aggregation is available.          |
 | Agent token limit    | `tokenBudget.agentTotalTokens`              | Agent budget                | Maximum cumulative tokens allowed for one agent or sub-agent.                       |

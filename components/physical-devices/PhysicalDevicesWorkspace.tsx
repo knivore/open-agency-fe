@@ -494,7 +494,7 @@ function PhysicalDevicesUnavailable({
         <CardContent>
           <StateMessage
             title="No physical-devices backend detected"
-            detail="This page will become available when the paired backend enables the physical device and physical event routes. Other Agency pages and tools remain usable."
+            detail="This page will become available when the paired backend enables the physical device and physical event routes. Other Open Agency pages and tools remain usable."
           />
         </CardContent>
       </Card>

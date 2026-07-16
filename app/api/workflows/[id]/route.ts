@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
 import { WorkflowEditorFormSchema } from '@/types/workflows';
 import { backendUserToUser, backendUsersApi } from '@/lib/api/backend/users';
-import { backendWorkflowsApi, workflowsApi } from '@/lib/api/backend/workflows';
+import { backendWorkflowsApi } from '@/lib/api/backend/workflows';
 import type { User } from '@/types/users';
 import {
   getAuthenticatedUser,
@@ -67,7 +67,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const body = await req.json();
-    const workflow = await workflowsApi.getWorkflow(id);
+    const internalApiKey = getInternalApiKey();
+    const workflow = await backendWorkflowsApi.getWorkflow(id, user, internalApiKey);
 
     if (looksLikeWorkflowDefinition(body)) {
       const draftRevision = workflowRevision(body);
@@ -101,7 +102,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
           })
         ),
         user,
-        getInternalApiKey()
+        internalApiKey
       );
       return NextResponse.json(updatedWorkflow);
     }
@@ -120,7 +121,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         },
       },
       user,
-      getInternalApiKey()
+      internalApiKey
     );
     return NextResponse.json(updatedWorkflow);
   } catch (e) {
@@ -135,12 +136,18 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return unauthorizedResponse();
+    }
+    await syncCurrentBackendUser(user);
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ message: 'Workflow ID is required', status: 400 });
     }
 
-    const workflow = await workflowsApi.getWorkflow(id);
+    const internalApiKey = getInternalApiKey();
+    const workflow = await backendWorkflowsApi.getWorkflow(id, user, internalApiKey);
     const ownerIds = Array.isArray(workflow.metadata?.owner_ids)
       ? workflow.metadata.owner_ids.filter(
           (value): value is string => typeof value === 'string' && value.length > 0
@@ -155,7 +162,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const users = await Promise.all(
       userIds.map(async (userId) => {
         try {
-          return backendUserToUser(await backendUsersApi.getUser(userId));
+          return backendUserToUser(await backendUsersApi.getUser(userId, user, internalApiKey));
         } catch {
           return null;
         }

@@ -17,7 +17,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ process_
 
   if (type === 'images') {
     try {
-      const response = await executionsApi.streamArtifactImages(processId, user, getInternalApiKey());
+      const response = await executionsApi.streamArtifactImages(
+        processId,
+        user,
+        getInternalApiKey()
+      );
 
       if (!response.ok) {
         throw new Error(`Backend service error: ${response.status}`);

@@ -124,9 +124,12 @@
     --agency-shell-bg: #fbfcfe;
     --agency-shell-panel: rgba(255, 255, 255, 0.88);
     --agency-shell-panel-strong: rgba(255, 255, 255, 0.97);
+    --agency-surface-raised: #ffffff;
+    --agency-surface-subtle: #f7f9fc;
     --agency-shell-text: #0f172a;
     --agency-shell-muted: #64748b;
     --agency-shell-border: rgba(148, 163, 184, 0.24);
+    --agency-shell-border-strong: rgba(100, 116, 139, 0.34);
     --agency-header-border: rgba(148, 163, 184, 0.26);
     --agency-header-eyebrow: #4f46e5;
     --agency-input-bg: rgba(255, 255, 255, 0.98);
@@ -136,6 +139,14 @@
     --agency-control-border: rgba(148, 163, 184, 0.34);
     --agency-control-text: #172033;
     --agency-outline-shadow: 0 1px 2px rgba(15, 23, 42, 0.045);
+    --agency-elevation-1: 0 1px 2px rgba(15, 23, 42, 0.04);
+    --agency-elevation-2: 0 12px 28px rgba(15, 23, 42, 0.08);
+    --agency-elevation-3: 0 24px 64px rgba(15, 23, 42, 0.14);
+    --agency-radius-control: 0.625rem;
+    --agency-radius-panel: 0.75rem;
+    --agency-radius-dialog: 1rem;
+    --agency-motion-fast: 140ms;
+    --agency-motion-standard: 200ms;
     --agency-sidebar-bg: rgba(250, 252, 255, 0.94);
     --agency-row-hover: rgba(239, 246, 255, 0.7);
     --agency-active-bg: rgba(219, 234, 254, 0.65);
@@ -218,12 +229,15 @@
     --agency-run: #67e8f9;
     --agency-monitor: #fb7185;
     --agency-help: #facc15;
-    --agency-shell-bg: #080d18;
-    --agency-shell-panel: rgba(8, 13, 24, 0.88);
-    --agency-shell-panel-strong: rgba(12, 19, 34, 0.97);
+    --agency-shell-bg: #07101d;
+    --agency-shell-panel: rgba(7, 16, 29, 0.94);
+    --agency-shell-panel-strong: rgba(10, 20, 36, 0.98);
+    --agency-surface-raised: #0b1627;
+    --agency-surface-subtle: #091321;
     --agency-shell-text: #f4f7fb;
     --agency-shell-muted: #9aa9be;
     --agency-shell-border: rgba(100, 116, 139, 0.24);
+    --agency-shell-border-strong: rgba(125, 145, 171, 0.32);
     --agency-header-border: rgba(100, 116, 139, 0.26);
     --agency-header-eyebrow: #93c5fd;
     --agency-input-bg: rgba(12, 19, 34, 0.95);
@@ -233,6 +247,9 @@
     --agency-control-border: rgba(100, 116, 139, 0.3);
     --agency-control-text: #f4f7fb;
     --agency-outline-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
+    --agency-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.28);
+    --agency-elevation-2: 0 16px 34px rgba(0, 0, 0, 0.3);
+    --agency-elevation-3: 0 28px 72px rgba(0, 0, 0, 0.46);
     --agency-sidebar-bg: rgba(7, 13, 24, 0.94);
     --agency-row-hover: rgba(30, 41, 59, 0.5);
     --agency-active-bg: rgba(37, 99, 235, 0.16);
@@ -539,6 +556,47 @@
     background: var(--agency-run-metric-tone);
   }
 
+  button.agency-run-metric {
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease,
+      transform 150ms ease;
+  }
+
+  button.agency-run-metric:hover {
+    border-color: color-mix(
+      in srgb,
+      var(--agency-run-metric-tone) 42%,
+      var(--agency-shell-border)
+    );
+    transform: translateY(-1px);
+  }
+
+  button.agency-run-metric:focus-visible {
+    outline: 2px solid var(--agency-run-metric-tone);
+    outline-offset: 2px;
+  }
+
+  button.agency-run-metric[data-selected='true'] {
+    border-color: color-mix(
+      in srgb,
+      var(--agency-run-metric-tone) 58%,
+      var(--agency-shell-border)
+    );
+    box-shadow: 0 0 0 2px
+      color-mix(in srgb, var(--agency-run-metric-tone) 18%, transparent);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    button.agency-run-metric {
+      transition: none;
+    }
+
+    button.agency-run-metric:hover {
+      transform: none;
+    }
+  }
+
   .agency-run-metric-icon {
     border-color: color-mix(
       in srgb,
@@ -577,6 +635,33 @@
     background: var(--workflow-schedule-tone);
     box-shadow: 0 0 0 3px
       color-mix(in srgb, var(--workflow-schedule-tone) 12%, transparent);
+  }
+
+  .workflow-run-status {
+    --workflow-run-tone: var(--agency-shell-muted);
+    color: var(--workflow-run-tone);
+  }
+
+  .workflow-run-status[data-tone='success'] {
+    --workflow-run-tone: var(--agency-success);
+  }
+
+  .workflow-run-status[data-tone='error'] {
+    --workflow-run-tone: var(--agency-failure);
+  }
+
+  .workflow-run-status[data-tone='warning'] {
+    --workflow-run-tone: var(--agency-workflow);
+  }
+
+  .workflow-run-status[data-tone='loading'] {
+    --workflow-run-tone: var(--agency-run);
+  }
+
+  .workflow-run-dot {
+    background: var(--workflow-run-tone);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--workflow-run-tone) 12%, transparent);
   }
 
   .workflow-metadata-icon {
@@ -977,6 +1062,43 @@
   color: #059669;
 }
 
+.react-flow__node.graph-workflow-node-muted {
+  opacity: 0.24;
+  filter: saturate(0.55);
+  transition:
+    opacity 160ms ease,
+    filter 160ms ease;
+}
+
+.react-flow__edge.graph-workflow-edge-muted {
+  opacity: 0.12;
+  transition: opacity 160ms ease;
+}
+
+.react-flow__edge.graph-workflow-edge-tool,
+.react-flow__edge.graph-workflow-edge-assignment,
+.react-flow__edge.graph-workflow-edge-memory {
+  opacity: 0.62;
+}
+
+.react-flow__edge.graph-workflow-edge-related,
+.react-flow__edge:hover {
+  opacity: 1;
+}
+
+.react-flow__edge.graph-workflow-edge-bundled .react-flow__edge-path {
+  stroke-width: 2.75px;
+}
+
+.workflow-graph-toolbar-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.workflow-graph-toolbar-scroll::-webkit-scrollbar {
+  display: none;
+}
+
 :root {
   --workflow-connector-agent-input: #22d3ee;
   --workflow-connector-agent-output: #0891b2;
@@ -1086,6 +1208,11 @@
   filter: drop-shadow(0 1px 2px rgb(15 23 42 / 0.12));
 }
 
+.react-flow__edge[class*='graph-workflow-edge-'] .react-flow__edge-path {
+  stroke-width: 2.25px;
+  filter: drop-shadow(0 1px 2px rgb(15 23 42 / 0.16));
+}
+
 .graph-workflow-edge-tool .react-flow__edge-path {
   stroke: #d97706;
 }
@@ -1123,7 +1250,14 @@
 }
 
 .graph-workflow-edge-dependency .react-flow__edge-path {
-  stroke: #64748b;
+  stroke: #475569;
+}
+
+.dark .graph-workflow-edge-dependency .react-flow__edge-path,
+[data-agency-theme='dark']
+  .graph-workflow-edge-dependency
+  .react-flow__edge-path {
+  stroke: #94a3b8;
 }
 
 .graph-runtime-edge-packet {
@@ -1261,6 +1395,19 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
   .graph-runtime-edge-flow .react-flow__edge-path,
   .graph-workflow-edge-flow .react-flow__edge-path,
   .graph-runtime-edge-completed .react-flow__edge-path,
@@ -1342,6 +1489,15 @@
     );
   }
 
+  .agency-gradient-action {
+    background-image: linear-gradient(
+      135deg,
+      #2563eb 0%,
+      #0b72b9 52%,
+      #7c3aed 100%
+    );
+  }
+
   .agency-gradient-soft {
     background:
       radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
@@ -1365,8 +1521,19 @@
 
   .agency-card {
     border-color: var(--agency-shell-border);
-    background: hsl(var(--card));
-    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+    background: var(--agency-surface-raised);
+    box-shadow: var(--agency-elevation-1);
+  }
+
+  .agency-surface-raised {
+    border-color: var(--agency-shell-border);
+    background: var(--agency-surface-raised);
+    box-shadow: var(--agency-elevation-1);
+  }
+
+  .agency-surface-subtle {
+    border-color: var(--agency-shell-border);
+    background: var(--agency-surface-subtle);
   }
 
   [data-agency-theme='dark'] .agency-gradient-soft {
@@ -1645,8 +1812,8 @@
 @layer utilities {
   /*
    * Production theme guardrail: several feature surfaces predate the site-wide
-   * Agency theme tokens and still use raw Tailwind light-mode primitives. Keep
-   * the override scoped to the Agency dark attribute so light mode remains exact
+   * Open Agency theme tokens and still use raw Tailwind light-mode primitives. Keep
+   * the override scoped to the Open Agency dark attribute so light mode remains exact
    * while legacy cards, modals, upload panels, and event payloads stay readable.
    */
   [data-agency-theme='dark'] .bg-white,

@@ -66,7 +66,10 @@ describe('dev auth adapter', () => {
   });
 
   it('treats backend credential rejection as authoritative', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ detail: 'Invalid' }, { status: 401 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ detail: 'Invalid' }, { status: 401 }))
+    );
 
     await expect(
       loginWithDevCredentials({ email: 'dev@example.com', password: 'change-me' })
@@ -74,7 +77,10 @@ describe('dev auth adapter', () => {
   });
 
   it('falls back to configured local credentials when backend auth routes are missing', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ detail: 'Missing' }, { status: 404 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ detail: 'Missing' }, { status: 404 }))
+    );
 
     const response = await loginWithDevCredentials({
       email: 'dev@example.com',
@@ -118,7 +124,10 @@ describe('dev auth adapter', () => {
   });
 
   it('does not map rejected backend-issued tokens to the configured local user', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse({ detail: 'Invalid' }, { status: 401 })));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(jsonResponse({ detail: 'Invalid' }, { status: 401 }))
+    );
 
     await expect(getDevCurrentUser('backend-token')).resolves.toBeNull();
   });

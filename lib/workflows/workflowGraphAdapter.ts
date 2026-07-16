@@ -122,6 +122,8 @@ interface WorkflowGraphToolNodeRecord {
 
 export const workflowGraphActionIds = {
   edit: 'workflow.edit',
+  arrange: 'workflow.arrange',
+  resetLayout: 'workflow.resetLayout',
   addTask: 'workflow.addTask',
   addTaskTemplate: 'workflow.addTaskTemplate',
   addAgent: 'workflow.addAgent',
@@ -438,6 +440,8 @@ function toolDefinitionWithBackendSecurityDefaults(tool: ToolDefinition): ToolDe
     security: {
       ...(tool.security ?? {}),
       allow_shell: true,
+      sandbox_required: true,
+      requires_approval: true,
     },
   };
 }
@@ -1554,6 +1558,7 @@ function createToolListNode(
     },
     data: workflowGraphNodeData({
       toolNodeId: record.id,
+      ...(record.agentId ? { agentId: record.agentId } : {}),
       toolIds,
       toolNames,
       toolCount: toolIds.length,

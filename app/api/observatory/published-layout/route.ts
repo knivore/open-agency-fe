@@ -10,11 +10,17 @@ import {
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
 import type { ObservatoryLayoutDocument } from '@/modules/observatory/engine/world/layoutTypes';
 
-const publishedLayoutPath = path.join(process.cwd(), 'modules', 'observatory', 'layouts', 'publishedLayout.json');
+const publishedLayoutPath = path.join(
+  process.cwd(),
+  'modules',
+  'observatory',
+  'layouts',
+  'publishedLayout.json'
+);
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json() as {
+    const body = (await request.json()) as {
       layout?: ObservatoryLayoutDocument;
       notes?: string;
       publishedBy?: string;
@@ -26,7 +32,7 @@ export async function POST(request: NextRequest) {
           issues: [{ path: 'layout', reason: 'Missing layout payload.' }],
           message: 'Missing layout payload.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
@@ -42,11 +48,15 @@ export async function POST(request: NextRequest) {
           issues: validation.issues,
           message: 'Published layout failed validation.',
         },
-        { status: 400 },
+        { status: 400 }
       );
     }
 
-    await writeFile(publishedLayoutPath, `${serializeObservatoryLayout(validation.layout)}\n`, 'utf8');
+    await writeFile(
+      publishedLayoutPath,
+      `${serializeObservatoryLayout(validation.layout)}\n`,
+      'utf8'
+    );
 
     return NextResponse.json({
       layout: validation.layout,
@@ -55,10 +65,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     return NextResponse.json(
       {
-        issues: [{ path: 'publish', reason: error instanceof Error ? error.message : 'Unable to save published layout.' }],
+        issues: [
+          {
+            path: 'publish',
+            reason: error instanceof Error ? error.message : 'Unable to save published layout.',
+          },
+        ],
         message: error instanceof Error ? error.message : 'Unable to save published layout.',
       },
-      { status: 500 },
+      { status: 500 }
     );
   }
 }

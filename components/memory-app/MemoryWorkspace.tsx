@@ -6,6 +6,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   BrainCircuit,
+  Bookmark,
   CalendarRange,
   Ban,
   Copy,
@@ -16,10 +17,14 @@ import {
   RefreshCw,
   Save,
   Shield,
+  SlidersHorizontal,
   Sparkles,
   Trash2,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
+import { AppDrawer } from '@/components/app-shell/AppOverlay';
+import { Checkbox } from '@/components/library/shadcn/checkbox';
+import { appFeedback } from '@/lib/appFeedback';
 import { agentsApi } from '@/lib/api/backend/agents';
 import { conversationsApi } from '@/lib/api/backend/conversations';
 import { documentsApi } from '@/lib/api/backend/documents';
@@ -71,13 +76,7 @@ import {
 } from '@/components/library/shadcn/card';
 import { Input } from '@/components/library/shadcn/input';
 import { Label } from '@/components/library/shadcn/label';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/library/shadcn/sheet';
+import { SheetClose } from '@/components/library/shadcn/sheet';
 import {
   Table,
   TableBody,
@@ -91,6 +90,13 @@ import { Textarea } from '@/components/library/shadcn/textarea';
 
 const scopes: MemoryScope[] = ['user', 'workspace', 'conversation', 'workflow', 'global'];
 const memoryStatuses: MemoryStatus[] = ['active', 'archived', 'superseded'];
+const memoryBrowseViews = [
+  { id: 'all', label: 'All records' },
+  { id: 'missing_embedding', label: 'Needs embedding' },
+  { id: 'sensitive', label: 'Sensitive' },
+  { id: 'archived', label: 'Archived' },
+] as const;
+type MemoryBrowseView = (typeof memoryBrowseViews)[number]['id'];
 const compactModes: CompactBackfillMode[] = [
   'brief',
   'handoff',
@@ -331,23 +337,14 @@ function MemoryEmbeddingPanel({
     .slice(0, 8);
 
   const runBackfill = (force: boolean) => {
-    if (
-      force &&
-      !window.confirm(
-        'Rebuild vectors for all loaded memories? This can be slow and will replace existing embeddings.'
-      )
-    ) {
-      return;
-    }
     setError(null);
     startTransition(() => {
       void (async () => {
         try {
           const result = await memoriesApi.backfillEmbeddings({ limit: 250, force });
           await onBackfilled();
-          toast.success(
-            `Embedding backfill updated ${result.updated}, skipped ${result.skipped}, failed ${result.failed}.`,
-            { position: 'top-right' }
+          appFeedback.success(
+            `Embedding backfill updated ${result.updated}, skipped ${result.skipped}, failed ${result.failed}.`
           );
         } catch (backfillError) {
           setError(
@@ -411,14 +408,19 @@ function MemoryEmbeddingPanel({
             >
               {isPending ? 'Backfilling...' : 'Backfill missing vectors'}
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => runBackfill(true)}
-            >
-              Rebuild all vectors
-            </Button>
+            <ConfirmActionDialog
+              trigger={
+                <Button type="button" variant="outline" disabled={isPending}>
+                  Rebuild all vectors
+                </Button>
+              }
+              title="Rebuild every loaded vector?"
+              description="This can be slow and replaces existing embeddings for the loaded memory slice. Use backfill missing vectors for routine maintenance."
+              confirmLabel="Rebuild vectors"
+              pendingLabel="Rebuilding…"
+              pending={isPending}
+              onConfirm={() => runBackfill(true)}
+            />
           </div>
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
         </CardContent>
@@ -618,7 +620,7 @@ function GuidedMemoryActions({
           setPreferenceValue('');
           setPreferenceAgentId('');
           resetShared();
-          toast.success('Preference saved.', { position: 'top-right' });
+          appFeedback.success('Preference saved.');
         } catch (createError) {
           setError(
             createError instanceof Error ? createError.message : 'Failed to save preference.'
@@ -650,7 +652,7 @@ function GuidedMemoryActions({
           setWorkspaceNote('');
           setWorkspaceId('');
           resetShared();
-          toast.success('Workspace note saved.', { position: 'top-right' });
+          appFeedback.success('Workspace note saved.');
         } catch (createError) {
           setError(
             createError instanceof Error ? createError.message : 'Failed to save workspace note.'
@@ -688,7 +690,7 @@ function GuidedMemoryActions({
           setDecisionWorkflowId('');
           setDecisionConversationId('');
           resetShared();
-          toast.success('Decision memory saved.', { position: 'top-right' });
+          appFeedback.success('Decision memory saved.');
         } catch (createError) {
           setError(createError instanceof Error ? createError.message : 'Failed to save decision.');
         }
@@ -724,7 +726,7 @@ function GuidedMemoryActions({
           setTaskWorkflowId('');
           setTaskConversationId('');
           resetShared();
-          toast.success('Task commitment saved.', { position: 'top-right' });
+          appFeedback.success('Task commitment saved.');
         } catch (createError) {
           setError(
             createError instanceof Error ? createError.message : 'Failed to save task commitment.'
@@ -763,7 +765,7 @@ function GuidedMemoryActions({
           setCustomWorkflowId('');
           setCustomConversationId('');
           resetShared();
-          toast.success('Custom memory saved.', { position: 'top-right' });
+          appFeedback.success('Custom memory saved.');
         } catch (createError) {
           setError(
             createError instanceof Error ? createError.message : 'Failed to save custom memory.'
@@ -790,7 +792,7 @@ function GuidedMemoryActions({
           });
           await onCreated();
           resetShared();
-          toast.success('Memory corrected.', { position: 'top-right' });
+          appFeedback.success('Memory corrected.');
         } catch (updateError) {
           setError(
             updateError instanceof Error ? updateError.message : 'Failed to correct memory.'
@@ -1490,9 +1492,8 @@ function DailySummaryAdminPanel({
           setRunResult(result);
           setBackfillResult(null);
           await onCompleted();
-          toast.success(
-            `Daily summary run finished with status ${result.status}. Created ${result.created ?? 0}, skipped ${result.skipped ?? 0}.`,
-            { position: 'top-right' }
+          appFeedback.success(
+            `Daily summary run finished with status ${result.status}. Created ${result.created ?? 0}, skipped ${result.skipped ?? 0}.`
           );
         } catch (runError) {
           setError(runError instanceof Error ? runError.message : 'Failed to run daily summary.');
@@ -1514,9 +1515,8 @@ function DailySummaryAdminPanel({
           setBackfillResult(result);
           setRunResult(null);
           await onCompleted();
-          toast.success(
-            `Backfill finished with status ${result.status}. Processed ${result.processed}, created ${result.created}.`,
-            { position: 'top-right' }
+          appFeedback.success(
+            `Backfill finished with status ${result.status}. Processed ${result.processed}, created ${result.created}.`
           );
         } catch (runError) {
           setError(
@@ -1980,6 +1980,30 @@ function MemoryDetailSheet({
   const exclusions = memoryExclusions(memory);
   const sourceConversationId = memory.source_conversation_id || memory.conversation_id;
   const supersededBy = memories.find((candidate) => candidate.supersedes_memory_id === memory.id);
+  const editIsDirty =
+    isEditing &&
+    (content !== memory.content ||
+      summary !== (memory.summary ?? '') ||
+      status !== (memory.status ?? 'active') ||
+      importance !== (memory.importance?.toString() ?? '') ||
+      confirmed);
+  const exclusionDraftIsDirty =
+    exclusionTargetType !== 'global' ||
+    Boolean(exclusionTargetId.trim()) ||
+    Boolean(exclusionReason.trim());
+
+  const resetDrafts = () => {
+    setContent(memory.content);
+    setSummary(memory.summary ?? '');
+    setStatus(memory.status ?? 'active');
+    setImportance(memory.importance?.toString() ?? '');
+    setConfirmed(false);
+    setIsEditing(false);
+    setExclusionTargetType('global');
+    setExclusionTargetId('');
+    setExclusionReason('');
+    setError(null);
+  };
 
   const handleUpdate = () => {
     setError(null);
@@ -1997,7 +2021,7 @@ function MemoryDetailSheet({
           });
           await onChanged();
           setIsEditing(false);
-          toast.success('Memory updated.', { position: 'top-right' });
+          appFeedback.success('Memory updated.');
         } catch (updateError) {
           setError(updateError instanceof Error ? updateError.message : 'Failed to update memory.');
         }
@@ -2006,10 +2030,6 @@ function MemoryDetailSheet({
   };
 
   const handleDelete = () => {
-    const shouldDelete = window.confirm(`Delete memory ${memory.id}?`);
-    if (!shouldDelete) {
-      return;
-    }
     setError(null);
     startTransition(() => {
       void (async () => {
@@ -2017,7 +2037,7 @@ function MemoryDetailSheet({
           await memoriesApi.deleteMemory(memory.id);
           await onChanged();
           onOpenChange(false);
-          toast.success('Memory deleted.', { position: 'top-right' });
+          appFeedback.success('Memory deleted.');
         } catch (deleteError) {
           setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete memory.');
         }
@@ -2027,7 +2047,7 @@ function MemoryDetailSheet({
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(memory.content);
-    toast.success('Memory content copied.', { position: 'top-right' });
+    appFeedback.success('Memory content copied.');
   };
 
   const handleAddExclusion = () => {
@@ -2049,7 +2069,7 @@ function MemoryDetailSheet({
           setExclusionTargetType('global');
           setExclusionTargetId('');
           setExclusionReason('');
-          toast.success('Memory exclusion saved.', { position: 'top-right' });
+          appFeedback.success('Memory exclusion saved.');
         } catch (excludeError) {
           setError(
             excludeError instanceof Error ? excludeError.message : 'Failed to exclude memory.'
@@ -2066,7 +2086,7 @@ function MemoryDetailSheet({
         try {
           await memoriesApi.deleteMemoryExclusion(memory.id, exclusionId);
           await onChanged();
-          toast.success('Memory exclusion removed.', { position: 'top-right' });
+          appFeedback.success('Memory exclusion removed.');
         } catch (removeError) {
           setError(
             removeError instanceof Error ? removeError.message : 'Failed to remove exclusion.'
@@ -2077,314 +2097,325 @@ function MemoryDetailSheet({
   };
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-y-auto sm:max-w-2xl">
-        <SheetHeader>
-          <SheetTitle>{memory.summary || memory.content.slice(0, 80) || memory.id}</SheetTitle>
-          <SheetDescription>{memory.id}</SheetDescription>
-        </SheetHeader>
-
-        <div className="mt-5 space-y-5">
-          <div className="flex flex-wrap gap-2">
-            <Badge variant="secondary">{scopeLabel(memory.scope)}</Badge>
-            {memory.memory_type ? (
-              <Badge variant="outline">{memoryTypeLabel(memory.memory_type)}</Badge>
-            ) : null}
-            {mode ? <Badge variant="outline">{titleCase(mode)}</Badge> : null}
-            {memory.status ? (
-              <Badge variant={memory.status === 'active' ? 'successful' : 'secondary'}>
-                {titleCase(memory.status)}
-              </Badge>
-            ) : null}
-            {memory.sensitive ? <Badge variant="destructive">Sensitive</Badge> : null}
-            <Badge variant={memory.embedding_model_profile_id ? 'successful' : 'outline'}>
-              {embeddingLabel(memory)}
-            </Badge>
-          </div>
-
-          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-            <DetailField label="Source" value={memory.source || 'manual'} />
-            <DetailField label="Importance" value={memory.importance ?? '—'} />
-            <DetailField label="Updated" value={formatDateTime(memory.updated_at)} />
-            <DetailField label="Summary date" value={formatDate(memory.summary_date)} />
-            <DetailField label="Conversation" value={sourceConversationId || '—'} />
-            <DetailField label="Execution" value={memory.source_execution_id || '—'} />
-            <DetailField label="Document" value={documentFilename || documentId || '—'} />
-            <DetailField label="Agent" value={memory.agent_id || '—'} />
-            <DetailField label="Workflow" value={memory.workflow_id || '—'} />
-            <DetailField label="Workspace" value={memory.workspace_id || '—'} />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsEditing((current) => !current)}
-            >
-              {isEditing ? 'Close edit' : 'Edit'}
+    <AppDrawer
+      open={open}
+      onOpenChange={onOpenChange}
+      dirty={editIsDirty || exclusionDraftIsDirty}
+      busy={isPending}
+      onDiscard={resetDrafts}
+      width="md"
+      icon={<BrainCircuit className="size-4" aria-hidden="true" />}
+      title={memory.summary || memory.content.slice(0, 80) || memory.id}
+      description={memory.id}
+      bodyClassName="flex flex-col gap-5"
+      footer={
+        isEditing ? (
+          <>
+            <Button type="button" variant="outline" disabled={isPending} onClick={resetDrafts}>
+              Cancel edits
             </Button>
-            <Button type="button" variant="outline" onClick={handleCopy}>
-              <Copy className="mr-2 h-4 w-4" />
-              Copy content
+            <Button type="button" disabled={isPending || !content.trim()} onClick={handleUpdate}>
+              <Save data-icon="inline-start" />
+              {isPending ? 'Saving...' : 'Save changes'}
             </Button>
-            {memory.workflow_id ? (
-              <Button type="button" variant="outline" asChild>
-                <Link href={`/workflows/${memory.workflow_id}`}>
-                  <ExternalLink className="mr-2 h-4 w-4" />
-                  Workflow
-                </Link>
+          </>
+        ) : (
+          <>
+            <SheetClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Close
               </Button>
-            ) : null}
-            <Button type="button" variant="outline" disabled={isPending} onClick={handleDelete}>
-              <Trash2 className="mr-2 h-4 w-4" />
-              {isPending ? 'Deleting...' : 'Delete'}
+            </SheetClose>
+            <Button type="button" disabled={isPending} onClick={() => setIsEditing(true)}>
+              Edit memory
             </Button>
-          </div>
+          </>
+        )
+      }
+    >
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap gap-2">
+          <Badge variant="secondary">{scopeLabel(memory.scope)}</Badge>
+          {memory.memory_type ? (
+            <Badge variant="outline">{memoryTypeLabel(memory.memory_type)}</Badge>
+          ) : null}
+          {mode ? <Badge variant="outline">{titleCase(mode)}</Badge> : null}
+          {memory.status ? (
+            <Badge variant={memory.status === 'active' ? 'successful' : 'secondary'}>
+              {titleCase(memory.status)}
+            </Badge>
+          ) : null}
+          {memory.sensitive ? <Badge variant="destructive">Sensitive</Badge> : null}
+          <Badge variant={memory.embedding_model_profile_id ? 'successful' : 'outline'}>
+            {embeddingLabel(memory)}
+          </Badge>
+        </div>
 
-          {isEditing ? (
-            <Card className="border-primary-100">
-              <CardHeader>
-                <CardTitle className="text-base">Edit memory</CardTitle>
-                <CardDescription>Updates use the existing durable-memory API.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5 md:col-span-2">
-                    <Label htmlFor="memory-edit-summary">Summary</Label>
-                    <Input
-                      id="memory-edit-summary"
-                      value={summary}
-                      onChange={(event) => setSummary(event.target.value)}
-                      disabled={isPending}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="memory-edit-status">Status</Label>
-                    <select
-                      id="memory-edit-status"
-                      value={status}
-                      onChange={(event) => setStatus(event.target.value as MemoryStatus)}
-                      disabled={isPending}
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                    >
-                      {memoryStatuses.map((item) => (
-                        <option key={item} value={item}>
-                          {titleCase(item)}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="memory-edit-content">Content</Label>
-                  <Textarea
-                    id="memory-edit-content"
-                    value={content}
-                    onChange={(event) => setContent(event.target.value)}
+        <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+          <DetailField label="Source" value={memory.source || 'manual'} />
+          <DetailField label="Importance" value={memory.importance ?? '—'} />
+          <DetailField label="Updated" value={formatDateTime(memory.updated_at)} />
+          <DetailField label="Summary date" value={formatDate(memory.summary_date)} />
+          <DetailField label="Conversation" value={sourceConversationId || '—'} />
+          <DetailField label="Execution" value={memory.source_execution_id || '—'} />
+          <DetailField label="Document" value={documentFilename || documentId || '—'} />
+          <DetailField label="Agent" value={memory.agent_id || '—'} />
+          <DetailField label="Workflow" value={memory.workflow_id || '—'} />
+          <DetailField label="Workspace" value={memory.workspace_id || '—'} />
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={handleCopy}>
+            <Copy className="mr-2 h-4 w-4" />
+            Copy content
+          </Button>
+          {memory.workflow_id ? (
+            <Button type="button" variant="outline" asChild>
+              <Link href={`/workflows/${memory.workflow_id}`}>
+                <ExternalLink className="mr-2 h-4 w-4" />
+                Workflow
+              </Link>
+            </Button>
+          ) : null}
+          <ConfirmActionDialog
+            trigger={
+              <Button type="button" variant="destructive" disabled={isPending}>
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            }
+            title="Delete this memory?"
+            description={`This permanently removes ${memory.summary || memory.id}. This action cannot be undone.`}
+            confirmLabel="Delete memory"
+            pendingLabel="Deleting…"
+            pending={isPending}
+            destructive
+            onConfirm={handleDelete}
+          />
+        </div>
+
+        {isEditing ? (
+          <Card className="border-primary-100">
+            <CardHeader>
+              <CardTitle className="text-base">Edit memory</CardTitle>
+              <CardDescription>Updates use the existing durable-memory API.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-3">
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label htmlFor="memory-edit-summary">Summary</Label>
+                  <Input
+                    id="memory-edit-summary"
+                    value={summary}
+                    onChange={(event) => setSummary(event.target.value)}
                     disabled={isPending}
-                    className="min-h-40"
                   />
                 </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="memory-edit-importance">Importance</Label>
-                    <Input
-                      id="memory-edit-importance"
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={importance}
-                      onChange={(event) => setImportance(event.target.value)}
-                      disabled={isPending}
-                    />
-                  </div>
-                  <label className="flex items-center gap-2 pt-7 text-xs text-neutral-700">
-                    <input
-                      type="checkbox"
-                      checked={confirmed}
-                      onChange={(event) => setConfirmed(event.target.checked)}
-                      disabled={isPending}
-                    />
-                    Confirm sensitive update
-                  </label>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    disabled={isPending || !content.trim()}
-                    onClick={handleUpdate}
-                  >
-                    <Save className="mr-2 h-4 w-4" />
-                    {isPending ? 'Saving...' : 'Save changes'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={() => setIsEditing(false)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : null}
-
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Content</h3>
-            <div className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
-              <p className="whitespace-pre-wrap">{memory.content}</p>
-            </div>
-          </section>
-
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Tags</h3>
-            {memory.tags.length ? (
-              <div className="flex flex-wrap gap-1">
-                {memory.tags.map((tag) => (
-                  <Badge key={tag} variant="outline">
-                    {tag}
-                  </Badge>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-500">No tags.</p>
-            )}
-          </section>
-
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">Exclusions</h3>
-              <p className="text-xs text-neutral-500">
-                Excluded memories stay stored, but catalog linkers skip them for matching targets.
-              </p>
-            </div>
-            {exclusions.length ? (
-              <div className="space-y-2">
-                {exclusions.map((exclusion) => (
-                  <div
-                    key={exclusion.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm"
-                  >
-                    <div>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant="outline">{titleCase(exclusion.targetType)}</Badge>
-                        {exclusion.targetId ? (
-                          <Badge variant="secondary">{exclusion.targetId}</Badge>
-                        ) : null}
-                      </div>
-                      <p className="mt-2 text-neutral-600">
-                        {exclusion.reason || 'No reason provided.'}
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      disabled={isPending}
-                      onClick={() => handleRemoveExclusion(exclusion.id)}
-                    >
-                      Remove
-                    </Button>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-neutral-500">No exclusions configured.</p>
-            )}
-            <div className="rounded-md border border-dashed border-neutral-300 p-3">
-              <div className="grid gap-3 md:grid-cols-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="memory-exclusion-target-type">Target type</Label>
+                  <Label htmlFor="memory-edit-status">Status</Label>
                   <select
-                    id="memory-exclusion-target-type"
-                    value={exclusionTargetType}
-                    onChange={(event) =>
-                      setExclusionTargetType(event.target.value as MemoryExclusionTargetType)
-                    }
+                    id="memory-edit-status"
+                    value={status}
+                    onChange={(event) => setStatus(event.target.value as MemoryStatus)}
                     disabled={isPending}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
-                    {exclusionTargetTypes.map((item) => (
+                    {memoryStatuses.map((item) => (
                       <option key={item} value={item}>
                         {titleCase(item)}
                       </option>
                     ))}
                   </select>
                 </div>
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label htmlFor="memory-exclusion-target-id">Target ID</Label>
-                  <Input
-                    id="memory-exclusion-target-id"
-                    value={exclusionTargetId}
-                    onChange={(event) => setExclusionTargetId(event.target.value)}
-                    disabled={isPending || exclusionTargetType === 'global'}
-                    placeholder="workflow, agent, task, conversation, or run id"
-                  />
-                </div>
               </div>
-              <div className="mt-3 space-y-1.5">
-                <Label htmlFor="memory-exclusion-reason">Reason</Label>
-                <Input
-                  id="memory-exclusion-reason"
-                  value={exclusionReason}
-                  onChange={(event) => setExclusionReason(event.target.value)}
+              <div className="space-y-1.5">
+                <Label htmlFor="memory-edit-content">Content</Label>
+                <Textarea
+                  id="memory-edit-content"
+                  value={content}
+                  onChange={(event) => setContent(event.target.value)}
                   disabled={isPending}
-                  placeholder="Outdated, irrelevant, or unsafe for this target"
+                  className="min-h-40"
                 />
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-3"
-                disabled={
-                  isPending || (exclusionTargetType !== 'global' && !exclusionTargetId.trim())
-                }
-                onClick={handleAddExclusion}
-              >
-                <Ban className="mr-2 h-4 w-4" />
-                Add exclusion
-              </Button>
-            </div>
-          </section>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label htmlFor="memory-edit-importance">Importance</Label>
+                  <Input
+                    id="memory-edit-importance"
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={importance}
+                    onChange={(event) => setImportance(event.target.value)}
+                    disabled={isPending}
+                  />
+                </div>
+                <label className="flex items-center gap-2 pt-7 text-xs text-neutral-700">
+                  <input
+                    type="checkbox"
+                    checked={confirmed}
+                    onChange={(event) => setConfirmed(event.target.checked)}
+                    disabled={isPending}
+                  />
+                  Confirm sensitive update
+                </label>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
 
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Source and lineage</h3>
-            <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-              <DetailField label="Supersedes" value={memory.supersedes_memory_id || '—'} />
-              <DetailField label="Superseded by" value={supersededBy?.id || '—'} />
-              <DetailField
-                label="Archived start"
-                value={formatDateTime(memory.archived_window_start)}
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Content</h3>
+          <div className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
+            <p className="whitespace-pre-wrap">{memory.content}</p>
+          </div>
+        </section>
+
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Tags</h3>
+          {memory.tags.length ? (
+            <div className="flex flex-wrap gap-1">
+              {memory.tags.map((tag) => (
+                <Badge key={tag} variant="outline">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">No tags.</p>
+          )}
+        </section>
+
+        <section className="space-y-3">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">Exclusions</h3>
+            <p className="text-xs text-neutral-500">
+              Excluded memories stay stored, but catalog linkers skip them for matching targets.
+            </p>
+          </div>
+          {exclusions.length ? (
+            <div className="space-y-2">
+              {exclusions.map((exclusion) => (
+                <div
+                  key={exclusion.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm"
+                >
+                  <div>
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">{titleCase(exclusion.targetType)}</Badge>
+                      {exclusion.targetId ? (
+                        <Badge variant="secondary">{exclusion.targetId}</Badge>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-neutral-600">
+                      {exclusion.reason || 'No reason provided.'}
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={() => handleRemoveExclusion(exclusion.id)}
+                  >
+                    Remove
+                  </Button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-neutral-500">No exclusions configured.</p>
+          )}
+          <div className="rounded-md border border-dashed border-neutral-300 p-3">
+            <div className="grid gap-3 md:grid-cols-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="memory-exclusion-target-type">Target type</Label>
+                <select
+                  id="memory-exclusion-target-type"
+                  value={exclusionTargetType}
+                  onChange={(event) =>
+                    setExclusionTargetType(event.target.value as MemoryExclusionTargetType)
+                  }
+                  disabled={isPending}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {exclusionTargetTypes.map((item) => (
+                    <option key={item} value={item}>
+                      {titleCase(item)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-1.5 md:col-span-2">
+                <Label htmlFor="memory-exclusion-target-id">Target ID</Label>
+                <Input
+                  id="memory-exclusion-target-id"
+                  value={exclusionTargetId}
+                  onChange={(event) => setExclusionTargetId(event.target.value)}
+                  disabled={isPending || exclusionTargetType === 'global'}
+                  placeholder="workflow, agent, task, conversation, or run id"
+                />
+              </div>
+            </div>
+            <div className="mt-3 space-y-1.5">
+              <Label htmlFor="memory-exclusion-reason">Reason</Label>
+              <Input
+                id="memory-exclusion-reason"
+                value={exclusionReason}
+                onChange={(event) => setExclusionReason(event.target.value)}
+                disabled={isPending}
+                placeholder="Outdated, irrelevant, or unsafe for this target"
               />
-              <DetailField
-                label="Archived end"
-                value={formatDateTime(memory.archived_window_end)}
-              />
-              <DetailField label="Created by" value={memory.created_by_user_id || '—'} />
             </div>
-          </section>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3"
+              disabled={
+                isPending || (exclusionTargetType !== 'global' && !exclusionTargetId.trim())
+              }
+              onClick={handleAddExclusion}
+            >
+              <Ban className="mr-2 h-4 w-4" />
+              Add exclusion
+            </Button>
+          </div>
+        </section>
 
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Embedding details</h3>
-            <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-              <DetailField label="Model profile" value={memory.embedding_model_profile_id || '—'} />
-              <DetailField label="Model" value={memory.embedding_model || '—'} />
-              <DetailField label="Dimensions" value={memory.embedding_dimensions ?? '—'} />
-              <DetailField label="Embedded at" value={formatDateTime(memory.embedded_at)} />
-            </div>
-          </section>
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Source and lineage</h3>
+          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+            <DetailField label="Supersedes" value={memory.supersedes_memory_id || '—'} />
+            <DetailField label="Superseded by" value={supersededBy?.id || '—'} />
+            <DetailField
+              label="Archived start"
+              value={formatDateTime(memory.archived_window_start)}
+            />
+            <DetailField label="Archived end" value={formatDateTime(memory.archived_window_end)} />
+            <DetailField label="Created by" value={memory.created_by_user_id || '—'} />
+          </div>
+        </section>
 
-          <section className="space-y-2">
-            <h3 className="text-sm font-semibold text-slate-900">Metadata</h3>
-            <pre className="max-h-72 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
-              {metadataPreview(memory)}
-            </pre>
-          </section>
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Embedding details</h3>
+          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+            <DetailField label="Model profile" value={memory.embedding_model_profile_id || '—'} />
+            <DetailField label="Model" value={memory.embedding_model || '—'} />
+            <DetailField label="Dimensions" value={memory.embedding_dimensions ?? '—'} />
+            <DetailField label="Embedded at" value={formatDateTime(memory.embedded_at)} />
+          </div>
+        </section>
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
-        </div>
-      </SheetContent>
-    </Sheet>
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Metadata</h3>
+          <pre className="max-h-72 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
+            {metadataPreview(memory)}
+          </pre>
+        </section>
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      </div>
+    </AppDrawer>
   );
 }
 
@@ -2400,34 +2431,89 @@ function DetailField({ label, value }: { label: string; value: string | number |
 function MemoryTable({
   memories,
   onOpenMemory,
+  selectedMemoryIds,
+  onSelectionChange,
+  onArchiveSelected,
+  isArchiving,
 }: {
   memories: MemoryRecord[];
   onOpenMemory: (memoryId: string) => void;
+  selectedMemoryIds: Set<string>;
+  onSelectionChange: (memoryIds: Set<string>) => void;
+  onArchiveSelected: () => void;
+  isArchiving: boolean;
 }) {
   const router = useRouter();
+  const visibleMemoryIds = memories.map((memory) => memory.id);
+  const allVisibleSelected =
+    visibleMemoryIds.length > 0 && visibleMemoryIds.every((id) => selectedMemoryIds.has(id));
+  const someVisibleSelected = visibleMemoryIds.some((id) => selectedMemoryIds.has(id));
+
+  const toggleVisible = (checked: boolean) => {
+    const next = new Set(selectedMemoryIds);
+    visibleMemoryIds.forEach((id) => (checked ? next.add(id) : next.delete(id)));
+    onSelectionChange(next);
+  };
 
   return (
     <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">Durable memories</CardTitle>
-        <CardDescription>
-          Dense table view for inspecting raw records and opening the operational drawer.
-        </CardDescription>
+      <CardHeader className="gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <CardTitle className="text-lg">Durable memories</CardTitle>
+          <CardDescription>
+            {memories.length} records shown. Select records to apply a safe bulk action.
+          </CardDescription>
+        </div>
+        {selectedMemoryIds.size > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-(--agency-shell-border) bg-(--agency-active-bg) px-3 py-2">
+            <span className="text-sm font-medium">{selectedMemoryIds.size} selected</span>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => onSelectionChange(new Set())}
+            >
+              Clear
+            </Button>
+            <ConfirmActionDialog
+              trigger={
+                <Button type="button" variant="outline" size="sm">
+                  Archive selected
+                </Button>
+              }
+              title={`Archive ${selectedMemoryIds.size} memories?`}
+              description="Archived memories remain available for review and can be restored individually. Records that fail to update will stay selected."
+              confirmLabel="Archive memories"
+              pendingLabel="Archiving…"
+              pending={isArchiving}
+              onConfirm={onArchiveSelected}
+            />
+          </div>
+        ) : null}
       </CardHeader>
       <CardContent>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-10">
+                <Checkbox
+                  aria-label="Select all visible memories"
+                  checked={
+                    allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false
+                  }
+                  onCheckedChange={(checked) => toggleVisible(checked === true)}
+                />
+              </TableHead>
               <TableHead className="min-w-65">Summary</TableHead>
               <TableHead>Type</TableHead>
-              <TableHead>Scope</TableHead>
-              <TableHead>Source</TableHead>
-              <TableHead>Mode</TableHead>
+              <TableHead className="hidden xl:table-cell">Scope</TableHead>
+              <TableHead className="hidden 2xl:table-cell">Source</TableHead>
+              <TableHead className="hidden 2xl:table-cell">Mode</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Importance</TableHead>
-              <TableHead>Sensitive</TableHead>
+              <TableHead className="hidden text-right 2xl:table-cell">Importance</TableHead>
+              <TableHead className="hidden 2xl:table-cell">Sensitive</TableHead>
               <TableHead>Embedding</TableHead>
-              <TableHead>Updated</TableHead>
+              <TableHead className="hidden lg:table-cell">Updated</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -2436,8 +2522,22 @@ function MemoryTable({
               const mode = memoryMode(memory);
               const sourceConversationId = memory.source_conversation_id || memory.conversation_id;
               return (
-                <TableRow key={memory.id}>
+                <TableRow
+                  key={memory.id}
+                  data-state={selectedMemoryIds.has(memory.id) ? 'selected' : undefined}
+                >
                   <TableCell>
+                    <Checkbox
+                      aria-label={`Select ${memory.summary || memory.id}`}
+                      checked={selectedMemoryIds.has(memory.id)}
+                      onCheckedChange={(checked) => {
+                        const next = new Set(selectedMemoryIds);
+                        checked === true ? next.add(memory.id) : next.delete(memory.id);
+                        onSelectionChange(next);
+                      }}
+                    />
+                  </TableCell>
+                  <TableCell className="hidden xl:table-cell">
                     <button
                       type="button"
                       className="block max-w-sm text-left"
@@ -2461,8 +2561,12 @@ function MemoryTable({
                   <TableCell>
                     <Badge variant="secondary">{scopeLabel(memory.scope)}</Badge>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap">{memory.source || 'manual'}</TableCell>
-                  <TableCell>{mode ? titleCase(mode) : '—'}</TableCell>
+                  <TableCell className="hidden whitespace-nowrap 2xl:table-cell">
+                    {memory.source || 'manual'}
+                  </TableCell>
+                  <TableCell className="hidden 2xl:table-cell">
+                    {mode ? titleCase(mode) : '—'}
+                  </TableCell>
                   <TableCell>
                     {memory.status ? (
                       <Badge variant={memory.status === 'active' ? 'successful' : 'secondary'}>
@@ -2472,8 +2576,10 @@ function MemoryTable({
                       '—'
                     )}
                   </TableCell>
-                  <TableCell className="text-right">{memory.importance ?? '—'}</TableCell>
-                  <TableCell>
+                  <TableCell className="hidden text-right 2xl:table-cell">
+                    {memory.importance ?? '—'}
+                  </TableCell>
+                  <TableCell className="hidden 2xl:table-cell">
                     {memory.sensitive ? (
                       <Badge variant="destructive">Yes</Badge>
                     ) : (
@@ -2485,15 +2591,18 @@ function MemoryTable({
                       {memory.embedding_model_profile_id ? 'Embedded' : 'Missing'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="whitespace-nowrap text-xs text-neutral-600">
+                  <TableCell className="hidden whitespace-nowrap text-xs text-neutral-600 lg:table-cell">
                     {formatDateTime(memory.updated_at)}
                   </TableCell>
                   <TableCell className="text-right">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex justify-end gap-1">
                       {sourceConversationId ? (
                         <Button
                           type="button"
                           variant="outline"
+                          size="icon"
+                          aria-label={`Open chat for ${memory.summary || memory.id}`}
+                          title="Open source conversation"
                           onClick={() => {
                             window.localStorage.setItem(
                               'agency.active_conversation_id',
@@ -2502,25 +2611,29 @@ function MemoryTable({
                             router.push('/assistant');
                           }}
                         >
-                          <ExternalLink className="mr-2 h-4 w-4" />
-                          Chat
+                          <ExternalLink className="h-4 w-4" />
                         </Button>
                       ) : null}
                       {memory.workflow_id ? (
-                        <Button type="button" variant="outline" asChild>
-                          <Link href={`/workflows/${memory.workflow_id}`}>
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Workflow
+                        <Button type="button" variant="outline" size="icon" asChild>
+                          <Link
+                            href={`/workflows/${memory.workflow_id}`}
+                            aria-label={`Open workflow for ${memory.summary || memory.id}`}
+                            title="Open workflow"
+                          >
+                            <ExternalLink className="h-4 w-4" />
                           </Link>
                         </Button>
                       ) : null}
                       <Button
                         type="button"
                         variant="outline"
+                        size="icon"
+                        aria-label={`Open ${memory.summary || memory.id}`}
+                        title="Open memory details"
                         onClick={() => onOpenMemory(memory.id)}
                       >
-                        <Eye className="mr-2 h-4 w-4" />
-                        Open
+                        <Eye className="h-4 w-4" />
                       </Button>
                     </div>
                   </TableCell>
@@ -2771,7 +2884,9 @@ function CompactConversationsPanel({
         queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
       ]);
       await onChanged();
-      toast.success(result.status === 'created' ? 'Compact pack saved.' : 'Compact preview ready.');
+      appFeedback.success(
+        result.status === 'created' ? 'Compact pack saved.' : 'Compact preview ready.'
+      );
     },
     onError: (error) => {
       setCompactError(error instanceof Error ? error.message : 'Failed to compact conversation.');
@@ -2813,12 +2928,12 @@ function CompactConversationsPanel({
         queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
       ]);
       await onChanged();
-      toast.success(
+      appFeedback.success(
         `Compact backfill processed ${result.processed}, created ${result.created}, skipped ${result.skipped}.`
       );
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to run compact backfill.');
+      appFeedback.error(error instanceof Error ? error.message : 'Failed to run compact backfill.');
     },
   });
 
@@ -2842,10 +2957,10 @@ function CompactConversationsPanel({
         queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(selectedWorkflowId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
       ]);
-      toast.success('Compact pack linked.');
+      appFeedback.success('Compact pack linked.');
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to link compact pack.');
+      appFeedback.error(error instanceof Error ? error.message : 'Failed to link compact pack.');
     },
   });
   const createWorkflowMutation = useMutation({
@@ -2853,11 +2968,11 @@ function CompactConversationsPanel({
       workflowsApi.createWorkflow(workflowFromMemoryCompactPack(pack)),
     onSuccess: async (workflow) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() });
-      toast.success('Workflow draft created from compact pack.');
+      appFeedback.success('Workflow draft created from compact pack.');
       router.push(`/workflows/${workflow.id}`);
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to create workflow.');
+      appFeedback.error(error instanceof Error ? error.message : 'Failed to create workflow.');
     },
   });
 
@@ -2874,7 +2989,7 @@ function CompactConversationsPanel({
 
   const copyText = (content: string) => {
     void navigator.clipboard.writeText(content);
-    toast.success('Compact content copied.');
+    appFeedback.success('Compact content copied.');
   };
 
   const handlePackInNewChat = (pack: MemoryRecord) => {
@@ -3472,14 +3587,16 @@ function DocumentCatalogPanel({
           : 'deleted_count' in result && typeof result.deleted_count === 'number'
             ? result.deleted_count
             : 0;
-      toast.success(
+      appFeedback.success(
         removedChunks > 0
           ? `Removed document and ${removedChunks} memory chunk${removedChunks === 1 ? '' : 's'}.`
           : 'Removed uploaded document.'
       );
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to remove document memories.');
+      appFeedback.error(
+        error instanceof Error ? error.message : 'Failed to remove document memories.'
+      );
     },
   });
   const linkMutation = useMutation({
@@ -3502,10 +3619,12 @@ function DocumentCatalogPanel({
         queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(selectedWorkflowId) }),
         queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
       ]);
-      toast.success('Document memory group linked.');
+      appFeedback.success('Document memory group linked.');
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to link document memory group.');
+      appFeedback.error(
+        error instanceof Error ? error.message : 'Failed to link document memory group.'
+      );
     },
   });
 
@@ -3521,19 +3640,6 @@ function DocumentCatalogPanel({
       )
       .map((link) => link.refId)
   );
-
-  const handleDelete = (item: MemoryCatalogItem) => {
-    if (
-      !window.confirm(
-        `Remove ${item.documentFilename || item.label}? This deletes ${item.chunkCount} memory chunk${
-          item.chunkCount === 1 ? '' : 's'
-        } from this context.`
-      )
-    ) {
-      return;
-    }
-    deleteMutation.mutate(item);
-  };
 
   return (
     <Card>
@@ -3670,15 +3776,25 @@ function DocumentCatalogPanel({
                         <Eye className="mr-2 h-4 w-4" />
                         Chunks
                       </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => handleDelete(item)}
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Remove
-                      </Button>
+                      <ConfirmActionDialog
+                        trigger={
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            disabled={deleteMutation.isPending}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Remove
+                          </Button>
+                        }
+                        title={`Remove ${item.documentFilename || item.label}?`}
+                        description={`This permanently deletes ${item.chunkCount} memory chunk${item.chunkCount === 1 ? '' : 's'} from this context.`}
+                        confirmLabel="Remove document memory"
+                        pendingLabel="Removing…"
+                        pending={deleteMutation.isPending}
+                        destructive
+                        onConfirm={() => deleteMutation.mutate(item)}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -3711,6 +3827,8 @@ export default function MemoryWorkspace() {
   const [summaryDateFrom, setSummaryDateFrom] = useState('');
   const [summaryDateTo, setSummaryDateTo] = useState('');
   const [selectedMemoryId, setSelectedMemoryId] = useState('');
+  const [selectedMemoryIds, setSelectedMemoryIds] = useState<Set<string>>(new Set());
+  const [isArchivingMemories, setIsArchivingMemories] = useState(false);
 
   const currentUserQuery = useQuery({
     queryKey: [...queryKeys.backendMemories(), 'current-user'],
@@ -3835,6 +3953,80 @@ export default function MemoryWorkspace() {
     );
   };
 
+  const activeFilterCount =
+    Number(Boolean(scope)) +
+    Number(Boolean(query.trim())) +
+    selectedTypes.length +
+    selectedStatuses.length +
+    Number(Boolean(sourceFilter)) +
+    Number(Boolean(modeFilter)) +
+    Number(sensitiveFilter !== 'all') +
+    Number(embeddingFilter !== 'all') +
+    Number(Boolean(workflowFilter)) +
+    Number(Boolean(documentFilter.trim())) +
+    Number(Boolean(sourceConversationId.trim())) +
+    Number(Boolean(sourceExecutionId.trim())) +
+    Number(Boolean(summaryDateFrom)) +
+    Number(Boolean(summaryDateTo));
+
+  const clearBrowseFilters = () => {
+    setScope('');
+    setQuery('');
+    setSelectedTypes([]);
+    setSelectedStatuses([]);
+    setSourceFilter('');
+    setModeFilter('');
+    setSensitiveFilter('all');
+    setEmbeddingFilter('all');
+    setWorkflowFilter('');
+    setDocumentFilter('');
+    setSourceConversationId('');
+    setSourceExecutionId('');
+    setSummaryDateFrom('');
+    setSummaryDateTo('');
+  };
+
+  const applyBrowseView = (view: MemoryBrowseView) => {
+    clearBrowseFilters();
+    if (view === 'missing_embedding') setEmbeddingFilter('missing');
+    if (view === 'sensitive') setSensitiveFilter('sensitive');
+    if (view === 'archived') setSelectedStatuses(['archived']);
+  };
+
+  const archiveMemoryIds = async (memoryIds: string[]) => {
+    if (memoryIds.length === 0) return;
+
+    setIsArchivingMemories(true);
+    const results = await Promise.allSettled(
+      memoryIds.map((memoryId) =>
+        memoriesApi.updateMemory(memoryId, {
+          confirmed: true,
+          patch: { status: 'archived' },
+        })
+      )
+    );
+    const failedIds = memoryIds.filter((_, index) => results[index]?.status === 'rejected');
+    setSelectedMemoryIds(new Set(failedIds));
+    await memoriesQuery.refetch();
+    setIsArchivingMemories(false);
+
+    if (failedIds.length === 0) {
+      appFeedback.success(`${memoryIds.length} memories archived.`, {
+        description: 'The records remain available in the Archived view.',
+      });
+      return;
+    }
+    appFeedback.warning(
+      `${memoryIds.length - failedIds.length} archived; ${failedIds.length} need attention.`,
+      {
+        description: 'Failed records remain selected so you can retry safely.',
+        action: { label: 'Retry', onClick: () => void archiveMemoryIds(failedIds) },
+      }
+    );
+  };
+
+  const archiveSelectedMemories = () => archiveMemoryIds(Array.from(selectedMemoryIds));
+
   if (memoriesQuery.isLoading || currentUserQuery.isLoading) {
     return (
       <LoadingCard title="Agent Memory Ops" description="Loading durable memory operations." />
@@ -3938,21 +4130,21 @@ export default function MemoryWorkspace() {
 
         <TabsContent value="browse" className="mt-0 space-y-5">
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <CalendarRange className="h-5 w-5" />
-                Search and filter durable memory
+                Find durable memory
               </CardTitle>
               <CardDescription>
-                Search uses scoped access checks, vector similarity when configured, lexical
-                fallback, and summary-aware filters.
+                Search by meaning or keywords, then narrow the results only when you need to.
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid gap-3 md:grid-cols-[220px_1fr]">
+            <CardContent className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_180px_auto]">
                 <select
                   value={scope}
                   onChange={(event) => setScope(event.target.value as MemoryScope | '')}
+                  aria-label="Memory scope"
                   className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
                 >
                   <option value="">All scopes</option>
@@ -3967,180 +4159,217 @@ export default function MemoryWorkspace() {
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search content, summaries, tags, or memory IDs"
                 />
+                <select
+                  defaultValue="all"
+                  onChange={(event) => applyBrowseView(event.target.value as MemoryBrowseView)}
+                  aria-label="Memory view"
+                  className="flex h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                >
+                  {memoryBrowseViews.map((view) => (
+                    <option key={view.id} value={view.id}>
+                      {view.label}
+                    </option>
+                  ))}
+                </select>
+                {activeFilterCount > 0 ? (
+                  <Button type="button" variant="ghost" onClick={clearBrowseFilters}>
+                    Clear {activeFilterCount}
+                  </Button>
+                ) : null}
               </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Memory types</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {MEMORY_TYPES.map((memoryType) => (
-                      <button
-                        key={memoryType}
-                        type="button"
-                        title={memoryTypeDescription(memoryType)}
-                        onClick={() => toggleType(memoryType)}
-                        className={`rounded-full border px-3 py-1 text-xs ${
-                          selectedTypes.includes(memoryType)
-                            ? 'agency-gradient border-primary-500 text-white'
-                            : 'border-primary-200 bg-white text-slate-700 hover:bg-primary-50'
-                        }`}
+              <details className="group rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-(--agency-row-hover) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="flex items-center gap-2">
+                    <SlidersHorizontal
+                      className="size-4 text-(--agency-shell-muted)"
+                      aria-hidden="true"
+                    />
+                    More filters
+                    {activeFilterCount > 0 ? (
+                      <Badge variant="secondary">{activeFilterCount} active</Badge>
+                    ) : null}
+                  </span>
+                  <Bookmark
+                    className="size-4 text-(--agency-shell-muted) transition-transform group-open:rotate-12"
+                    aria-hidden="true"
+                  />
+                </summary>
+                <div className="space-y-4 border-t border-(--agency-shell-border) p-4">
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label>Memory types</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {MEMORY_TYPES.map((memoryType) => (
+                          <button
+                            key={memoryType}
+                            type="button"
+                            title={memoryTypeDescription(memoryType)}
+                            onClick={() => toggleType(memoryType)}
+                            className={`rounded-full border px-3 py-1 text-xs ${
+                              selectedTypes.includes(memoryType)
+                                ? 'agency-gradient border-primary-500 text-white'
+                                : 'border-primary-200 bg-white text-slate-700 hover:bg-primary-50'
+                            }`}
+                          >
+                            {memoryTypeLabel(memoryType)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <div className="flex flex-wrap gap-2">
+                        {memoryStatuses.map((status) => (
+                          <button
+                            key={status}
+                            type="button"
+                            onClick={() => toggleStatus(status)}
+                            className={`rounded-full border px-3 py-1 text-xs ${
+                              selectedStatuses.includes(status)
+                                ? 'agency-gradient border-primary-500 text-white'
+                                : 'border-primary-200 bg-white text-slate-700 hover:bg-primary-50'
+                            }`}
+                          >
+                            {titleCase(status)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-source">Source</Label>
+                      <select
+                        id="filter-source"
+                        value={sourceFilter}
+                        onChange={(event) => setSourceFilter(event.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                       >
-                        {memoryTypeLabel(memoryType)}
-                      </button>
-                    ))}
+                        <option value="">All sources</option>
+                        {sourceOptions.map((source) => (
+                          <option key={source} value={source}>
+                            {source}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-mode">Mode</Label>
+                      <select
+                        id="filter-mode"
+                        value={modeFilter}
+                        onChange={(event) => setModeFilter(event.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">All modes</option>
+                        {memoryModeOptions.map((mode) => (
+                          <option key={mode} value={mode}>
+                            {titleCase(mode)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-sensitive">Sensitive</Label>
+                      <select
+                        id="filter-sensitive"
+                        value={sensitiveFilter}
+                        onChange={(event) =>
+                          setSensitiveFilter(
+                            event.target.value as 'all' | 'sensitive' | 'not_sensitive'
+                          )
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="all">All sensitivity</option>
+                        <option value="sensitive">Sensitive only</option>
+                        <option value="not_sensitive">Not sensitive</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-embedding">Embedding</Label>
+                      <select
+                        id="filter-embedding"
+                        value={embeddingFilter}
+                        onChange={(event) =>
+                          setEmbeddingFilter(event.target.value as 'all' | 'embedded' | 'missing')
+                        }
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="all">All vectors</option>
+                        <option value="embedded">Embedded</option>
+                        <option value="missing">Missing vector</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-workflow">Workflow</Label>
+                      <select
+                        id="filter-workflow"
+                        value={workflowFilter}
+                        onChange={(event) => setWorkflowFilter(event.target.value)}
+                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                      >
+                        <option value="">All workflows</option>
+                        {workflows.map((workflow) => (
+                          <option key={workflow.id} value={workflow.id}>
+                            {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-document">Document</Label>
+                      <Input
+                        id="filter-document"
+                        value={documentFilter}
+                        onChange={(event) => setDocumentFilter(event.target.value)}
+                        placeholder="document id or filename"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-source-conversation">Source conversation ID</Label>
+                      <Input
+                        id="filter-source-conversation"
+                        value={sourceConversationId}
+                        onChange={(event) => setSourceConversationId(event.target.value)}
+                        placeholder="conversation-123"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-source-execution">Source execution ID</Label>
+                      <Input
+                        id="filter-source-execution"
+                        value={sourceExecutionId}
+                        onChange={(event) => setSourceExecutionId(event.target.value)}
+                        placeholder="execution-123"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-summary-date-from">Summary date from</Label>
+                      <Input
+                        id="filter-summary-date-from"
+                        type="date"
+                        value={summaryDateFrom}
+                        onChange={(event) => setSummaryDateFrom(event.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor="filter-summary-date-to">Summary date to</Label>
+                      <Input
+                        id="filter-summary-date-to"
+                        type="date"
+                        value={summaryDateTo}
+                        onChange={(event) => setSummaryDateTo(event.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <div className="flex flex-wrap gap-2">
-                    {memoryStatuses.map((status) => (
-                      <button
-                        key={status}
-                        type="button"
-                        onClick={() => toggleStatus(status)}
-                        className={`rounded-full border px-3 py-1 text-xs ${
-                          selectedStatuses.includes(status)
-                            ? 'agency-gradient border-primary-500 text-white'
-                            : 'border-primary-200 bg-white text-slate-700 hover:bg-primary-50'
-                        }`}
-                      >
-                        {titleCase(status)}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-source">Source</Label>
-                  <select
-                    id="filter-source"
-                    value={sourceFilter}
-                    onChange={(event) => setSourceFilter(event.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">All sources</option>
-                    {sourceOptions.map((source) => (
-                      <option key={source} value={source}>
-                        {source}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-mode">Mode</Label>
-                  <select
-                    id="filter-mode"
-                    value={modeFilter}
-                    onChange={(event) => setModeFilter(event.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">All modes</option>
-                    {memoryModeOptions.map((mode) => (
-                      <option key={mode} value={mode}>
-                        {titleCase(mode)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-sensitive">Sensitive</Label>
-                  <select
-                    id="filter-sensitive"
-                    value={sensitiveFilter}
-                    onChange={(event) =>
-                      setSensitiveFilter(
-                        event.target.value as 'all' | 'sensitive' | 'not_sensitive'
-                      )
-                    }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="all">All sensitivity</option>
-                    <option value="sensitive">Sensitive only</option>
-                    <option value="not_sensitive">Not sensitive</option>
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-embedding">Embedding</Label>
-                  <select
-                    id="filter-embedding"
-                    value={embeddingFilter}
-                    onChange={(event) =>
-                      setEmbeddingFilter(event.target.value as 'all' | 'embedded' | 'missing')
-                    }
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="all">All vectors</option>
-                    <option value="embedded">Embedded</option>
-                    <option value="missing">Missing vector</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-workflow">Workflow</Label>
-                  <select
-                    id="filter-workflow"
-                    value={workflowFilter}
-                    onChange={(event) => setWorkflowFilter(event.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  >
-                    <option value="">All workflows</option>
-                    {workflows.map((workflow) => (
-                      <option key={workflow.id} value={workflow.id}>
-                        {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-document">Document</Label>
-                  <Input
-                    id="filter-document"
-                    value={documentFilter}
-                    onChange={(event) => setDocumentFilter(event.target.value)}
-                    placeholder="document id or filename"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-source-conversation">Source conversation ID</Label>
-                  <Input
-                    id="filter-source-conversation"
-                    value={sourceConversationId}
-                    onChange={(event) => setSourceConversationId(event.target.value)}
-                    placeholder="conversation-123"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-source-execution">Source execution ID</Label>
-                  <Input
-                    id="filter-source-execution"
-                    value={sourceExecutionId}
-                    onChange={(event) => setSourceExecutionId(event.target.value)}
-                    placeholder="execution-123"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-summary-date-from">Summary date from</Label>
-                  <Input
-                    id="filter-summary-date-from"
-                    type="date"
-                    value={summaryDateFrom}
-                    onChange={(event) => setSummaryDateFrom(event.target.value)}
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="filter-summary-date-to">Summary date to</Label>
-                  <Input
-                    id="filter-summary-date-to"
-                    type="date"
-                    value={summaryDateTo}
-                    onChange={(event) => setSummaryDateTo(event.target.value)}
-                  />
-                </div>
-              </div>
+              </details>
             </CardContent>
           </Card>
 
@@ -4150,7 +4379,14 @@ export default function MemoryWorkspace() {
               description="No durable memories match the current filters."
             />
           ) : (
-            <MemoryTable memories={filteredMemories} onOpenMemory={setSelectedMemoryId} />
+            <MemoryTable
+              memories={filteredMemories}
+              onOpenMemory={setSelectedMemoryId}
+              selectedMemoryIds={selectedMemoryIds}
+              onSelectionChange={setSelectedMemoryIds}
+              onArchiveSelected={() => void archiveSelectedMemories()}
+              isArchiving={isArchivingMemories}
+            />
           )}
         </TabsContent>
 

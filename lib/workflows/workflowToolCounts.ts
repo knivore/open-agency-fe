@@ -2,7 +2,9 @@ import type { AgentDefinition } from '@/types/agents';
 import type { TaskDefinition, WorkflowDefinition } from '@/types/workflows';
 
 function stringArray(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : [];
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : [];
 }
 
 function uniqueStrings(values: string[]): string[] {
@@ -45,4 +47,3 @@ export function workflowToolBindingCount(workflow: WorkflowDefinition): number {
 
   return Array.from(toolIdsByActor.values()).reduce((total, toolIds) => total + toolIds.size, 0);
 }
-

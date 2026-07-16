@@ -13,6 +13,7 @@ import {
   type EdgeProps,
   type FitViewOptions,
   getBezierPath,
+  getSmoothStepPath,
   Handle,
   MiniMap,
   type NodeChange,
@@ -22,6 +23,7 @@ import {
   ReactFlow,
   type ReactFlowInstance,
   ReactFlowProvider,
+  ViewportPortal,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import {
@@ -422,6 +424,13 @@ function formatRuntimeDuration(value: number) {
   return `${value} ms`;
 }
 
+function graphMotionDuration(duration: number) {
+  return typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ? 0
+    : duration;
+}
+
 function runtimeEventTimingRows(event: GraphRuntimeEvent) {
   const durationMs = runtimeEventNumberValue(event, ['durationMs', 'duration_ms', 'duration']);
   const latencyMs = runtimeEventNumberValue(event, ['latencyMs', 'latency_ms', 'latency']);
@@ -666,6 +675,9 @@ interface GraphCanvasBaseProps {
   runtimeEventLimit?: number;
   runtimePanelPosition?: GraphRuntimePanelPosition;
   layoutOptions?: LayoutGraphDocumentGridOptions;
+  edgeRouting?: 'bezier' | 'smooth-step';
+  canvasBackdrop?: ReactNode;
+  toolbarPlacement?: 'overlay' | 'docked';
   fitViewOptions?: FitViewOptions<XyflowGraphNode>;
   nodeRenderers?: Record<string, GraphNodeRenderer>;
   edgeLabelRenderers?: Record<string, GraphEdgeLabelRenderer>;
@@ -719,6 +731,7 @@ type CanvasNode = XyflowGraphNode & {
 };
 
 type CanvasEdgeData = NonNullable<XyflowGraphEdge['data']> & {
+  edgeRouting?: 'bezier' | 'smooth-step';
   renderEdgeLabel?: GraphEdgeLabelRenderer;
   hovered?: boolean;
   runtimeEvent?: GraphRuntimeEvent;
@@ -808,14 +821,23 @@ function DefaultGraphEdge({
   data,
 }: EdgeProps<XyflowGraphEdge>) {
   const edgeData = data as CanvasEdgeData | undefined;
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const pathArguments = {
     sourceX,
     sourceY,
     sourcePosition,
     targetX,
     targetY,
     targetPosition,
-  });
+  };
+  const [edgePath, labelX, labelY] =
+    edgeData?.edgeRouting === 'smooth-step'
+      ? getSmoothStepPath({
+          ...pathArguments,
+          borderRadius: 14,
+          offset: 28,
+          stepPosition: 0.5,
+        })
+      : getBezierPath(pathArguments);
   const graphEdge = edgeData?.graphEdge;
   const runtimeEvent = edgeData?.runtimeEvent;
   const runtimeEventIsCurrent = edgeData?.runtimeEventIsCurrent ?? false;
@@ -1124,6 +1146,9 @@ export default function GraphCanvas({
   runtimeEventLimit = 6,
   runtimePanelPosition = 'top-right',
   layoutOptions,
+  edgeRouting = 'bezier',
+  canvasBackdrop,
+  toolbarPlacement = 'overlay',
   fitViewOptions,
   nodeRenderers,
   edgeLabelRenderers,
@@ -1467,6 +1492,7 @@ export default function GraphCanvas({
           data: {
             ...edge.data,
             graphEdge,
+            edgeRouting,
             renderEdgeLabel: edgeLabelRenderer,
             hovered: hoveredEdgeId === edge.id,
             runtimeEvent: visibleRuntimeEvent,
@@ -1490,6 +1516,7 @@ export default function GraphCanvas({
       }),
     [
       edgeLabelRenderers,
+      edgeRouting,
       currentReplayEvent,
       currentRuntimeEdgeIds,
       effectiveFocusedRuntimeEdgeId,
@@ -1674,7 +1701,7 @@ export default function GraphCanvas({
       void reactFlowInstance.fitView({
         nodes: Array.from(nodeIds).map((id) => ({ id })),
         padding: nodeIds.size === 1 ? 0.55 : 0.35,
-        duration: 320,
+        duration: graphMotionDuration(320),
         maxZoom: 1.25,
       });
     },
@@ -1710,7 +1737,7 @@ export default function GraphCanvas({
     void reactFlowInstance.fitView({
       nodes: Array.from(focusedNodeIds).map((id) => ({ id })),
       padding: focusedNodeIds.size === 1 ? 0.55 : 0.35,
-      duration: 280,
+      duration: graphMotionDuration(280),
       maxZoom: 1.15,
     });
   };
@@ -1725,7 +1752,7 @@ export default function GraphCanvas({
       return;
     }
 
-    const nodeExists = activeDocument.nodes.some((node) => node.id === focusNodeId);
+    const nodeExists = activeDocumentRef.current.nodes.some((node) => node.id === focusNodeId);
     if (!nodeExists) {
       return;
     }
@@ -1739,14 +1766,36 @@ export default function GraphCanvas({
       onSelectionChangeRef.current?.(nextSelection);
     }
 
-    void reactFlowInstance.fitView({
-      nodes: [{ id: focusNodeId }],
-      padding: 0.55,
-      duration: 320,
-      maxZoom: 1.25,
-    });
+    // The built-in initial fit runs after custom cards are measured. Delay the first requested
+    // focus just enough to make the readable entrypoint framing win that initialization race.
+    const timeoutId = window.setTimeout(
+      () => {
+        const focusedNode = reactFlowInstance.getNode(focusNodeId);
+        const width = focusedNode?.measured?.width ?? focusedNode?.width;
+        const height = focusedNode?.measured?.height ?? focusedNode?.height;
+
+        if (focusedNode && width && height) {
+          void reactFlowInstance.setCenter(
+            focusedNode.position.x + width / 2,
+            focusedNode.position.y + height / 2,
+            { zoom: 0.95, duration: graphMotionDuration(320) }
+          );
+          return;
+        }
+
+        void reactFlowInstance.fitView({
+          nodes: [{ id: focusNodeId }],
+          padding: 0.55,
+          duration: graphMotionDuration(320),
+          maxZoom: 1.25,
+        });
+      },
+      focusNodeRevision === 0 ? 220 : 0
+    );
+
+    return () => window.clearTimeout(timeoutId);
   }, [
-    activeDocument.nodes,
+    activeDocumentRef,
     focusNodeId,
     focusNodeRevision,
     onSelectionChangeRef,
@@ -2017,6 +2066,19 @@ export default function GraphCanvas({
         : nextDocument;
 
     commitGraphDocument(documentToCommit);
+
+    if (action.metadata?.fitViewAfterRun === true) {
+      // Wait for React Flow to measure the newly arranged nodes before fitting their full bounds.
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          const resolvedFitViewOptions = fitViewOptions ?? { padding: 0.2 };
+          void reactFlowInstance?.fitView({
+            ...resolvedFitViewOptions,
+            duration: graphMotionDuration(resolvedFitViewOptions.duration ?? 280),
+          });
+        });
+      });
+    }
   };
 
   const runToolbarActionById = (actionId: GraphId) => {
@@ -2184,7 +2246,7 @@ export default function GraphCanvas({
     <ReactFlowProvider>
       <div
         ref={canvasContainerRef}
-        className={`relative ${className ?? 'h-full min-h-80 w-full rounded-lg border border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/88 dark:[&_.react-flow]:bg-slate-950/70 dark:[&_.react-flow__background]:opacity-70'}`}
+        className={`relative ${toolbarPlacement === 'docked' ? 'flex flex-col' : ''} ${className ?? 'h-full min-h-80 w-full rounded-lg border border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/88 dark:[&_.react-flow]:bg-slate-950/70 dark:[&_.react-flow__background]:opacity-70'}`}
         tabIndex={resolvedKeyboardShortcuts.length > 0 ? 0 : undefined}
         onKeyDown={handleKeyDown}
         onMouseDown={(event) => {
@@ -2203,366 +2265,375 @@ export default function GraphCanvas({
         }}
         onMouseLeave={() => setHoveredEdgeId(null)}
       >
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={defaultNodeTypes}
-          edgeTypes={defaultEdgeTypes}
-          fitView={fitView}
-          fitViewOptions={fitViewOptions}
-          nodesConnectable={!readOnly}
-          nodesDraggable={!readOnly}
-          connectionMode={ConnectionMode.Loose}
-          elementsSelectable
-          edgesReconnectable={!readOnly}
-          onNodesChange={readOnly ? undefined : handleNodesChange}
-          onEdgesChange={readOnly ? undefined : handleEdgesChange}
-          onConnect={readOnly ? undefined : handleConnect}
-          onSelectionChange={handleSelectionChange}
-          onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
-          onEdgeMouseLeave={() => setHoveredEdgeId(null)}
-          onNodeClick={(_, node) => {
-            const graphNode = xyflowNodeToGraphNode(node);
-
-            if (readOnly) {
-              onNodeOpen?.(graphNode);
-              return;
-            }
-
-            selectGraphNodeData(graphNode);
-          }}
-          onNodeDoubleClick={(_, node) => onNodeOpen?.(xyflowNodeToGraphNode(node))}
-          onEdgeClick={(_, edge) => openGraphEdge(edge)}
-          onEdgeDoubleClick={(_, edge) => openGraphEdge(edge)}
-          onInit={handleReactFlowInit}
-        >
-          {showBackground ? <Background /> : null}
-          {showControls ? <Controls showInteractive={false} /> : null}
-          {showMiniMap ? (
-            <MiniMap
-              pannable
-              zoomable
-              position="bottom-right"
-              bgColor="var(--agency-graph-minimap-bg)"
-              maskColor="var(--agency-graph-minimap-mask)"
-              maskStrokeColor="var(--agency-graph-minimap-viewport-stroke)"
-              maskStrokeWidth={2.5}
-              nodeColor={minimapNodeColor}
-              nodeStrokeColor={minimapNodeStrokeColor}
-              nodeStrokeWidth={2}
-              nodeBorderRadius={10}
-              className="nowheel nopan rounded-xl border border-neutral-200 shadow-lg [--agency-graph-minimap-bg:rgba(248,250,252,0.98)] [--agency-graph-minimap-mask:rgba(15,23,42,0.16)] [--agency-graph-minimap-viewport-stroke:rgba(15,23,42,0.62)] dark:border-sky-300/35 dark:shadow-[0_18px_48px_rgba(2,8,23,0.72)] dark:[--agency-graph-minimap-bg:rgba(2,8,23,0.96)] dark:[--agency-graph-minimap-mask:rgba(2,8,23,0.58)] dark:[--agency-graph-minimap-viewport-stroke:rgba(226,232,240,0.95)]"
-            />
-          ) : null}
-        </ReactFlow>
-        {loading ? (
-          <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 p-6 dark:bg-slate-950/70">
-            <div className="rounded-md border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-700 shadow-sm dark:border-white/10 dark:bg-slate-950/88 dark:text-slate-200 dark:shadow-none">
-              {loadingContent ?? 'Loading graph'}
-            </div>
-          </div>
-        ) : null}
-        {activeDocument.nodes.length === 0 ? (
-          <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
-            <div className="rounded-md border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-600 shadow-sm dark:border-white/10 dark:bg-slate-950/88 dark:text-slate-300 dark:shadow-none">
-              {emptyContent ?? 'No graph nodes'}
-            </div>
-          </div>
-        ) : null}
-        {blockingValidationIssues.length > 0 ? (
-          <div className="absolute left-1/2 top-3 z-10 w-96 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-md border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-sm dark:border-red-400/25 dark:bg-slate-950/92 dark:text-red-300 dark:shadow-none">
-            {invalidContent ?? (
-              <div className="space-y-2">
-                <div className="font-medium">
-                  {blockingValidationIssues.length} graph issue
-                  {blockingValidationIssues.length === 1 ? '' : 's'} need attention
-                </div>
-                <div className="max-h-36 space-y-1 overflow-y-auto">
-                  {blockingValidationIssues.slice(0, 5).map((issue) => {
-                    const canSelect =
-                      Boolean(issue.targetId) &&
-                      (issue.target === 'node' || issue.target === 'edge');
-
-                    return (
-                      <button
-                        key={issue.id}
-                        type="button"
-                        disabled={!canSelect}
-                        className="block w-full rounded px-2 py-1 text-left hover:bg-red-50 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-red-500/10"
-                        onClick={() => selectValidationIssueTarget(issue)}
-                      >
-                        <span className="font-medium capitalize">{issue.severity}</span>
-                        <span className="mx-1">·</span>
-                        <span>{issue.message}</span>
-                      </button>
-                    );
-                  })}
-                  {blockingValidationIssues.length > 5 ? (
-                    <div className="px-2 py-1 text-red-600 dark:text-red-300">
-                      +{blockingValidationIssues.length - 5} more issue
-                      {blockingValidationIssues.length - 5 === 1 ? '' : 's'}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            )}
-          </div>
-        ) : null}
-        {readOnly ? (
-          <div className="absolute right-3 top-3 z-10 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-600 shadow-sm dark:border-white/10 dark:bg-slate-950/88 dark:text-slate-300 dark:shadow-none">
-            {readOnlyContent ?? 'Read-only'}
-          </div>
-        ) : null}
-        {!readOnly && paletteItems && paletteItems.length > 0 ? (
-          <div className="absolute left-3 top-3 z-10">
-            {palette({ items: paletteItems, onAddNode: addNodeFromPalette })}
-          </div>
-        ) : null}
-        {resolvedToolbarActions.length > 0 ? (
-          <div className="absolute bottom-3 left-3 z-10 max-w-[calc(100%-16rem)] max-sm:max-w-[calc(100%-1.5rem)]">
+        {resolvedToolbarActions.length > 0 && toolbarPlacement === 'docked' ? (
+          <div className="relative z-20 shrink-0 border-b border-neutral-200 bg-white/96 px-2 py-2 dark:border-white/10 dark:bg-slate-950/96">
             {/* eslint-disable-next-line react-hooks/refs */}
             {toolbar({ actions: resolvedToolbarActions, onAction: runToolbarAction })}
           </div>
         ) : null}
-        {showInspector && inspector && (selectedNode || selectedEdge) ? (
-          <div className="absolute right-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)] rounded-md border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-slate-950/94 dark:shadow-[0_18px_48px_rgba(2,8,23,0.7)]">
-            {inspector({
-              node: selectedNode,
-              edge: selectedEdge,
-              document: activeDocument,
-              readOnly,
-              onClose: () => {
-                const nextSelection = { nodeIds: [], edgeIds: [] };
-                setSelection(nextSelection);
-                onSelectionChange?.(nextSelection);
-              },
-              onUpdateDocument: updateGraphDocumentFromInspector,
-              onUpdateNode: updateGraphNodeFromInspector,
-              onUpdateEdge: updateGraphEdgeFromInspector,
-            })}
-          </div>
-        ) : null}
-        {runtimeEventCount > 0 ? (
-          <div
-            className={`nowheel nopan absolute z-10 flex max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-md border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-slate-950/94 dark:shadow-[0_18px_48px_rgba(2,8,23,0.7)] ${
-              runtimePanelShowsDetails ? 'w-2xl' : 'w-80'
-            } ${runtimePanelPositionClassName(runtimePanelPosition)} ${runtimePanelMaxHeightClassName(runtimePanelIsCompact)}`}
-            aria-label="Graph runtime timeline"
+        <div className={toolbarPlacement === 'docked' ? 'relative min-h-0 flex-1' : 'contents'}>
+          <ReactFlow
+            nodes={nodes}
+            edges={edges}
+            nodeTypes={defaultNodeTypes}
+            edgeTypes={defaultEdgeTypes}
+            fitView={fitView}
+            fitViewOptions={fitViewOptions}
+            nodesConnectable={!readOnly}
+            nodesDraggable={!readOnly}
+            connectionMode={ConnectionMode.Loose}
+            elementsSelectable
+            edgesReconnectable={!readOnly}
+            onNodesChange={readOnly ? undefined : handleNodesChange}
+            onEdgesChange={readOnly ? undefined : handleEdgesChange}
+            onConnect={readOnly ? undefined : handleConnect}
+            onSelectionChange={handleSelectionChange}
+            onEdgeMouseEnter={(_, edge) => setHoveredEdgeId(edge.id)}
+            onEdgeMouseLeave={() => setHoveredEdgeId(null)}
+            onNodeClick={(_, node) => {
+              const graphNode = xyflowNodeToGraphNode(node);
+
+              if (readOnly) {
+                onNodeOpen?.(graphNode);
+                return;
+              }
+
+              selectGraphNodeData(graphNode);
+            }}
+            onNodeDoubleClick={(_, node) => onNodeOpen?.(xyflowNodeToGraphNode(node))}
+            onEdgeClick={(_, edge) => openGraphEdge(edge)}
+            onEdgeDoubleClick={(_, edge) => openGraphEdge(edge)}
+            onInit={handleReactFlowInit}
           >
-            <div className="mb-2 shrink-0 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 dark:border-white/10 dark:bg-white/4">
-              <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium text-neutral-600 dark:text-slate-300">
-                <span>{runtimeReplayLabel}</span>
-                <div className="flex items-center gap-1">
-                  {runtimeRunDetailsHref ? (
-                    <a
-                      href={runtimeRunDetailsHref}
-                      className="rounded border border-sky-200 bg-white px-2 py-0.5 text-[11px] text-sky-700 hover:border-sky-300 hover:text-sky-900 dark:border-sky-300/25 dark:bg-slate-950/78 dark:text-sky-200 dark:hover:border-sky-300/45"
-                      aria-label="View run details"
-                      title="View run details"
-                      onClick={(event) => event.stopPropagation()}
-                    >
-                      View run
-                    </a>
-                  ) : null}
-                  {runtimePlaybackIsActive ? (
-                    <button
-                      type="button"
-                      className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-200 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
-                      aria-label="Pause runtime replay"
-                      onClick={pauseRuntimeReplay}
-                    >
-                      Pause
-                    </button>
-                  ) : (
+            {showBackground ? <Background /> : null}
+            {canvasBackdrop ? <ViewportPortal>{canvasBackdrop}</ViewportPortal> : null}
+            {showControls ? <Controls showInteractive={false} /> : null}
+            {showMiniMap ? (
+              <MiniMap
+                pannable
+                zoomable
+                position="bottom-right"
+                bgColor="var(--agency-graph-minimap-bg)"
+                maskColor="var(--agency-graph-minimap-mask)"
+                maskStrokeColor="var(--agency-graph-minimap-viewport-stroke)"
+                maskStrokeWidth={2.5}
+                nodeColor={minimapNodeColor}
+                nodeStrokeColor={minimapNodeStrokeColor}
+                nodeStrokeWidth={2}
+                nodeBorderRadius={10}
+                className="nowheel nopan rounded-xl border border-neutral-200 shadow-lg [--agency-graph-minimap-bg:rgba(248,250,252,0.98)] [--agency-graph-minimap-mask:rgba(15,23,42,0.16)] [--agency-graph-minimap-viewport-stroke:rgba(15,23,42,0.62)] dark:border-sky-300/35 dark:shadow-[0_18px_48px_rgba(2,8,23,0.72)] dark:[--agency-graph-minimap-bg:rgba(2,8,23,0.96)] dark:[--agency-graph-minimap-mask:rgba(2,8,23,0.58)] dark:[--agency-graph-minimap-viewport-stroke:rgba(226,232,240,0.95)]"
+              />
+            ) : null}
+          </ReactFlow>
+          {loading ? (
+            <div className="absolute inset-0 z-20 flex items-center justify-center bg-white/70 p-6 dark:bg-slate-950/70">
+              <div className="rounded-md border border-neutral-200 bg-white px-4 py-3 text-sm font-medium text-neutral-700 shadow-sm dark:border-white/10 dark:bg-slate-950/88 dark:text-slate-200 dark:shadow-none">
+                {loadingContent ?? 'Loading graph'}
+              </div>
+            </div>
+          ) : null}
+          {activeDocument.nodes.length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center p-6">
+              <div className="rounded-md border border-neutral-200 bg-white/90 px-4 py-3 text-sm text-neutral-600 shadow-sm dark:border-white/10 dark:bg-slate-950/88 dark:text-slate-300 dark:shadow-none">
+                {emptyContent ?? 'No graph nodes'}
+              </div>
+            </div>
+          ) : null}
+          {blockingValidationIssues.length > 0 ? (
+            <div className="absolute left-1/2 top-3 z-10 w-96 max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-md border border-red-200 bg-white px-3 py-2 text-xs text-red-700 shadow-sm dark:border-red-400/25 dark:bg-slate-950/92 dark:text-red-300 dark:shadow-none">
+              {invalidContent ?? (
+                <div className="space-y-2">
+                  <div className="font-medium">
+                    {blockingValidationIssues.length} graph issue
+                    {blockingValidationIssues.length === 1 ? '' : 's'} need attention
+                  </div>
+                  <div className="max-h-36 space-y-1 overflow-y-auto">
+                    {blockingValidationIssues.slice(0, 5).map((issue) => {
+                      const canSelect =
+                        Boolean(issue.targetId) &&
+                        (issue.target === 'node' || issue.target === 'edge');
+
+                      return (
+                        <button
+                          key={issue.id}
+                          type="button"
+                          disabled={!canSelect}
+                          className="block w-full rounded px-2 py-1 text-left hover:bg-red-50 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-red-500/10"
+                          onClick={() => selectValidationIssueTarget(issue)}
+                        >
+                          <span className="font-medium capitalize">{issue.severity}</span>
+                          <span className="mx-1">·</span>
+                          <span>{issue.message}</span>
+                        </button>
+                      );
+                    })}
+                    {blockingValidationIssues.length > 5 ? (
+                      <div className="px-2 py-1 text-red-600 dark:text-red-300">
+                        +{blockingValidationIssues.length - 5} more issue
+                        {blockingValidationIssues.length - 5 === 1 ? '' : 's'}
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : null}
+          {readOnly ? (
+            <div className="absolute right-3 top-3 z-10 rounded-md border border-neutral-200 bg-white px-2 py-1 text-xs font-medium text-neutral-600 shadow-sm dark:border-white/10 dark:bg-slate-950/88 dark:text-slate-300 dark:shadow-none">
+              {readOnlyContent ?? 'Read-only'}
+            </div>
+          ) : null}
+          {!readOnly && paletteItems && paletteItems.length > 0 ? (
+            <div className="absolute left-3 top-3 z-10">
+              {palette({ items: paletteItems, onAddNode: addNodeFromPalette })}
+            </div>
+          ) : null}
+          {resolvedToolbarActions.length > 0 && toolbarPlacement === 'overlay' ? (
+            <div className="absolute bottom-3 left-3 z-10 max-w-[calc(100%-16rem)] max-sm:max-w-[calc(100%-1.5rem)]">
+              {/* eslint-disable-next-line react-hooks/refs */}
+              {toolbar({ actions: resolvedToolbarActions, onAction: runToolbarAction })}
+            </div>
+          ) : null}
+          {showInspector && inspector && (selectedNode || selectedEdge) ? (
+            <div className="absolute right-3 top-3 z-10 w-80 max-w-[calc(100%-1.5rem)] rounded-md border border-neutral-200 bg-white p-3 shadow-lg dark:border-white/10 dark:bg-slate-950/94 dark:shadow-[0_18px_48px_rgba(2,8,23,0.7)]">
+              {inspector({
+                node: selectedNode,
+                edge: selectedEdge,
+                document: activeDocument,
+                readOnly,
+                onClose: () => {
+                  const nextSelection = { nodeIds: [], edgeIds: [] };
+                  setSelection(nextSelection);
+                  onSelectionChange?.(nextSelection);
+                },
+                onUpdateDocument: updateGraphDocumentFromInspector,
+                onUpdateNode: updateGraphNodeFromInspector,
+                onUpdateEdge: updateGraphEdgeFromInspector,
+              })}
+            </div>
+          ) : null}
+          {runtimeEventCount > 0 ? (
+            <div
+              className={`nowheel nopan absolute z-10 flex max-w-[calc(100%-1.5rem)] flex-col overflow-hidden rounded-md border border-neutral-200 bg-white p-2 shadow-lg dark:border-white/10 dark:bg-slate-950/94 dark:shadow-[0_18px_48px_rgba(2,8,23,0.7)] ${
+                runtimePanelShowsDetails ? 'w-2xl' : 'w-80'
+              } ${runtimePanelPositionClassName(runtimePanelPosition)} ${runtimePanelMaxHeightClassName(runtimePanelIsCompact)}`}
+              aria-label="Graph runtime timeline"
+            >
+              <div className="mb-2 shrink-0 rounded-md border border-neutral-200 bg-neutral-50 px-2 py-1.5 dark:border-white/10 dark:bg-white/4">
+                <div className="mb-1 flex items-center justify-between gap-2 text-[11px] font-medium text-neutral-600 dark:text-slate-300">
+                  <span>{runtimeReplayLabel}</span>
+                  <div className="flex items-center gap-1">
+                    {runtimeRunDetailsHref ? (
+                      <a
+                        href={runtimeRunDetailsHref}
+                        className="rounded border border-sky-200 bg-white px-2 py-0.5 text-[11px] text-sky-700 hover:border-sky-300 hover:text-sky-900 dark:border-sky-300/25 dark:bg-slate-950/78 dark:text-sky-200 dark:hover:border-sky-300/45"
+                        aria-label="View run details"
+                        title="View run details"
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        View run
+                      </a>
+                    ) : null}
+                    {runtimePlaybackIsActive ? (
+                      <button
+                        type="button"
+                        className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-200 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                        aria-label="Pause runtime replay"
+                        onClick={pauseRuntimeReplay}
+                      >
+                        Pause
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-200 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                        aria-label="Play runtime replay"
+                        disabled={runtimeEventCount === 0}
+                        onClick={playRuntimeReplay}
+                      >
+                        Play
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-200 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
-                      aria-label="Play runtime replay"
-                      disabled={runtimeEventCount === 0}
-                      onClick={playRuntimeReplay}
+                      disabled={runtimeEventCursor === null}
+                      onClick={showLiveRuntimeEvents}
                     >
-                      Play
+                      Live
                     </button>
-                  )}
-                  <button
-                    type="button"
-                    className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-700 hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-200 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
-                    disabled={runtimeEventCursor === null}
-                    onClick={showLiveRuntimeEvents}
-                  >
-                    Live
-                  </button>
+                  </div>
                 </div>
+                <div className="mb-1 flex items-center gap-1 text-[11px] text-neutral-500 dark:text-slate-400">
+                  <span className="shrink-0">Speed</span>
+                  {runtimePlaybackSpeeds.map((speed) => (
+                    <button
+                      key={speed}
+                      type="button"
+                      className={`rounded border px-1.5 py-0.5 ${
+                        runtimePlaybackSpeed === speed
+                          ? 'border-sky-300 bg-sky-50 text-sky-700'
+                          : 'border-neutral-200 bg-white text-neutral-600 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-300 dark:hover:border-sky-300/40 dark:hover:text-sky-200'
+                      }`}
+                      aria-label={`Runtime replay speed ${speed}x`}
+                      onClick={() => setRuntimePlaybackSpeed(speed)}
+                    >
+                      {speed}x
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={runtimeEventCount}
+                  value={activeRuntimeEventCount}
+                  className="h-2 w-full accent-sky-600"
+                  aria-label="Runtime event replay position"
+                  onChange={(event) => scrubRuntimeReplay(Number(event.target.value))}
+                />
               </div>
-              <div className="mb-1 flex items-center gap-1 text-[11px] text-neutral-500 dark:text-slate-400">
-                <span className="shrink-0">Speed</span>
-                {runtimePlaybackSpeeds.map((speed) => (
-                  <button
-                    key={speed}
-                    type="button"
-                    className={`rounded border px-1.5 py-0.5 ${
-                      runtimePlaybackSpeed === speed
-                        ? 'border-sky-300 bg-sky-50 text-sky-700'
-                        : 'border-neutral-200 bg-white text-neutral-600 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-300 dark:hover:border-sky-300/40 dark:hover:text-sky-200'
-                    }`}
-                    aria-label={`Runtime replay speed ${speed}x`}
-                    onClick={() => setRuntimePlaybackSpeed(speed)}
+              <div
+                className={
+                  runtimePanelShowsDetails
+                    ? 'grid min-h-0 flex-1 grid-cols-[minmax(0,20rem)_minmax(18rem,1fr)] gap-2 overflow-hidden'
+                    : 'min-h-0 flex-1 overflow-hidden'
+                }
+              >
+                <div className="h-full min-h-0 space-y-1 overflow-y-auto pr-1">
+                  {visibleRuntimeEvents.length > 0 ? (
+                    visibleRuntimeEvents.map((event) => (
+                      <div key={event.id}>
+                        <RuntimeEventRenderer
+                          event={event}
+                          isCurrent={currentReplayEvent?.id === event.id}
+                          onClick={handleRuntimeEventClick}
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="px-2 py-1 text-xs text-neutral-500 dark:text-slate-400">
+                      No events applied
+                    </div>
+                  )}
+                </div>
+                {runtimePanelDetailEvent ? (
+                  <div
+                    className="min-h-0 space-y-2 overflow-y-auto rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2 text-xs dark:border-white/10 dark:bg-white/4 dark:text-slate-300"
+                    aria-label="Runtime event details"
                   >
-                    {speed}x
-                  </button>
-                ))}
-              </div>
-              <input
-                type="range"
-                min={0}
-                max={runtimeEventCount}
-                value={activeRuntimeEventCount}
-                className="h-2 w-full accent-sky-600"
-                aria-label="Runtime event replay position"
-                onChange={(event) => scrubRuntimeReplay(Number(event.target.value))}
-              />
-            </div>
-            <div
-              className={
-                runtimePanelShowsDetails
-                  ? 'grid min-h-0 flex-1 grid-cols-[minmax(0,20rem)_minmax(18rem,1fr)] gap-2 overflow-hidden'
-                  : 'min-h-0 flex-1 overflow-hidden'
-              }
-            >
-              <div className="h-full min-h-0 space-y-1 overflow-y-auto pr-1">
-                {visibleRuntimeEvents.length > 0 ? (
-                  visibleRuntimeEvents.map((event) => (
-                    <div key={event.id}>
-                      <RuntimeEventRenderer
-                        event={event}
-                        isCurrent={currentReplayEvent?.id === event.id}
-                        onClick={handleRuntimeEventClick}
-                      />
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-2 py-1 text-xs text-neutral-500 dark:text-slate-400">
-                    No events applied
-                  </div>
-                )}
-              </div>
-              {runtimePanelDetailEvent ? (
-                <div
-                  className="min-h-0 space-y-2 overflow-y-auto rounded-md border border-neutral-200 bg-neutral-50 px-2 py-2 text-xs dark:border-white/10 dark:bg-white/4 dark:text-slate-300"
-                  aria-label="Runtime event details"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="truncate font-medium text-neutral-800 dark:text-slate-100">
-                        {runtimePanelDetailEvent.type}
-                      </div>
-                      <div className="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-slate-400">
-                        {runtimePanelDetailEvent.timestamp}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-1">
-                      {runtimePanelDetailEvent.status ? (
-                        <span className="rounded-full bg-white px-2 py-0.5 text-[11px] capitalize text-neutral-600 dark:bg-slate-950/78 dark:text-slate-300">
-                          {runtimePanelDetailEvent.status}
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-300 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
-                        aria-label="Close runtime event details"
-                        onClick={closeRuntimeEventDetails}
-                      >
-                        Close
-                      </button>
-                    </div>
-                  </div>
-                  <div className="rounded border border-neutral-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950/78">
-                    <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
-                      Summary
-                    </div>
-                    <dl className="grid gap-1 text-[11px]">
-                      <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
-                        <dt className="text-neutral-500 dark:text-slate-400">Type</dt>
-                        <dd className="truncate text-neutral-800 dark:text-slate-200">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate font-medium text-neutral-800 dark:text-slate-100">
                           {runtimePanelDetailEvent.type}
-                        </dd>
+                        </div>
+                        <div className="mt-0.5 truncate text-[11px] text-neutral-500 dark:text-slate-400">
+                          {runtimePanelDetailEvent.timestamp}
+                        </div>
                       </div>
-                      {runtimePanelDetailEvent.status ? (
-                        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
-                          <dt className="text-neutral-500 dark:text-slate-400">Status</dt>
-                          <dd className="truncate capitalize text-neutral-800 dark:text-slate-200">
+                      <div className="flex shrink-0 items-center gap-1">
+                        {runtimePanelDetailEvent.status ? (
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] capitalize text-neutral-600 dark:bg-slate-950/78 dark:text-slate-300">
                             {runtimePanelDetailEvent.status}
-                          </dd>
-                        </div>
-                      ) : null}
-                      {selectedRuntimeTarget ? (
-                        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
-                          <dt className="text-neutral-500 dark:text-slate-400">Target</dt>
-                          <dd className="truncate text-neutral-800 dark:text-slate-200">
-                            {selectedRuntimeTarget}
-                          </dd>
-                        </div>
-                      ) : null}
-                      {selectedRuntimeSummary ? (
-                        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
-                          <dt className="text-neutral-500 dark:text-slate-400">Payload</dt>
-                          <dd className="truncate text-neutral-800 dark:text-slate-200">
-                            {selectedRuntimeSummary}
-                          </dd>
-                        </div>
-                      ) : null}
-                    </dl>
-                  </div>
-                  {selectedRuntimeTarget ? (
-                    <div className="sr-only mt-2 truncate text-[11px] text-neutral-500 dark:text-slate-400">
-                      Target: {selectedRuntimeTarget}
+                          </span>
+                        ) : null}
+                        <button
+                          type="button"
+                          className="rounded border border-neutral-200 bg-white px-2 py-0.5 text-[11px] text-neutral-600 hover:border-sky-300 hover:text-sky-700 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-300 dark:hover:border-sky-300/40 dark:hover:text-sky-200"
+                          aria-label="Close runtime event details"
+                          onClick={closeRuntimeEventDetails}
+                        >
+                          Close
+                        </button>
+                      </div>
                     </div>
-                  ) : null}
-                  {selectedRuntimeTimingRows.length > 0 ? (
                     <div className="rounded border border-neutral-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950/78">
                       <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
-                        Timing
+                        Summary
                       </div>
                       <dl className="grid gap-1 text-[11px]">
-                        {selectedRuntimeTimingRows.map((row) => (
-                          <div
-                            key={row.label}
-                            className="grid grid-cols-[72px_minmax(0,1fr)] gap-2"
-                          >
-                            <dt className="text-neutral-500 dark:text-slate-400">{row.label}</dt>
-                            <dd className="truncate text-neutral-800 dark:text-slate-200">
-                              {row.value}
+                        <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
+                          <dt className="text-neutral-500 dark:text-slate-400">Type</dt>
+                          <dd className="truncate text-neutral-800 dark:text-slate-200">
+                            {runtimePanelDetailEvent.type}
+                          </dd>
+                        </div>
+                        {runtimePanelDetailEvent.status ? (
+                          <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
+                            <dt className="text-neutral-500 dark:text-slate-400">Status</dt>
+                            <dd className="truncate capitalize text-neutral-800 dark:text-slate-200">
+                              {runtimePanelDetailEvent.status}
                             </dd>
                           </div>
-                        ))}
+                        ) : null}
+                        {selectedRuntimeTarget ? (
+                          <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
+                            <dt className="text-neutral-500 dark:text-slate-400">Target</dt>
+                            <dd className="truncate text-neutral-800 dark:text-slate-200">
+                              {selectedRuntimeTarget}
+                            </dd>
+                          </div>
+                        ) : null}
+                        {selectedRuntimeSummary ? (
+                          <div className="grid grid-cols-[72px_minmax(0,1fr)] gap-2">
+                            <dt className="text-neutral-500 dark:text-slate-400">Payload</dt>
+                            <dd className="truncate text-neutral-800 dark:text-slate-200">
+                              {selectedRuntimeSummary}
+                            </dd>
+                          </div>
+                        ) : null}
                       </dl>
                     </div>
-                  ) : null}
-                  {selectedRuntimePayload ? (
-                    <details className="rounded border border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/78">
-                      <summary className="cursor-pointer px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
-                        Payload
-                      </summary>
-                      <pre className="max-h-32 overflow-auto border-t border-neutral-200 p-2 text-[11px] leading-4 text-neutral-700 dark:border-white/10 dark:text-slate-300">
-                        {selectedRuntimePayload}
-                      </pre>
-                    </details>
-                  ) : null}
-                  {selectedRuntimeMetadata ? (
-                    <details className="rounded border border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/78">
-                      <summary className="cursor-pointer px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
-                        Metadata
-                      </summary>
-                      <pre className="max-h-32 overflow-auto border-t border-neutral-200 p-2 text-[11px] leading-4 text-neutral-700 dark:border-white/10 dark:text-slate-300">
-                        {selectedRuntimeMetadata}
-                      </pre>
-                    </details>
-                  ) : null}
-                </div>
-              ) : null}
+                    {selectedRuntimeTarget ? (
+                      <div className="sr-only mt-2 truncate text-[11px] text-neutral-500 dark:text-slate-400">
+                        Target: {selectedRuntimeTarget}
+                      </div>
+                    ) : null}
+                    {selectedRuntimeTimingRows.length > 0 ? (
+                      <div className="rounded border border-neutral-200 bg-white p-2 dark:border-white/10 dark:bg-slate-950/78">
+                        <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+                          Timing
+                        </div>
+                        <dl className="grid gap-1 text-[11px]">
+                          {selectedRuntimeTimingRows.map((row) => (
+                            <div
+                              key={row.label}
+                              className="grid grid-cols-[72px_minmax(0,1fr)] gap-2"
+                            >
+                              <dt className="text-neutral-500 dark:text-slate-400">{row.label}</dt>
+                              <dd className="truncate text-neutral-800 dark:text-slate-200">
+                                {row.value}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </div>
+                    ) : null}
+                    {selectedRuntimePayload ? (
+                      <details className="rounded border border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/78">
+                        <summary className="cursor-pointer px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+                          Payload
+                        </summary>
+                        <pre className="max-h-32 overflow-auto border-t border-neutral-200 p-2 text-[11px] leading-4 text-neutral-700 dark:border-white/10 dark:text-slate-300">
+                          {selectedRuntimePayload}
+                        </pre>
+                      </details>
+                    ) : null}
+                    {selectedRuntimeMetadata ? (
+                      <details className="rounded border border-neutral-200 bg-white dark:border-white/10 dark:bg-slate-950/78">
+                        <summary className="cursor-pointer px-2 py-1.5 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+                          Metadata
+                        </summary>
+                        <pre className="max-h-32 overflow-auto border-t border-neutral-200 p-2 text-[11px] leading-4 text-neutral-700 dark:border-white/10 dark:text-slate-300">
+                          {selectedRuntimeMetadata}
+                        </pre>
+                      </details>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
       </div>
     </ReactFlowProvider>
   );

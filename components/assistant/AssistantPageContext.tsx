@@ -3,21 +3,14 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { assistantProviderMetadata } from '@/lib/assistant/providerManifest';
+import {
+  resolveAssistantRouteContext,
+  type AssistantPageSurface,
+  type AssistantSuggestedPrompt,
+} from '@/lib/assistant/pageContextCatalog';
 import type { JsonObject } from '@/types/api';
 
-export type AssistantPageSurface =
-  | 'assistant'
-  | 'workflow.list'
-  | 'workflow.detail'
-  | 'agent.list'
-  | 'runtime'
-  | 'runs.list'
-  | 'runs.detail'
-  | 'integrations'
-  | 'integrations.operations'
-  | 'memory'
-  | 'marketplace'
-  | 'unknown';
+export type { AssistantPageSurface, AssistantSuggestedPrompt };
 
 export interface AssistantPageEntity extends JsonObject {
   type: string;
@@ -51,11 +44,12 @@ export interface AssistantPageContextSnapshot extends JsonObject {
   selection?: AssistantPageSelection;
   summary?: JsonObject;
   allowedActions?: string[];
+  suggestedPrompts?: AssistantSuggestedPrompt[];
   recentRoutes?: string[];
   updatedAt: string;
 }
 
-interface AssistantPageContextInput extends JsonObject {
+export interface AssistantPageContextInput extends JsonObject {
   surface: AssistantPageSurface;
   route?: string;
   pathname?: string;
@@ -65,6 +59,7 @@ interface AssistantPageContextInput extends JsonObject {
   selection?: AssistantPageSelection;
   summary?: JsonObject;
   allowedActions?: string[];
+  suggestedPrompts?: AssistantSuggestedPrompt[];
   recentRoutes?: string[];
 }
 
@@ -93,6 +88,7 @@ function compactContext(context: AssistantPageContextSnapshot): AssistantPageCon
     selection: compactJsonObject(context.selection),
     summary: compactJsonObject(context.summary),
     allowedActions: context.allowedActions?.length ? context.allowedActions : undefined,
+    suggestedPrompts: context.suggestedPrompts?.length ? context.suggestedPrompts : undefined,
     recentRoutes: context.recentRoutes?.length ? context.recentRoutes : undefined,
   };
 }
@@ -103,13 +99,19 @@ function routeFrom(pathname: string, searchParams: { toString: () => string }) {
 }
 
 function defaultPageContext(pathname: string, searchParams: { toString: () => string }) {
+  const routeContext = resolveAssistantRouteContext(pathname);
   return compactContext({
-    surface: pathname === '/assistant' ? 'assistant' : 'unknown',
+    ...routeContext,
     route: routeFrom(pathname, searchParams),
     pathname,
-    title: null,
     updatedAt: new Date().toISOString(),
   });
+}
+
+function mergeUniqueStrings(...values: Array<string[] | undefined>) {
+  const merged = new Set<string>();
+  values.forEach((items) => items?.forEach((item) => merged.add(item)));
+  return merged.size > 0 ? Array.from(merged) : undefined;
 }
 
 export function AssistantPageContextProvider({ children }: { children: React.ReactNode }) {
@@ -124,17 +126,25 @@ export function AssistantPageContextProvider({ children }: { children: React.Rea
   const recentRoutes = useMemo(() => [route], [route]);
 
   const pageContext = useMemo(() => {
+    const routeContext = defaultPageContext(pathname, searchParams);
     if (!effectiveRegisteredContext) {
       return compactContext({
-        ...defaultPageContext(pathname, searchParams),
+        ...routeContext,
         recentRoutes,
       });
     }
 
     return compactContext({
+      ...routeContext,
       ...effectiveRegisteredContext,
       route: effectiveRegisteredContext.route ?? route,
       pathname: effectiveRegisteredContext.pathname ?? pathname,
+      allowedActions: mergeUniqueStrings(
+        routeContext.allowedActions,
+        effectiveRegisteredContext.allowedActions
+      ),
+      suggestedPrompts:
+        effectiveRegisteredContext.suggestedPrompts ?? routeContext.suggestedPrompts,
       recentRoutes,
       updatedAt: new Date().toISOString(),
     });

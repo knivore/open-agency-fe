@@ -17,7 +17,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     await syncCurrentBackendUser(user);
     const { id } = await params;
     if (!id) {
-      return NextResponse.json({ message: 'Workflow ID is required', status: 400 }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Workflow ID is required', status: 400 },
+        { status: 400 }
+      );
     }
     const response = await backendWorkflowsApi.getWorkflowRuntimeGovernance(
       id,
@@ -39,7 +42,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     await syncCurrentBackendUser(user);
     const { id } = await params;
     if (!id) {
-      return NextResponse.json({ message: 'Workflow ID is required', status: 400 }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Workflow ID is required', status: 400 },
+        { status: 400 }
+      );
     }
     const payload = await req.json();
     const response = await backendWorkflowsApi.updateWorkflowRuntimeGovernance(

@@ -2,8 +2,10 @@ import { expect, test } from '@playwright/test';
 
 const frontendBaseUrl = process.env.E2E_FRONTEND_URL ?? 'http://localhost:3000';
 const backendBaseUrl = process.env.E2E_BACKEND_URL ?? 'http://127.0.0.1:8000';
-const devAuthEmail = process.env.E2E_DEV_AUTH_EMAIL ?? process.env.DEV_AUTH_EMAIL ?? 'dev@example.com';
-const devAuthPassword = process.env.E2E_DEV_AUTH_PASSWORD ?? process.env.DEV_AUTH_PASSWORD ?? 'change-me';
+const devAuthEmail =
+  process.env.E2E_DEV_AUTH_EMAIL ?? process.env.DEV_AUTH_EMAIL ?? 'dev@example.com';
+const devAuthPassword =
+  process.env.E2E_DEV_AUTH_PASSWORD ?? process.env.DEV_AUTH_PASSWORD ?? 'change-me';
 const activeConversationStorageKey = 'agency.active_conversation_id';
 
 function workflowPayload(workflowId: string, workflowName: string) {
@@ -27,7 +29,10 @@ function workflowPayload(workflowId: string, workflowName: string) {
 }
 
 test.describe('workflow-builder protected execution', () => {
-  test('approves a protected workflow and renders execution lifecycle messages', async ({ page, request }) => {
+  test('approves a protected workflow and renders execution lifecycle messages', async ({
+    page,
+    request,
+  }) => {
     const workflowId = `workflow-protected-e2e-${Date.now()}`;
     const workflowName = `Protected E2E Workflow ${Date.now()}`;
 
@@ -55,27 +60,36 @@ test.describe('workflow-builder protected execution', () => {
     await expect(page.getByText(initialMessage)).toBeVisible();
     await expect(page.getByText(`I received your message: ${initialMessage}`)).toBeVisible();
 
-    await page.waitForFunction((storageKey) => window.localStorage.getItem(storageKey), activeConversationStorageKey);
-    const conversationId = await page.evaluate((storageKey) => window.localStorage.getItem(storageKey), activeConversationStorageKey);
+    await page.waitForFunction(
+      (storageKey) => window.localStorage.getItem(storageKey),
+      activeConversationStorageKey
+    );
+    const conversationId = await page.evaluate(
+      (storageKey) => window.localStorage.getItem(storageKey),
+      activeConversationStorageKey
+    );
     expect(conversationId).toBeTruthy();
 
     const executionPrompt = `Run protected workflow ${workflowName}`;
-    const inject = await request.post(`${backendBaseUrl}/conversations/${conversationId}/messages`, {
-      data: {
-        message: {
-          role: 'user',
-          message_type: 'user_text',
-          plain_text: executionPrompt,
-          content: {
-            text: executionPrompt,
-            execution_request: {
-              workflow_id: workflowId,
+    const inject = await request.post(
+      `${backendBaseUrl}/conversations/${conversationId}/messages`,
+      {
+        data: {
+          message: {
+            role: 'user',
+            message_type: 'user_text',
+            plain_text: executionPrompt,
+            content: {
+              text: executionPrompt,
+              execution_request: {
+                workflow_id: workflowId,
+              },
             },
           },
+          response_mode: 'sync',
         },
-        response_mode: 'sync',
-      },
-    });
+      }
+    );
 
     expect(inject.ok()).toBeTruthy();
 

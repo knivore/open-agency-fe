@@ -8,11 +8,19 @@ function workflowToolSecurity(security: Record<string, unknown>) {
   const connectorBindings = Array.isArray(security.connector_bindings)
     ? security.connector_bindings
     : [];
+  const allowShell = typeof security.allow_shell === 'boolean' ? security.allow_shell : undefined;
+  const sandboxRequired =
+    typeof security.sandbox_required === 'boolean' ? security.sandbox_required : undefined;
+  const requiresApproval =
+    typeof security.requires_approval === 'boolean' ? security.requires_approval : undefined;
 
-  // The backend workflow schema only accepts connector binding security for tools.
-  // Keep that supported shape and drop frontend-only risk metadata before validation.
+  // Shell execution is valid only when both the explicit opt-in and sandbox boundary
+  // survive the BFF sanitizer. Other risk metadata remains backend-owned.
   return {
     connector_bindings: connectorBindings,
+    ...(allowShell === undefined ? {} : { allow_shell: allowShell }),
+    ...(sandboxRequired === undefined ? {} : { sandbox_required: sandboxRequired }),
+    ...(requiresApproval === undefined ? {} : { requires_approval: requiresApproval }),
   };
 }
 

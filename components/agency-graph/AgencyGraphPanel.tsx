@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Compass,
   ExternalLink,
   Filter,
+  Keyboard,
   Maximize2,
   Minimize2,
   Pause,
@@ -47,6 +48,7 @@ import type {
 } from '@/modules/sigma-graph/types';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/library/shadcn/popover';
 import {
   Tooltip,
@@ -149,6 +151,12 @@ interface AgencyGraphPerformanceBudget {
   rootCacheMs: number;
 }
 
+function graphKeyboardTargetIsEditable(target: EventTarget | null) {
+  return target instanceof HTMLElement
+    ? Boolean(target.closest('input, select, textarea, button, [contenteditable="true"]'))
+    : false;
+}
+
 export default function AgencyGraphPanel({
   graphStatus,
   graphStatusError,
@@ -160,6 +168,8 @@ export default function AgencyGraphPanel({
   user,
 }: AgencyGraphPanelProps) {
   const graphSurfaceRef = useRef<HTMLElement | null>(null);
+  const graphSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const rootSearchInputRef = useRef<HTMLInputElement | null>(null);
   const hasAutoSelectedRunFallbackRef = useRef(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [rootType, setRootType] = useState<AgencyGraphRootType>('all');
@@ -187,6 +197,7 @@ export default function AgencyGraphPanel({
   const [autoFocusSelection] = useState(true);
   const [graphSearchQuery, setGraphSearchQuery] = useState('');
   const [rootSearchQuery, setRootSearchQuery] = useState('');
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const rotateGraph = (deltaDegrees: number) => {
     setGraphRotationAngle((current) => current + (deltaDegrees * Math.PI) / 180);
   };
@@ -810,6 +821,64 @@ export default function AgencyGraphPanel({
     () => (selectedNode ? eventDetailsForSelectedNode(selectedNode, fallbackEvents) : undefined),
     [fallbackEvents, selectedNode]
   );
+  const assistantPageContext = useMemo(
+    () => ({
+      surface: 'agency.graph' as const,
+      title: 'Agency Graph',
+      description:
+        'Operational relationships across workflows, agents, runs, memory, and incidents.',
+      entities: selectedNode
+        ? [
+            {
+              type: agencyGraphNodeCategory(selectedNode.type).toLowerCase(),
+              id: selectedNode.id,
+              name: selectedNode.label,
+            },
+          ]
+        : [],
+      selection: {
+        mode: graphViewMode,
+        graphNodeId: selectedNode?.id ?? null,
+        graphEdgeId: selectedEdge?.id ?? null,
+        runId: rootType === 'run' ? resolvedRunId : null,
+        workflowId: rootType === 'workflow' ? resolvedWorkflowId : null,
+        memoryId: rootType === 'memory' ? resolvedMemoryId : null,
+      },
+      summary: {
+        rootType,
+        rootLabel: selectedRootLabel,
+        renderMode: graphRenderMode,
+        nodeCount: displayTimelineDocument.nodes.length,
+        edgeCount: displayTimelineDocument.edges.length,
+        selectedNodeType: selectedNode?.type ?? null,
+        selectedNodeStatus: selectedNode ? statusBadgeValue(selectedNode) : null,
+        activeFilterCount: activeFilterSummaryCount,
+        graphAvailable: hasGraphData,
+      },
+      allowedActions: [
+        'graph.search',
+        'graph.focus',
+        'graph.explain',
+        ...(selectedNode ? ['graph.inspect_selection'] : []),
+      ],
+    }),
+    [
+      activeFilterSummaryCount,
+      displayTimelineDocument.edges.length,
+      displayTimelineDocument.nodes.length,
+      graphRenderMode,
+      graphViewMode,
+      hasGraphData,
+      resolvedMemoryId,
+      resolvedRunId,
+      resolvedWorkflowId,
+      rootType,
+      selectedEdge?.id,
+      selectedNode,
+      selectedRootLabel,
+    ]
+  );
+  useRegisterAssistantPageContext(assistantPageContext);
   const sigmaSettings = useMemo(
     () => ({
       defaultEdgeColor: graphCanvasTheme === 'light' ? '#94a3b8' : '#52525b',
@@ -888,6 +957,12 @@ export default function AgencyGraphPanel({
     runEventsError: runEventsQuery.error,
     supportsRunFallback,
   });
+  const focusGraphSearch = useCallback(() => {
+    setFiltersOpen(true);
+    window.requestAnimationFrame(() => {
+      (graphSearchInputRef.current ?? rootSearchInputRef.current)?.focus();
+    });
+  }, []);
 
   useEffect(() => {
     const handleFullscreenChange = () => {
@@ -896,6 +971,41 @@ export default function AgencyGraphPanel({
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
   }, []);
+  useEffect(() => {
+    const handleGraphShortcut = (event: KeyboardEvent) => {
+      if (event.key === '/' && !graphKeyboardTargetIsEditable(event.target)) {
+        event.preventDefault();
+        focusGraphSearch();
+        return;
+      }
+      if (event.key === 'Escape') {
+        if (filtersOpen) {
+          setFiltersOpen(false);
+          return;
+        }
+        if (hasSelection) {
+          setSelection({ nodeIds: [], edgeIds: [] });
+        }
+        return;
+      }
+      if (graphKeyboardTargetIsEditable(event.target)) {
+        return;
+      }
+      if (event.key === '0') {
+        event.preventDefault();
+        setGraphViewMode('global');
+        setSelection({ nodeIds: [], edgeIds: [] });
+        return;
+      }
+      if (event.key.toLowerCase() === 'f' && hasSelection) {
+        event.preventDefault();
+        setGraphViewMode('neighborhood');
+      }
+    };
+
+    window.addEventListener('keydown', handleGraphShortcut);
+    return () => window.removeEventListener('keydown', handleGraphShortcut);
+  }, [filtersOpen, focusGraphSearch, hasSelection]);
   useEffect(() => {
     if (
       hasAutoSelectedRunFallbackRef.current ||
@@ -962,11 +1072,11 @@ export default function AgencyGraphPanel({
       ref={graphSurfaceRef}
       className={`relative flex flex-1 flex-col overflow-hidden rounded-lg border ${
         graphThemeChrome.frame
-      } ${isFullscreen ? 'h-screen min-h-screen' : 'h-[calc(100vh-22rem)] min-h-130'}`}
+      } ${isFullscreen ? 'h-screen min-h-screen' : 'h-[68dvh] min-h-[28rem] sm:h-[calc(100vh-22rem)] sm:min-h-[32.5rem]'}`}
     >
       <TooltipProvider delayDuration={150}>
         <div
-          className={`absolute right-4 top-4 z-20 flex items-center gap-1 rounded-xl p-1 backdrop-blur ${graphThemeChrome.toolbar}`}
+          className={`absolute left-2 right-2 top-2 z-20 flex flex-wrap items-center justify-end gap-1 rounded-xl p-1 backdrop-blur sm:left-auto sm:right-4 sm:top-4 sm:flex-nowrap ${graphThemeChrome.toolbar}`}
         >
           <Tooltip>
             <TooltipTrigger asChild>
@@ -1007,7 +1117,7 @@ export default function AgencyGraphPanel({
             </TooltipContent>
           </Tooltip>
 
-          <Popover>
+          <Popover open={filtersOpen} onOpenChange={setFiltersOpen}>
             <Tooltip>
               <TooltipTrigger asChild>
                 <PopoverTrigger asChild>
@@ -1156,6 +1266,7 @@ export default function AgencyGraphPanel({
                       >
                         Search roots
                         <input
+                          ref={rootSearchInputRef}
                           aria-label="Agency graph root search"
                           className={graphFilterFieldClass}
                           placeholder={`Find ${rootTypeLabel(rootType).toLowerCase()} roots`}
@@ -1294,6 +1405,7 @@ export default function AgencyGraphPanel({
                         >
                           Search graph
                           <input
+                            ref={graphSearchInputRef}
                             aria-label="Agency graph search"
                             className={graphFilterFieldClass}
                             placeholder="Find visible nodes or edges"
@@ -1403,6 +1515,27 @@ export default function AgencyGraphPanel({
               </div>
             </PopoverContent>
           </Popover>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                aria-label="Open agency graph search and shortcuts"
+                className={graphThemeChrome.toolbarButton}
+                onClick={focusGraphSearch}
+              >
+                <Keyboard className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-xs">
+              <div className="flex flex-col gap-1 text-xs">
+                <p className="font-medium">Keyboard shortcuts</p>
+                <p>/ Search · F Focus selection · 0 Overview · Esc Clear</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
 
           <div
             className={`flex items-center rounded-full border px-1 py-1 ${
@@ -1636,9 +1769,24 @@ export default function AgencyGraphPanel({
         />
       )}
 
+      {hasGraphData && !hasSelection ? (
+        <div
+          className={`absolute bottom-3 left-3 right-3 z-10 rounded-xl border px-3 py-2.5 backdrop-blur md:hidden ${graphThemeChrome.legend}`}
+          aria-label="Agency graph mobile summary"
+        >
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="font-semibold">
+              {displayTimelineDocument.nodes.length} nodes · {displayTimelineDocument.edges.length}{' '}
+              links
+            </span>
+            <span className="text-muted-foreground">Tap a node to inspect</span>
+          </div>
+        </div>
+      ) : null}
+
       {hasGraphData ? (
         <div
-          className={`absolute bottom-4 left-4 z-10 w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl backdrop-blur ${graphThemeChrome.legend}`}
+          className={`absolute bottom-4 left-4 z-10 hidden w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl backdrop-blur md:block ${graphThemeChrome.legend}`}
         >
           <div className="h-px bg-linear-to-r from-sky-300/70 via-violet-300/45 to-amber-200/60" />
           <div className="p-3">
@@ -1649,7 +1797,7 @@ export default function AgencyGraphPanel({
 
       {hasGraphData && hasSelection ? (
         <div
-          className={`absolute bottom-4 right-4 z-10 flex max-h-[calc(100%-6rem)] w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl backdrop-blur ${graphThemeChrome.inspector}`}
+          className={`absolute bottom-3 left-3 right-3 z-10 flex max-h-[55%] overflow-hidden rounded-2xl backdrop-blur md:bottom-4 md:left-auto md:right-4 md:max-h-[calc(100%-6rem)] md:w-80 md:max-w-[calc(100%-2rem)] ${graphThemeChrome.inspector}`}
         >
           <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-sky-300/70 via-violet-300/45 to-amber-200/60" />
           <AgencyGraphSelectionInspector

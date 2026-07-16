@@ -1,32 +1,37 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { PUT } from '@/app/api/workflows/[id]/route';
+import { GET, PUT } from '@/app/api/workflows/[id]/route';
 
 const {
   backendWorkflowsApi,
+  backendUsersApi,
   getAuthenticatedUser,
   getInternalApiKey,
   syncCurrentBackendUser,
-  workflowsApi,
 } = vi.hoisted(() => ({
   backendWorkflowsApi: {
+    getWorkflow: vi.fn(),
     updateWorkflow: vi.fn(),
+  },
+  backendUsersApi: {
+    getUser: vi.fn(),
   },
   getAuthenticatedUser: vi.fn(),
   getInternalApiKey: vi.fn(),
   syncCurrentBackendUser: vi.fn(),
-  workflowsApi: {
-    getWorkflow: vi.fn(),
-  },
 }));
 
 vi.mock('@/lib/api/backend/users', () => ({
-  backendUserToUser: vi.fn(),
-  backendUsersApi: {},
+  backendUserToUser: (backendUser: { id: string; email: string; display_name: string }) => ({
+    id: backendUser.id,
+    email: backendUser.email,
+    name: backendUser.display_name,
+    image: null,
+  }),
+  backendUsersApi,
 }));
 
 vi.mock('@/lib/api/backend/workflows', () => ({
   backendWorkflowsApi,
-  workflowsApi,
 }));
 
 vi.mock('@/app/api/backend-users/utils', () => ({
@@ -53,7 +58,7 @@ describe('workflow detail route', () => {
     getAuthenticatedUser.mockResolvedValue(user);
     getInternalApiKey.mockReturnValue('internal-key');
     syncCurrentBackendUser.mockResolvedValue({});
-    workflowsApi.getWorkflow.mockResolvedValue({
+    backendWorkflowsApi.getWorkflow.mockResolvedValue({
       id: 'workflow-1',
       name: 'Existing Workflow',
       description: 'Existing description',
@@ -64,6 +69,35 @@ describe('workflow detail route', () => {
     backendWorkflowsApi.updateWorkflow.mockResolvedValue({
       id: 'workflow-1',
     });
+  });
+
+  it('forwards identity for workflow and owner reads', async () => {
+    backendWorkflowsApi.getWorkflow.mockResolvedValue({
+      id: 'workflow-1',
+      name: 'Existing Workflow',
+      metadata: {
+        owner_ids: ['owner-1'],
+        created_by: 'owner-1',
+      },
+    });
+    backendUsersApi.getUser.mockResolvedValue({
+      id: 'owner-1',
+      email: 'owner@example.com',
+      display_name: 'Owner',
+    });
+
+    const response = await GET(new Request('http://localhost/api/workflows/workflow-1'), {
+      params: Promise.resolve({ id: 'workflow-1' }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(syncCurrentBackendUser).toHaveBeenCalledWith(user);
+    expect(backendWorkflowsApi.getWorkflow).toHaveBeenCalledWith(
+      'workflow-1',
+      user,
+      'internal-key'
+    );
+    expect(backendUsersApi.getUser).toHaveBeenCalledWith('owner-1', user, 'internal-key');
   });
 
   it('preserves runtime adapter fields when saving a full workflow definition', async () => {
@@ -151,7 +185,7 @@ describe('workflow detail route', () => {
   });
 
   it('rejects stale full workflow saves when the backend revision has advanced', async () => {
-    workflowsApi.getWorkflow.mockResolvedValue({
+    backendWorkflowsApi.getWorkflow.mockResolvedValue({
       id: 'workflow-1',
       name: 'Existing Workflow',
       metadata: {},
@@ -449,5 +483,58 @@ describe('workflow detail route', () => {
         }),
       ],
     });
+  });
+
+  it('preserves explicit shell permission while stripping unsupported security metadata', async () => {
+    const request = new Request('http://localhost/api/workflows/workflow-1', {
+      method: 'PUT',
+      body: JSON.stringify({
+        id: 'workflow-1',
+        name: 'Updated Workflow',
+        description: 'Updated description',
+        nodes: [],
+        edges: [],
+        task_definitions: [],
+        agent_definitions: [
+          {
+            id: 'agent-a',
+            name: 'Agent A',
+            tool_ids: ['agency.command.run'],
+          },
+        ],
+        tool_definitions: [
+          {
+            id: 'agency.command.run',
+            name: 'run_command',
+            description: 'Run an approved local command.',
+            tool_type: 'shell_command',
+            security: {
+              allow_shell: true,
+              sandbox_required: true,
+              requires_approval: true,
+              risk_level: 'high',
+            },
+          },
+        ],
+      }),
+    });
+
+    await PUT(request, { params: Promise.resolve({ id: 'workflow-1' }) });
+
+    const payload = backendWorkflowsApi.updateWorkflow.mock.calls[0]?.[1];
+    expect(payload).toMatchObject({
+      tool_definitions: [
+        expect.objectContaining({
+          id: 'agency.command.run',
+          security: {
+            allow_shell: true,
+            connector_bindings: [],
+            sandbox_required: true,
+            requires_approval: true,
+          },
+        }),
+      ],
+    });
+    expect(payload.tool_definitions[0].security).not.toHaveProperty('risk_level');
   });
 });

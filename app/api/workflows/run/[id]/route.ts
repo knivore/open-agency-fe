@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { WorkflowExecutionStartPayload } from '@/types/workflows';
 import { executionsApi } from '@/lib/api/backend/executions';
-import { workflowsApi } from '@/lib/api/backend/workflows';
+import { backendWorkflowsApi } from '@/lib/api/backend/workflows';
 import { toAgentRun } from '@/lib/api/backend/agentTransforms';
 import { isApiError } from '@/lib/api/errors';
 import {
@@ -34,7 +34,10 @@ function isUnsupportedAdapterError(error: unknown) {
   }
 
   const details = typeof error.details === 'string' ? error.details : '';
-  return error.message.includes('is not supported by adapter') || details.includes('is not supported by adapter');
+  return (
+    error.message.includes('is not supported by adapter') ||
+    details.includes('is not supported by adapter')
+  );
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -45,19 +48,22 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return unauthorizedResponse();
     }
     await syncCurrentBackendUser(user);
+    const internalApiKey = getInternalApiKey();
     const body = (await request.json()) as RequestBody;
     const inputs = body.inputs ?? {};
     const tasks = body.taskOrder ?? [];
     const agentConfigs = body.agentConfigs;
-    const goalId = typeof body.goalId === 'string' && body.goalId.trim() ? body.goalId.trim() : null;
+    const goalId =
+      typeof body.goalId === 'string' && body.goalId.trim() ? body.goalId.trim() : null;
 
-    const workflow = await workflowsApi.getWorkflow(id);
+    const workflow = await backendWorkflowsApi.getWorkflow(id, user, internalApiKey);
     const preferredRuntimeAdapterId = preferredWorkflowRuntimeAdapterId(
       workflow.allowed_runtime_adapter_ids,
       workflow.default_runtime_adapter_id
     );
     const runtimeAdapterId = (body.runtimeAdapterId ?? preferredRuntimeAdapterId) || null;
-    const executionHost = normalizeExecutionHost(body.executionHost) ?? resolveWorkflowExecutionHost(workflow);
+    const executionHost =
+      normalizeExecutionHost(body.executionHost) ?? resolveWorkflowExecutionHost(workflow);
     const startExecution = (nextRuntimeAdapterId: string | null) => {
       // This BFF route exists to attach frontend-authenticated user context and
       // launch defaults. The backend still owns execution creation and runtime
@@ -90,12 +96,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           workflow_definition: workflowDefinition,
         },
         user,
-        getInternalApiKey()
+        internalApiKey
       );
     };
 
     const startedExecution = await startExecution(runtimeAdapterId).catch((error) => {
-      if (runtimeAdapterId !== preferredRuntimeAdapterId && preferredRuntimeAdapterId && isUnsupportedAdapterError(error)) {
+      if (
+        runtimeAdapterId !== preferredRuntimeAdapterId &&
+        preferredRuntimeAdapterId &&
+        isUnsupportedAdapterError(error)
+      ) {
         return startExecution(preferredRuntimeAdapterId);
       }
 

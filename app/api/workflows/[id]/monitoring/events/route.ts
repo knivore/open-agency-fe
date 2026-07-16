@@ -17,7 +17,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     await syncCurrentBackendUser(user);
     const { id } = await params;
     if (!id) {
-      return NextResponse.json({ message: 'Workflow ID is required', status: 400 }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Workflow ID is required', status: 400 },
+        { status: 400 }
+      );
     }
     const monitoringEvents = await backendWorkflowsApi.listWorkflowMonitoringEvents(
       id,

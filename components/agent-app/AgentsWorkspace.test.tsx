@@ -6,6 +6,7 @@ import type {
   ReactNode,
   TextareaHTMLAttributes,
 } from 'react';
+import { forwardRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -96,10 +97,15 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('@/components/library/shadcn/button', () => ({
-  Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>
-      {children}
-    </button>
+  buttonVariants: () => '',
+  Button: forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
+    function ButtonMock({ children, ...props }, ref) {
+      return (
+        <button ref={ref} type="button" {...props}>
+          {children}
+        </button>
+      );
+    }
   ),
 }));
 
@@ -158,6 +164,7 @@ function openToolGroup(name: RegExp | string) {
 }
 
 function openToolAssignment() {
+  fireEvent.click(screen.getByText('Tool access'));
   fireEvent.click(screen.getByRole('button', { name: /Tool assignment/i }));
 }
 
@@ -168,7 +175,7 @@ describe('AgentsWorkspace', () => {
     agentsApi.listAgentCatalog.mockResolvedValue([
       {
         id: 'agent-main-1',
-        name: 'Agency Assistant',
+        name: 'Open Agency Assistant',
         description: 'Default assistant',
         config: {
           instructions: 'Be helpful.',
@@ -255,7 +262,7 @@ describe('AgentsWorkspace', () => {
     });
     agentsApi.updateAgent.mockResolvedValue({
       id: 'agent-main-1',
-      name: 'Agency Assistant Updated',
+      name: 'Open Agency Assistant Updated',
     });
     agentsApi.createAgent.mockResolvedValue({
       id: 'agent-new-1',
@@ -288,7 +295,7 @@ describe('AgentsWorkspace', () => {
           exists: true,
           requires_review: true,
           high_risk: false,
-          reason: 'Existing Agency tool. Explicit approval is required before assignment.',
+          reason: 'Existing Open Agency tool. Explicit approval is required before assignment.',
         },
       ],
       suggested_handoff_agent_ids: [
@@ -298,7 +305,7 @@ describe('AgentsWorkspace', () => {
           matched_agent_id: 'agent-other-1',
           requires_review: true,
           reason:
-            'Matching Agency agent exists. Explicit approval is required before handoff assignment.',
+            'Matching Open Agency agent exists. Explicit approval is required before handoff assignment.',
         },
       ],
       warnings: [],
@@ -406,7 +413,7 @@ describe('AgentsWorkspace', () => {
     fireEvent.change(instructionsInput, { target: { value: 'Be extra helpful.' } });
     fireEvent.change(profileSelect, { target: { value: 'profile-3' } });
     fireEvent.click(searchToolCheckbox);
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
 
     await waitFor(() => {
       expect(conversationsApi.updateMainAgent).toHaveBeenCalledWith({
@@ -443,7 +450,7 @@ describe('AgentsWorkspace', () => {
       },
       {
         id: 'agent-main-1',
-        name: 'Agency Assistant',
+        name: 'Open Agency Assistant',
         description: 'Default assistant',
         config: {
           instructions: 'Be helpful.',
@@ -474,7 +481,7 @@ describe('AgentsWorkspace', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[1]);
     fireEvent.change(screen.getByLabelText('Persona'), { target: { value: 'persona-1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
 
     await waitFor(() => {
       expect(agentsApi.updateAgent).toHaveBeenCalledWith(
@@ -880,7 +887,7 @@ describe('AgentsWorkspace', () => {
     expect(screen.getByRole('checkbox', { name: /Capture Browser Screenshot/i })).toBeVisible();
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Select group' })[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
 
     await waitFor(() => {
       expect(agentsApi.updateAgent).toHaveBeenCalledWith(
@@ -901,10 +908,40 @@ describe('AgentsWorkspace', () => {
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[1]);
     fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirm delete' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
 
     await waitFor(() => {
       expect(agentsApi.deleteAgent).toHaveBeenCalledWith('agent-other-1');
     });
+  });
+
+  it('keeps agents usable when the optional tool catalog is unavailable', async () => {
+    toolsApi.listTools.mockRejectedValueOnce(
+      new Error('UndefinedColumnError: column tools.routing_json does not exist')
+    );
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Research Agent')).toBeInTheDocument();
+    expect(screen.getByText('Tool assignments are temporarily unavailable')).toBeInTheDocument();
+    expect(screen.queryByText(/UndefinedColumnError/i)).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Retry tools' })).toBeInTheDocument();
+  });
+
+  it('protects unsaved agent edits before closing the dialog', async () => {
+    renderWorkspace();
+
+    await screen.findByText('Research Agent');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[1]);
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Research Lead' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('heading', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Continue editing' }));
+    expect(screen.getByRole('heading', { name: 'Edit Research Agent' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
+    expect(screen.queryByRole('heading', { name: 'Edit Research Agent' })).not.toBeInTheDocument();
   });
 });

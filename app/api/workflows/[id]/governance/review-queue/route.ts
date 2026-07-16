@@ -17,7 +17,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     await syncCurrentBackendUser(user);
     const { id } = await params;
     if (!id) {
-      return NextResponse.json({ message: 'Workflow ID is required', status: 400 }, { status: 400 });
+      return NextResponse.json(
+        { message: 'Workflow ID is required', status: 400 },
+        { status: 400 }
+      );
     }
     const url = new URL(req.url);
     const limitValue = url.searchParams.get('limit');

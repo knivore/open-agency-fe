@@ -131,15 +131,17 @@ function ActionCard({ description, href, icon: Icon, title }: ActionCardProps) {
   return (
     <Link href={href} className="group block h-full outline-none">
       <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-(--agency-row-hover) group-focus-visible:ring-2 group-focus-visible:ring-ring">
-        <CardHeader>
-          <span className="mb-3 flex size-10 items-center justify-center rounded-lg border border-(--agency-shell-border) bg-background text-primary">
+        <CardContent className="flex h-full items-start gap-3 p-4 sm:pt-6">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-(--agency-shell-border) bg-background text-primary">
             <Icon className="size-[1.1rem] stroke-[1.75]" />
           </span>
-          <CardTitle className="text-base">{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="flex items-end justify-between gap-4">
-          <p className="text-sm leading-6 text-(--agency-shell-muted)">{description}</p>
-          <ArrowRight className="size-4 shrink-0 text-(--agency-shell-muted) transition-transform group-hover:translate-x-0.5" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-(--agency-shell-text)">{title}</span>
+            <span className="mt-1 block text-xs leading-5 text-(--agency-shell-muted)">
+              {description}
+            </span>
+          </span>
+          <ArrowRight className="mt-2 size-4 shrink-0 text-(--agency-shell-muted) transition-transform group-hover:translate-x-0.5" />
         </CardContent>
       </Card>
     </Link>
@@ -195,7 +197,7 @@ function QuickStartPath() {
               key={item.href}
               href={item.href}
               data-tone={item.tone}
-              className="agency-quick-start group relative flex min-h-40 flex-col gap-4 border-(--agency-shell-border) p-5 outline-none transition-colors hover:bg-(--agency-row-hover) focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:border-r md:last:border-r-0"
+              className="agency-quick-start group relative flex min-h-0 flex-col gap-3 border-b border-(--agency-shell-border) p-4 outline-none transition-colors last:border-b-0 hover:bg-(--agency-row-hover) focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring md:min-h-36 md:border-r md:border-b-0 md:p-5 md:last:border-r-0"
             >
               <div className="flex items-center justify-between gap-3">
                 <span className="agency-quick-start-icon flex size-9 items-center justify-center rounded-lg border">
@@ -242,32 +244,14 @@ export function FaqPage() {
 
       <QuickStartPath />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_18rem]">
-        <div className="flex flex-col gap-5">
-          {faqGroups.map((group) => (
-            <Card key={group.title}>
-              <CardHeader>
-                <CardTitle className="text-base">{group.title}</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Accordion type="single" collapsible className="w-full">
-                  {group.items.map((item) => (
-                    <AccordionItem key={item.question} value={item.question}>
-                      <AccordionTrigger className="text-left text-sm no-underline hover:no-underline">
-                        {item.question}
-                      </AccordionTrigger>
-                      <AccordionContent className="max-w-3xl text-sm leading-6 text-(--agency-shell-muted)">
-                        {item.answer}
-                      </AccordionContent>
-                    </AccordionItem>
-                  ))}
-                </Accordion>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <aside className="flex flex-col gap-4">
+      <section aria-labelledby="help-shortcuts-title">
+        <h2
+          id="help-shortcuts-title"
+          className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-(--agency-shell-muted)"
+        >
+          Helpful shortcuts
+        </h2>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <ActionCard
             icon={BotMessageSquare}
             title="Ask Assistant"
@@ -292,7 +276,31 @@ export function FaqPage() {
             description="Inspect the exact execution, events, artifacts, and approval state."
             href="/runs"
           />
-        </aside>
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-4">
+        {faqGroups.map((group) => (
+          <Card key={group.title}>
+            <CardHeader className="border-b border-(--agency-shell-border)">
+              <CardTitle className="text-base">{group.title}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Accordion type="single" collapsible className="w-full">
+                {group.items.map((item) => (
+                  <AccordionItem key={item.question} value={item.question}>
+                    <AccordionTrigger className="text-left text-sm no-underline hover:no-underline">
+                      {item.question}
+                    </AccordionTrigger>
+                    <AccordionContent className="max-w-4xl text-sm leading-6 text-(--agency-shell-muted)">
+                      {item.answer}
+                    </AccordionContent>
+                  </AccordionItem>
+                ))}
+              </Accordion>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   );

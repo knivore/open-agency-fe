@@ -129,9 +129,7 @@ export function applyPersonaAgentSnapshot(
   personaAgent: AgentDefinition,
   options: { preserveOverrides?: boolean } = {}
 ): AgentDefinition {
-  const overrideFields = options.preserveOverrides
-    ? personaAgentOverrideFieldsForAgent(agent)
-    : [];
+  const overrideFields = options.preserveOverrides ? personaAgentOverrideFieldsForAgent(agent) : [];
   const nextAgent: AgentDefinition = {
     ...agent,
     metadata: {

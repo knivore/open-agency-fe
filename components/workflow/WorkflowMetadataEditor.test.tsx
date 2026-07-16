@@ -52,6 +52,7 @@ function renderEditor(overrides?: Partial<React.ComponentProps<typeof WorkflowMe
       defaultRuntimeAdapterId="adapter-a"
       executionHost="local"
       restartActiveExecutions={false}
+      workflowMetadata={{}}
       workflowCapabilityTags={[]}
       visibleTaskDefinitions={[]}
       runtimeAdapters={[
@@ -72,6 +73,7 @@ function renderEditor(overrides?: Partial<React.ComponentProps<typeof WorkflowMe
       onDefaultRuntimeAdapterChange={() => {}}
       onExecutionHostChange={() => {}}
       onRestartActiveExecutionsChange={() => {}}
+      onWorkflowMetadataChange={() => {}}
       onWorkflowCapabilityTagsChange={() => {}}
       onSave={onSave}
       {...overrides}
@@ -109,6 +111,25 @@ describe('WorkflowMetadataEditor', () => {
     });
 
     expect(onRestartActiveExecutionsChange).toHaveBeenCalledWith(true);
+  });
+
+  it('enables a persistent monitor through workflow metadata', () => {
+    const onWorkflowMetadataChange = vi.fn();
+    renderEditor({ onWorkflowMetadataChange });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Persistent monitor' }));
+
+    expect(onWorkflowMetadataChange).toHaveBeenCalledWith({
+      execution_lifecycle: {
+        persistent_cycle: {
+          enabled: true,
+          failure_backoff_multiplier: 2,
+          interval_seconds: 60,
+          max_consecutive_failures: 5,
+          max_interval_seconds: 3600,
+        },
+      },
+    });
   });
 
   it('keeps WIP workflow capability controls hidden', () => {

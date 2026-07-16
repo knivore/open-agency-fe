@@ -5,7 +5,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'communications',
     name: 'Communications',
     description:
-      'Messaging, chat, and email connectors that can be connected through Agency-owned OneCLI setup sessions.',
+      'Messaging, chat, and email connectors that can be connected through Open Agency-owned OneCLI setup sessions.',
     providers: {
       Telegram: {
         backendKey: 'telegram-bot',
@@ -73,7 +73,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'productivity',
     name: 'Productivity',
     description:
-      'Work management and office-suite connectors available for Agency-owned OneCLI credential setup.',
+      'Work management and office-suite connectors available for Open Agency-owned OneCLI credential setup.',
     providers: {
       Notion: {
         backendKey: 'notion',
@@ -107,7 +107,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
       },
       Airtable: {
         backendKey: 'airtable',
-        authModel: 'api key',
+        authModel: 'personal access token',
         summary:
           'Structured workspace connector for lightweight CRM, ops queues, and table-driven workflows.',
         launchPriority: 'later',
@@ -133,7 +133,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'developer',
     name: 'Developer',
     description:
-      'Engineering-facing connectors available for Agency-owned OneCLI credential setup.',
+      'Engineering-facing connectors available for Open Agency-owned OneCLI credential setup.',
     providers: {
       GitHub: {
         backendKey: 'github',
@@ -151,14 +151,14 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
       },
       Sentry: {
         backendKey: 'sentry',
-        authModel: 'api key',
+        authModel: 'auth token',
         summary: 'Incident and error monitoring connector for alert enrichment and triage.',
         launchPriority: 'later',
         providerAliases: ['sentry'],
       },
       PagerDuty: {
         backendKey: 'pagerduty',
-        authModel: 'api key',
+        authModel: 'REST API token',
         summary: 'On-call and escalation connector for human-in-the-loop operational workflows.',
         launchPriority: 'later',
         providerAliases: ['pagerduty'],
@@ -169,7 +169,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'media-creative',
     name: 'Media & Creative',
     description:
-      'Creative and publishing connectors available for Agency-owned OneCLI credential setup.',
+      'Creative and publishing connectors available for Open Agency-owned OneCLI credential setup.',
     providers: {
       Figma: {
         backendKey: 'figma',
@@ -207,13 +207,13 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'home-tools',
     name: 'Smart Home',
     description:
-      'Smart-home and ambient-environment setup for Agency home automation, camera analysis, announcements, and room-aware actions.',
+      'Smart-home and ambient-environment setup for Open Agency home automation, camera analysis, announcements, and room-aware actions.',
     providers: {
       'Smart Home': {
         backendKey: 'home-assistant',
         authModel: 'access token',
         summary:
-          'Primary Agency Smart Home setup, currently implemented through a Home Assistant compatibility bridge for entity reads, safe actions, and camera-backed ambient reasoning.',
+          'Primary Open Agency Smart Home setup, currently implemented through a Home Assistant compatibility bridge for entity reads, safe actions, and camera-backed ambient reasoning.',
         launchPriority: 'now',
         providerAliases: ['home-assistant', 'home_assistant', 'homeassistant', 'smart-home'],
       },
@@ -223,7 +223,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'search-knowledge',
     name: 'Search / Knowledge',
     description:
-      'Retrieval and external knowledge connectors available for Agency-owned OneCLI credential setup.',
+      'Retrieval and external knowledge connectors available for Open Agency-owned OneCLI credential setup.',
     providers: {
       Perplexity: {
         backendKey: 'perplexity',
@@ -252,7 +252,7 @@ export const plannedIntegrationRegistry: IntegrationRegistryCategoryDefinition[]
     id: 'storage',
     name: 'Storage',
     description:
-      'File and object-store connectors available for Agency-owned OneCLI credential setup.',
+      'File and object-store connectors available for Open Agency-owned OneCLI credential setup.',
     providers: {
       S3: {
         backendKey: 's3',

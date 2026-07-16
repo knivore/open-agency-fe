@@ -110,7 +110,7 @@ export default function DocumentIngestionControl({
   conversationId = '',
   defaultTags = ['document'],
   defaultUploadMode = 'vector',
-  description = 'Drop a file or choose one from your computer. Agency will parse and chunk it automatically.',
+  description = 'Drop a file or choose one from your computer. Open Agency will parse and chunk it automatically.',
   compact = false,
   frame = 'card',
   lockedAgent = false,
@@ -372,8 +372,12 @@ export default function DocumentIngestionControl({
         {file ? (
           <div className="mt-3 flex min-w-0 items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950/78">
             <FileText className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
-            <span className="truncate font-medium text-slate-900 dark:text-slate-100">{file.name}</span>
-            <span className="shrink-0 text-slate-500 dark:text-slate-400">{formatFileSize(file.size)}</span>
+            <span className="truncate font-medium text-slate-900 dark:text-slate-100">
+              {file.name}
+            </span>
+            <span className="shrink-0 text-slate-500 dark:text-slate-400">
+              {formatFileSize(file.size)}
+            </span>
             <button
               type="button"
               className="ml-auto rounded-full p-1 text-slate-500 hover:bg-slate-200 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-white/8 dark:hover:text-slate-100"

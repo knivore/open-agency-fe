@@ -16,6 +16,7 @@ export async function getAuthenticatedUser(): Promise<AuthUser | null> {
 export function getInternalApiKey() {
   return (
     process.env.AGENCY_FE_BFF_IDENTITY_KEY ||
+    process.env.AGENCY_BACKEND_INTERNAL_API_KEY ||
     process.env.AGENCY_INTERNAL_API_KEY ||
     process.env.BACKEND_INTERNAL_API_KEY ||
     null
@@ -30,7 +31,13 @@ export function proxyErrorResponse(error: unknown) {
   if (isApiError(error)) {
     const status = error.status >= 200 && error.status <= 599 ? error.status : 502;
     return NextResponse.json(
-      { message: error.message, status, upstreamStatus: error.status, code: error.code, details: error.details },
+      {
+        message: error.message,
+        status,
+        upstreamStatus: error.status,
+        code: error.code,
+        details: error.details,
+      },
       { status }
     );
   }

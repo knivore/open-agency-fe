@@ -13,7 +13,10 @@ export const a2aApi = {
     return agencyApiClient.get<A2ATaskResponse>(backendRoutes.a2a.taskById(taskId));
   },
   postTaskMessage(taskId: string, payload: Record<string, unknown>) {
-    return agencyApiClient.post<Record<string, unknown>>(backendRoutes.a2a.taskMessages(taskId), payload);
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.a2a.taskMessages(taskId),
+      payload
+    );
   },
   listTaskArtifacts(taskId: string) {
     return agencyApiClient.get<Record<string, unknown>>(backendRoutes.a2a.taskArtifacts(taskId));

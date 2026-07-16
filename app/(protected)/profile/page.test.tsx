@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import ProfilePage from '@/app/(protected)/profile/page';
 
-const { apiTokensApi, profileApi, usersApi } = vi.hoisted(() => ({
+const { apiTokensApi, profileApi, signOut, usersApi } = vi.hoisted(() => ({
   apiTokensApi: {
     listTokens: vi.fn(),
     listScopes: vi.fn(),
@@ -15,16 +15,24 @@ const { apiTokensApi, profileApi, usersApi } = vi.hoisted(() => ({
       readSupported: true,
       writeSupported: true,
       plannedRoutes: ['/api-tokens', '/api-tokens/scopes'],
-      message: 'Backend API tokens are enabled.',
+      message: 'Automation keys are enabled.',
     })),
     getPublicEndpointInfo: vi.fn(),
+    getOpenVoiceStatus: vi.fn(),
+    updateOpenVoiceSettings: vi.fn(),
+    installOpenVoiceCheckpoints: vi.fn(),
+    testOpenVoice: vi.fn(),
   },
   usersApi: {
     getCurrentUser: vi.fn(),
+    updateCurrentUserProfile: vi.fn(),
+    updateLocalCredentials: vi.fn(),
   },
+  signOut: vi.fn(),
 }));
 
 vi.mock('next-auth/react', () => ({
+  signOut,
   useSession: () => ({
     status: 'authenticated',
     data: {
@@ -52,6 +60,21 @@ vi.mock('@/lib/api/backend/profile', () => ({
 
 vi.mock('@/lib/api/backend/users', () => ({
   usersApi,
+  getBackendUserProfilePreferences: (user?: {
+    display_name?: string | null;
+    metadata?: Record<string, unknown>;
+  }) => {
+    const candidate = user?.metadata?.profile_preferences;
+    const preferences =
+      candidate && typeof candidate === 'object' ? (candidate as Record<string, unknown>) : {};
+    return {
+      displayName:
+        typeof preferences.display_name === 'string'
+          ? preferences.display_name
+          : (user?.display_name ?? null),
+      timezone: typeof preferences.timezone === 'string' ? preferences.timezone : null,
+    };
+  },
 }));
 
 function renderPage() {
@@ -81,6 +104,37 @@ describe('ProfilePage', () => {
       display_name: 'Owner One',
       status: 'active',
       avatar_url: null,
+      local_credentials_enabled: true,
+      metadata: {
+        profile_preferences: {
+          display_name: 'Owner One',
+          timezone: 'Asia/Singapore',
+        },
+      },
+    });
+
+    usersApi.updateCurrentUserProfile.mockResolvedValue({
+      id: 'user-1',
+      email: 'owner@example.com',
+      display_name: 'Owner Preferred',
+      status: 'active',
+      avatar_url: null,
+      metadata: {
+        profile_preferences: {
+          display_name: 'Owner Preferred',
+          timezone: 'Asia/Singapore',
+        },
+      },
+    });
+
+    profileApi.getOpenVoiceStatus.mockResolvedValue({
+      optional: true,
+      ready: true,
+      supports_cloning: true,
+      runtime: { installed: true, root: '/opt/openvoice', revision: '74a1d147b17a8c3' },
+      checkpoints: { directory: '/data/checkpoints', installed: true, missing_files: [] },
+      settings: { default_voice: 'friendly', language: 'English' },
+      available_voices: ['friendly', 'cheerful'],
     });
 
     apiTokensApi.listTokens.mockResolvedValue({
@@ -94,6 +148,17 @@ describe('ProfilePage', () => {
           scopes: ['workflows:run'],
           revoked_at: null,
           last_used_at: '2026-05-07T06:00:00.000Z',
+        },
+        {
+          id: 'session-token-1',
+          owner_user_id: 'user-1',
+          name: 'Local auth session',
+          prefix: 'agt_session',
+          last4: 'abcd',
+          scopes: ['workflows:run'],
+          revoked_at: null,
+          last_used_at: '2026-05-07T06:30:00.000Z',
+          metadata: { issued_by: 'local_auth', session: true },
         },
       ],
     });
@@ -151,7 +216,7 @@ describe('ProfilePage', () => {
     vi.clearAllMocks();
   });
 
-  it('renders backend identity and existing token rows', async () => {
+  it('renders backend identity and automation keys without local auth sessions', async () => {
     renderPage();
 
     await waitFor(() => {
@@ -163,14 +228,39 @@ describe('ProfilePage', () => {
     expect(screen.getAllByText('workflows:run').length).toBeGreaterThan(0);
     expect(screen.getByText('Backend identity synced')).toBeInTheDocument();
     expect(screen.getByText('Integration Setup Details')).toBeInTheDocument();
-    expect(screen.getByText('Preferences')).toBeInTheDocument();
-    expect(screen.getByText('Diagnostics hidden')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Manage tunnel' })).toHaveAttribute(
+      'href',
+      '/setup#public-tunnel'
+    );
+    expect(screen.getByText('Personal settings')).toBeInTheDocument();
+    expect(screen.getByText('Local sign-in')).toBeInTheDocument();
+    expect(screen.getByText('Browser preferences')).toBeInTheDocument();
+    expect(screen.getByText('This browser')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Automation keys' })).toBeInTheDocument();
+    expect(screen.queryByText('Local auth session')).not.toBeInTheDocument();
     expect(screen.getByText('https://agency.trycloudflare.com')).toBeInTheDocument();
     expect(
       screen.getByText(
         'https://agency.trycloudflare.com/integrations/conversations/adapters/<provider>/webhook'
       )
     ).toBeInTheDocument();
+  });
+
+  it('saves account-scoped personal settings', async () => {
+    renderPage();
+
+    const displayNameInput = await screen.findByLabelText('Display name');
+    expect(screen.getByLabelText('Time zone')).toHaveValue('Asia/Singapore');
+    fireEvent.change(displayNameInput, { target: { value: 'Owner Preferred' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save personal settings' }));
+
+    await waitFor(() => {
+      expect(usersApi.updateCurrentUserProfile).toHaveBeenCalledWith({
+        display_name: 'Owner Preferred',
+        timezone: 'Asia/Singapore',
+      });
+    });
+    expect(await screen.findByText('Personal settings saved')).toBeInTheDocument();
   });
 
   it('stores the diagnostics workspace preference from the profile page', async () => {
@@ -185,7 +275,7 @@ describe('ProfilePage', () => {
     await waitFor(() => {
       expect(screen.getByText('Diagnostics visible')).toBeInTheDocument();
     });
-    expect(screen.getByRole('button', { name: 'Open Diagnostics' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Open Diagnostics' })).toHaveAttribute(
       'href',
       '/operations/diagnostics'
     );
@@ -210,17 +300,17 @@ describe('ProfilePage', () => {
     ).toBeInTheDocument();
   });
 
-  it('creates a token from the selected scopes and reveals it once', async () => {
+  it('creates an automation key from the selected scopes and reveals it once', async () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByLabelText('Token name')).toBeInTheDocument();
+      expect(screen.getByLabelText('Automation key name')).toBeInTheDocument();
     });
 
-    const tokenNameInput = screen.getByLabelText('Token name');
+    const tokenNameInput = screen.getByLabelText('Automation key name');
     fireEvent.change(tokenNameInput, { target: { value: 'Nightly runner' } });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create Token' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Create automation key' }));
 
     await waitFor(() => {
       expect(apiTokensApi.createToken).toHaveBeenCalledWith({
@@ -230,12 +320,12 @@ describe('ProfilePage', () => {
     });
 
     expect(
-      screen.getByText('Copy this token now. It will not be shown again.')
+      screen.getByText('Copy this automation key now. It will not be shown again.')
     ).toBeInTheDocument();
     expect(screen.getByText('agt_secret_token')).toBeInTheDocument();
   });
 
-  it('revokes an issued token from the table', async () => {
+  it('revokes an issued automation key from the table', async () => {
     renderPage();
 
     await waitFor(() => {

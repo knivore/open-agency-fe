@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { currentUserHeaders } from '@/lib/api/backend/identity';
+import { currentUserHeaders, localCredentialHeaders } from '@/lib/api/backend/identity';
 import type { AuthUser } from '@/types/auth';
 
 const user: AuthUser = {
@@ -27,5 +27,15 @@ describe('currentUserHeaders', () => {
 
   it('does not emit an empty internal credential header', () => {
     expect(currentUserHeaders(user)).not.toHaveProperty('x-agency-internal-api-key');
+  });
+
+  it('forwards the authenticated bearer for sensitive backend operations', () => {
+    expect(localCredentialHeaders({ ...user, accessToken: 'agt_session' })).toHaveProperty(
+      'Authorization',
+      'Bearer agt_session'
+    );
+    expect(localCredentialHeaders({ ...user, accessToken: 'dev-fallback' })).not.toHaveProperty(
+      'Authorization'
+    );
   });
 });

@@ -85,9 +85,14 @@ import {
   createGraphEdgeId,
 } from '@/modules/react-flow-graph/ids';
 import { createGraphDefinition } from '@/modules/react-flow-graph/definition';
-import GraphCanvas, { graphBuiltInToolbarActionIds } from '@/modules/react-flow-graph/GraphCanvas';
+import GraphCanvas, {
+  graphBuiltInToolbarActionIds,
+} from '@/modules/react-flow-graph/GraphCanvas';
 import { layoutGraphDocumentGrid } from '@/modules/react-flow-graph/layout';
-import { parseGraphDocumentJson, stringifyGraphDocument } from '@/modules/react-flow-graph/persistence';
+import {
+  parseGraphDocumentJson,
+  stringifyGraphDocument,
+} from '@/modules/react-flow-graph/persistence';
 import { validateGraphDocument } from '@/modules/react-flow-graph/validation';
 import type {
   GraphDocument,
@@ -252,7 +257,9 @@ Projects can render nodes without editing `modules/react-flow-graph`.
 
 ```tsx
 import { Handle, Position } from '@xyflow/react';
-import GraphCanvas, { type GraphNodeRendererProps } from '@/modules/react-flow-graph/GraphCanvas';
+import GraphCanvas, {
+  type GraphNodeRendererProps,
+} from '@/modules/react-flow-graph/GraphCanvas';
 
 function PersonNode({
   node,
@@ -390,9 +397,7 @@ Many apps will prefer an external drawer instead of the built-in inspector. Use 
 Palette items create generic nodes. Toolbar actions can use built-in graph actions or project actions.
 
 ```tsx
-import {
-  graphBuiltInToolbarActionIds,
-} from '@/modules/react-flow-graph/GraphCanvas';
+import { graphBuiltInToolbarActionIds } from '@/modules/react-flow-graph/GraphCanvas';
 import type { GraphToolbarAction } from '@/modules/react-flow-graph/types';
 
 const toolbarActions: GraphToolbarAction[] = [

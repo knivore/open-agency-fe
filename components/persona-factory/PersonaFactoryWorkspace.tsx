@@ -32,16 +32,12 @@ import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionC
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
 import PageHeader from '@/components/app-shell/PageHeader';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/library/shadcn/dialog';
+import { DialogClose } from '@/components/library/shadcn/dialog';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
+import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import { Input } from '@/components/library/shadcn/input';
 import { Label } from '@/components/library/shadcn/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
@@ -126,6 +122,16 @@ interface SourceRedistillComparison {
   sourceKey: string;
   supersededItems: PersonaDistillationItem[];
   createdItems: PersonaDistillationItem[];
+}
+
+interface CreatePersonaDraftSnapshot {
+  description: string;
+  distillationMode: PersonaDistillationMode;
+  governance: Record<string, string>;
+  llmModelSource: PersonaLLMModelSource;
+  modelProfileId: string;
+  name: string;
+  selectedMemoryIds: string[];
 }
 
 const GOVERNANCE_KEYS = [
@@ -634,11 +640,19 @@ export default function PersonaFactoryWorkspace({
     name: '',
     personaId: '',
   });
-  const [personaDeleteMode, setPersonaDeleteMode] = useState(false);
   const [modelProfileId, setModelProfileId] = useState('');
   const [distillationMode, setDistillationMode] = useState<PersonaDistillationMode>('llm');
   const [llmModelSource, setLlmModelSource] = useState<PersonaLLMModelSource>('main_agent');
   const [selectedMemoryIds, setSelectedMemoryIds] = useState<string[]>([]);
+  const [createDraftBaseline, setCreateDraftBaseline] = useState<CreatePersonaDraftSnapshot>({
+    description: '',
+    distillationMode: 'llm',
+    governance: {},
+    llmModelSource: 'main_agent',
+    modelProfileId: '',
+    name: '',
+    selectedMemoryIds: [],
+  });
   const [activeResult, setActiveResult] = useState<PersonaDistillResult | null>(null);
   const activeRunId = activeResult?.run.id ?? '';
   const [items, setItems] = useState<PersonaDistillationItem[]>([]);
@@ -715,6 +729,42 @@ export default function PersonaFactoryWorkspace({
   const [runtimeResponse, setRuntimeResponse] = useState<ConversationPostMessageResponse | null>(
     null
   );
+
+  const currentCreateDraft = useMemo<CreatePersonaDraftSnapshot>(
+    () => ({
+      description: personaDescription,
+      distillationMode,
+      governance,
+      llmModelSource,
+      modelProfileId,
+      name: personaName,
+      selectedMemoryIds,
+    }),
+    [
+      distillationMode,
+      governance,
+      llmModelSource,
+      modelProfileId,
+      personaDescription,
+      personaName,
+      selectedMemoryIds,
+    ]
+  );
+  const createDraftDirty =
+    JSON.stringify(currentCreateDraft) !== JSON.stringify(createDraftBaseline);
+  const openCreatePersonaDialog = () => {
+    setCreateDraftBaseline(currentCreateDraft);
+    setIsCreateOpen(true);
+  };
+  const resetCreatePersonaDraft = () => {
+    setPersonaName(createDraftBaseline.name);
+    setPersonaDescription(createDraftBaseline.description);
+    setDistillationMode(createDraftBaseline.distillationMode);
+    setLlmModelSource(createDraftBaseline.llmModelSource);
+    setModelProfileId(createDraftBaseline.modelProfileId);
+    setSelectedMemoryIds(createDraftBaseline.selectedMemoryIds);
+    setGovernance(createDraftBaseline.governance);
+  };
 
   const personasQuery = useQuery({
     queryKey: queryKeys.backendPersonas(),
@@ -893,6 +943,8 @@ export default function PersonaFactoryWorkspace({
     sourceClassificationDraftState.sourceKey === sourceClassificationSourceKey
       ? sourceClassificationDraftState
       : defaultSourceClassificationDraft;
+  const sourceDetailDirty =
+    JSON.stringify(sourceClassificationDraft) !== JSON.stringify(defaultSourceClassificationDraft);
   const setSourceClassificationDraft = (
     nextDraft: SetStateAction<Omit<SourceClassificationDraft, 'sourceKey'>>
   ) => {
@@ -922,6 +974,15 @@ export default function PersonaFactoryWorkspace({
   const selectedItem = useMemo(
     () => items.find((item) => item.id === selectedItemId) ?? null,
     [items, selectedItemId]
+  );
+  const itemEditorDirty = Boolean(
+    selectedItem &&
+    (itemDraft.title !== selectedItem.title ||
+      itemDraft.content !== selectedItem.content ||
+      itemDraft.confidence !== String(selectedItem.confidence) ||
+      itemDraft.item_type !== selectedItem.item_type ||
+      itemDraft.memory_layer !== selectedItem.memory_layer ||
+      itemDraft.review_status !== selectedItem.review_status)
   );
 
   const selectedMemories = useMemo(() => {
@@ -1051,7 +1112,6 @@ export default function PersonaFactoryWorkspace({
     (persona: PersonaDefinition) => {
       setSelectedPersona(persona);
       seedDetailDraftForPersona(persona);
-      setPersonaDeleteMode(false);
       setGraphContextQuery('');
       setGraphContextPreset('persona_lineage');
       setRuntimeResponse(null);
@@ -1108,7 +1168,6 @@ export default function PersonaFactoryWorkspace({
   const deletePersonaMutation = useMutation({
     mutationFn: (personaId: string) => personasApi.archivePersona(personaId),
     onSuccess: () => {
-      setPersonaDeleteMode(false);
       setSelectedPersona(null);
       seedDetailDraftForPersona(null);
       clearActiveResultState();
@@ -1672,9 +1731,88 @@ export default function PersonaFactoryWorkspace({
             ? 5
             : activeLifecycleStep;
   const itemCatalog = itemTypesQuery.data;
-  const personas = personasQuery.data?.items ?? [];
+  const personas = useMemo(() => personasQuery.data?.items ?? [], [personasQuery.data?.items]);
   const activeResultBelongsToSelected =
     Boolean(activeResult) && (!selectedPersona || activeResult?.persona.id === selectedPersona.id);
+  const assistantPageContext = useMemo(
+    () => ({
+      surface: isDetailPage ? ('persona.detail' as const) : ('persona.list' as const),
+      title: isDetailPage ? (selectedPersona?.name ?? 'Persona detail') : 'Personas',
+      description: isDetailPage
+        ? 'Selected persona lineage, versions, package, review state, and runtime binding.'
+        : 'Reusable identities and expertise distilled from governed source material.',
+      entities: selectedPersona
+        ? [
+            {
+              type: 'persona',
+              id: selectedPersona.id,
+              name: selectedPersona.name,
+            },
+            ...(selectedItem
+              ? [
+                  {
+                    type: 'persona_item',
+                    id: selectedItem.id,
+                    name: selectedItem.title,
+                  },
+                ]
+              : []),
+            ...(selectedSourceMemory
+              ? [
+                  {
+                    type: 'memory',
+                    id: selectedSourceMemory.id,
+                    name: selectedSourceMemory.summary ?? selectedSourceMemory.id,
+                  },
+                ]
+              : []),
+          ]
+        : personas.slice(0, 8).map((persona) => ({
+            type: 'persona',
+            id: persona.id,
+            name: persona.name,
+          })),
+      selection: {
+        tab: activeTab,
+        personaId: selectedPersona?.id ?? null,
+        personaItemId: selectedItem?.id ?? null,
+        memoryId: selectedSourceMemory?.id ?? null,
+        runId: activeResult?.run.id ?? null,
+      },
+      summary: {
+        personaCount: personas.length,
+        selectedPersonaStatus: selectedPersona?.status ?? null,
+        selectedPersonaSlug: selectedPersona?.slug ?? null,
+        itemCount: items.length,
+        approvedItemCount: approvedCount,
+        rejectedItemCount: rejectedCount,
+        needsReviewItemCount: needsReviewCount,
+        sourceCount: selectedMemoryIds.length,
+        activeRunStatus: activeResult?.run.status ?? null,
+      },
+      allowedActions: [
+        'persona.inspect',
+        'persona.create',
+        ...(selectedPersona ? ['persona.update', 'persona.publish'] : []),
+        ...(activeResult ? ['persona.review', 'persona.test'] : []),
+      ],
+    }),
+    [
+      activeResult,
+      activeTab,
+      approvedCount,
+      isDetailPage,
+      items.length,
+      needsReviewCount,
+      personas,
+      rejectedCount,
+      selectedItem,
+      selectedMemoryIds.length,
+      selectedPersona,
+      selectedSourceMemory,
+    ]
+  );
+  useRegisterAssistantPageContext(assistantPageContext);
 
   function renderPersonaDetailSections() {
     if (!selectedPersona) {
@@ -1732,37 +1870,26 @@ export default function PersonaFactoryWorkspace({
               <Save className="mr-2 h-4 w-4" />
               Save persona
             </Button>
-            {personaDeleteMode ? (
-              <>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  disabled={deletePersonaMutation.isPending}
-                  onClick={() => deletePersonaMutation.mutate(selectedPersona.id)}
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  {deletePersonaMutation.isPending ? 'Deleting...' : 'Confirm delete'}
-                </Button>
+            <ConfirmActionDialog
+              trigger={
                 <Button
                   type="button"
                   variant="outline"
-                  disabled={deletePersonaMutation.isPending}
-                  onClick={() => setPersonaDeleteMode(false)}
+                  disabled={updatePersonaMutation.isPending || deletePersonaMutation.isPending}
                 >
-                  Cancel delete
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Delete persona
                 </Button>
-              </>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={updatePersonaMutation.isPending || deletePersonaMutation.isPending}
-                onClick={() => setPersonaDeleteMode(true)}
-              >
-                <Trash2 className="mr-2 h-4 w-4" />
-                Delete persona
-              </Button>
-            )}
+              }
+              title={`Delete ${selectedPersona.name}?`}
+              description="This archives the persona and removes it from active use. Published agents or workflows may need another persona before they can continue."
+              cancelLabel="Keep persona"
+              confirmLabel="Delete persona"
+              pendingLabel="Deleting..."
+              pending={deletePersonaMutation.isPending}
+              destructive
+              onConfirm={() => deletePersonaMutation.mutate(selectedPersona.id)}
+            />
           </div>
         </section>
 
@@ -1941,7 +2068,12 @@ export default function PersonaFactoryWorkspace({
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Personas
                 </Button>
-              ) : null}
+              ) : (
+                <Button type="button" onClick={openCreatePersonaDialog}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  New Persona
+                </Button>
+              )}
               <Button type="button" variant="outline" onClick={() => void personasQuery.refetch()}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
@@ -1951,70 +2083,57 @@ export default function PersonaFactoryWorkspace({
         />
 
         {!isDetailPage ? (
-          <section className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">
-            <div className="agency-card rounded-lg border border-dashed border-secondary-300 p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg border border-secondary-200 bg-secondary-50 text-secondary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
-                      <UserRoundCog className="h-4 w-4" />
-                    </span>
-                    <h2 className="text-base font-semibold text-slate-950 dark:text-slate-100">
-                      Create Persona
-                    </h2>
-                  </div>
-                  <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                    A persona is a governed runtime identity built from source material. It can
-                    represent professional expertise, a personal writing style, or a familiar
-                    relationship pattern when the source and consent labels support it.
-                  </p>
-                </div>
-              </div>
-              <div className="mt-5 space-y-2">
+          <section className="space-y-5">
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
+                Setup path
+              </p>
+              <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-primary/5 md:grid-cols-3 dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
                 <FactoryStepCard
                   index={1}
                   title="Add identity"
-                  description="Name and describe the persona. This is required."
+                  description="Name and describe the persona."
                 />
                 <FactoryStepCard
                   index={2}
                   title="Attach sources"
-                  description="Upload files or select existing memory. At least one source is required."
+                  description="Upload files or choose existing memory."
                 />
                 <FactoryStepCard
                   index={3}
                   title="Review and publish"
-                  description="Approve extracted items before the persona becomes usable."
+                  description="Approve extracted items before use."
                 />
               </div>
-              <Button
-                type="button"
-                className="mt-5 w-full justify-center"
-                onClick={() => setIsCreateOpen(true)}
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                New Persona
-              </Button>
             </div>
 
-            <section className="rounded-lg border border-primary-100 bg-white p-5 shadow-sm shadow-primary/5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-              <div className="flex flex-wrap items-center justify-between gap-3">
+            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-primary/5 dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
                 <div>
                   <h2 className="text-base font-semibold text-slate-950 dark:text-slate-100">
-                    Persona List
+                    Your personas
                   </h2>
                   <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    Existing drafts and published runtime identities.
+                    Draft and published identities available to your agents.
                   </p>
                 </div>
                 <Badge variant="secondary">{personas.length} total</Badge>
               </div>
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div
+                className={cn(
+                  'grid',
+                  personas.length > 0 && 'gap-3 p-5 md:grid-cols-2 xl:grid-cols-3'
+                )}
+              >
                 {personasQuery.isLoading ? (
-                  <LoadingCard title="Loading" description="Loading personas..." />
+                  <div className="p-5">
+                    <LoadingCard title="Loading" description="Loading personas..." />
+                  </div>
                 ) : null}
                 {personasQuery.isError ? (
-                  <ErrorAlert title="Personas unavailable" message="Failed to load personas." />
+                  <div className="p-5">
+                    <ErrorAlert title="Personas unavailable" message="Failed to load personas." />
+                  </div>
                 ) : null}
                 {personas.map((persona: PersonaDefinition) => {
                   const tone = personaCardTone(persona.status);
@@ -2075,11 +2194,37 @@ export default function PersonaFactoryWorkspace({
                   );
                 })}
                 {!personasQuery.isLoading && !personas.length ? (
-                  <div className="md:col-span-2 xl:col-span-3">
-                    <EmptyCard
-                      title="No personas"
-                      description="Create the first persona from source memory."
-                    />
+                  <div className="flex min-h-96 flex-col items-center justify-center px-6 py-12 text-center">
+                    <span className="flex size-14 items-center justify-center rounded-2xl border border-primary-200 bg-primary-50 text-primary-700 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-200">
+                      <UserRoundCog className="size-6" aria-hidden="true" />
+                    </span>
+                    <h3 className="mt-5 text-xl font-semibold text-slate-950 dark:text-slate-100">
+                      No personas yet
+                    </h3>
+                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-400">
+                      A persona is a reviewed identity built from source material. Start with a
+                      name, attach at least one source, then approve what it learns.
+                    </p>
+                    <Button type="button" className="mt-5" onClick={openCreatePersonaDialog}>
+                      <Plus className="mr-2 size-4" aria-hidden="true" />
+                      Create your first persona
+                    </Button>
+                    <div className="mt-8 grid w-full max-w-2xl gap-3 border-t border-slate-200 pt-6 text-left sm:grid-cols-3 dark:border-white/10">
+                      {[
+                        ['Identity', 'A clear name and short description.'],
+                        ['Source material', 'A file or saved memory to learn from.'],
+                        ['Review', 'Your approval before the persona is usable.'],
+                      ].map(([title, description]) => (
+                        <div key={title}>
+                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                            {title}
+                          </p>
+                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                            {description}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -2136,7 +2281,7 @@ export default function PersonaFactoryWorkspace({
                     title="Draft"
                     status={displayedLifecycleStep > 1 ? 'done' : 'active'}
                     actionLabel="Edit sources"
-                    onAction={() => setIsCreateOpen(true)}
+                    onAction={openCreatePersonaDialog}
                   />
                   <LifecycleStep
                     index={2}
@@ -2713,7 +2858,7 @@ export default function PersonaFactoryWorkspace({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-2">
-                  <Button type="button" onClick={() => setIsCreateOpen(true)}>
+                  <Button type="button" onClick={openCreatePersonaDialog}>
                     <Plus className="mr-2 h-4 w-4" />
                     New Draft
                   </Button>
@@ -2721,186 +2866,53 @@ export default function PersonaFactoryWorkspace({
               </div>
             </section>
           )
-        ) : !isDetailPage ? (
+        ) : !isDetailPage && personas.length > 0 ? (
           <section className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-sm text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
             Select a persona to load its latest distillation result, or create a new persona draft.
           </section>
         ) : null}
 
-        <Dialog open={isItemEditorOpen} onOpenChange={setIsItemEditorOpen}>
-          <DialogContent className="max-h-[88vh] max-w-5xl overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                {selectedItem ? displayItemTitle(selectedItem) : 'Review extracted item'}
-              </DialogTitle>
-              <DialogDescription>
-                This is something the persona may learn. Keep it if it is accurate, edit it if it
-                needs cleanup, or reject it if it should not be used.
-              </DialogDescription>
-            </DialogHeader>
-
-            {!selectedItem ? (
-              <EmptyCard
-                title="No item selected"
-                description="Select an extracted item from the review table."
-              />
-            ) : (
-              <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)]">
-                <section className="rounded-lg border border-primary-100 bg-primary-50/25 p-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-sm font-semibold text-slate-950">Review item</h2>
-                    <Badge variant="outline">{itemTypeLabel(selectedItem.item_type)}</Badge>
-                    <Badge
-                      variant={statusBadgeVariant(selectedItem.review_status)}
-                      className={statusBadgeClass(selectedItem.review_status)}
-                    >
-                      {selectedItem.review_status}
-                    </Badge>
-                  </div>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                    <Field label="Title" htmlFor="item-title">
-                      <Input
-                        id="item-title"
-                        value={itemDraft.title}
-                        onChange={(event) =>
-                          setItemDraft((current) => ({
-                            ...current,
-                            title: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <Field label="Confidence" htmlFor="item-confidence">
-                      <Input
-                        id="item-confidence"
-                        type="number"
-                        min="0"
-                        max="1"
-                        step="0.01"
-                        value={itemDraft.confidence}
-                        onChange={(event) =>
-                          setItemDraft((current) => ({
-                            ...current,
-                            confidence: event.target.value,
-                          }))
-                        }
-                      />
-                    </Field>
-                    <div className="lg:col-span-2">
-                      <Field label="Content" htmlFor="item-content">
-                        <Textarea
-                          id="item-content"
-                          rows={5}
-                          value={itemDraft.content}
-                          onChange={(event) =>
-                            setItemDraft((current) => ({
-                              ...current,
-                              content: event.target.value,
-                            }))
-                          }
-                        />
-                      </Field>
-                    </div>
-                    <FilterSelect
-                      label="Type"
-                      value={itemDraft.item_type}
-                      onChange={(value) =>
-                        setItemDraft((current) => ({
-                          ...current,
-                          item_type: value as PersonaItemType,
-                        }))
-                      }
-                    >
-                      {(itemCatalog?.item_types ?? []).map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
-                      ))}
-                    </FilterSelect>
-                    <FilterSelect
-                      label="Layer"
-                      value={itemDraft.memory_layer}
-                      onChange={(value) =>
-                        setItemDraft((current) => ({
-                          ...current,
-                          memory_layer: value as PersonaMemoryLayer,
-                        }))
-                      }
-                    >
-                      {(itemCatalog?.memory_layers ?? []).map((layer) => (
-                        <option key={layer} value={layer}>
-                          {layer}
-                        </option>
-                      ))}
-                    </FilterSelect>
-                    <FilterSelect
-                      label="Review"
-                      value={itemDraft.review_status}
-                      onChange={(value) =>
-                        setItemDraft((current) => ({
-                          ...current,
-                          review_status: value as PersonaItemReviewStatus,
-                        }))
-                      }
-                    >
-                      {(itemCatalog?.review_statuses ?? []).map((status) => (
-                        <option key={status} value={status}>
-                          {status}
-                        </option>
-                      ))}
-                    </FilterSelect>
-                  </div>
-                </section>
-
-                <div className="space-y-4">
-                  <DistillationProvenancePanel item={selectedItem} />
-
-                  <ReadOnlyDisclosure
-                    description="Reference only. This is the text the system used when it suggested the item."
-                    helpLabel="What is original source?"
-                    helpText="This section is not something to edit. Open it only if you want to verify that the suggested item matches the original document or memory."
-                    icon={<Eye className="h-4 w-4 text-primary-700" />}
-                    title="Original source"
-                  >
-                    <div className="max-h-80 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-3">
-                      {selectedSourceMemory ? (
-                        <div>
-                          <p className="text-sm font-medium text-slate-950">
-                            {memoryLabel(selectedSourceMemory)}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {memorySourceDetails(selectedSourceMemory)}
-                          </p>
-                          <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-700">
-                            {selectedSourceMemory.content}
-                          </p>
-                        </div>
-                      ) : (
-                        <p className="text-xs text-slate-500">
-                          This item does not have a linked source excerpt.
-                        </p>
-                      )}
-                    </div>
-                  </ReadOnlyDisclosure>
-                </div>
-              </div>
-            )}
-
-            <DialogFooter className="gap-2">
-              <Button type="button" variant="outline" onClick={() => setIsItemEditorOpen(false)}>
-                Close
-              </Button>
+        <AppDialog
+          open={isItemEditorOpen}
+          onOpenChange={setIsItemEditorOpen}
+          dirty={itemEditorDirty}
+          busy={
+            updateItemMutation.isPending ||
+            approveItemMutation.isPending ||
+            rejectItemMutation.isPending
+          }
+          onDiscard={() => {
+            if (!selectedItem) return;
+            setItemDraft({
+              title: selectedItem.title,
+              content: selectedItem.content,
+              confidence: String(selectedItem.confidence),
+              item_type: selectedItem.item_type,
+              memory_layer: selectedItem.memory_layer,
+              review_status: selectedItem.review_status,
+            });
+          }}
+          size="lg"
+          icon={<WandSparkles className="size-4" aria-hidden="true" />}
+          title={selectedItem ? displayItemTitle(selectedItem) : 'Review extracted item'}
+          description="Keep this extracted item if it is accurate, edit it when it needs cleanup, or reject it when the persona should not use it."
+          bodyClassName="flex flex-col gap-4"
+          footer={
+            <>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  Close
+                </Button>
+              </DialogClose>
               <Button
                 type="button"
                 variant="outline"
                 disabled={!selectedItem || rejectItemMutation.isPending}
                 onClick={() => {
-                  if (selectedItem) {
-                    rejectItemMutation.mutate(selectedItem.id);
-                  }
+                  if (selectedItem) rejectItemMutation.mutate(selectedItem.id);
                 }}
               >
-                <X className="mr-2 h-4 w-4" />
+                <X data-icon="inline-start" />
                 Reject
               </Button>
               <Button
@@ -2908,27 +2920,173 @@ export default function PersonaFactoryWorkspace({
                 variant="outline"
                 disabled={!selectedItem || approveItemMutation.isPending}
                 onClick={() => {
-                  if (selectedItem) {
-                    approveItemMutation.mutate(selectedItem.id);
-                  }
+                  if (selectedItem) approveItemMutation.mutate(selectedItem.id);
                 }}
               >
-                <Check className="mr-2 h-4 w-4" />
+                <Check data-icon="inline-start" />
                 Approve
               </Button>
               <Button
                 type="button"
+                variant="brand"
                 disabled={!selectedItem || updateItemMutation.isPending}
                 onClick={() => updateItemMutation.mutate()}
               >
-                <Save className="mr-2 h-4 w-4" />
+                <Save data-icon="inline-start" />
                 Save item
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </>
+          }
+        >
+          {!selectedItem ? (
+            <EmptyCard
+              title="No item selected"
+              description="Select an extracted item from the review table."
+            />
+          ) : (
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.75fr)]">
+              <section className="rounded-lg border border-primary-100 bg-primary-50/25 p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-sm font-semibold text-slate-950">Review item</h2>
+                  <Badge variant="outline">{itemTypeLabel(selectedItem.item_type)}</Badge>
+                  <Badge
+                    variant={statusBadgeVariant(selectedItem.review_status)}
+                    className={statusBadgeClass(selectedItem.review_status)}
+                  >
+                    {selectedItem.review_status}
+                  </Badge>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <Field label="Title" htmlFor="item-title">
+                    <Input
+                      id="item-title"
+                      value={itemDraft.title}
+                      onChange={(event) =>
+                        setItemDraft((current) => ({
+                          ...current,
+                          title: event.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <Field label="Confidence" htmlFor="item-confidence">
+                    <Input
+                      id="item-confidence"
+                      type="number"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={itemDraft.confidence}
+                      onChange={(event) =>
+                        setItemDraft((current) => ({
+                          ...current,
+                          confidence: event.target.value,
+                        }))
+                      }
+                    />
+                  </Field>
+                  <div className="lg:col-span-2">
+                    <Field label="Content" htmlFor="item-content">
+                      <Textarea
+                        id="item-content"
+                        rows={5}
+                        value={itemDraft.content}
+                        onChange={(event) =>
+                          setItemDraft((current) => ({
+                            ...current,
+                            content: event.target.value,
+                          }))
+                        }
+                      />
+                    </Field>
+                  </div>
+                  <FilterSelect
+                    label="Type"
+                    value={itemDraft.item_type}
+                    onChange={(value) =>
+                      setItemDraft((current) => ({
+                        ...current,
+                        item_type: value as PersonaItemType,
+                      }))
+                    }
+                  >
+                    {(itemCatalog?.item_types ?? []).map((type) => (
+                      <option key={type} value={type}>
+                        {type}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                  <FilterSelect
+                    label="Layer"
+                    value={itemDraft.memory_layer}
+                    onChange={(value) =>
+                      setItemDraft((current) => ({
+                        ...current,
+                        memory_layer: value as PersonaMemoryLayer,
+                      }))
+                    }
+                  >
+                    {(itemCatalog?.memory_layers ?? []).map((layer) => (
+                      <option key={layer} value={layer}>
+                        {layer}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                  <FilterSelect
+                    label="Review"
+                    value={itemDraft.review_status}
+                    onChange={(value) =>
+                      setItemDraft((current) => ({
+                        ...current,
+                        review_status: value as PersonaItemReviewStatus,
+                      }))
+                    }
+                  >
+                    {(itemCatalog?.review_statuses ?? []).map((status) => (
+                      <option key={status} value={status}>
+                        {status}
+                      </option>
+                    ))}
+                  </FilterSelect>
+                </div>
+              </section>
 
-        <Dialog
+              <div className="space-y-4">
+                <DistillationProvenancePanel item={selectedItem} />
+
+                <ReadOnlyDisclosure
+                  description="Reference only. This is the text the system used when it suggested the item."
+                  helpLabel="What is original source?"
+                  helpText="This section is not something to edit. Open it only if you want to verify that the suggested item matches the original document or memory."
+                  icon={<Eye className="h-4 w-4 text-primary-700" />}
+                  title="Original source"
+                >
+                  <div className="max-h-80 overflow-y-auto rounded-md border border-slate-200 bg-slate-50 p-3">
+                    {selectedSourceMemory ? (
+                      <div>
+                        <p className="text-sm font-medium text-slate-950">
+                          {memoryLabel(selectedSourceMemory)}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {memorySourceDetails(selectedSourceMemory)}
+                        </p>
+                        <p className="mt-2 whitespace-pre-wrap text-xs leading-5 text-slate-700">
+                          {selectedSourceMemory.content}
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-slate-500">
+                        This item does not have a linked source excerpt.
+                      </p>
+                    )}
+                  </div>
+                </ReadOnlyDisclosure>
+              </div>
+            </div>
+          )}
+        </AppDialog>
+
+        <AppDialog
           open={Boolean(bulkReviewConfirmAction)}
           onOpenChange={(open) => {
             if (!open) {
@@ -2937,76 +3095,36 @@ export default function PersonaFactoryWorkspace({
               bulkReviewPreviewMutation.reset();
             }
           }}
-        >
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>
-                {bulkReviewConfirmAction === 'reject'
-                  ? 'Reject filtered items?'
-                  : 'Approve filtered items?'}
-              </DialogTitle>
-              <DialogDescription>
-                This applies to reviewable items matching the current filters, not just the visible
-                page.
-              </DialogDescription>
-            </DialogHeader>
-            {bulkReviewPreviewMutation.data ? (
-              <div className="space-y-4">
-                <div className="grid gap-2 sm:grid-cols-4">
-                  <StepStat label="matched" value={bulkReviewPreviewMutation.data.matched_count} />
-                  <StepStat
-                    label="reviewable"
-                    value={bulkReviewPreviewMutation.data.reviewable_count}
-                  />
-                  <StepStat label="will update" value={bulkReviewPreviewMutation.data.count} />
-                  <StepStat label="limit" value={bulkReviewPreviewMutation.data.limit} />
-                </div>
-                {bulkReviewPreviewMutation.data.has_more ? (
-                  <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                    More matching reviewable items exist than the current bulk limit. Run this
-                    action again after the first batch completes.
-                  </p>
-                ) : null}
-                <div className="rounded-md border border-slate-200">
-                  <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium uppercase text-slate-500">
-                    Preview
-                  </div>
-                  <div className="max-h-72 divide-y divide-slate-200 overflow-y-auto">
-                    {bulkReviewPreviewMutation.data.items.map((item) => (
-                      <div key={item.id} className="px-3 py-2 text-sm">
-                        <p className="font-medium text-slate-950">{displayItemTitle(item)}</p>
-                        <p className="mt-1 line-clamp-2 text-xs text-slate-600">{item.content}</p>
-                        <p className="mt-1 text-[11px] text-slate-500">
-                          {itemTypeLabel(item.item_type)} · {item.memory_layer} ·{' '}
-                          {item.review_status}
-                        </p>
-                      </div>
-                    ))}
-                    {!bulkReviewPreviewMutation.data.items.length ? (
-                      <p className="px-3 py-6 text-center text-xs text-slate-500">
-                        No reviewable items match these filters.
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
+          busy={bulkReviewPreviewMutation.isPending || bulkReviewFilteredMutation.isPending}
+          size="md"
+          icon={
+            bulkReviewConfirmAction === 'reject' ? (
+              <X className="size-4" aria-hidden="true" />
             ) : (
-              <p className="text-sm text-slate-500">Loading filtered review preview...</p>
-            )}
-            <DialogFooter>
+              <CheckCircle2 className="size-4" aria-hidden="true" />
+            )
+          }
+          title={
+            bulkReviewConfirmAction === 'reject'
+              ? 'Reject filtered items?'
+              : 'Approve filtered items?'
+          }
+          description="This applies to reviewable items matching the current filters, not just the visible page."
+          bodyClassName="flex flex-col gap-4"
+          footer={
+            <>
+              <DialogClose asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={bulkReviewFilteredMutation.isPending}
+                >
+                  Cancel
+                </Button>
+              </DialogClose>
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => {
-                  setBulkReviewConfirmAction(null);
-                  setBulkReviewConfirmFilters(null);
-                  bulkReviewPreviewMutation.reset();
-                }}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
+                variant={bulkReviewConfirmAction === 'reject' ? 'destructive' : 'brand'}
                 disabled={
                   !bulkReviewConfirmAction ||
                   !bulkReviewPreviewMutation.data?.count ||
@@ -3023,11 +3141,54 @@ export default function PersonaFactoryWorkspace({
               >
                 {bulkReviewConfirmAction === 'reject' ? 'Reject filtered' : 'Approve filtered'}
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </>
+          }
+        >
+          {bulkReviewPreviewMutation.data ? (
+            <div className="space-y-4">
+              <div className="grid gap-2 sm:grid-cols-4">
+                <StepStat label="matched" value={bulkReviewPreviewMutation.data.matched_count} />
+                <StepStat
+                  label="reviewable"
+                  value={bulkReviewPreviewMutation.data.reviewable_count}
+                />
+                <StepStat label="will update" value={bulkReviewPreviewMutation.data.count} />
+                <StepStat label="limit" value={bulkReviewPreviewMutation.data.limit} />
+              </div>
+              {bulkReviewPreviewMutation.data.has_more ? (
+                <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  More matching reviewable items exist than the current bulk limit. Run this action
+                  again after the first batch completes.
+                </p>
+              ) : null}
+              <div className="rounded-md border border-slate-200">
+                <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium uppercase text-slate-500">
+                  Preview
+                </div>
+                <div className="max-h-72 divide-y divide-slate-200 overflow-y-auto">
+                  {bulkReviewPreviewMutation.data.items.map((item) => (
+                    <div key={item.id} className="px-3 py-2 text-sm">
+                      <p className="font-medium text-slate-950">{displayItemTitle(item)}</p>
+                      <p className="mt-1 line-clamp-2 text-xs text-slate-600">{item.content}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">
+                        {itemTypeLabel(item.item_type)} · {item.memory_layer} · {item.review_status}
+                      </p>
+                    </div>
+                  ))}
+                  {!bulkReviewPreviewMutation.data.items.length ? (
+                    <p className="px-3 py-6 text-center text-xs text-slate-500">
+                      No reviewable items match these filters.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-500">Loading filtered review preview...</p>
+          )}
+        </AppDialog>
 
-        <Dialog
+        <AppDialog
           open={Boolean(selectedSourceDetailKey)}
           onOpenChange={(open) => {
             if (!open) {
@@ -3035,666 +3196,667 @@ export default function PersonaFactoryWorkspace({
               setSourceDetailTab('overview');
             }
           }}
+          dirty={sourceDetailDirty}
+          busy={updateSourceClassificationMutation.isPending || redistillSourceMutation.isPending}
+          onDiscard={() => setSourceClassificationDraftState(defaultSourceClassificationDraft)}
+          size="lg"
+          icon={<Eye className="size-4" aria-hidden="true" />}
+          title={`Fix or re-check source: ${sourceDetailQuery.data?.source.label ?? 'Source'}`}
+          description="Use this when the system misunderstood the source type, or after re-checking a source to compare the result."
+          bodyClassName="flex flex-col gap-4"
+          footer={
+            <DialogClose asChild>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={
+                  updateSourceClassificationMutation.isPending || redistillSourceMutation.isPending
+                }
+              >
+                Close source
+              </Button>
+            </DialogClose>
+          }
         >
-          <DialogContent className="max-h-[88vh] max-w-4xl overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>
-                Fix or re-check source: {sourceDetailQuery.data?.source.label ?? 'Source'}
-              </DialogTitle>
-              <DialogDescription>
-                The extracted items are already in the review table. Use this only when the system
-                misunderstood the source type, or after you re-check a source and want to compare
-                the result.
-              </DialogDescription>
-            </DialogHeader>
-            {sourceDetailQuery.isLoading ? (
-              <LoadingCard title="Loading source" description="Loading source detail..." />
-            ) : null}
-            {sourceDetailQuery.data ? (
-              <div className="space-y-4">
-                <section className="grid gap-3 md:grid-cols-4">
-                  <StepStat label="items" value={sourceDetailQuery.data.source.item_count} />
-                  <StepStat
-                    label="review"
-                    value={sourceDetailQuery.data.source.needs_review_count}
-                  />
-                  <StepStat label="approved" value={sourceDetailQuery.data.source.approved_count} />
-                  <StepStat label="rejected" value={sourceDetailQuery.data.source.rejected_count} />
-                </section>
-                <Tabs
-                  value={sourceDetailTab}
-                  onValueChange={(value) => setSourceDetailTab(value as typeof sourceDetailTab)}
-                >
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="overview">Summary</TabsTrigger>
-                    <TabsTrigger value="correction">Fix source type</TabsTrigger>
-                    <TabsTrigger value="comparison">Re-check result</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="overview" className="mt-4 space-y-4">
-                    <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
-                      <div className="rounded-md border border-slate-200 bg-white p-4">
-                        <h3 className="text-sm font-semibold text-slate-950">
-                          How this source was read
-                        </h3>
-                        <p className="mt-1 text-xs text-slate-500">
-                          This is how the system treated the original document when it created the
-                          suggested persona items.
-                        </p>
+          {sourceDetailQuery.isLoading ? (
+            <LoadingCard title="Loading source" description="Loading source detail..." />
+          ) : null}
+          {sourceDetailQuery.data ? (
+            <div className="space-y-4">
+              <section className="grid gap-3 md:grid-cols-4">
+                <StepStat label="items" value={sourceDetailQuery.data.source.item_count} />
+                <StepStat label="review" value={sourceDetailQuery.data.source.needs_review_count} />
+                <StepStat label="approved" value={sourceDetailQuery.data.source.approved_count} />
+                <StepStat label="rejected" value={sourceDetailQuery.data.source.rejected_count} />
+              </section>
+              <Tabs
+                value={sourceDetailTab}
+                onValueChange={(value) => setSourceDetailTab(value as typeof sourceDetailTab)}
+              >
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="overview">Summary</TabsTrigger>
+                  <TabsTrigger value="correction">Fix source type</TabsTrigger>
+                  <TabsTrigger value="comparison">Re-check result</TabsTrigger>
+                </TabsList>
+                <TabsContent value="overview" className="mt-4 space-y-4">
+                  <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
+                    <div className="rounded-md border border-slate-200 bg-white p-4">
+                      <h3 className="text-sm font-semibold text-slate-950">
+                        How this source was read
+                      </h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        This is how the system treated the original document when it created the
+                        suggested persona items.
+                      </p>
+                      <dl className="mt-3 space-y-2 text-xs text-slate-600">
+                        <DetailRow
+                          label="Source type"
+                          value={sourceDetailQuery.data.source.classification}
+                        />
+                        <DetailRow
+                          label="Document kind"
+                          value={sourceDetailQuery.data.source.document_kind}
+                        />
+                        <DetailRow
+                          label="Upload mode"
+                          value={sourceDetailQuery.data.source.upload_mode ?? '-'}
+                        />
+                      </dl>
+                      <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
+                        <summary className="cursor-pointer text-xs font-medium text-slate-700">
+                          Show technical details
+                        </summary>
                         <dl className="mt-3 space-y-2 text-xs text-slate-600">
+                          <DetailRow label="Source id" value={sourceDetailQuery.data.source.key} />
                           <DetailRow
-                            label="Source type"
-                            value={sourceDetailQuery.data.source.classification}
-                          />
-                          <DetailRow
-                            label="Document kind"
-                            value={sourceDetailQuery.data.source.document_kind}
-                          />
-                          <DetailRow
-                            label="Upload mode"
-                            value={sourceDetailQuery.data.source.upload_mode ?? '-'}
+                            label="Content hash"
+                            value={sourceDetailQuery.data.source.content_sha256 ?? '-'}
                           />
                         </dl>
-                        <details className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-                          <summary className="cursor-pointer text-xs font-medium text-slate-700">
-                            Show technical details
-                          </summary>
-                          <dl className="mt-3 space-y-2 text-xs text-slate-600">
-                            <DetailRow
-                              label="Source id"
-                              value={sourceDetailQuery.data.source.key}
-                            />
-                            <DetailRow
-                              label="Content hash"
-                              value={sourceDetailQuery.data.source.content_sha256 ?? '-'}
-                            />
-                          </dl>
-                          <div className="mt-3 flex flex-wrap gap-1.5">
-                            {sourceDetailQuery.data.source.distillers.map((distiller) => (
-                              <Badge key={distiller} variant="outline">
-                                {distiller}
-                              </Badge>
-                            ))}
-                          </div>
-                        </details>
-                      </div>
-                      <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                        <h3 className="text-sm font-semibold text-slate-950">What you can do</h3>
-                        <p className="mt-1 text-xs text-slate-500">
-                          The normal review happens in the item table below this section. These
-                          actions apply to every item from this source.
-                        </p>
-                        <div className="mt-3 space-y-2">
-                          <Button
-                            type="button"
-                            className="w-full justify-start"
-                            variant="outline"
-                            onClick={() =>
-                              bulkReviewPreviewMutation.mutate({
-                                action: 'approve',
-                                filters: { source_key: sourceDetailQuery.data?.source.key },
-                              })
-                            }
-                          >
-                            <CheckCircle2 className="mr-2 h-4 w-4" />
-                            Approve all from this source
-                          </Button>
-                          <Button
-                            type="button"
-                            className="w-full justify-start"
-                            variant="outline"
-                            onClick={() =>
-                              bulkReviewPreviewMutation.mutate({
-                                action: 'reject',
-                                filters: { source_key: sourceDetailQuery.data?.source.key },
-                              })
-                            }
-                          >
-                            <X className="mr-2 h-4 w-4" />
-                            Reject all from this source
-                          </Button>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {sourceDetailQuery.data.source.distillers.map((distiller) => (
+                            <Badge key={distiller} variant="outline">
+                              {distiller}
+                            </Badge>
+                          ))}
                         </div>
-                      </div>
-                    </section>
-                    <SourceCorrectionImpact detail={sourceDetailQuery.data} />
-                  </TabsContent>
-                  <TabsContent value="comparison" className="mt-4">
-                    {sourceRedistillComparison?.sourceKey === sourceDetailQuery.data.source.key ? (
-                      <SourceRedistillComparisonPanel
-                        comparison={sourceRedistillComparison}
-                        onSelectItem={(item) => {
-                          selectItem(item);
-                          setSourceFilter(sourceDetailQuery.data?.source.key ?? 'all');
-                          setSelectedSourceDetailKey(null);
-                        }}
-                      />
-                    ) : (
-                      <EmptyCard
-                        title="No re-distill comparison yet"
-                        description="Save a correction and re-distill this source to compare superseded and newly extracted items."
-                      />
-                    )}
-                  </TabsContent>
-                  <TabsContent value="correction" className="mt-4">
-                    <section className="rounded-md border border-slate-200 bg-white p-4">
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                        <div>
-                          <h3 className="text-sm font-semibold text-slate-950">Fix source type</h3>
-                          <p className="mt-1 text-xs text-slate-500">
-                            Use this only if the system misunderstood what kind of document this is.
-                            After saving, re-check the source to regenerate affected draft items.
-                          </p>
-                        </div>
+                      </details>
+                    </div>
+                    <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
+                      <h3 className="text-sm font-semibold text-slate-950">What you can do</h3>
+                      <p className="mt-1 text-xs text-slate-500">
+                        The normal review happens in the item table below this section. These
+                        actions apply to every item from this source.
+                      </p>
+                      <div className="mt-3 space-y-2">
                         <Button
                           type="button"
-                          variant="outline"
-                          disabled={redistillSourceMutation.isPending}
-                          onClick={() => redistillSourceMutation.mutate()}
-                        >
-                          <RefreshCw className="mr-2 h-4 w-4" />
-                          Re-distill source
-                        </Button>
-                      </div>
-                      <div className="mt-4 grid gap-3 md:grid-cols-2">
-                        <Field label="Source type" htmlFor="source-classification">
-                          <select
-                            id="source-classification"
-                            value={sourceClassificationDraft.classification}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                classification: event.target.value,
-                              }))
-                            }
-                            className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none"
-                          >
-                            <option value="">Select classification</option>
-                            {(itemTypesQuery.data?.source_classifications ?? []).map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="Document kind" htmlFor="source-document-kind">
-                          <select
-                            id="source-document-kind"
-                            value={sourceClassificationDraft.documentKind}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                documentKind: event.target.value,
-                              }))
-                            }
-                            className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none"
-                          >
-                            <option value="">Select kind</option>
-                            {(itemTypesQuery.data?.document_kinds ?? []).map((value) => (
-                              <option key={value} value={value}>
-                                {value}
-                              </option>
-                            ))}
-                          </select>
-                        </Field>
-                        <Field label="What the source contains" htmlFor="source-content-roles">
-                          <Input
-                            id="source-content-roles"
-                            value={sourceClassificationDraft.contentRoles}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                contentRoles: event.target.value,
-                              }))
-                            }
-                            placeholder="workflow, domain_knowledge"
-                          />
-                        </Field>
-                        <Field label="Items to extract" htmlFor="source-extraction-targets">
-                          <Input
-                            id="source-extraction-targets"
-                            value={sourceClassificationDraft.extractionTargets}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                extractionTargets: event.target.value,
-                              }))
-                            }
-                            placeholder="workflow, decision_pattern"
-                          />
-                        </Field>
-                        <Field label="Memory categories" htmlFor="source-memory-layers">
-                          <Input
-                            id="source-memory-layers"
-                            value={sourceClassificationDraft.memoryLayers}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                memoryLayers: event.target.value,
-                              }))
-                            }
-                            placeholder="procedural, semantic"
-                          />
-                        </Field>
-                        <Field label="Search tags" htmlFor="source-vector-tags">
-                          <Input
-                            id="source-vector-tags"
-                            value={sourceClassificationDraft.vectorTags}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                vectorTags: event.target.value,
-                              }))
-                            }
-                            placeholder="release, approval"
-                          />
-                        </Field>
-                        <Field label="Confidence" htmlFor="source-confidence">
-                          <Input
-                            id="source-confidence"
-                            type="number"
-                            min="0"
-                            max="1"
-                            step="0.01"
-                            value={sourceClassificationDraft.confidence}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                confidence: event.target.value,
-                              }))
-                            }
-                            placeholder="optional"
-                          />
-                        </Field>
-                        <Field label="Rationale" htmlFor="source-rationale">
-                          <Input
-                            id="source-rationale"
-                            value={sourceClassificationDraft.rationale}
-                            onChange={(event) =>
-                              setSourceClassificationDraft((current) => ({
-                                ...current,
-                                rationale: event.target.value,
-                              }))
-                            }
-                            placeholder="optional reviewer note"
-                          />
-                        </Field>
-                      </div>
-                      <div className="mt-4 flex flex-wrap justify-end gap-2">
-                        <Button
-                          type="button"
+                          className="w-full justify-start"
                           variant="outline"
                           onClick={() =>
-                            setSourceClassificationDraft({
-                              classification: sourceDetailQuery.data?.source.classification ?? '',
-                              documentKind: sourceDetailQuery.data?.source.document_kind ?? '',
-                              contentRoles: csv(sourceDetailQuery.data?.source.content_roles),
-                              extractionTargets: csv(
-                                sourceDetailQuery.data?.source.extraction_targets
-                              ),
-                              memoryLayers: csv(sourceDetailQuery.data?.source.memory_layers),
-                              vectorTags: csv(sourceDetailQuery.data?.source.vector_tags),
-                              confidence: '',
-                              rationale: '',
+                            bulkReviewPreviewMutation.mutate({
+                              action: 'approve',
+                              filters: { source_key: sourceDetailQuery.data?.source.key },
                             })
                           }
                         >
-                          Reset
+                          <CheckCircle2 className="mr-2 h-4 w-4" />
+                          Approve all from this source
                         </Button>
                         <Button
                           type="button"
-                          disabled={updateSourceClassificationMutation.isPending}
+                          className="w-full justify-start"
+                          variant="outline"
                           onClick={() =>
-                            updateSourceClassificationMutation.mutate(sourceClassificationPayload())
+                            bulkReviewPreviewMutation.mutate({
+                              action: 'reject',
+                              filters: { source_key: sourceDetailQuery.data?.source.key },
+                            })
                           }
                         >
-                          <Save className="mr-2 h-4 w-4" />
-                          Save classification
+                          <X className="mr-2 h-4 w-4" />
+                          Reject all from this source
                         </Button>
                       </div>
-                    </section>
-                  </TabsContent>
-                </Tabs>
-              </div>
-            ) : null}
-          </DialogContent>
-        </Dialog>
-
-        <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-          <DialogContent className="max-h-[90vh] max-w-6xl overflow-y-auto dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(10,16,30,0.98),rgba(8,18,31,0.98))] dark:text-slate-100">
-            <DialogHeader>
-              <DialogTitle className="dark:text-slate-100">Create persona</DialogTitle>
-              <DialogDescription className="dark:text-slate-400">
-                Complete the required identity, distillation, and source steps. Optional settings
-                can be left on defaults.
-              </DialogDescription>
-            </DialogHeader>
-
-            <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/76">
-                <div className="space-y-3">
-                  <WorkflowStep
-                    index={1}
-                    label="Name"
-                    required
-                    done={personaName.trim().length > 0}
-                  />
-                  <WorkflowStep index={2} label="Distillation" done={Boolean(distillationMode)} />
-                  <WorkflowStep
-                    index={3}
-                    label="Sources"
-                    required
-                    done={selectedMemoryIds.length > 0}
-                  />
-                  <WorkflowStep
-                    index={4}
-                    label="Governance"
-                    done={Object.keys(governanceDefaults).length > 0}
-                  />
-                  <WorkflowStep index={5} label="Generate draft" done={Boolean(activeResult)} />
-                </div>
-                <div className="mt-5 grid grid-cols-2 gap-2 text-center">
-                  <StepStat label="selected" value={selectedMemoryIds.length} />
-                  <StepStat label="ready" value={canDistill ? 1 : 0} />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <div className="flex items-center gap-2">
-                    <UserRoundCog className="h-4 w-4 text-primary-700" />
-                    <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                      1. Identity
-                    </h2>
-                    <Badge variant="secondary">Required</Badge>
-                  </div>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-2">
-                    <Field label="Name" htmlFor="persona-name">
-                      <Input
-                        id="persona-name"
-                        value={personaName}
-                        onChange={(event) => setPersonaName(event.target.value)}
-                        placeholder="Audit Manager Persona"
-                      />
-                    </Field>
-                    <div className="lg:col-span-2">
-                      <Field label="Description (optional)" htmlFor="persona-description">
-                        <Textarea
-                          id="persona-description"
-                          value={personaDescription}
-                          onChange={(event) => setPersonaDescription(event.target.value)}
-                          rows={3}
-                          placeholder="Reviews evidence and drafts observations."
-                        />
-                      </Field>
                     </div>
-                  </div>
-                </section>
-
-                <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="h-4 w-4 text-primary-700" />
-                    <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                      2. Distillation
-                    </h2>
-                  </div>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                    <Field label="Distillation mode" htmlFor="persona-distillation-mode">
-                      <select
-                        id="persona-distillation-mode"
-                        value={distillationMode}
-                        onChange={(event) =>
-                          setDistillationMode(event.target.value as PersonaDistillationMode)
-                        }
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100"
-                      >
-                        {distillationModes.map((mode) => (
-                          <option key={mode} value={mode}>
-                            {mode === 'llm'
-                              ? 'LLM'
-                              : mode === 'hybrid'
-                                ? 'Hybrid'
-                                : 'Deterministic'}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field label="LLM source" htmlFor="persona-llm-model-source">
-                      <select
-                        id="persona-llm-model-source"
-                        value={llmModelSource}
-                        onChange={(event) =>
-                          setLlmModelSource(event.target.value as PersonaLLMModelSource)
-                        }
-                        disabled={!llmBackedMode}
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100"
-                      >
-                        {llmModelSources.map((source) => (
-                          <option key={source} value={source}>
-                            {source === 'main_agent' ? 'Main-agent default' : 'Model profile'}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                    <Field
-                      label={
-                        llmBackedMode && llmModelSource === 'model_profile'
-                          ? 'Model profile'
-                          : 'Model profile (optional)'
-                      }
-                      htmlFor="persona-model-profile"
-                    >
-                      <select
-                        id="persona-model-profile"
-                        value={modelProfileId}
-                        onChange={(event) => setModelProfileId(event.target.value)}
-                        disabled={
-                          profilesQuery.isLoading ||
-                          (llmBackedMode && llmModelSource === 'main_agent')
-                        }
-                        className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100"
-                      >
-                        <option value="">
-                          {profilesQuery.isLoading
-                            ? 'Loading model profiles...'
-                            : llmBackedMode && llmModelSource === 'model_profile'
-                              ? 'Select model profile'
-                              : 'Default model profile'}
-                        </option>
-                        {modelProfiles.map((profile) => (
-                          <option key={profile.id} value={profile.id}>
-                            {profile.name} · {profile.provider}/{profile.model}
-                          </option>
-                        ))}
-                      </select>
-                    </Field>
-                  </div>
-                </section>
-
-                <DocumentIngestionControl
-                  frame="inline"
-                  defaultTags={['persona-source', 'document']}
-                  purpose="persona_factory"
-                  title="Upload source material"
-                  description="New uploads are saved for retrieval and selected for this persona automatically."
-                  onSuggestedGovernanceLabels={(labels) => {
-                    setGovernance((current) => ({ ...current, ...labels }));
-                  }}
-                  onIngested={async (result) => {
-                    await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
-                    setSelectedMemoryIds((current) =>
-                      Array.from(new Set([...current, ...result.memory_ids]))
-                    );
-                  }}
-                />
-
-                <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex items-center gap-2">
-                      <Layers3 className="h-4 w-4 text-primary-700" />
-                      <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                        3. Select sources
-                      </h2>
-                      <Badge variant="secondary">Required</Badge>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">{selectedMemoryIds.length} selected</Badge>
+                  </section>
+                  <SourceCorrectionImpact detail={sourceDetailQuery.data} />
+                </TabsContent>
+                <TabsContent value="comparison" className="mt-4">
+                  {sourceRedistillComparison?.sourceKey === sourceDetailQuery.data.source.key ? (
+                    <SourceRedistillComparisonPanel
+                      comparison={sourceRedistillComparison}
+                      onSelectItem={(item) => {
+                        selectItem(item);
+                        setSourceFilter(sourceDetailQuery.data?.source.key ?? 'all');
+                        setSelectedSourceDetailKey(null);
+                      }}
+                    />
+                  ) : (
+                    <EmptyCard
+                      title="No re-distill comparison yet"
+                      description="Save a correction and re-distill this source to compare superseded and newly extracted items."
+                    />
+                  )}
+                </TabsContent>
+                <TabsContent value="correction" className="mt-4">
+                  <section className="rounded-md border border-slate-200 bg-white p-4">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-950">Fix source type</h3>
+                        <p className="mt-1 text-xs text-slate-500">
+                          Use this only if the system misunderstood what kind of document this is.
+                          After saving, re-check the source to regenerate affected draft items.
+                        </p>
+                      </div>
                       <Button
                         type="button"
                         variant="outline"
-                        size="sm"
-                        onClick={() => void memoriesQuery.refetch()}
+                        disabled={redistillSourceMutation.isPending}
+                        onClick={() => redistillSourceMutation.mutate()}
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className="mr-2 h-4 w-4" />
+                        Re-distill source
                       </Button>
                     </div>
-                  </div>
-                  <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
-                    Choose the memory records that should teach this persona what to know, how to
-                    decide, and how to communicate.
-                  </p>
-                  <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto pr-1 lg:grid-cols-2">
-                    {memoriesQuery.isLoading ? (
-                      <LoadingCard title="Loading" description="Loading source memory..." />
-                    ) : null}
-                    {memoriesQuery.isError ? (
-                      <ErrorAlert title="Memory unavailable" message="Failed to load memory." />
-                    ) : null}
-                    {(memoriesQuery.data?.items ?? []).map((memory) => (
-                      <label
-                        key={memory.id}
-                        className="flex min-h-24 cursor-pointer gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 hover:border-primary-200 hover:bg-white dark:border-white/10 dark:bg-white/4 dark:hover:border-sky-300/20 dark:hover:bg-white/6"
-                      >
-                        <input
-                          type="checkbox"
-                          className="mt-1 h-4 w-4"
-                          checked={selectedMemoryIds.includes(memory.id)}
-                          onChange={() => toggleMemory(memory.id)}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
-                            <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
-                              {memoryLabel(memory)}
-                            </span>
-                            {memory.memory_type ? (
-                              <Badge variant="secondary">{memory.memory_type}</Badge>
-                            ) : null}
-                          </div>
-                          <p className="mt-2 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">
-                            {summarizeMemory(memory)}
-                          </p>
-                          <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
-                            {memorySourceDetails(memory)}
-                          </p>
-                        </div>
-                      </label>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div>
-                      <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
-                        Selected source summary
-                      </h2>
-                      <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
-                        These records will be distilled into persona memory items.
-                      </p>
-                    </div>
-                    <Badge variant="secondary">{selectedMemories.length} selected</Badge>
-                  </div>
-                  {selectedMemories.length > 0 ? (
-                    <div className="mt-4 grid gap-2 lg:grid-cols-2">
-                      {selectedMemories.map((memory) => (
-                        <div
-                          key={memory.id}
-                          className="flex min-w-0 items-start justify-between gap-3 rounded-md border border-primary-100 bg-primary-50/40 px-3 py-2 dark:border-primary-300/14 dark:bg-primary-500/10"
+                    <div className="mt-4 grid gap-3 md:grid-cols-2">
+                      <Field label="Source type" htmlFor="source-classification">
+                        <select
+                          id="source-classification"
+                          value={sourceClassificationDraft.classification}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              classification: event.target.value,
+                            }))
+                          }
+                          className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none"
                         >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-950 dark:text-slate-100">
-                              {memoryLabel(memory)}
-                            </p>
-                            <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
-                              {memorySourceDetails(memory)}
-                            </p>
-                          </div>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            aria-label={`Remove ${memoryLabel(memory)} from selected sources`}
-                            onClick={() => removeSelectedMemory(memory.id)}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
+                          <option value="">Select classification</option>
+                          {(itemTypesQuery.data?.source_classifications ?? []).map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="Document kind" htmlFor="source-document-kind">
+                        <select
+                          id="source-document-kind"
+                          value={sourceClassificationDraft.documentKind}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              documentKind: event.target.value,
+                            }))
+                          }
+                          className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none"
+                        >
+                          <option value="">Select kind</option>
+                          {(itemTypesQuery.data?.document_kinds ?? []).map((value) => (
+                            <option key={value} value={value}>
+                              {value}
+                            </option>
+                          ))}
+                        </select>
+                      </Field>
+                      <Field label="What the source contains" htmlFor="source-content-roles">
+                        <Input
+                          id="source-content-roles"
+                          value={sourceClassificationDraft.contentRoles}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              contentRoles: event.target.value,
+                            }))
+                          }
+                          placeholder="workflow, domain_knowledge"
+                        />
+                      </Field>
+                      <Field label="Items to extract" htmlFor="source-extraction-targets">
+                        <Input
+                          id="source-extraction-targets"
+                          value={sourceClassificationDraft.extractionTargets}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              extractionTargets: event.target.value,
+                            }))
+                          }
+                          placeholder="workflow, decision_pattern"
+                        />
+                      </Field>
+                      <Field label="Memory categories" htmlFor="source-memory-layers">
+                        <Input
+                          id="source-memory-layers"
+                          value={sourceClassificationDraft.memoryLayers}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              memoryLayers: event.target.value,
+                            }))
+                          }
+                          placeholder="procedural, semantic"
+                        />
+                      </Field>
+                      <Field label="Search tags" htmlFor="source-vector-tags">
+                        <Input
+                          id="source-vector-tags"
+                          value={sourceClassificationDraft.vectorTags}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              vectorTags: event.target.value,
+                            }))
+                          }
+                          placeholder="release, approval"
+                        />
+                      </Field>
+                      <Field label="Confidence" htmlFor="source-confidence">
+                        <Input
+                          id="source-confidence"
+                          type="number"
+                          min="0"
+                          max="1"
+                          step="0.01"
+                          value={sourceClassificationDraft.confidence}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              confidence: event.target.value,
+                            }))
+                          }
+                          placeholder="optional"
+                        />
+                      </Field>
+                      <Field label="Rationale" htmlFor="source-rationale">
+                        <Input
+                          id="source-rationale"
+                          value={sourceClassificationDraft.rationale}
+                          onChange={(event) =>
+                            setSourceClassificationDraft((current) => ({
+                              ...current,
+                              rationale: event.target.value,
+                            }))
+                          }
+                          placeholder="optional reviewer note"
+                        />
+                      </Field>
                     </div>
-                  ) : (
-                    <p className="mt-4 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/4 dark:text-slate-400">
-                      Select existing memory records above or upload source files. Uploaded files
-                      become selectable source memory after ingestion completes.
-                    </p>
-                  )}
-                </section>
-
-                <UploadedDocumentsList
-                  scope="user"
-                  tagFilter="persona-source"
-                  title="Uploaded source files"
-                  description="Source files tagged for Persona Factory. Remove files here when they should no longer contribute source memory."
-                  emptyMessage="No Persona Factory source files uploaded yet."
-                />
-
-                <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
-                  <summary className="cursor-pointer text-sm font-semibold text-slate-950 dark:text-slate-100">
-                    4. Optional governance labels
-                  </summary>
-                  <div className="mt-4 grid gap-3 lg:grid-cols-3">
-                    {GOVERNANCE_KEYS.map((key) => (
-                      <FilterSelect
-                        key={key}
-                        label={key.replaceAll('_', ' ')}
-                        value={governance[key] ?? governanceDefaults[key] ?? ''}
-                        onChange={(value) =>
-                          setGovernance((current) => ({ ...current, [key]: value }))
+                    <div className="mt-4 flex flex-wrap justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() =>
+                          setSourceClassificationDraft({
+                            classification: sourceDetailQuery.data?.source.classification ?? '',
+                            documentKind: sourceDetailQuery.data?.source.document_kind ?? '',
+                            contentRoles: csv(sourceDetailQuery.data?.source.content_roles),
+                            extractionTargets: csv(
+                              sourceDetailQuery.data?.source.extraction_targets
+                            ),
+                            memoryLayers: csv(sourceDetailQuery.data?.source.memory_layers),
+                            vectorTags: csv(sourceDetailQuery.data?.source.vector_tags),
+                            confidence: '',
+                            rationale: '',
+                          })
                         }
                       >
-                        {governanceOptions(governanceQuery.data, key).map((value) => (
-                          <option key={value} value={value}>
-                            {value}
-                          </option>
-                        ))}
-                      </FilterSelect>
-                    ))}
-                  </div>
-                </details>
-              </div>
+                        Reset
+                      </Button>
+                      <Button
+                        type="button"
+                        disabled={updateSourceClassificationMutation.isPending}
+                        onClick={() =>
+                          updateSourceClassificationMutation.mutate(sourceClassificationPayload())
+                        }
+                      >
+                        <Save className="mr-2 h-4 w-4" />
+                        Save classification
+                      </Button>
+                    </div>
+                  </section>
+                </TabsContent>
+              </Tabs>
             </div>
+          ) : null}
+        </AppDialog>
 
-            <DialogFooter className="items-center gap-2 sm:justify-between sm:space-x-0">
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+        <AppDialog
+          open={isCreateOpen}
+          onOpenChange={setIsCreateOpen}
+          onDiscard={resetCreatePersonaDraft}
+          dirty={createDraftDirty}
+          busy={distillMutation.isPending}
+          size="xl"
+          icon={<UserRoundCog className="size-4" aria-hidden="true" />}
+          title="Create persona"
+          description="Add an identity and at least one source. Open Agency can keep the distillation and governance defaults until you need more control."
+          bodyClassName="space-y-4"
+          footer={
+            <>
+              <p className="mr-auto text-xs text-(--agency-shell-muted)" aria-live="polite">
                 {canDistill
                   ? `${selectedMemories.length} source memories ready.`
                   : 'Name and at least one source are required.'}
               </p>
-              <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+              <DialogClose asChild>
+                <Button type="button" variant="outline" disabled={distillMutation.isPending}>
                   Cancel
                 </Button>
-                <Button
-                  type="button"
-                  disabled={!canDistill || distillMutation.isPending}
-                  onClick={() => distillMutation.mutate()}
-                >
-                  <WandSparkles className="mr-2 h-4 w-4" />
-                  {distillMutation.isPending ? 'Generating...' : 'Generate draft'}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
+              </DialogClose>
+              <Button
+                type="button"
+                disabled={!canDistill || distillMutation.isPending}
+                onClick={() => distillMutation.mutate()}
+              >
+                <WandSparkles className="mr-2 h-4 w-4" />
+                {distillMutation.isPending ? 'Generating...' : 'Generate draft'}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </>
+          }
+        >
+          <div className="grid gap-5 xl:grid-cols-[260px_minmax(0,1fr)]">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-white/10 dark:bg-slate-950/76">
+              <div className="space-y-3">
+                <WorkflowStep
+                  index={1}
+                  label="Name"
+                  required
+                  done={personaName.trim().length > 0}
+                />
+                <WorkflowStep index={2} label="Distillation" done={Boolean(distillationMode)} />
+                <WorkflowStep
+                  index={3}
+                  label="Sources"
+                  required
+                  done={selectedMemoryIds.length > 0}
+                />
+                <WorkflowStep
+                  index={4}
+                  label="Governance"
+                  done={Object.keys(governanceDefaults).length > 0}
+                />
+                <WorkflowStep index={5} label="Generate draft" done={Boolean(activeResult)} />
               </div>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <div className="mt-5 grid grid-cols-2 gap-2 text-center">
+                <StepStat label="selected" value={selectedMemoryIds.length} />
+                <StepStat label="ready" value={canDistill ? 1 : 0} />
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <div className="flex items-center gap-2">
+                  <UserRoundCog className="h-4 w-4 text-primary-700" />
+                  <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                    1. Identity
+                  </h2>
+                  <Badge variant="secondary">Required</Badge>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-2">
+                  <Field label="Name" htmlFor="persona-name">
+                    <Input
+                      id="persona-name"
+                      value={personaName}
+                      onChange={(event) => setPersonaName(event.target.value)}
+                      placeholder="Audit Manager Persona"
+                    />
+                  </Field>
+                  <div className="lg:col-span-2">
+                    <Field label="Description (optional)" htmlFor="persona-description">
+                      <Textarea
+                        id="persona-description"
+                        value={personaDescription}
+                        onChange={(event) => setPersonaDescription(event.target.value)}
+                        rows={3}
+                        placeholder="Reviews evidence and drafts observations."
+                      />
+                    </Field>
+                  </div>
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <div className="flex items-center gap-2">
+                  <SlidersHorizontal className="h-4 w-4 text-primary-700" />
+                  <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                    2. Distillation
+                  </h2>
+                </div>
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  <Field label="Distillation mode" htmlFor="persona-distillation-mode">
+                    <select
+                      id="persona-distillation-mode"
+                      value={distillationMode}
+                      onChange={(event) =>
+                        setDistillationMode(event.target.value as PersonaDistillationMode)
+                      }
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100"
+                    >
+                      {distillationModes.map((mode) => (
+                        <option key={mode} value={mode}>
+                          {mode === 'llm' ? 'LLM' : mode === 'hybrid' ? 'Hybrid' : 'Deterministic'}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="LLM source" htmlFor="persona-llm-model-source">
+                    <select
+                      id="persona-llm-model-source"
+                      value={llmModelSource}
+                      onChange={(event) =>
+                        setLlmModelSource(event.target.value as PersonaLLMModelSource)
+                      }
+                      disabled={!llmBackedMode}
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100"
+                    >
+                      {llmModelSources.map((source) => (
+                        <option key={source} value={source}>
+                          {source === 'main_agent' ? 'Main-agent default' : 'Model profile'}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field
+                    label={
+                      llmBackedMode && llmModelSource === 'model_profile'
+                        ? 'Model profile'
+                        : 'Model profile (optional)'
+                    }
+                    htmlFor="persona-model-profile"
+                  >
+                    <select
+                      id="persona-model-profile"
+                      value={modelProfileId}
+                      onChange={(event) => setModelProfileId(event.target.value)}
+                      disabled={
+                        profilesQuery.isLoading ||
+                        (llmBackedMode && llmModelSource === 'main_agent')
+                      }
+                      className="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100"
+                    >
+                      <option value="">
+                        {profilesQuery.isLoading
+                          ? 'Loading model profiles...'
+                          : llmBackedMode && llmModelSource === 'model_profile'
+                            ? 'Select model profile'
+                            : 'Default model profile'}
+                      </option>
+                      {modelProfiles.map((profile) => (
+                        <option key={profile.id} value={profile.id}>
+                          {profile.name} · {profile.provider}/{profile.model}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+              </section>
+
+              <DocumentIngestionControl
+                frame="inline"
+                defaultTags={['persona-source', 'document']}
+                purpose="persona_factory"
+                title="Upload source material"
+                description="New uploads are saved for retrieval and selected for this persona automatically."
+                onSuggestedGovernanceLabels={(labels) => {
+                  setGovernance((current) => ({ ...current, ...labels }));
+                }}
+                onIngested={async (result) => {
+                  await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
+                  setSelectedMemoryIds((current) =>
+                    Array.from(new Set([...current, ...result.memory_ids]))
+                  );
+                }}
+              />
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Layers3 className="h-4 w-4 text-primary-700" />
+                    <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      3. Select sources
+                    </h2>
+                    <Badge variant="secondary">Required</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">{selectedMemoryIds.length} selected</Badge>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void memoriesQuery.refetch()}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  Choose the memory records that should teach this persona what to know, how to
+                  decide, and how to communicate.
+                </p>
+                <div className="mt-4 grid max-h-80 gap-2 overflow-y-auto pr-1 lg:grid-cols-2">
+                  {memoriesQuery.isLoading ? (
+                    <LoadingCard title="Loading" description="Loading source memory..." />
+                  ) : null}
+                  {memoriesQuery.isError ? (
+                    <ErrorAlert title="Memory unavailable" message="Failed to load memory." />
+                  ) : null}
+                  {(memoriesQuery.data?.items ?? []).map((memory) => (
+                    <label
+                      key={memory.id}
+                      className="flex min-h-24 cursor-pointer gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 hover:border-primary-200 hover:bg-white dark:border-white/10 dark:bg-white/4 dark:hover:border-sky-300/20 dark:hover:bg-white/6"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4"
+                        checked={selectedMemoryIds.includes(memory.id)}
+                        onChange={() => toggleMemory(memory.id)}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <FileText className="h-4 w-4 shrink-0 text-slate-500 dark:text-slate-400" />
+                          <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {memoryLabel(memory)}
+                          </span>
+                          {memory.memory_type ? (
+                            <Badge variant="secondary">{memory.memory_type}</Badge>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 line-clamp-2 text-xs text-slate-600 dark:text-slate-300">
+                          {summarizeMemory(memory)}
+                        </p>
+                        <p className="mt-2 text-[11px] text-slate-500 dark:text-slate-400">
+                          {memorySourceDetails(memory)}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+                      Selected source summary
+                    </h2>
+                    <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      These records will be distilled into persona memory items.
+                    </p>
+                  </div>
+                  <Badge variant="secondary">{selectedMemories.length} selected</Badge>
+                </div>
+                {selectedMemories.length > 0 ? (
+                  <div className="mt-4 grid gap-2 lg:grid-cols-2">
+                    {selectedMemories.map((memory) => (
+                      <div
+                        key={memory.id}
+                        className="flex min-w-0 items-start justify-between gap-3 rounded-md border border-primary-100 bg-primary-50/40 px-3 py-2 dark:border-primary-300/14 dark:bg-primary-500/10"
+                      >
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium text-slate-950 dark:text-slate-100">
+                            {memoryLabel(memory)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                            {memorySourceDetails(memory)}
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          aria-label={`Remove ${memoryLabel(memory)} from selected sources`}
+                          onClick={() => removeSelectedMemory(memory.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-4 rounded-md border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-500 dark:border-white/10 dark:bg-white/4 dark:text-slate-400">
+                    Select existing memory records above or upload source files. Uploaded files
+                    become selectable source memory after ingestion completes.
+                  </p>
+                )}
+              </section>
+
+              <UploadedDocumentsList
+                scope="user"
+                tagFilter="persona-source"
+                title="Uploaded source files"
+                description="Source files tagged for Persona Factory. Remove files here when they should no longer contribute source memory."
+                emptyMessage="No Persona Factory source files uploaded yet."
+              />
+
+              <details className="rounded-lg border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+                <summary className="cursor-pointer text-sm font-semibold text-slate-950 dark:text-slate-100">
+                  4. Optional governance labels
+                </summary>
+                <div className="mt-4 grid gap-3 lg:grid-cols-3">
+                  {GOVERNANCE_KEYS.map((key) => (
+                    <FilterSelect
+                      key={key}
+                      label={key.replaceAll('_', ' ')}
+                      value={governance[key] ?? governanceDefaults[key] ?? ''}
+                      onChange={(value) =>
+                        setGovernance((current) => ({ ...current, [key]: value }))
+                      }
+                    >
+                      {governanceOptions(governanceQuery.data, key).map((value) => (
+                        <option key={value} value={value}>
+                          {value}
+                        </option>
+                      ))}
+                    </FilterSelect>
+                  ))}
+                </div>
+              </details>
+            </div>
+          </div>
+        </AppDialog>
       </div>
     </div>
   );
@@ -3740,7 +3902,7 @@ function FactoryStepCard({
   title: string;
 }) {
   return (
-    <div className="flex gap-3 rounded-md border border-secondary-100 bg-white px-3 py-2 shadow-sm shadow-secondary/5 dark:border-white/10 dark:bg-slate-950/78 dark:shadow-none">
+    <div className="flex min-h-24 gap-3 border-b border-slate-200 px-4 py-4 last:border-b-0 md:border-r md:border-b-0 md:last:border-r-0 dark:border-white/10">
       <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-secondary-100 text-xs font-semibold text-secondary-800 dark:bg-secondary-500/14 dark:text-secondary-100">
         {index}
       </span>

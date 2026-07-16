@@ -17,7 +17,64 @@ export interface PublicEndpointInfo {
   current_public_url: string | null;
 }
 
+export interface OpenVoiceStatus {
+  optional: true;
+  ready: boolean;
+  supports_cloning: boolean;
+  runtime: {
+    installed: boolean;
+    root: string;
+    revision: string;
+  };
+  checkpoints: {
+    directory: string;
+    installed: boolean;
+    missing_files: string[];
+  };
+  settings: {
+    default_voice: string;
+    language: 'English';
+  };
+  available_voices: string[];
+}
+
+export interface OpenVoiceTestResult {
+  result: {
+    status: string;
+    voice: string;
+    storage_key: string;
+  };
+  audio_base64: string;
+  content_type: string;
+}
+
 export const profileApi = {
+  getOpenVoiceStatus() {
+    return agencyApiClient.get<OpenVoiceStatus>('/setup/openvoice');
+  },
+
+  updateOpenVoiceSettings(defaultVoice: string) {
+    return agencyApiClient.put<OpenVoiceStatus>('/setup/openvoice', {
+      default_voice: defaultVoice,
+    });
+  },
+
+  installOpenVoiceCheckpoints(force = false) {
+    return agencyApiClient.post<OpenVoiceStatus>(
+      '/setup/openvoice/install',
+      { force },
+      { timeoutMs: 700_000 }
+    );
+  },
+
+  testOpenVoice() {
+    return agencyApiClient.post<OpenVoiceTestResult>(
+      '/setup/openvoice/test',
+      {},
+      { timeoutMs: 360_000 }
+    );
+  },
+
   async getPublicEndpointInfo(): Promise<PublicEndpointInfo> {
     const payload = await agencyApiClient.get<
       PublicEndpointInfo & {
@@ -36,13 +93,13 @@ export const profileApi = {
 
   getApiTokenCapability(): BackendFeatureCapability {
     return {
-      title: 'Backend API tokens',
+      title: 'Automation keys',
       managedByBackend: true,
       readSupported: true,
       writeSupported: true,
       plannedRoutes: ['/api-tokens', '/api-tokens/{token_id}/revoke'],
       message:
-        'Personal access token issuance and revocation are backend-owned. Generated tokens are shown once and stored only as hashes by the backend.',
+        'Automation-key issuance and revocation are backend-owned. Generated keys are shown once and stored only as hashes by the backend.',
     };
   },
 

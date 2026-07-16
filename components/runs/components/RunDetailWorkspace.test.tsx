@@ -206,9 +206,8 @@ describe('RunDetailWorkspace', () => {
     renderWorkspace();
 
     const select = await screen.findByLabelText('Runtime adapter for the next run');
-    expect(
-      await screen.findByRole('heading', { name: /Workflow One.*2026.*\(run-1\)/ })
-    ).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Workflow One' })).toBeInTheDocument();
+    expect(screen.getByText('Run run-1')).toBeInTheDocument();
     expect(select).toHaveValue('native');
     expect(screen.getByRole('button', { name: 'Run Again With native' })).toBeInTheDocument();
   });
@@ -221,6 +220,63 @@ describe('RunDetailWorkspace', () => {
     fireEvent.click(timelineTab);
 
     expect(await screen.findByTestId('workflow-graph-canvas')).toHaveTextContent('Read-only graph');
+  });
+
+  it('shows persistent cycle state and lets an operator pause a sleeping run', async () => {
+    const api = createRunsModuleApi();
+    api.runSessions.getRunSession.mockResolvedValue({
+      summary: {
+        id: 'run-1',
+        workflowId: 'workflow-1',
+        runtimeAdapterId: 'native',
+        status: 'sleeping',
+        metadata: {
+          active_wait: {
+            kind: 'sleep',
+            wake_at: '2026-07-13T12:00:00.000Z',
+          },
+          persistent_cycle: {
+            enabled: true,
+            phase: 'sleeping',
+            cycle_number: 3,
+            next_cycle_number: 4,
+            next_wake_at: '2026-07-13T12:00:00.000Z',
+            consecutive_failures: 1,
+            no_progress_cycles: 2,
+          },
+        },
+        container: {},
+      },
+      state: { paused: false, cancelled: false, node_outputs: {} },
+      runtime: { diagnostics: {} },
+      replacement: { replacedByExecutions: [] },
+    });
+
+    renderWorkspace(api);
+
+    expect(await screen.findByRole('heading', { name: 'Persistent monitor' })).toBeInTheDocument();
+    expect(screen.getByText('Sleeping between monitor cycles')).toBeInTheDocument();
+    expect(screen.getByText('1 failures · 2 repeated')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
+    await waitFor(() => expect(api.runs.pauseRun).toHaveBeenCalledWith('run-1'));
+  });
+
+  it('jumps from the evidence navigator to the selected evidence tab', async () => {
+    renderWorkspace();
+
+    const timelineShortcut = await screen.findByRole('button', { name: 'Timeline' });
+    fireEvent.click(timelineShortcut);
+
+    expect(screen.getByRole('tab', { name: 'Timeline' })).toHaveAttribute('aria-selected', 'true');
+    expect(await screen.findByTestId('workflow-graph-canvas')).toHaveTextContent('Read-only graph');
+  });
+
+  it('hides the runtime error section when a run has no error', async () => {
+    renderWorkspace();
+
+    await screen.findByRole('heading', { name: 'Workflow One' });
+    expect(screen.queryByRole('heading', { name: 'Runtime Error' })).not.toBeInTheDocument();
   });
 
   it('uses linked message workflow name when the workflow record only has an id label', async () => {
@@ -280,8 +336,9 @@ describe('RunDetailWorkspace', () => {
     renderWorkspace(api);
 
     expect(
-      await screen.findByRole('heading', { name: /Payload Workflow Name.*2026.*\(run-1\)/ })
+      await screen.findByRole('heading', { name: 'Payload Workflow Name' })
     ).toBeInTheDocument();
+    expect(screen.getByText('Run run-1')).toBeInTheDocument();
   });
 
   it('uses nested event message workflow name when workflow details are id-only', async () => {
@@ -323,8 +380,9 @@ describe('RunDetailWorkspace', () => {
     renderWorkspace(api);
 
     expect(
-      await screen.findByRole('heading', { name: /Nested Event Workflow.*2026.*\(run-1\)/ })
+      await screen.findByRole('heading', { name: 'Nested Event Workflow' })
     ).toBeInTheDocument();
+    expect(screen.getByText('Run run-1')).toBeInTheDocument();
   });
 
   it('reruns with the adapter selected in the run detail UI', async () => {
@@ -333,6 +391,9 @@ describe('RunDetailWorkspace', () => {
     const select = await screen.findByLabelText('Runtime adapter for the next run');
     fireEvent.change(select, { target: { value: 'crewai' } });
     fireEvent.click(screen.getByRole('button', { name: 'Run Again With crewai' }));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    expect(api.runs.executeWorkflow).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Start rerun' }));
 
     await waitFor(() => {
       expect(api.runs.executeWorkflow).toHaveBeenCalledWith('workflow-1', 'crewai', 'local');
@@ -474,11 +535,11 @@ describe('RunDetailWorkspace', () => {
           sequence: 2,
           timestamp: '2026-05-07T00:01:30.000Z',
           actor_type: 'agent',
-          actor: 'Agency Decision Coach',
+          actor: 'Open Agency Decision Coach',
           task_id: 'task-2',
           payload: {
             content:
-              'Discord delivery failed. I did not retry with changed content.\nExact failure:\n- HTTP status: 404\n- Response body: {"detail":"Credential not found"}\nPayload summary sent:\nOutcome: kept agency as execution system of record and agency-fe as selective auth/request-shaping boundary.\nEvidence: workflow decision memo and journal update confirm current split.',
+              'Discord delivery failed. I did not retry with changed content.\nExact failure:\n- HTTP status: 404\n- Response body: {"detail":"Credential not found"}\nPayload summary sent:\nOutcome: kept open-agency as execution system of record and open-agency-fe as selective auth/request-shaping boundary.\nEvidence: workflow decision memo and journal update confirm current split.',
           },
         },
       ],
@@ -486,7 +547,7 @@ describe('RunDetailWorkspace', () => {
     renderWorkspace(api);
 
     expect(await screen.findByText('Agent update')).toBeInTheDocument();
-    expect(screen.getByText('Agency Decision Coach')).toBeInTheDocument();
+    expect(screen.getByText('Open Agency Decision Coach')).toBeInTheDocument();
     expect(
       screen.getAllByText(
         (_, node) =>
@@ -680,6 +741,26 @@ describe('RunDetailWorkspace', () => {
 
   it('renders delegated and human-held native approval activity', async () => {
     const api = createRunsModuleApi();
+    api.runSessions.getRunSession.mockResolvedValue({
+      summary: {
+        id: 'run-1',
+        workflowId: 'workflow-1',
+        runtimeAdapterId: 'native',
+        status: 'waiting_for_approval',
+        workerId: null,
+        metadata: {
+          active_wait: { wait_id: 'wait-approval-1', kind: 'approval' },
+          pending_approval: {
+            tool_id: 'tool-click',
+            approval_metadata: { tool_name: 'click', task_id: 'task-2' },
+          },
+        },
+        container: {},
+      },
+      state: { paused: false, cancelled: false, node_outputs: {} },
+      runtime: { diagnostics: {} },
+      replacement: { replacedByExecutions: [] },
+    });
     api.logs.listRunEvents.mockResolvedValue({
       items: [
         {
@@ -791,7 +872,15 @@ describe('RunDetailWorkspace', () => {
 
     renderWorkspace(api);
 
-    const approvalsTab = await screen.findByRole('tab', { name: 'Approvals' });
+    expect(
+      await screen.findByRole('heading', { name: 'Approval required for click' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Worker released')).toBeInTheDocument();
+    expect(screen.getByText(/Wait wait-approval-1/)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approve and resume' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Reject and resume' })).toBeInTheDocument();
+
+    const approvalsTab = await screen.findByRole('tab', { name: 'Approvals, 1 pending' });
     fireEvent.pointerDown(approvalsTab);
     fireEvent.mouseDown(approvalsTab);
     fireEvent.click(approvalsTab);
@@ -808,6 +897,55 @@ describe('RunDetailWorkspace', () => {
     await waitFor(() => {
       expect(api.runs.approveRun).toHaveBeenCalledWith('run-1', 'tool-click', undefined);
     });
+  });
+
+  it('does not offer approval actions for an event-only approval that is no longer active', async () => {
+    const api = createRunsModuleApi();
+    api.runSessions.getRunSession.mockResolvedValue({
+      summary: {
+        id: 'run-1',
+        workflowId: 'workflow-1',
+        runtimeAdapterId: 'native',
+        status: 'waiting_for_approval',
+        metadata: {
+          pending_approval: {
+            tool_id: 'tool-stale',
+            approval_metadata: { tool_name: 'Stale Tool' },
+          },
+        },
+        container: {},
+      },
+      state: { paused: false, cancelled: false, node_outputs: {} },
+      runtime: { diagnostics: {} },
+      replacement: { replacedByExecutions: [] },
+    });
+    api.logs.listRunEvents.mockResolvedValue({
+      items: [
+        {
+          id: 'approval-requested-stale',
+          execution_id: 'run-1',
+          workflow_id: 'workflow-1',
+          event_type: 'approval.requested',
+          sequence: 1,
+          payload: { tool_id: 'tool-stale', tool_name: 'Stale Tool' },
+        },
+      ],
+    });
+
+    renderWorkspace(api);
+
+    expect(await screen.findByRole('button', { name: 'Review approvals (1)' })).toBeInTheDocument();
+    const approvalsTab = screen.getByRole('tab', { name: 'Approvals, 1 pending' });
+    fireEvent.pointerDown(approvalsTab);
+    fireEvent.mouseDown(approvalsTab);
+    fireEvent.click(approvalsTab);
+
+    expect(await screen.findByText('Stale Tool')).toBeInTheDocument();
+    expect(
+      screen.getByText(/the backend no longer has an active request to approve or reject/i)
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Approve' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Reject' })).not.toBeInTheDocument();
   });
 
   it('renders LLM thoughts and final output as readable story content', async () => {
@@ -891,7 +1029,7 @@ describe('RunDetailWorkspace', () => {
           sequence: 1,
           timestamp: '2026-05-07T00:01:00.000Z',
           actor_type: 'agent',
-          actor: 'Agency Decision Coach',
+          actor: 'Open Agency Decision Coach',
           payload: {
             thought: null,
             thought_parse_error: true,

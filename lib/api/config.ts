@@ -7,11 +7,15 @@ function stripTrailingSlash(value: string) {
 
 export function getAgencyApiBaseUrl() {
   const configuredUrl =
-    process.env.NEXT_PUBLIC_AGENCY_API_BASE_URL || process.env.LOCAL_BACKEND || DEFAULT_PUBLIC_BACKEND_PATH;
+    process.env.NEXT_PUBLIC_AGENCY_API_BASE_URL ||
+    process.env.LOCAL_BACKEND ||
+    DEFAULT_PUBLIC_BACKEND_PATH;
 
   if (configuredUrl) {
     if (typeof window === 'undefined' && configuredUrl.startsWith('/')) {
-      return stripTrailingSlash(process.env.AGENCY_INTERNAL_API_BASE_URL || DEFAULT_LOCAL_BACKEND_URL);
+      return stripTrailingSlash(
+        process.env.AGENCY_INTERNAL_API_BASE_URL || DEFAULT_LOCAL_BACKEND_URL
+      );
     }
     return stripTrailingSlash(configuredUrl);
   }

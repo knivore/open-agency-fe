@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from 'react';
+import { forwardRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +17,7 @@ const { documentsApi, memoriesApi, toast } = vi.hoisted(() => ({
   toast: {
     success: vi.fn(),
     error: vi.fn(),
+    warning: vi.fn(),
   },
 }));
 
@@ -32,10 +34,15 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('@/components/library/shadcn/button', () => ({
-  Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" {...props}>
-      {children}
-    </button>
+  buttonVariants: () => '',
+  Button: forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
+    function ButtonMock({ children, ...props }, ref) {
+      return (
+        <button ref={ref} type="button" {...props}>
+          {children}
+        </button>
+      );
+    }
   ),
 }));
 
@@ -119,7 +126,6 @@ describe('UploadedDocumentsList', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(window, 'confirm').mockReturnValue(true);
     documentsApi.listDocuments.mockImplementation(
       async (query: { conversationId?: string; workflowId?: string; scope?: string } = {}) => {
         const documents = [
@@ -272,7 +278,8 @@ describe('UploadedDocumentsList', () => {
     expect(await screen.findByText('brief.txt')).toBeInTheDocument();
     expect(screen.getByText('Context only')).toBeInTheDocument();
     expect(screen.getByText(/No retrieval chunks/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove document' }));
 
     await waitFor(() => {
       expect(documentsApi.deleteDocument).toHaveBeenCalledWith('document-context');
@@ -290,7 +297,8 @@ describe('UploadedDocumentsList', () => {
     );
 
     expect(await screen.findByText('policy.md')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove document' }));
 
     await waitFor(() => {
       expect(documentsApi.deleteDocument).toHaveBeenCalledWith('document-1');
@@ -310,7 +318,8 @@ describe('UploadedDocumentsList', () => {
     );
 
     expect(await screen.findByText('policy.md')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /remove/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove document' }));
 
     await waitFor(() => {
       expect(memoriesApi.deleteDocumentMemories).toHaveBeenCalledWith('document-1', {
@@ -322,5 +331,85 @@ describe('UploadedDocumentsList', () => {
         tags: ['task:task-1'],
       });
     });
+  });
+
+  it('filters documents and removes a reviewed bulk selection', async () => {
+    renderList(<UploadedDocumentsList scope="workflow" workflowId="workflow-1" />);
+
+    expect(await screen.findByText('policy.md')).toBeInTheDocument();
+    expect(screen.getByText('other.md')).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText('Search documents'), {
+      target: { value: 'other' },
+    });
+    expect(screen.queryByText('policy.md')).not.toBeInTheDocument();
+    expect(screen.getByText('other.md')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select other.md' }));
+    expect(screen.getByText('1 document selected')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove selected' }));
+    expect(
+      screen.getByRole('heading', { name: 'Remove 1 selected document?' })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Remove documents' }));
+
+    await waitFor(() => {
+      expect(memoriesApi.deleteDocumentMemories).toHaveBeenCalledWith(
+        'document-2',
+        expect.objectContaining({ scope: 'workflow', workflow_id: 'workflow-1' })
+      );
+    });
+    expect(toast.success).toHaveBeenCalledWith(
+      'Removed 1 document.',
+      expect.objectContaining({ position: 'top-right' })
+    );
+  });
+
+  it('keeps failed bulk removals selected and offers a focused retry', async () => {
+    memoriesApi.deleteDocumentMemories.mockRejectedValueOnce(new Error('Memory store unavailable'));
+    renderList(<UploadedDocumentsList scope="workflow" workflowId="workflow-1" />);
+
+    await screen.findByText('policy.md');
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select policy.md' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select other.md' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove selected' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Remove documents' }));
+
+    await waitFor(() => {
+      expect(toast.warning).toHaveBeenCalledWith(
+        '1 removed, 1 could not be removed.',
+        expect.objectContaining({
+          position: 'top-right',
+          description: 'Memory store unavailable',
+        })
+      );
+    });
+    expect(screen.getByText('1 document selected')).toBeInTheDocument();
+
+    memoriesApi.deleteDocumentMemories.mockResolvedValueOnce({
+      deleted: true,
+      document_id: 'document-2',
+      memory_ids: ['memory-3'],
+      deleted_count: 1,
+    });
+    const retryAction = toast.warning.mock.calls[0]?.[1]?.action;
+    retryAction?.onClick();
+
+    await waitFor(() => {
+      expect(memoriesApi.deleteDocumentMemories).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('uses the shared inline error state and retries without replacing its parent surface', async () => {
+    documentsApi.listDocuments.mockRejectedValueOnce(new Error('Backend unavailable'));
+    renderList(<UploadedDocumentsList scope="workflow" workflowId="workflow-1" />);
+
+    expect(await screen.findByRole('alert')).toHaveAttribute('data-app-inline-state', 'error');
+    expect(screen.getByText('Documents unavailable')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    await waitFor(() => {
+      expect(documentsApi.listDocuments).toHaveBeenCalledTimes(2);
+    });
+    expect(await screen.findByText('policy.md')).toBeInTheDocument();
   });
 });

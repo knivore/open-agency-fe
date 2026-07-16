@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start",
     "secret-scan": "node scripts/scan-secrets.mjs",
+    "guides:check": "vitest run lib/integrations/setupGuides.test.ts",
+    "guides:links": "node scripts/check-integration-guide-links.mjs",
     "test": "vitest run",
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",

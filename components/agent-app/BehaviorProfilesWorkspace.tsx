@@ -24,25 +24,36 @@ import type {
 import { Badge } from '../library/shadcn/badge';
 import { Button } from '../library/shadcn/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
+import { DialogClose } from '../library/shadcn/dialog';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../library/shadcn/dialog';
+  FieldFeedback,
+  FormField,
+  FormFieldGroup,
+  FormSection,
+} from '@/components/app-shell/FormSection';
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
 import { Textarea } from '../library/shadcn/textarea';
+import { Toggle } from '../library/shadcn/toggle';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '../library/shadcn/tooltip';
-import { ArrowDown, ArrowUp, BrainCog, Copy, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  BrainCog,
+  Copy,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+} from 'lucide-react';
 import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import PageHeader from '@/components/app-shell/PageHeader';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -77,6 +88,43 @@ const DEFAULT_FALLBACK_POLICY: ProfileFallbackPolicyForm = {
   sameProviderOnly: false,
   requireCapabilityMatch: true,
 };
+
+type RuntimeTuningField = 'temperature' | 'maxTokens' | 'topP';
+type RuntimeTuningValues = Pick<CreateLlmModelState, RuntimeTuningField>;
+type RuntimeTuningErrors = Partial<Record<RuntimeTuningField, string>>;
+
+const RUNTIME_TUNING_PRESETS: Array<{
+  id: string;
+  label: string;
+  description: string;
+  values: RuntimeTuningValues;
+}> = [
+  {
+    id: 'provider-default',
+    label: 'Provider default',
+    description:
+      'Let the provider choose sampling and response length. Safest across model families.',
+    values: { temperature: '', maxTokens: '', topP: '' },
+  },
+  {
+    id: 'precise',
+    label: 'Precise',
+    description: 'More consistent output for extraction, planning, and tool-heavy work.',
+    values: { temperature: '0.2', maxTokens: '2048', topP: '0.9' },
+  },
+  {
+    id: 'balanced',
+    label: 'Balanced',
+    description: 'A practical mix of consistency and variety for general assistant work.',
+    values: { temperature: '0.5', maxTokens: '4096', topP: '1' },
+  },
+  {
+    id: 'creative',
+    label: 'Creative',
+    description: 'More variation for ideation and drafting, with a controlled response limit.',
+    values: { temperature: '0.9', maxTokens: '4096', topP: '1' },
+  },
+];
 
 type AgencyOAuthCallbackMessage = {
   type: typeof AGENCY_OAUTH_CALLBACK_MESSAGE_TYPE;
@@ -370,8 +418,9 @@ const PROVIDER_PRESETS: Record<ProviderFamily, ProviderPreset> = {
     providerType: 'openai_codex',
     defaultName: 'OpenAI Codex',
     defaultBaseUrl: 'https://codex-api.openai.com/v1',
-    modelHint: 'gpt-5.4',
+    modelHint: 'gpt-5.5',
     modelOptions: [
+      { id: 'gpt-5.5', name: 'GPT-5.5' },
       { id: 'gpt-5.4', name: 'GPT-5.4' },
       { id: 'gpt-5.4-mini', name: 'GPT-5.4 mini' },
       { id: 'gpt-5.3-codex', name: 'GPT-5.3 Codex' },
@@ -381,7 +430,7 @@ const PROVIDER_PRESETS: Record<ProviderFamily, ProviderPreset> = {
     requiresApiKey: false,
     requiresOAuth: true,
     defaultProfile: {
-      name: 'OpenAI Codex GPT-5.3',
+      name: 'OpenAI Codex GPT-5.5',
       description: 'OpenAI Codex via OAuth 2.1 PKCE',
       temperature: '0.7',
       maxTokens: '4096',
@@ -612,7 +661,7 @@ function defaultCreateLlmModelState(providers: ModelProviderDefinition[]): Creat
     model: firstProvider
       ? modelHintForProvider(providers, firstProvider.id)
       : providerPresetForFamily(fallbackProvider.family).modelHint,
-    temperature: '0.2',
+    temperature: '',
     maxTokens: '',
     topP: '',
     supportsTools: true,
@@ -696,6 +745,180 @@ function parseOptionalNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function runtimeTuningErrors(values: RuntimeTuningValues): RuntimeTuningErrors {
+  const errors: RuntimeTuningErrors = {};
+  const temperature = parseOptionalNumber(values.temperature);
+  const maxTokens = parseOptionalNumber(values.maxTokens);
+  const topP = parseOptionalNumber(values.topP);
+
+  if (values.temperature.trim() && temperature === null) {
+    errors.temperature = 'Enter a number from 0 to 2.';
+  } else if (temperature !== null && (temperature < 0 || temperature > 2)) {
+    errors.temperature = 'Temperature must be from 0 to 2.';
+  }
+
+  if (values.maxTokens.trim() && maxTokens === null) {
+    errors.maxTokens = 'Enter a whole number from 1 to 1,000,000.';
+  } else if (
+    maxTokens !== null &&
+    (!Number.isInteger(maxTokens) || maxTokens < 1 || maxTokens > 1_000_000)
+  ) {
+    errors.maxTokens = 'Max tokens must be a whole number from 1 to 1,000,000.';
+  }
+
+  if (values.topP.trim() && topP === null) {
+    errors.topP = 'Enter a number from 0 to 1.';
+  } else if (topP !== null && (topP < 0 || topP > 1)) {
+    errors.topP = 'Top p must be from 0 to 1.';
+  }
+
+  return errors;
+}
+
+function hasRuntimeTuningErrors(values: RuntimeTuningValues) {
+  return Object.keys(runtimeTuningErrors(values)).length > 0;
+}
+
+function activeRuntimeTuningPreset(values: RuntimeTuningValues) {
+  return RUNTIME_TUNING_PRESETS.find(
+    (preset) =>
+      preset.values.temperature === values.temperature.trim() &&
+      preset.values.maxTokens === values.maxTokens.trim() &&
+      preset.values.topP === values.topP.trim()
+  );
+}
+
+function RuntimeTuningFields({
+  values,
+  onChange,
+  disabled,
+  idPrefix,
+}: {
+  values: RuntimeTuningValues;
+  onChange: (values: RuntimeTuningValues) => void;
+  disabled: boolean;
+  idPrefix: string;
+}) {
+  const [touched, setTouched] = useState<Set<RuntimeTuningField>>(new Set());
+  const errors = runtimeTuningErrors(values);
+  const activePreset = activeRuntimeTuningPreset(values);
+  const visibleError = (field: RuntimeTuningField) =>
+    touched.has(field) || values[field].trim() ? errors[field] : null;
+  const updateField = (field: RuntimeTuningField, value: string) => {
+    onChange({ ...values, [field]: value });
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium text-(--agency-shell-text)">Quick preset</legend>
+        <div
+          className="grid grid-cols-2 gap-2 lg:grid-cols-4"
+          role="group"
+          aria-label="Runtime tuning preset"
+        >
+          {RUNTIME_TUNING_PRESETS.map((preset) => (
+            <Toggle
+              key={preset.id}
+              type="button"
+              variant="outline"
+              size="sm"
+              pressed={activePreset?.id === preset.id}
+              onPressedChange={(pressed) => {
+                if (!pressed) return;
+                onChange(preset.values);
+                setTouched(new Set());
+              }}
+              disabled={disabled}
+              aria-label={`${preset.label} runtime preset`}
+            >
+              {preset.label}
+            </Toggle>
+          ))}
+        </div>
+        <p className="text-xs leading-5 text-(--agency-shell-muted)">
+          {activePreset?.description ??
+            'Custom tuning. Values are validated below before this preset can be saved.'}
+        </p>
+      </fieldset>
+      <FormFieldGroup columns={3}>
+        <FormField
+          label="Temperature"
+          htmlFor={`${idPrefix}-temperature`}
+          description="Randomness from 0 (stable) to 2 (varied)."
+          error={visibleError('temperature')}
+          optional
+          disabled={disabled}
+        >
+          <Input
+            id={`${idPrefix}-temperature`}
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={2}
+            step={0.1}
+            value={values.temperature}
+            onChange={(event) => updateField('temperature', event.target.value)}
+            onBlur={() => setTouched((current) => new Set(current).add('temperature'))}
+            disabled={disabled}
+            aria-invalid={Boolean(visibleError('temperature'))}
+            aria-describedby={`${idPrefix}-temperature-feedback`}
+            placeholder="Provider default"
+          />
+        </FormField>
+        <FormField
+          label="Max tokens"
+          htmlFor={`${idPrefix}-max-tokens`}
+          description="Maximum generated tokens; provider limits still apply."
+          error={visibleError('maxTokens')}
+          optional
+          disabled={disabled}
+        >
+          <Input
+            id={`${idPrefix}-max-tokens`}
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={1_000_000}
+            step={1}
+            value={values.maxTokens}
+            onChange={(event) => updateField('maxTokens', event.target.value)}
+            onBlur={() => setTouched((current) => new Set(current).add('maxTokens'))}
+            disabled={disabled}
+            aria-invalid={Boolean(visibleError('maxTokens'))}
+            aria-describedby={`${idPrefix}-max-tokens-feedback`}
+            placeholder="Provider default"
+          />
+        </FormField>
+        <FormField
+          label="Top p"
+          htmlFor={`${idPrefix}-top-p`}
+          description="Token sampling range from 0 (narrow) to 1 (full)."
+          error={visibleError('topP')}
+          optional
+          disabled={disabled}
+        >
+          <Input
+            id={`${idPrefix}-top-p`}
+            type="number"
+            inputMode="decimal"
+            min={0}
+            max={1}
+            step={0.1}
+            value={values.topP}
+            onChange={(event) => updateField('topP', event.target.value)}
+            onBlur={() => setTouched((current) => new Set(current).add('topP'))}
+            disabled={disabled}
+            aria-invalid={Boolean(visibleError('topP'))}
+            aria-describedby={`${idPrefix}-top-p-feedback`}
+            placeholder="Provider default"
+          />
+        </FormField>
+      </FormFieldGroup>
+    </div>
+  );
+}
+
 function providerNameFromId(providers: ModelProviderDefinition[], providerId: string) {
   return providers.find((provider) => provider.id === providerId)?.name ?? providerId;
 }
@@ -709,31 +932,11 @@ function providerApiKey(providers: ModelProviderDefinition[], providerId: string
   return typeof value === 'string' && value.trim() ? value : null;
 }
 
-function providerType(providers: ModelProviderDefinition[], providerId: string) {
-  return providers.find((provider) => provider.id === providerId)?.provider_type ?? null;
-}
-
 function modelHintForProvider(providers: ModelProviderDefinition[], providerId: string) {
-  const selectedProviderType = providerType(providers, providerId);
-  if (selectedProviderType === 'ollama') {
-    return PROVIDER_PRESETS.ollama.modelHint;
-  }
-  if (selectedProviderType === 'anthropic') {
-    return PROVIDER_PRESETS.anthropic.modelHint;
-  }
-  if (selectedProviderType === 'google') {
-    return PROVIDER_PRESETS.google.modelHint;
-  }
-  if (selectedProviderType === 'deepseek') {
-    return PROVIDER_PRESETS.deepseek.modelHint;
-  }
-  if (selectedProviderType === 'qwen') {
-    return PROVIDER_PRESETS.qwen.modelHint;
-  }
-  if (selectedProviderType === 'openai') {
-    return PROVIDER_PRESETS.openai.modelHint;
-  }
-  return PROVIDER_PRESETS.openai_compatible.modelHint;
+  const provider = providers.find((item) => item.id === providerId);
+  return provider
+    ? providerPresetForFamily(providerFamilyFromProvider(provider)).modelHint
+    : PROVIDER_PRESETS.openai_compatible.modelHint;
 }
 
 const CUSTOM_MODEL_OPTION = '__custom_model__';
@@ -829,6 +1032,9 @@ function ModelSelector({
   options,
   placeholder,
   disabled,
+  error,
+  required = false,
+  onBlur,
 }: {
   id: string;
   label?: string;
@@ -837,6 +1043,9 @@ function ModelSelector({
   options: ModelProviderModelOption[];
   placeholder: string;
   disabled: boolean;
+  error?: string | null;
+  required?: boolean;
+  onBlur?: () => void;
 }) {
   const [customMode, setCustomMode] = useState(false);
   const modelIds = new Set(options.map((option) => option.id));
@@ -844,10 +1053,10 @@ function ModelSelector({
   const selectValue = customMode || usesCustomModel ? CUSTOM_MODEL_OPTION : value;
 
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor={id}>{label}</Label>
+    <FormField label={label} htmlFor={id} error={error} required={required} disabled={disabled}>
       <select
         id={id}
+        required={required}
         value={selectValue}
         onChange={(event) => {
           const nextValue = event.target.value;
@@ -860,6 +1069,9 @@ function ModelSelector({
           onChange(nextValue);
         }}
         disabled={disabled}
+        onBlur={onBlur}
+        aria-invalid={Boolean(error)}
+        aria-describedby={`${id}-feedback`}
         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
       >
         <option value="">Select a model</option>
@@ -876,10 +1088,14 @@ function ModelSelector({
           value={value}
           placeholder={placeholder}
           onChange={(event) => onChange(event.target.value)}
+          onBlur={onBlur}
           disabled={disabled}
+          required={required}
+          aria-invalid={Boolean(error)}
+          aria-describedby={`${id}-feedback`}
         />
       ) : null}
-    </div>
+    </FormField>
   );
 }
 
@@ -1375,39 +1591,12 @@ function ProfileFields({
         disabled={disabled}
         onChange={(fallback) => setForm((current) => ({ ...current, ...fallback }))}
       />
-      <div className="grid gap-3 md:grid-cols-3">
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-temperature`}>Temperature</Label>
-          <Input
-            id={`${idPrefix}-temperature`}
-            value={form.temperature}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, temperature: event.target.value }))
-            }
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-max-tokens`}>Max tokens</Label>
-          <Input
-            id={`${idPrefix}-max-tokens`}
-            value={form.maxTokens}
-            onChange={(event) =>
-              setForm((current) => ({ ...current, maxTokens: event.target.value }))
-            }
-            disabled={disabled}
-          />
-        </div>
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-top-p`}>Top p</Label>
-          <Input
-            id={`${idPrefix}-top-p`}
-            value={form.topP}
-            onChange={(event) => setForm((current) => ({ ...current, topP: event.target.value }))}
-            disabled={disabled}
-          />
-        </div>
-      </div>
+      <RuntimeTuningFields
+        idPrefix={idPrefix}
+        values={form}
+        onChange={(values) => setForm((current) => ({ ...current, ...values }))}
+        disabled={disabled}
+      />
       <div className="grid gap-2 md:grid-cols-2">
         <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
           <input
@@ -1476,6 +1665,19 @@ function OAuthDialog({
   const oauthProfiles = oauthProfilesForProvider(provider);
   const statusLabel = oauthStatusLabel(provider, authProfileId);
   const accountId = oauthAccountId(provider, authProfileId);
+  const oauthIsDirty =
+    step !== 'start' ||
+    authProfileId !== defaultOAuthProfileId(provider) ||
+    Boolean(completionInput);
+
+  const resetOAuth = () => {
+    setStep('start');
+    setAuthData(null);
+    setCompletionInput('');
+    setAuthProfileId(defaultOAuthProfileId(provider));
+    setError(null);
+    completedRedirectRef.current = null;
+  };
 
   const handleStart = () => {
     setError(null);
@@ -1551,31 +1753,59 @@ function OAuthDialog({
         <RefreshCw className="h-3 w-3" />
         {hasOAuthToken(provider, authProfileId) ? 'Re-authorize OAuth' : 'Authorize OAuth'}
       </Button>
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>OAuth Authorization: {provider.name}</DialogTitle>
-            <DialogDescription>Connect your account using OAuth 2.1 PKCE.</DialogDescription>
-          </DialogHeader>
-
-          {step === 'start' && (
-            <div className="space-y-4 py-4">
-              <div className="space-y-1.5">
-                <Label htmlFor={`${provider.id}-oauth-profile-id`}>OAuth profile</Label>
-                <Input
-                  id={`${provider.id}-oauth-profile-id`}
-                  value={authProfileId}
-                  onChange={(event) => setAuthProfileId(event.target.value.trim() || 'default')}
-                  disabled={isPending}
-                />
-              </div>
-              {oauthProfiles.length > 0 ? (
+      <AppDialog
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open && !isPending) resetOAuth();
+        }}
+        dirty={oauthIsDirty}
+        busy={isPending}
+        onDiscard={resetOAuth}
+        size="sm"
+        icon={<RefreshCw className="size-4" aria-hidden="true" />}
+        title={`OAuth authorization: ${provider.name}`}
+        description="Connect your account using OAuth 2.1 PKCE."
+        bodyClassName="flex flex-col gap-4"
+        footer={
+          <DialogClose asChild>
+            <Button type="button" variant="outline" disabled={isPending}>
+              Close
+            </Button>
+          </DialogClose>
+        }
+      >
+        {step === 'start' && (
+          <FormSection
+            title="Account profile"
+            description="Choose the saved account alias that should own this authorization."
+            icon={<RefreshCw className="size-4" aria-hidden="true" />}
+            contentClassName="flex flex-col gap-4"
+          >
+            <FormField
+              label="OAuth profile"
+              htmlFor={`${provider.id}-oauth-profile-id`}
+              description="Use default unless you intentionally keep multiple accounts for this provider."
+              required
+            >
+              <Input
+                id={`${provider.id}-oauth-profile-id`}
+                required
+                value={authProfileId}
+                onChange={(event) => setAuthProfileId(event.target.value.trim() || 'default')}
+                disabled={isPending}
+                aria-describedby={`${provider.id}-oauth-profile-id-feedback`}
+              />
+            </FormField>
+            {oauthProfiles.length > 0 ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-xs font-medium text-(--agency-shell-muted)">Saved profiles</p>
                 <div className="flex flex-wrap gap-2">
                   {oauthProfiles.map((profile) => (
                     <Button
                       key={profile.id}
                       type="button"
-                      variant={profile.id === authProfileId ? 'default' : 'outline'}
+                      variant={profile.id === authProfileId ? 'brand' : 'outline'}
                       size="sm"
                       onClick={() => setAuthProfileId(profile.id)}
                     >
@@ -1583,88 +1813,103 @@ function OAuthDialog({
                     </Button>
                   ))}
                 </div>
+              </div>
+            ) : null}
+            <div className="rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) px-3 py-2.5 text-xs text-(--agency-shell-muted)">
+              <p>
+                Status:{' '}
+                <span className="font-medium text-(--agency-shell-text)">{statusLabel}</span>
+              </p>
+              {accountId ? (
+                <p>
+                  Account:{' '}
+                  <span className="font-medium text-(--agency-shell-text)">{accountId}</span>
+                </p>
               ) : null}
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-xs text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-300">
-                <div>Status: {statusLabel}</div>
-                {accountId ? <div>Account: {accountId}</div> : null}
-              </div>
-              <div className="grid gap-2">
-                <Button onClick={handleStart} disabled={isPending} className="w-full">
-                  {isPending ? 'Starting...' : 'Browser authorization'}
-                </Button>
-              </div>
             </div>
-          )}
+            <Button onClick={handleStart} disabled={isPending} className="w-full">
+              {isPending ? 'Starting...' : 'Browser authorization'}
+            </Button>
+          </FormSection>
+        )}
 
-          {step === 'waiting' && (
-            <div className="space-y-4 py-4">
-              <p className="text-sm">Authorization page opened in a new tab.</p>
-              <div className="space-y-1">
-                <div className="flex items-center justify-between">
-                  <Label className="text-[10px] uppercase text-muted-foreground">Auth URL</Label>
-                  <TooltipProvider delayDuration={150}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-4 w-4"
-                          aria-label="Copy authorization URL"
-                          onClick={() => {
-                            if (authData?.auth_url) {
-                              navigator.clipboard.writeText(authData.auth_url);
-                              toast.success('URL copied to clipboard');
-                            }
-                          }}
-                        >
-                          <Copy className="h-3 w-3" />
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent>Copy authorization URL</TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div className="bg-muted p-3 rounded text-xs break-all font-mono">
-                  {authData?.auth_url}
-                </div>
+        {step === 'waiting' && (
+          <FormSection
+            title="Complete authorization"
+            description="Finish in the opened browser tab. Paste the redirect value only if automatic completion does not return."
+            contentClassName="flex flex-col gap-4"
+          >
+            <div className="flex flex-col gap-1">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-medium text-(--agency-shell-muted)">Authorization URL</p>
+                <TooltipProvider delayDuration={150}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Copy authorization URL"
+                        onClick={() => {
+                          if (authData?.auth_url) {
+                            navigator.clipboard.writeText(authData.auth_url);
+                            toast.success('URL copied to clipboard');
+                          }
+                        }}
+                      >
+                        <Copy className="size-3" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Copy authorization URL</TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
-              <div className="rounded-md bg-amber-50 p-3 border border-amber-200 text-[11px] text-amber-800 space-y-1">
-                <p>
-                  <strong>Configured Redirect URI:</strong> {authData?.redirect_uri}
-                </p>
-                <p>
-                  <strong>Configured Client ID:</strong>{' '}
-                  {authData?.client_id || `${OPENAI_CODEX_CLIENT_ID} (Default)`}
-                </p>
-                <p>
-                  <strong>OAuth Profile:</strong> {authData?.auth_profile_id || authProfileId}
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>Redirect URL or authorization code</Label>
-                <Input
-                  value={completionInput}
-                  onChange={(e) => setCompletionInput(e.target.value)}
-                  placeholder="Paste the full redirect URL or raw code"
-                />
-              </div>
-              {error && <p className="text-xs text-red-600">{error}</p>}
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleManualComplete}
-                  disabled={isPending || !completionInput.trim()}
-                  className="flex-1"
-                >
-                  {isPending ? 'Completing...' : 'Complete Manually'}
-                </Button>
-                <Button variant="ghost" onClick={() => setStep('start')}>
-                  Back
-                </Button>
-              </div>
+              <code className="break-all rounded-lg bg-muted p-3 text-xs">
+                {authData?.auth_url}
+              </code>
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="flex flex-col gap-1 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) p-3 text-xs text-(--agency-shell-muted)">
+              <p>
+                <strong>Configured Redirect URI:</strong> {authData?.redirect_uri}
+              </p>
+              <p>
+                <strong>Configured Client ID:</strong>{' '}
+                {authData?.client_id || `${OPENAI_CODEX_CLIENT_ID} (Default)`}
+              </p>
+              <p>
+                <strong>OAuth Profile:</strong> {authData?.auth_profile_id || authProfileId}
+              </p>
+            </div>
+            <FormField
+              label="Redirect URL or authorization code"
+              htmlFor={`${provider.id}-oauth-completion`}
+              description="Paste the full redirect URL when available; a raw authorization code also works."
+              required
+            >
+              <Input
+                id={`${provider.id}-oauth-completion`}
+                required
+                value={completionInput}
+                onChange={(e) => setCompletionInput(e.target.value)}
+                placeholder="Paste the full redirect URL or raw code"
+                aria-describedby={`${provider.id}-oauth-completion-feedback`}
+              />
+            </FormField>
+            <FieldFeedback error={error} />
+            <div className="flex gap-2">
+              <Button
+                onClick={handleManualComplete}
+                disabled={isPending || !completionInput.trim()}
+                className="flex-1"
+              >
+                {isPending ? 'Completing...' : 'Complete Manually'}
+              </Button>
+              <Button variant="ghost" onClick={() => setStep('start')}>
+                Back
+              </Button>
+            </div>
+          </FormSection>
+        )}
+      </AppDialog>
     </>
   );
 }
@@ -1729,25 +1974,32 @@ function ProviderConnectionCard({
   return (
     <Card
       className={cn(
-        'relative overflow-hidden transition-colors dark:shadow-[0_24px_60px_rgba(2,6,23,0.34)]',
-        tone.card
+        'relative overflow-hidden rounded-none border-0 border-b border-neutral-200 bg-transparent shadow-none transition-colors last:border-b-0 dark:border-white/10 dark:bg-transparent dark:shadow-none',
+        !isEditing && 'hover:bg-neutral-50/75 dark:hover:bg-white/[0.025]'
       )}
     >
-      <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg dark:text-slate-50">{provider.name}</CardTitle>
-            <CardDescription className="dark:text-slate-300">
-              {provider.description || `${providerPresetForFamily(family).label} connection`}
-            </CardDescription>
+      <span className={cn('absolute inset-y-0 left-0 w-1', tone.accent)} />
+      {isEditing ? (
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg dark:text-slate-50">{provider.name}</CardTitle>
+              <CardDescription className="dark:text-slate-300">
+                {provider.description || `${providerPresetForFamily(family).label} connection`}
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className={tone.badge}>
+              {provider.provider_type}
+            </Badge>
           </div>
-          <Badge variant="outline" className={tone.badge}>
-            {provider.provider_type}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm text-neutral-600 dark:text-slate-200">
+        </CardHeader>
+      ) : null}
+      <CardContent
+        className={cn(
+          'text-sm text-neutral-600 dark:text-slate-200',
+          isEditing ? 'space-y-3' : 'p-0'
+        )}
+      >
         {isEditing ? (
           <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-slate-950/60">
             <div className="grid gap-3 md:grid-cols-2">
@@ -1924,75 +2176,47 @@ function ProviderConnectionCard({
             </div>
           </div>
         ) : (
-          <>
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{providerPresetForFamily(family).label}</Badge>
-              <Badge variant="outline">
-                {linkedProfiles.length} preset{linkedProfiles.length === 1 ? '' : 's'}
-              </Badge>
-              {baseUrl ? (
-                <Badge variant="outline">Base URL set</Badge>
-              ) : (
-                <Badge variant="secondary">No base URL</Badge>
-              )}
-              {providerRequiresOAuth ? (
-                hasOAuthToken(provider, defaultProfileId) ? (
-                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                    OAuth {defaultOAuthStatus}
-                  </Badge>
-                ) : (
-                  <Badge variant="destructive">OAuth Required</Badge>
-                )
-              ) : hasApiKey ? (
-                <Badge variant="outline">API key set</Badge>
-              ) : (
-                <Badge variant="secondary">No API key</Badge>
-              )}
+          <div className="grid gap-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1.1fr)_minmax(15rem,1.5fr)_minmax(12rem,1fr)_auto] lg:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-neutral-950 dark:text-slate-50">{provider.name}</p>
+                <Badge variant="outline" className={tone.badge}>
+                  {provider.provider_type}
+                </Badge>
+              </div>
+              <p className="mt-1 line-clamp-2 text-sm text-neutral-500 dark:text-slate-400">
+                {provider.description || `${providerPresetForFamily(family).label} connection`}
+              </p>
             </div>
-            <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/60">
-              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400 lg:hidden">
                 Endpoint
               </p>
-              <p className="mt-1 wrap-break-word text-sm text-neutral-800 dark:text-slate-100">
+              <p className="mt-1 truncate text-sm font-medium text-neutral-800 dark:text-slate-100 lg:mt-0">
                 {baseUrl || 'Not set'}
               </p>
             </div>
-            {providerRequiresOAuth ? (
-              <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/60">
-                <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                  OAuth profiles
-                </p>
-                {oauthProfiles.length > 0 ? (
-                  <div className="mt-2 space-y-2">
-                    {oauthProfiles.map((profile) => {
-                      const accountId = oauthAccountId(provider, profile.id);
-                      return (
-                        <div
-                          key={profile.id}
-                          className="flex flex-wrap items-center gap-2 text-sm text-neutral-800 dark:text-slate-100"
-                        >
-                          <Badge variant={profile.id === defaultProfileId ? 'default' : 'outline'}>
-                            {profile.id}
-                          </Badge>
-                          <Badge variant="outline">{oauthStatusLabel(provider, profile.id)}</Badge>
-                          {accountId ? (
-                            <span className="text-xs text-neutral-500 dark:text-slate-400">
-                              Account {accountId}
-                            </span>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </div>
+
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Badge variant="outline">
+                {linkedProfiles.length} preset{linkedProfiles.length === 1 ? '' : 's'}
+              </Badge>
+              {providerRequiresOAuth ? (
+                hasOAuthToken(provider, defaultProfileId) ? (
+                  <Badge variant="successful">OAuth {defaultOAuthStatus}</Badge>
                 ) : (
-                  <p className="mt-1 text-sm text-neutral-800 dark:text-slate-100">
-                    No OAuth account linked.
-                  </p>
-                )}
-              </div>
-            ) : null}
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-            <div className="flex flex-wrap gap-2">
+                  <Badge variant="destructive">OAuth required</Badge>
+                )
+              ) : hasApiKey ? (
+                <Badge variant="successful">API key set</Badge>
+              ) : (
+                <Badge variant="secondary">No API key</Badge>
+              )}
+              {!baseUrl ? <Badge variant="secondary">No base URL</Badge> : null}
+            </div>
+
+            <div className="flex flex-wrap gap-2 lg:justify-end">
               <Button
                 type="button"
                 variant="outline"
@@ -2005,7 +2229,42 @@ function ProviderConnectionCard({
               </Button>
               {providerRequiresOAuth && <OAuthDialog provider={provider} onComplete={onRefresh} />}
             </div>
-          </>
+
+            {providerRequiresOAuth ? (
+              <div className="border-t border-neutral-200 pt-3 sm:col-span-2 lg:col-span-4 dark:border-white/10">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                  OAuth profiles
+                </p>
+                {oauthProfiles.length > 0 ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {oauthProfiles.map((profile) => {
+                      const accountId = oauthAccountId(provider, profile.id);
+                      return (
+                        <div key={profile.id} className="flex min-w-0 flex-wrap items-center gap-2">
+                          <Badge variant={profile.id === defaultProfileId ? 'default' : 'outline'}>
+                            {profile.id}
+                          </Badge>
+                          <Badge variant="outline">{oauthStatusLabel(provider, profile.id)}</Badge>
+                          {accountId ? (
+                            <span className="truncate text-xs text-neutral-500 dark:text-slate-400">
+                              Account {accountId}
+                            </span>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                    No OAuth account linked.
+                  </p>
+                )}
+              </div>
+            ) : null}
+            {error ? (
+              <p className="text-xs text-red-600 sm:col-span-2 lg:col-span-4">{error}</p>
+            ) : null}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -2027,6 +2286,9 @@ function CreateLlmModelDialog({
   );
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [touched, setTouched] = useState<
+    Set<'provider' | 'providerName' | 'providerId' | 'apiKey' | 'profileName' | 'model'>
+  >(new Set());
 
   // OAuth specific state
   const [oauthStep, setOauthStep] = useState<'idle' | 'waiting' | 'manual'>('idle');
@@ -2034,6 +2296,10 @@ function CreateLlmModelDialog({
   const [completionInput, setCompletionInput] = useState('');
   const [createdProviderId, setCreatedProviderId] = useState<string | null>(null);
   const completedRedirectRef = useRef<string | null>(null);
+  const formIsDirty =
+    JSON.stringify(state) !== JSON.stringify(defaultCreateLlmModelState(providers)) ||
+    oauthStep !== 'idle' ||
+    Boolean(completionInput);
 
   const reset = useCallback(() => {
     setState(defaultCreateLlmModelState(providers));
@@ -2042,6 +2308,7 @@ function CreateLlmModelDialog({
     setOauthData(null);
     setCompletionInput('');
     setCreatedProviderId(null);
+    setTouched(new Set());
     completedRedirectRef.current = null;
   }, [providers]);
 
@@ -2067,6 +2334,10 @@ function CreateLlmModelDialog({
   };
 
   const handleCreate = () => {
+    if (hasRuntimeTuningErrors(state)) {
+      setError('Fix the runtime tuning values before adding this model.');
+      return;
+    }
     setError(null);
     startTransition(() => {
       void (async () => {
@@ -2140,7 +2411,12 @@ function CreateLlmModelDialog({
           });
 
           const preset = providerPresetForFamily(state.provider.family);
-          const modelState = { ...state };
+          const modelState = {
+            ...state,
+            // OAuth fills in the profile metadata after the model picker has been used. Keep that
+            // explicit selection; the preset's latest model is only a no-selection fallback.
+            model: state.model.trim() || preset.modelOptions[0]?.id || preset.modelHint,
+          };
           if (preset.defaultProfile) {
             const dp = preset.defaultProfile;
             modelState.profileName = dp.name;
@@ -2219,7 +2495,35 @@ function CreateLlmModelDialog({
       ? state.selectedProviderId
       : state.provider.name.trim() &&
         state.provider.providerId.trim() &&
-        (!selectedPreset.requiresApiKey || state.provider.apiKey.trim()));
+        (!selectedPreset.requiresApiKey || state.provider.apiKey.trim())) &&
+    !hasRuntimeTuningErrors(state);
+  const markTouched = (
+    field: 'provider' | 'providerName' | 'providerId' | 'apiKey' | 'profileName' | 'model'
+  ) => setTouched((current) => new Set(current).add(field));
+  const selectedProviderError =
+    state.mode === 'existing' && touched.has('provider') && !state.selectedProviderId
+      ? 'Choose an existing connection.'
+      : null;
+  const providerNameError =
+    state.mode === 'new' && touched.has('providerName') && !state.provider.name.trim()
+      ? 'Enter a connection name.'
+      : null;
+  const providerIdError =
+    state.mode === 'new' && touched.has('providerId') && !state.provider.providerId.trim()
+      ? 'Enter a stable connection ID.'
+      : null;
+  const apiKeyError =
+    state.mode === 'new' &&
+    selectedPreset.requiresApiKey &&
+    touched.has('apiKey') &&
+    !state.provider.apiKey.trim()
+      ? 'Enter the API key required by this provider.'
+      : null;
+  const profileNameError =
+    !selectedPreset.requiresOAuth && touched.has('profileName') && !state.profileName.trim()
+      ? 'Enter a preset name.'
+      : null;
+  const modelError = touched.has('model') && !state.model.trim() ? 'Choose a model.' : null;
 
   return (
     <>
@@ -2230,7 +2534,7 @@ function CreateLlmModelDialog({
       >
         Add Model
       </Button>
-      <Dialog
+      <AppDialog
         open={isOpen}
         onOpenChange={(open) => {
           setIsOpen(open);
@@ -2238,19 +2542,53 @@ function CreateLlmModelDialog({
             reset();
           }
         }}
-      >
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Add Model</DialogTitle>
-            <DialogDescription>
-              Create a selectable model preset and connect it to an existing or new provider.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-5">
-            <div className="grid gap-2 md:grid-cols-2">
+        dirty={formIsDirty}
+        busy={isPending}
+        onDiscard={reset}
+        size="lg"
+        icon={<BrainCog className="size-4" aria-hidden="true" />}
+        title="Add model"
+        description="Create a selectable model preset and connect it to an existing or new provider."
+        bodyClassName="flex flex-col gap-5"
+        footer={
+          <>
+            <DialogClose asChild>
+              <Button type="button" variant="outline" disabled={isPending}>
+                Cancel
+              </Button>
+            </DialogClose>
+            {oauthStep === 'idle' ? (
               <Button
                 type="button"
-                variant={state.mode === 'existing' ? 'default' : 'outline'}
+                variant="brand"
+                disabled={isPending || !canCreate}
+                onClick={handleCreate}
+              >
+                {isPending
+                  ? 'Creating...'
+                  : selectedPreset.requiresOAuth
+                    ? 'Authorize & Add'
+                    : 'Add model'}
+              </Button>
+            ) : null}
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <FormSection
+            title="Connection"
+            description="Reuse a configured provider or add a new connection for this model."
+            icon={<BrainCog className="size-4" aria-hidden="true" />}
+            contentClassName="flex flex-col gap-4"
+          >
+            <div
+              className="grid gap-2 md:grid-cols-2"
+              role="radiogroup"
+              aria-label="Connection source"
+            >
+              <Button
+                type="button"
+                variant={state.mode === 'existing' ? 'brand' : 'outline'}
                 disabled={isPending || providers.length === 0}
                 onClick={() =>
                   setState((current) => ({
@@ -2273,7 +2611,7 @@ function CreateLlmModelDialog({
               </Button>
               <Button
                 type="button"
-                variant={state.mode === 'new' ? 'default' : 'outline'}
+                variant={state.mode === 'new' ? 'brand' : 'outline'}
                 disabled={isPending}
                 onClick={() =>
                   setState((current) => ({
@@ -2290,14 +2628,22 @@ function CreateLlmModelDialog({
             </div>
 
             {state.mode === 'existing' ? (
-              <>
-                <div className="space-y-1.5">
-                  <Label htmlFor="llm-existing-provider">LLM connection</Label>
+              <FormFieldGroup columns={2}>
+                <FormField
+                  label="LLM connection"
+                  htmlFor="llm-existing-provider"
+                  error={selectedProviderError}
+                  required
+                >
                   <select
                     id="llm-existing-provider"
+                    required
                     value={state.selectedProviderId}
                     onChange={(event) => updateSelectedProvider(event.target.value)}
+                    onBlur={() => markTouched('provider')}
                     disabled={isPending || providers.length === 0}
+                    aria-invalid={Boolean(selectedProviderError)}
+                    aria-describedby="llm-existing-provider-feedback"
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                   >
                     <option value="">Select a connection</option>
@@ -2307,10 +2653,14 @@ function CreateLlmModelDialog({
                       </option>
                     ))}
                   </select>
-                </div>
+                </FormField>
                 {selectedProviderRequiresOAuth ? (
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-existing-oauth-profile">OAuth account</Label>
+                  <FormField
+                    label="OAuth account"
+                    htmlFor="llm-existing-oauth-profile"
+                    description="Use the connection default unless this preset needs a specific account."
+                    optional
+                  >
                     <select
                       id="llm-existing-oauth-profile"
                       value={state.oauthProfileId}
@@ -2318,6 +2668,7 @@ function CreateLlmModelDialog({
                         setState((current) => ({ ...current, oauthProfileId: event.target.value }))
                       }
                       disabled={isPending}
+                      aria-describedby="llm-existing-oauth-profile-feedback"
                       className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                     >
                       <option value="">
@@ -2333,16 +2684,16 @@ function CreateLlmModelDialog({
                         </option>
                       ))}
                     </select>
-                  </div>
+                  </FormField>
                 ) : null}
-              </>
+              </FormFieldGroup>
             ) : (
-              <div className="space-y-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/5">
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-provider-family">Provider family</Label>
+              <div className="flex flex-col gap-4">
+                <FormFieldGroup columns={2}>
+                  <FormField label="Provider family" htmlFor="llm-provider-family" required>
                     <select
                       id="llm-provider-family"
+                      required
                       value={state.provider.family}
                       onChange={(event) =>
                         updateProviderFamily(event.target.value as ProviderFamily)
@@ -2356,11 +2707,16 @@ function CreateLlmModelDialog({
                         </option>
                       ))}
                     </select>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-provider-name">Connection name</Label>
+                  </FormField>
+                  <FormField
+                    label="Connection name"
+                    htmlFor="llm-provider-name"
+                    error={providerNameError}
+                    required
+                  >
                     <Input
                       id="llm-provider-name"
+                      required
                       value={state.provider.name}
                       onChange={(event) =>
                         setState((current) => ({
@@ -2372,15 +2728,24 @@ function CreateLlmModelDialog({
                           },
                         }))
                       }
+                      onBlur={() => markTouched('providerName')}
                       disabled={isPending}
+                      aria-invalid={Boolean(providerNameError)}
+                      aria-describedby="llm-provider-name-feedback"
                     />
-                  </div>
-                </div>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-provider-id">Connection ID</Label>
+                  </FormField>
+                </FormFieldGroup>
+                <FormFieldGroup columns={2}>
+                  <FormField
+                    label="Connection ID"
+                    htmlFor="llm-provider-id"
+                    description="Stable identifier used by agents and workflows."
+                    error={providerIdError}
+                    required
+                  >
                     <Input
                       id="llm-provider-id"
+                      required
                       value={state.provider.providerId}
                       onChange={(event) =>
                         setState((current) => ({
@@ -2388,11 +2753,18 @@ function CreateLlmModelDialog({
                           provider: { ...current.provider, providerId: event.target.value },
                         }))
                       }
+                      onBlur={() => markTouched('providerId')}
                       disabled={isPending}
+                      aria-invalid={Boolean(providerIdError)}
+                      aria-describedby="llm-provider-id-feedback"
                     />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-provider-base-url">Base URL</Label>
+                  </FormField>
+                  <FormField
+                    label="Base URL"
+                    htmlFor="llm-provider-base-url"
+                    description="Use the provider default unless you run a compatible local or proxy endpoint."
+                    optional
+                  >
                     <Input
                       id="llm-provider-base-url"
                       value={state.provider.baseUrl}
@@ -2403,6 +2775,7 @@ function CreateLlmModelDialog({
                         }))
                       }
                       disabled={isPending}
+                      aria-describedby="llm-provider-base-url-feedback"
                     />
                     {shouldWarnAboutDockerOllamaBaseUrl(
                       state.provider.family,
@@ -2413,13 +2786,24 @@ function CreateLlmModelDialog({
                         local backends, prefer http://host.docker.internal:11434.
                       </p>
                     ) : null}
-                  </div>
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="llm-provider-api-key">API key</Label>
+                  </FormField>
+                </FormFieldGroup>
+                <FormField
+                  label="API key"
+                  htmlFor="llm-provider-api-key"
+                  description={
+                    selectedPreset.requiresApiKey
+                      ? 'Stored through the backend connection configuration.'
+                      : 'Only needed when this provider requires credential authentication.'
+                  }
+                  error={apiKeyError}
+                  required={selectedPreset.requiresApiKey}
+                  optional={!selectedPreset.requiresApiKey}
+                >
                   <Input
                     id="llm-provider-api-key"
                     type="password"
+                    required={selectedPreset.requiresApiKey}
                     value={state.provider.apiKey}
                     onChange={(event) =>
                       setState((current) => ({
@@ -2427,16 +2811,18 @@ function CreateLlmModelDialog({
                         provider: { ...current.provider, apiKey: event.target.value },
                       }))
                     }
+                    onBlur={() => markTouched('apiKey')}
                     disabled={isPending}
+                    aria-invalid={Boolean(apiKeyError)}
+                    aria-describedby="llm-provider-api-key-feedback"
                     placeholder={
                       selectedPreset.requiresApiKey ? 'Required for this provider' : 'Optional'
                     }
                   />
-                </div>
+                </FormField>
                 {selectedPreset.requiresOAuth && (
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="llm-provider-client-id">Client ID</Label>
+                  <FormFieldGroup columns={2}>
+                    <FormField label="Client ID" htmlFor="llm-provider-client-id" optional>
                       <Input
                         id="llm-provider-client-id"
                         value={state.provider.clientId}
@@ -2449,10 +2835,9 @@ function CreateLlmModelDialog({
                         disabled={isPending}
                         placeholder="OAuth Client ID"
                       />
-                    </div>
+                    </FormField>
                     {state.provider.family === 'azure_openai' && (
-                      <div className="space-y-1.5">
-                        <Label htmlFor="llm-provider-tenant-id">Tenant ID</Label>
+                      <FormField label="Tenant ID" htmlFor="llm-provider-tenant-id" optional>
                         <Input
                           id="llm-provider-tenant-id"
                           value={state.provider.tenantId}
@@ -2465,10 +2850,14 @@ function CreateLlmModelDialog({
                           disabled={isPending}
                           placeholder="Azure Tenant ID"
                         />
-                      </div>
+                      </FormField>
                     )}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="llm-provider-redirect-uri">Redirect URI</Label>
+                    <FormField
+                      label="Redirect URI"
+                      htmlFor="llm-provider-redirect-uri"
+                      description="Must match the Redirect URI registered with your Client ID."
+                      optional
+                    >
                       <Input
                         id="llm-provider-redirect-uri"
                         value={state.provider.redirectUri}
@@ -2480,13 +2869,15 @@ function CreateLlmModelDialog({
                         }
                         disabled={isPending}
                         placeholder={`e.g. ${OPENAI_CODEX_REDIRECT_URI}`}
+                        aria-describedby="llm-provider-redirect-uri-feedback"
                       />
-                      <p className="text-[10px] text-muted-foreground">
-                        Must match the Redirect URI registered with your Client ID.
-                      </p>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="llm-provider-auth-profile-id">OAuth profile</Label>
+                    </FormField>
+                    <FormField
+                      label="OAuth profile"
+                      htmlFor="llm-provider-auth-profile-id"
+                      description="Use a stable account alias such as default or work."
+                      optional
+                    >
                       <Input
                         id="llm-provider-auth-profile-id"
                         value={state.provider.authProfileId}
@@ -2498,28 +2889,50 @@ function CreateLlmModelDialog({
                         }
                         disabled={isPending}
                         placeholder="default"
+                        aria-describedby="llm-provider-auth-profile-id-feedback"
                       />
-                    </div>
-                  </div>
+                    </FormField>
+                  </FormFieldGroup>
                 )}
               </div>
             )}
+          </FormSection>
 
-            {oauthStep === 'idle' ? (
-              <>
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-profile-name">Preset name</Label>
+          {oauthStep === 'idle' ? (
+            <>
+              <FormSection
+                title="Model preset"
+                description="Name the reusable preset and choose the model agents will call."
+                icon={<Sparkles className="size-4" aria-hidden="true" />}
+                contentClassName="flex flex-col gap-4"
+              >
+                <FormFieldGroup columns={2}>
+                  <FormField
+                    label="Preset name"
+                    htmlFor="llm-profile-name"
+                    description={
+                      selectedPreset.requiresOAuth
+                        ? 'Filled from the provider preset after OAuth completes.'
+                        : 'Use a name that explains the model’s intended role.'
+                    }
+                    error={profileNameError}
+                    required={!selectedPreset.requiresOAuth}
+                    optional={selectedPreset.requiresOAuth}
+                  >
                     <Input
                       id="llm-profile-name"
+                      required={!selectedPreset.requiresOAuth}
                       value={state.profileName}
                       onChange={(event) =>
                         setState((current) => ({ ...current, profileName: event.target.value }))
                       }
+                      onBlur={() => markTouched('profileName')}
                       disabled={isPending}
+                      aria-invalid={Boolean(profileNameError)}
+                      aria-describedby="llm-profile-name-feedback"
                       placeholder={selectedPreset.requiresOAuth ? '(Auto-filled after OAuth)' : ''}
                     />
-                  </div>
+                  </FormField>
                   <ModelSelector
                     key={`${state.mode}-${state.mode === 'new' ? state.provider.family : state.selectedProviderId}`}
                     id="llm-model"
@@ -2534,10 +2947,17 @@ function CreateLlmModelDialog({
                         : modelHintForProvider(providers, state.selectedProviderId)
                     }
                     disabled={isPending}
+                    error={modelError}
+                    required
+                    onBlur={() => markTouched('model')}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="llm-profile-description">Description</Label>
+                </FormFieldGroup>
+                <FormField
+                  label="Description"
+                  htmlFor="llm-profile-description"
+                  description="Explain when agents and workflows should choose this preset."
+                  optional
+                >
                   <Textarea
                     id="llm-profile-description"
                     value={state.profileDescription}
@@ -2548,9 +2968,18 @@ function CreateLlmModelDialog({
                       }))
                     }
                     disabled={isPending}
+                    aria-describedby="llm-profile-description-feedback"
                     placeholder={selectedPreset.requiresOAuth ? '(Auto-filled after OAuth)' : ''}
                   />
-                </div>
+                </FormField>
+              </FormSection>
+              <FormSection
+                title="Runtime and fallback"
+                description="Tune generation, capabilities, and recovery only when the defaults are not enough."
+                advanced
+                advancedLabel="Show runtime settings"
+                contentClassName="flex flex-col gap-4"
+              >
                 <FallbackModelFields
                   idPrefix="llm"
                   strategy={state.fallbackStrategy}
@@ -2562,162 +2991,116 @@ function CreateLlmModelDialog({
                   disabled={isPending}
                   onChange={(fallback) => setState((current) => ({ ...current, ...fallback }))}
                 />
-                <div className="grid gap-3 md:grid-cols-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-temperature">Temperature</Label>
-                    <Input
-                      id="llm-temperature"
-                      value={state.temperature}
-                      onChange={(event) =>
-                        setState((current) => ({ ...current, temperature: event.target.value }))
-                      }
-                      disabled={isPending}
-                    />
+                <RuntimeTuningFields
+                  idPrefix="llm"
+                  values={state}
+                  onChange={(values) => setState((current) => ({ ...current, ...values }))}
+                  disabled={isPending}
+                />
+                <fieldset className="flex flex-col gap-2">
+                  <legend className="text-sm font-medium text-(--agency-shell-text)">
+                    Model capabilities
+                  </legend>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <label className="flex items-center gap-2 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) px-3 py-2.5 text-sm text-(--agency-shell-text)">
+                      <input
+                        type="checkbox"
+                        checked={state.supportsTools}
+                        onChange={(event) =>
+                          setState((current) => ({
+                            ...current,
+                            supportsTools: event.target.checked,
+                          }))
+                        }
+                        disabled={isPending}
+                      />
+                      Supports tools
+                    </label>
+                    <label className="flex items-center gap-2 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) px-3 py-2.5 text-sm text-(--agency-shell-text)">
+                      <input
+                        type="checkbox"
+                        checked={state.supportsStructuredOutput}
+                        onChange={(event) =>
+                          setState((current) => ({
+                            ...current,
+                            supportsStructuredOutput: event.target.checked,
+                          }))
+                        }
+                        disabled={isPending}
+                      />
+                      Structured output
+                    </label>
+                    <label className="flex items-center gap-2 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) px-3 py-2.5 text-sm text-(--agency-shell-text)">
+                      <input
+                        type="checkbox"
+                        checked={state.supportsVision}
+                        onChange={(event) =>
+                          setState((current) => ({
+                            ...current,
+                            supportsVision: event.target.checked,
+                          }))
+                        }
+                        disabled={isPending}
+                      />
+                      Vision
+                    </label>
+                    <label className="flex items-center gap-2 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) px-3 py-2.5 text-sm text-(--agency-shell-text)">
+                      <input
+                        type="checkbox"
+                        checked={state.supportsStreaming}
+                        onChange={(event) =>
+                          setState((current) => ({
+                            ...current,
+                            supportsStreaming: event.target.checked,
+                          }))
+                        }
+                        disabled={isPending}
+                      />
+                      Streaming
+                    </label>
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-max-tokens">Max tokens</Label>
-                    <Input
-                      id="llm-max-tokens"
-                      value={state.maxTokens}
-                      onChange={(event) =>
-                        setState((current) => ({ ...current, maxTokens: event.target.value }))
-                      }
-                      disabled={isPending}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="llm-top-p">Top p</Label>
-                    <Input
-                      id="llm-top-p"
-                      value={state.topP}
-                      onChange={(event) =>
-                        setState((current) => ({ ...current, topP: event.target.value }))
-                      }
-                      disabled={isPending}
-                    />
-                  </div>
-                </div>
-                <div className="grid gap-2 md:grid-cols-2">
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={state.supportsTools}
-                      onChange={(event) =>
-                        setState((current) => ({ ...current, supportsTools: event.target.checked }))
-                      }
-                      disabled={isPending}
-                    />
-                    Supports tools
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={state.supportsStructuredOutput}
-                      onChange={(event) =>
-                        setState((current) => ({
-                          ...current,
-                          supportsStructuredOutput: event.target.checked,
-                        }))
-                      }
-                      disabled={isPending}
-                    />
-                    Structured output
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={state.supportsVision}
-                      onChange={(event) =>
-                        setState((current) => ({
-                          ...current,
-                          supportsVision: event.target.checked,
-                        }))
-                      }
-                      disabled={isPending}
-                    />
-                    Vision
-                  </label>
-                  <label className="flex items-center gap-2 text-sm text-neutral-700 dark:text-slate-300">
-                    <input
-                      type="checkbox"
-                      checked={state.supportsStreaming}
-                      onChange={(event) =>
-                        setState((current) => ({
-                          ...current,
-                          supportsStreaming: event.target.checked,
-                        }))
-                      }
-                      disabled={isPending}
-                    />
-                    Streaming
-                  </label>
-                </div>
-              </>
-            ) : (
-              <div className="space-y-4 rounded-md border border-blue-200 bg-blue-50 p-4">
-                <h4 className="font-medium text-blue-900">OAuth Authorization in Progress</h4>
-                <p className="text-sm text-blue-800">
-                  Please complete the authorization in the opened tab. If it does not complete
-                  automatically, paste the full redirect URL or raw code below.
-                </p>
-                <div className="space-y-2">
-                  <Label htmlFor="oauth-manual-code">Redirect URL or authorization code</Label>
-                  <Input
-                    id="oauth-manual-code"
-                    value={completionInput}
-                    onChange={(e) => setCompletionInput(e.target.value)}
-                    placeholder="Paste redirect URL or code"
-                  />
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={handleOAuthComplete}
-                    disabled={isPending || !completionInput.trim()}
-                    className="bg-blue-600 text-white hover:bg-blue-700"
-                  >
-                    {isPending ? 'Completing...' : 'Complete & Create Model'}
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => setOauthStep('idle')}
-                    disabled={isPending}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            )}
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-          </div>
-          <DialogFooter>
-            {oauthStep === 'idle' && (
-              <Button
-                type="button"
-                className="agency-gradient text-white hover:brightness-105"
-                disabled={isPending || !canCreate}
-                onClick={handleCreate}
-              >
-                {isPending
-                  ? 'Creating...'
-                  : selectedPreset.requiresOAuth
-                    ? 'Authorize & Add'
-                    : 'Add model'}
-              </Button>
-            )}
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending}
-              onClick={() => {
-                reset();
-                setIsOpen(false);
-              }}
+                </fieldset>
+              </FormSection>
+            </>
+          ) : (
+            <FormSection
+              title="OAuth authorization in progress"
+              description="Complete authorization in the opened tab. Paste the redirect value only if the flow does not return automatically."
+              icon={<RefreshCw className="size-4" aria-hidden="true" />}
+              contentClassName="flex flex-col gap-4"
             >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+              <FormField
+                label="Redirect URL or authorization code"
+                htmlFor="oauth-manual-code"
+                description="The full redirect URL is preferred; a raw code is also accepted."
+                required
+              >
+                <Input
+                  id="oauth-manual-code"
+                  required
+                  value={completionInput}
+                  onChange={(e) => setCompletionInput(e.target.value)}
+                  placeholder="Paste redirect URL or code"
+                  aria-describedby="oauth-manual-code-feedback"
+                />
+              </FormField>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleOAuthComplete}
+                  disabled={isPending || !completionInput.trim()}
+                  variant="brand"
+                >
+                  {isPending ? 'Completing...' : 'Complete & Create Model'}
+                </Button>
+                <Button variant="outline" onClick={() => setOauthStep('idle')} disabled={isPending}>
+                  Cancel
+                </Button>
+              </div>
+            </FormSection>
+          )}
+          <FieldFeedback error={error} />
+        </div>
+      </AppDialog>
     </>
   );
 }
@@ -2740,6 +3123,7 @@ function ProfileCard({
   const [isPending, startTransition] = useTransition();
   const provider = providers.find((candidate) => candidate.id === profile.provider) ?? null;
   const tone = llmCardTone(provider ? providerFamilyFromProvider(provider) : null);
+  const runtimeTuningIsValid = !hasRuntimeTuningErrors(form);
 
   const reset = () => {
     setForm(toFormState(profile));
@@ -2748,6 +3132,10 @@ function ProfileCard({
   };
 
   const handleSave = () => {
+    if (!runtimeTuningIsValid) {
+      setError('Fix the runtime tuning values before saving this model preset.');
+      return;
+    }
     setError(null);
     startTransition(() => {
       void (async () => {
@@ -2808,26 +3196,33 @@ function ProfileCard({
   return (
     <Card
       className={cn(
-        'relative overflow-hidden transition-colors dark:shadow-[0_24px_60px_rgba(2,6,23,0.34)]',
-        tone.card
+        'relative overflow-hidden rounded-none border-0 border-b border-neutral-200 bg-transparent shadow-none transition-colors last:border-b-0 dark:border-white/10 dark:bg-transparent dark:shadow-none',
+        !isEditing && 'hover:bg-neutral-50/75 dark:hover:bg-white/[0.025]'
       )}
     >
-      <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
-      <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle className="text-lg dark:text-slate-50">{profile.name}</CardTitle>
-            <CardDescription className="dark:text-slate-300">
-              {profile.description ||
-                `${providerNameFromId(providers, profile.provider)} / ${profile.model}`}
-            </CardDescription>
+      <span className={cn('absolute inset-y-0 left-0 w-1', tone.accent)} />
+      {isEditing ? (
+        <CardHeader>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <CardTitle className="text-lg dark:text-slate-50">{profile.name}</CardTitle>
+              <CardDescription className="dark:text-slate-300">
+                {profile.description ||
+                  `${providerNameFromId(providers, profile.provider)} / ${profile.model}`}
+              </CardDescription>
+            </div>
+            <Badge variant="outline" className={tone.badge}>
+              {providerNameFromId(providers, profile.provider)}
+            </Badge>
           </div>
-          <Badge variant="outline" className={tone.badge}>
-            {providerNameFromId(providers, profile.provider)}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm text-neutral-600 dark:text-slate-200">
+        </CardHeader>
+      ) : null}
+      <CardContent
+        className={cn(
+          'text-sm text-neutral-600 dark:text-slate-200',
+          isEditing ? 'space-y-3' : 'p-0'
+        )}
+      >
         {isEditing ? (
           <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-slate-950/60">
             <ProfileFields
@@ -2843,7 +3238,13 @@ function ProfileCard({
               <Button
                 type="button"
                 className="agency-gradient text-white hover:brightness-105"
-                disabled={isPending || !form.name.trim() || !form.provider || !form.model.trim()}
+                disabled={
+                  isPending ||
+                  !form.name.trim() ||
+                  !form.provider ||
+                  !form.model.trim() ||
+                  !runtimeTuningIsValid
+                }
                 onClick={handleSave}
               >
                 {isPending ? 'Saving...' : 'Save'}
@@ -2862,10 +3263,32 @@ function ProfileCard({
             </div>
           </div>
         ) : (
-          <>
+          <div className="grid gap-4 px-5 py-4 sm:grid-cols-2 lg:grid-cols-[minmax(12rem,1.15fr)_minmax(13rem,1.2fr)_minmax(9rem,0.75fr)_minmax(12rem,1fr)_auto] lg:items-center">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-semibold text-neutral-950 dark:text-slate-50">{profile.name}</p>
+                <Badge variant="outline" className={tone.badge}>
+                  {providerNameFromId(providers, profile.provider)}
+                </Badge>
+              </div>
+              <p className="mt-1 line-clamp-2 text-sm text-neutral-500 dark:text-slate-400">
+                {profile.description || fallbackBadgeLabel(profile)}
+              </p>
+            </div>
+
+            <div className="min-w-0">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400 lg:hidden">
+                Model
+              </p>
+              <p className="mt-1 truncate text-sm font-medium text-neutral-800 dark:text-slate-100 lg:mt-0">
+                {profile.model}
+              </p>
+              <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                {fallbackBadgeLabel(profile)}
+              </p>
+            </div>
+
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">Model: {profile.model}</Badge>
-              <Badge variant="outline">{fallbackBadgeLabel(profile)}</Badge>
               {profile.temperature !== null && profile.temperature !== undefined ? (
                 <Badge variant="outline">Temp: {profile.temperature}</Badge>
               ) : null}
@@ -2876,19 +3299,29 @@ function ProfileCard({
                 <Badge variant="outline">Top p: {profile.topP}</Badge>
               ) : null}
             </div>
-            <div className="flex flex-wrap gap-2">
+
+            <div className="flex min-h-7 flex-wrap gap-2">
               {profile.supportsTools ? <Badge variant="outline">Tools</Badge> : null}
               {profile.supportsStructuredOutput ? (
-                <Badge variant="outline">Structured Output</Badge>
+                <Badge variant="outline">Structured output</Badge>
               ) : null}
               {profile.supportsVision ? <Badge variant="outline">Vision</Badge> : null}
               {profile.supportsStreaming ? <Badge variant="outline">Streaming</Badge> : null}
+              {!profile.supportsTools &&
+              !profile.supportsStructuredOutput &&
+              !profile.supportsVision &&
+              !profile.supportsStreaming ? (
+                <span className="text-xs text-neutral-500 dark:text-slate-400">
+                  No optional capabilities
+                </span>
+              ) : null}
             </div>
-            {error ? <p className="text-xs text-red-600">{error}</p> : null}
-            <div className="flex flex-wrap gap-2">
+
+            <div className="flex flex-wrap gap-2 lg:justify-end">
               <Button
                 type="button"
                 variant="outline"
+                size="sm"
                 onClick={() => {
                   reset();
                   setIsEditing(true);
@@ -2901,6 +3334,7 @@ function ProfileCard({
                   <Button
                     type="button"
                     variant="destructive"
+                    size="sm"
                     disabled={isPending}
                     onClick={handleDelete}
                   >
@@ -2909,6 +3343,7 @@ function ProfileCard({
                   <Button
                     type="button"
                     variant="outline"
+                    size="sm"
                     disabled={isPending}
                     onClick={() => setDeleteMode(false)}
                   >
@@ -2916,12 +3351,20 @@ function ProfileCard({
                   </Button>
                 </>
               ) : (
-                <Button type="button" variant="outline" onClick={() => setDeleteMode(true)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setDeleteMode(true)}
+                >
                   Delete preset
                 </Button>
               )}
             </div>
-          </>
+            {error ? (
+              <p className="text-xs text-red-600 sm:col-span-2 lg:col-span-5">{error}</p>
+            ) : null}
+          </div>
         )}
       </CardContent>
     </Card>
@@ -2966,6 +3409,45 @@ export default function BehaviorProfilesWorkspace() {
     () => providerModelsQuery.data ?? {},
     [providerModelsQuery.data]
   );
+  const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
+  const assistantPageContext = useMemo(
+    () => ({
+      surface: 'model.list' as const,
+      title: 'Models',
+      description: 'LLM connections and selectable model presets for agents and workflows.',
+      entities: [
+        ...providers.slice(0, 8).map((provider) => ({
+          type: 'model_provider',
+          id: provider.id,
+          name: provider.name,
+        })),
+        ...profiles.slice(0, 8).map((profile) => ({
+          type: 'model_profile',
+          id: profile.id,
+          name: profile.name,
+        })),
+      ],
+      summary: {
+        providerCount: providers.length,
+        profileCount: profiles.length,
+        loading: profilesQuery.isLoading || providersQuery.isLoading,
+        providerError: providersQuery.isError ? providersQuery.error.message : null,
+        profileError: profilesQuery.isError ? profilesQuery.error.message : null,
+      },
+      allowedActions: ['model.inspect', 'model.configure', 'model.test'],
+    }),
+    [
+      profiles,
+      profilesQuery.error,
+      profilesQuery.isError,
+      profilesQuery.isLoading,
+      providers,
+      providersQuery.error,
+      providersQuery.isError,
+      providersQuery.isLoading,
+    ]
+  );
+  useRegisterAssistantPageContext(assistantPageContext);
 
   const refreshAll = async () => {
     await Promise.all([
@@ -2999,10 +3481,8 @@ export default function BehaviorProfilesWorkspace() {
     );
   }
 
-  const profiles = profilesQuery.data ?? [];
-
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-8">
       <PageHeader
         icon={BrainCog}
         tone="model"
@@ -3030,14 +3510,22 @@ export default function BehaviorProfilesWorkspace() {
         }
       />
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
-            LLM connections
-          </h2>
-          <p className="text-sm text-neutral-500 dark:text-slate-400">
-            Connection-level provider settings shared by model presets.
-          </p>
+      <section className="flex flex-col gap-3" aria-labelledby="llm-connections-heading">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2
+              id="llm-connections-heading"
+              className="text-xl font-semibold text-neutral-950 dark:text-slate-50"
+            >
+              LLM connections
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500 dark:text-slate-400">
+              Provider endpoints and authentication shared by your model presets.
+            </p>
+          </div>
+          <Badge variant="secondary">
+            {providers.length} connection{providers.length === 1 ? '' : 's'}
+          </Badge>
         </div>
         {providers.length === 0 ? (
           <EmptyCard
@@ -3045,7 +3533,13 @@ export default function BehaviorProfilesWorkspace() {
             description="Use Add Model to create a connection and first model preset together."
           />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+            <div className="hidden grid-cols-[minmax(12rem,1.1fr)_minmax(15rem,1.5fr)_minmax(12rem,1fr)_auto] gap-4 border-b border-neutral-200 bg-neutral-50/80 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500 lg:grid dark:border-white/10 dark:bg-white/[0.035] dark:text-slate-400">
+              <span>Connection</span>
+              <span>Endpoint</span>
+              <span>Auth / status</span>
+              <span className="text-right">Actions</span>
+            </div>
             {providers.map((provider) => (
               <ProviderConnectionCard
                 key={provider.id}
@@ -3056,16 +3550,24 @@ export default function BehaviorProfilesWorkspace() {
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
-            Model presets
-          </h2>
-          <p className="text-sm text-neutral-500 dark:text-slate-400">
-            Selectable model defaults that agents and workflows bind to.
-          </p>
+      <section className="flex flex-col gap-3" aria-labelledby="model-presets-heading">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2
+              id="model-presets-heading"
+              className="text-xl font-semibold text-neutral-950 dark:text-slate-50"
+            >
+              Model presets
+            </h2>
+            <p className="mt-1 text-sm text-neutral-500 dark:text-slate-400">
+              Reusable model defaults that agents and workflows can select.
+            </p>
+          </div>
+          <Badge variant="secondary">
+            {profiles.length} preset{profiles.length === 1 ? '' : 's'}
+          </Badge>
         </div>
         {profiles.length === 0 ? (
           <EmptyCard
@@ -3073,7 +3575,14 @@ export default function BehaviorProfilesWorkspace() {
             description="Create the first model preset to bind models to agents and workflows."
           />
         ) : (
-          <div className="grid gap-4 lg:grid-cols-2">
+          <div className="overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+            <div className="hidden grid-cols-[minmax(12rem,1.15fr)_minmax(13rem,1.2fr)_minmax(9rem,0.75fr)_minmax(12rem,1fr)_auto] gap-4 border-b border-neutral-200 bg-neutral-50/80 px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.12em] text-neutral-500 lg:grid dark:border-white/10 dark:bg-white/[0.035] dark:text-slate-400">
+              <span>Preset</span>
+              <span>Model</span>
+              <span>Tuning</span>
+              <span>Capabilities</span>
+              <span className="text-right">Actions</span>
+            </div>
             {profiles.map((profile) => (
               <ProfileCard
                 key={profile.id}
@@ -3085,7 +3594,7 @@ export default function BehaviorProfilesWorkspace() {
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

@@ -77,14 +77,11 @@ describe('graph stream delta BFF route', () => {
     );
 
     const response = await GET(
-      new Request(
-        'http://localhost/api/graph-stream/deltas?execution_id=run-1&poll_seconds=1',
-        {
-          headers: {
-            'last-event-id': 'projection-event-1',
-          },
-        }
-      )
+      new Request('http://localhost/api/graph-stream/deltas?execution_id=run-1&poll_seconds=1', {
+        headers: {
+          'last-event-id': 'projection-event-1',
+        },
+      })
     );
 
     expect(fetchMock).toHaveBeenCalledWith(

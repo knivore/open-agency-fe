@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { XYPosition } from '@xyflow/react';
 import { createCapabilityStarterTaskDraft } from '@/lib/workflows/capabilityTaskTemplates';
 import { readWorkflowCapabilityTags } from '@/lib/workflows/capabilities';
 import {
@@ -299,6 +300,190 @@ function moveItemInList<T>(items: T[], fromIndex: number, toIndex: number) {
   const [moved] = next.splice(fromIndex, 1);
   next.splice(toIndex, 0, moved);
   return next;
+}
+
+const graphNodeBaseX = 80;
+const graphNodeBaseY = 60;
+const graphNodeColumnGap = 420;
+const graphNodeRowGap = 420;
+const legacyGraphNodeColumnGap = 280;
+const legacyGraphNodeRowGap = 180;
+const graphNodeOverlapWidth = 260;
+const graphNodeOverlapHeight = 340;
+
+function defaultGraphNodePosition(index: number): XYPosition {
+  return {
+    x: graphNodeBaseX + (index % 3) * graphNodeColumnGap,
+    y: graphNodeBaseY + Math.floor(index / 3) * graphNodeRowGap,
+  };
+}
+
+function legacyGraphNodePosition(index: number): XYPosition {
+  return {
+    x: graphNodeBaseX + (index % 3) * legacyGraphNodeColumnGap,
+    y: graphNodeBaseY + Math.floor(index / 3) * legacyGraphNodeRowGap,
+  };
+}
+
+function graphNodePositionMatches(position: XYPosition, expected: XYPosition) {
+  return position.x === expected.x && position.y === expected.y;
+}
+
+function computeDependencyAwareGraphNodePositions(tasks: TaskDefinition[]) {
+  const taskIds = new Set(tasks.map((task) => task.id));
+  const taskById = new Map(tasks.map((task) => [task.id, task]));
+  const taskIndexById = new Map(tasks.map((task, index) => [task.id, index]));
+  const layerByTaskId = new Map<string, number>();
+  const visitingTaskIds = new Set<string>();
+
+  const resolveLayer = (taskId: string): number => {
+    const existingLayer = layerByTaskId.get(taskId);
+    if (typeof existingLayer === 'number') {
+      return existingLayer;
+    }
+
+    if (visitingTaskIds.has(taskId)) {
+      return 0;
+    }
+
+    visitingTaskIds.add(taskId);
+    const task = taskById.get(taskId);
+    const dependencyLayers = (task?.depends_on_task_ids ?? [])
+      .filter((dependencyId) => taskIds.has(dependencyId))
+      .map((dependencyId) => resolveLayer(dependencyId));
+    visitingTaskIds.delete(taskId);
+
+    const layer = dependencyLayers.length > 0 ? Math.max(...dependencyLayers) + 1 : 0;
+    layerByTaskId.set(taskId, layer);
+    return layer;
+  };
+
+  tasks.forEach((task) => resolveLayer(task.id));
+
+  const taskIdsByLayer = new Map<number, string[]>();
+  tasks.forEach((task) => {
+    const layer = layerByTaskId.get(task.id) ?? 0;
+    taskIdsByLayer.set(layer, [...(taskIdsByLayer.get(layer) ?? []), task.id]);
+  });
+
+  const positions: Record<string, XYPosition> = {};
+  taskIdsByLayer.forEach((layerTaskIds, layer) => {
+    layerTaskIds
+      .sort(
+        (leftTaskId, rightTaskId) =>
+          (taskIndexById.get(leftTaskId) ?? 0) - (taskIndexById.get(rightTaskId) ?? 0)
+      )
+      .forEach((taskId, rowIndex) => {
+        positions[taskId] = {
+          x: graphNodeBaseX + layer * graphNodeColumnGap,
+          y: graphNodeBaseY + rowIndex * graphNodeRowGap,
+        };
+      });
+  });
+
+  return positions;
+}
+
+function positionsUseLegacyCompactGrid(
+  tasks: TaskDefinition[],
+  positions: Record<string, XYPosition>
+) {
+  return tasks.every((task, index) => {
+    const position = positions[task.id];
+    return position ? graphNodePositionMatches(position, legacyGraphNodePosition(index)) : false;
+  });
+}
+
+function positionsHaveLikelyNodeOverlap(
+  tasks: TaskDefinition[],
+  positions: Record<string, XYPosition>
+) {
+  for (let leftIndex = 0; leftIndex < tasks.length; leftIndex += 1) {
+    const leftPosition = positions[tasks[leftIndex].id];
+    if (!leftPosition) {
+      continue;
+    }
+
+    for (let rightIndex = leftIndex + 1; rightIndex < tasks.length; rightIndex += 1) {
+      const rightPosition = positions[tasks[rightIndex].id];
+      if (!rightPosition) {
+        continue;
+      }
+
+      const horizontallyOverlaps =
+        Math.abs(leftPosition.x - rightPosition.x) < graphNodeOverlapWidth;
+      const verticallyOverlaps =
+        Math.abs(leftPosition.y - rightPosition.y) < graphNodeOverlapHeight;
+      if (horizontallyOverlaps && verticallyOverlaps) {
+        return true;
+      }
+    }
+  }
+
+  return false;
+}
+
+function normalizeGraphNodePositions(
+  tasks: TaskDefinition[],
+  positions: Record<string, XYPosition>
+) {
+  // Older persisted workflows used gaps smaller than the current node cards. Re-layout only
+  // those known compact/overlapping graphs so intentional custom layouts remain untouched.
+  if (
+    tasks.length > 1 &&
+    (positionsUseLegacyCompactGrid(tasks, positions) ||
+      positionsHaveLikelyNodeOverlap(tasks, positions))
+  ) {
+    return computeDependencyAwareGraphNodePositions(tasks);
+  }
+
+  return positions;
+}
+
+function isGraphNodePosition(value: unknown): value is XYPosition {
+  const candidate = value as Record<string, unknown> | null;
+  return (
+    candidate !== null &&
+    typeof candidate === 'object' &&
+    !Array.isArray(candidate) &&
+    'x' in candidate &&
+    'y' in candidate &&
+    typeof candidate.x === 'number' &&
+    typeof candidate.y === 'number'
+  );
+}
+
+export function extractGraphNodePositions(
+  workflow:
+    | {
+        nodes?: Array<{ task_id?: string | null; metadata?: Record<string, unknown> }>;
+        task_definitions?: TaskDefinition[];
+      }
+    | null
+    | undefined
+) {
+  const positions: Record<string, XYPosition> = {};
+  const tasks = workflow?.task_definitions ?? [];
+  const nodeByTaskId = new Map(
+    (workflow?.nodes ?? [])
+      .filter(
+        (node): node is { task_id: string; metadata?: Record<string, unknown> } =>
+          typeof node.task_id === 'string'
+      )
+      .map((node) => [node.task_id, node])
+  );
+
+  tasks.forEach((task, index) => {
+    const position = nodeByTaskId.get(task.id)?.metadata?.position;
+    if (isGraphNodePosition(position)) {
+      positions[task.id] = { x: position.x, y: position.y };
+      return;
+    }
+
+    positions[task.id] = defaultGraphNodePosition(index);
+  });
+
+  return normalizeGraphNodePositions(tasks, positions);
 }
 
 function extractEdgeDraftMetadata(workflow: WorkflowDefinition | undefined) {

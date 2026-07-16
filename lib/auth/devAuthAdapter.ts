@@ -77,8 +77,7 @@ function normalizeBackendUser(payload: BackendUserPayload | undefined): User | n
     return null;
   }
 
-  const name =
-    stringValue(payload.name) || stringValue(payload.display_name) || email;
+  const name = stringValue(payload.name) || stringValue(payload.display_name) || email;
   const image = stringValue(payload.image) || stringValue(payload.avatar_url);
 
   return {
@@ -91,7 +90,9 @@ function normalizeBackendUser(payload: BackendUserPayload | undefined): User | n
 
 function normalizeBackendLogin(payload: BackendLoginPayload): LoginResponse | null {
   const accessToken =
-    stringValue(payload.access_token) || stringValue(payload.accessToken) || stringValue(payload.token);
+    stringValue(payload.access_token) ||
+    stringValue(payload.accessToken) ||
+    stringValue(payload.token);
   const user = normalizeBackendUser(payload.user || payload);
 
   if (!accessToken || !user) {

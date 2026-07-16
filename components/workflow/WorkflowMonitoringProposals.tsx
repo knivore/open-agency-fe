@@ -10,6 +10,7 @@ import {
   Route,
   ShieldAlert,
   Split,
+  Trash2,
   X,
 } from 'lucide-react';
 import { Badge } from '@/components/library/shadcn/badge';
@@ -37,6 +38,7 @@ interface WorkflowMonitoringProposalsProps {
   events?: WorkflowMonitoringEventsResponse | null;
   isLoading: boolean;
   isMutating: boolean;
+  onEnableImprovementProposals?: () => void;
   onSendToMainAgent?: (proposalEventId: string, operatorNote?: string) => void;
   onApprovalDecision: (
     approvalRequestId: string,
@@ -154,16 +156,43 @@ function latestDispatch(proposal: WorkflowMonitoringProposalEvent) {
   return dispatches.length > 0 ? dispatches[dispatches.length - 1] : null;
 }
 
+const dismissedProposalStoragePrefix = 'agency:workflow-monitoring:dismissed-proposals:v1:';
+const proposalCardLimit = 6;
+
+function dismissedProposalStorageKey(workflowId: string) {
+  return `${dismissedProposalStoragePrefix}${workflowId}`;
+}
+
+function readDismissedProposalIds(workflowId?: string) {
+  if (!workflowId || typeof window === 'undefined') {
+    return new Set<string>();
+  }
+  try {
+    const stored = JSON.parse(
+      window.localStorage.getItem(dismissedProposalStorageKey(workflowId)) ?? '[]'
+    );
+    return new Set(
+      Array.isArray(stored)
+        ? stored.filter((value): value is string => typeof value === 'string')
+        : []
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
 function AdvisoryProposalCard({
   editable,
   isMutating,
   proposal,
+  onDismiss,
   onApprovalDecision,
   onSendToMainAgent,
 }: {
   editable: boolean;
   isMutating: boolean;
   proposal: WorkflowMonitoringProposalEvent;
+  onDismiss: (proposalId: string) => void;
   onApprovalDecision: (
     approvalRequestId: string,
     action: 'approve' | 'reject' | 'request_changes' | 'split',
@@ -194,103 +223,121 @@ function AdvisoryProposalCard({
             {proposalRisk(proposal) ? ` · Risk: ${proposalRisk(proposal)}` : ''}
           </p>
         </div>
-        <Badge variant={approvalBadgeVariant(approval)}>
-          {approval?.status ?? 'advisory only'}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant={approvalBadgeVariant(approval)}>
+            {approval?.status ?? 'advisory only'}
+          </Badge>
+          <button
+            type="button"
+            onClick={() => onDismiss(proposal.id)}
+            className="inline-flex size-8 items-center justify-center rounded-md border border-neutral-200 text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900 dark:border-white/10 dark:text-slate-400 dark:hover:bg-white/8 dark:hover:text-slate-100"
+            aria-label={`Dismiss ${proposalSummary(proposal)}`}
+            title="Dismiss from this proposal list"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
-      {approval?.diff_summary ? (
-        <p className="mt-3 rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:bg-white/4 dark:text-slate-300">
-          {approval.diff_summary}
-        </p>
-      ) : null}
+      <details className="group mt-3 rounded-md border border-neutral-200 bg-neutral-50/65 dark:border-white/10 dark:bg-white/4">
+        <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-neutral-700 outline-none hover:bg-white/70 focus-visible:ring-2 focus-visible:ring-ring dark:text-slate-200 dark:hover:bg-white/6 [&::-webkit-details-marker]:hidden">
+          View proposal details
+        </summary>
+        <div className="border-t border-neutral-200 px-3 pb-3 pt-3 dark:border-white/10">
+          {approval?.diff_summary ? (
+            <p className="mt-3 rounded-md bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:bg-white/4 dark:text-slate-300">
+              {approval.diff_summary}
+            </p>
+          ) : null}
 
-      {!approval ? (
-        <div className="mt-3 space-y-3 rounded-md bg-neutral-50 px-3 py-2 dark:bg-white/4">
-          {dispatch ? (
-            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
-              <p className="font-medium">Sent to main agent</p>
-              <p className="mt-1 text-xs text-emerald-800">
-                {formatEventTimestamp(dispatch.created_at) ?? dispatch.created_at}
-                {dispatch.conversation_id ? ` · ${dispatch.conversation_id}` : ''}
+          {!approval ? (
+            <div className="mt-3 space-y-3 rounded-md bg-neutral-50 px-3 py-2 dark:bg-white/4">
+              {dispatch ? (
+                <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
+                  <p className="font-medium">Sent to main agent</p>
+                  <p className="mt-1 text-xs text-emerald-800">
+                    {formatEventTimestamp(dispatch.created_at) ?? dispatch.created_at}
+                    {dispatch.conversation_id ? ` · ${dispatch.conversation_id}` : ''}
+                  </p>
+                  {typeof dispatch.operator_note === 'string' && dispatch.operator_note.trim() ? (
+                    <p className="mt-2 text-sm text-emerald-900">{dispatch.operator_note}</p>
+                  ) : null}
+                </div>
+              ) : null}
+              <p className="text-sm text-neutral-700 dark:text-slate-300">
+                This proposal is recorded as monitor guidance. Add any operator edits or context
+                before handing it to the main agent for review and implementation.
               </p>
-              {typeof dispatch.operator_note === 'string' && dispatch.operator_note.trim() ? (
-                <p className="mt-2 text-sm text-emerald-900">{dispatch.operator_note}</p>
+              {editable && onSendToMainAgent ? (
+                <label className="block space-y-1 text-sm text-neutral-700 dark:text-slate-300">
+                  <span className="font-medium">Operator note</span>
+                  <textarea
+                    value={operatorNote}
+                    placeholder="Add constraints, revisions, or extra context for the main agent."
+                    disabled={isMutating}
+                    onChange={(event) => setOperatorNote(event.target.value)}
+                    className="min-h-24 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-400 disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100 dark:focus:border-white/20"
+                  />
+                </label>
+              ) : null}
+              {editable && onSendToMainAgent ? (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={isMutating}
+                    onClick={() => onSendToMainAgent(proposal.id, operatorNote.trim() || undefined)}
+                    className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-200 dark:hover:bg-white/8"
+                  >
+                    <MessageSquareText className="h-4 w-4" aria-hidden="true" />
+                    {dispatch ? 'Send updated brief' : 'Send to main agent'}
+                  </button>
+                </div>
               ) : null}
             </div>
           ) : null}
-          <p className="text-sm text-neutral-700 dark:text-slate-300">
-            This proposal is recorded as monitor guidance. Add any operator edits or context before
-            handing it to the main agent for review and implementation.
-          </p>
-          {editable && onSendToMainAgent ? (
-            <label className="block space-y-1 text-sm text-neutral-700 dark:text-slate-300">
-              <span className="font-medium">Operator note</span>
-              <textarea
-                value={operatorNote}
-                placeholder="Add constraints, revisions, or extra context for the main agent."
-                disabled={isMutating}
-                onChange={(event) => setOperatorNote(event.target.value)}
-                className="min-h-24 w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:border-neutral-400 disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100 dark:focus:border-white/20"
-              />
-            </label>
-          ) : null}
-          {editable && onSendToMainAgent ? (
-            <div className="flex flex-wrap gap-2">
+
+          {editable && pending && approval ? (
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 disabled={isMutating}
-                onClick={() => onSendToMainAgent(proposal.id, operatorNote.trim() || undefined)}
-                className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-200 dark:hover:bg-white/8"
+                onClick={() => onApprovalDecision(approval.id, 'approve')}
+                className="inline-flex h-9 items-center gap-2 rounded-md bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <Check className="h-4 w-4" aria-hidden="true" />
+                Approve
+              </button>
+              <button
+                type="button"
+                disabled={isMutating}
+                onClick={() => onApprovalDecision(approval.id, 'reject')}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/6"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+                Reject
+              </button>
+              <button
+                type="button"
+                disabled={isMutating}
+                onClick={() => onApprovalDecision(approval.id, 'request_changes')}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/6"
               >
                 <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-                {dispatch ? 'Send updated brief' : 'Send to main agent'}
+                Request changes
+              </button>
+              <button
+                type="button"
+                disabled={isMutating}
+                onClick={() => onApprovalDecision(approval.id, 'split')}
+                className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/6"
+              >
+                <Split className="h-4 w-4" aria-hidden="true" />
+                Split
               </button>
             </div>
           ) : null}
         </div>
-      ) : null}
-
-      {editable && pending && approval ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={isMutating}
-            onClick={() => onApprovalDecision(approval.id, 'approve')}
-            className="inline-flex h-9 items-center gap-2 rounded-md bg-neutral-900 px-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <Check className="h-4 w-4" aria-hidden="true" />
-            Approve
-          </button>
-          <button
-            type="button"
-            disabled={isMutating}
-            onClick={() => onApprovalDecision(approval.id, 'reject')}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/6"
-          >
-            <X className="h-4 w-4" aria-hidden="true" />
-            Reject
-          </button>
-          <button
-            type="button"
-            disabled={isMutating}
-            onClick={() => onApprovalDecision(approval.id, 'request_changes')}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/6"
-          >
-            <MessageSquareText className="h-4 w-4" aria-hidden="true" />
-            Request changes
-          </button>
-          <button
-            type="button"
-            disabled={isMutating}
-            onClick={() => onApprovalDecision(approval.id, 'split')}
-            className="inline-flex h-9 items-center gap-2 rounded-md border border-neutral-200 px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-white/10 dark:text-slate-200 dark:hover:bg-white/6"
-          >
-            <Split className="h-4 w-4" aria-hidden="true" />
-            Split
-          </button>
-        </div>
-      ) : null}
+      </details>
     </div>
   );
 }
@@ -700,17 +747,65 @@ export default function WorkflowMonitoringProposals({
   events,
   isLoading,
   isMutating,
+  onEnableImprovementProposals,
   onSendToMainAgent,
   onApprovalDecision,
 }: WorkflowMonitoringProposalsProps) {
   const findings = events?.findings ?? [];
   const proposals = events?.proposals ?? [];
+  const workflowId = events?.workflow_id;
+  const [proposalUiState, setProposalUiState] = useState(() => ({
+    workflowId,
+    dismissedProposalIds: readDismissedProposalIds(workflowId),
+    showAllProposals: false,
+  }));
+  const activeProposalUiState =
+    proposalUiState.workflowId === workflowId
+      ? proposalUiState
+      : {
+          workflowId,
+          dismissedProposalIds: readDismissedProposalIds(workflowId),
+          showAllProposals: false,
+        };
+  const { dismissedProposalIds, showAllProposals } = activeProposalUiState;
+
+  const visibleProposals = proposals.filter((proposal) => !dismissedProposalIds.has(proposal.id));
+  const proposalCards = showAllProposals
+    ? visibleProposals
+    : visibleProposals.slice(0, proposalCardLimit);
+  const hiddenProposalCount = proposals.length - visibleProposals.length;
+
+  const dismissProposal = (proposalId: string) => {
+    const nextDismissedIds = new Set(dismissedProposalIds).add(proposalId);
+    setProposalUiState({
+      ...activeProposalUiState,
+      dismissedProposalIds: nextDismissedIds,
+    });
+    if (workflowId && typeof window !== 'undefined') {
+      // Dismissal reduces operator noise without deleting the backend audit event.
+      window.localStorage.setItem(
+        dismissedProposalStorageKey(workflowId),
+        JSON.stringify([...nextDismissedIds])
+      );
+    }
+  };
+
+  const restoreDismissedProposals = () => {
+    setProposalUiState({
+      ...activeProposalUiState,
+      dismissedProposalIds: new Set(),
+    });
+    if (workflowId && typeof window !== 'undefined') {
+      window.localStorage.removeItem(dismissedProposalStorageKey(workflowId));
+    }
+  };
   const steeringApprovals = supervisorSteeringApprovals(events);
   const proposalsEnabled = events?.monitoring?.controls?.allow_improvement_proposals === true;
   const actionableProposalCount = proposals.filter((proposal) =>
     proposalHasApproval(proposal)
   ).length;
-  const findingsOnlyState = findings.length > 0 && !proposalsEnabled && proposals.length === 0;
+  const proposalsDisabled =
+    Boolean(events?.monitoring) && !proposalsEnabled && proposals.length === 0;
 
   const header = (
     <div className="space-y-1.5">
@@ -739,12 +834,14 @@ export default function WorkflowMonitoringProposals({
             </WorkflowSummaryField>
             <WorkflowSummaryField label="Proposals">
               <div className="text-2xl font-semibold text-neutral-900 dark:text-slate-100">
-                {proposals.length}
+                {visibleProposals.length}
               </div>
               <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
-                {actionableProposalCount
-                  ? `${actionableProposalCount} actionable`
-                  : 'Advisory until approval routing exists'}
+                {hiddenProposalCount > 0
+                  ? `${hiddenProposalCount} dismissed`
+                  : actionableProposalCount
+                    ? `${actionableProposalCount} actionable`
+                    : 'Advisory until approval routing exists'}
               </p>
             </WorkflowSummaryField>
             <WorkflowSummaryField label="Steering approvals">
@@ -767,24 +864,33 @@ export default function WorkflowMonitoringProposals({
             </WorkflowSummaryField>
           </div>
 
-          {findingsOnlyState ? (
+          {proposalsDisabled ? (
             <div
               className={`rounded-md border px-3 py-3 ${statusToneClass(
                 proposalsEnabled,
-                findingsOnlyState
+                findings.length > 0
               )}`}
             >
               <div className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
                 <div className="space-y-1">
                   <p className="text-sm font-medium">
-                    Monitoring is active, but workflow-improvement proposals are disabled.
+                    Workflow-improvement proposals are disabled.
                   </p>
                   <p className="text-sm opacity-90">
-                    This workflow is collecting findings. Enable improvement proposals in the
-                    monitoring controls when you want those findings to become approval-backed
-                    workflow changes.
+                    This workflow can collect findings, but it will not draft improvements until
+                    proposals are enabled.
                   </p>
+                  {onEnableImprovementProposals ? (
+                    <button
+                      type="button"
+                      disabled={isMutating}
+                      onClick={onEnableImprovementProposals}
+                      className="mt-2 inline-flex h-9 items-center rounded-md border border-current/25 bg-white/70 px-3 text-sm font-medium hover:bg-white disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-950/50 dark:hover:bg-slate-950/70"
+                    >
+                      Enable proposals
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>
@@ -807,7 +913,7 @@ export default function WorkflowMonitoringProposals({
             </div>
           ) : null}
 
-          {!findingsOnlyState &&
+          {!proposalsDisabled &&
           findings.length === 0 &&
           proposals.length === 0 &&
           steeringApprovals.length === 0 ? (
@@ -869,26 +975,57 @@ export default function WorkflowMonitoringProposals({
                 Improvement proposals
               </h3>
             </div>
-            {proposals.length === 0 ? (
+            {visibleProposals.length === 0 ? (
               <p className="text-sm text-neutral-500 dark:text-slate-400">
-                {proposalsEnabled
-                  ? 'No monitor improvement proposals have been drafted yet.'
-                  : 'Proposal generation is disabled for this workflow.'}
+                {proposals.length > 0
+                  ? 'All current proposals are dismissed from this list.'
+                  : proposalsEnabled
+                    ? 'No monitor improvement proposals have been drafted yet.'
+                    : 'Proposal generation is disabled for this workflow.'}
               </p>
             ) : (
               <div className="max-h-72 space-y-3 overflow-y-auto pr-1">
-                {proposals.map((proposal) => (
+                {proposalCards.map((proposal) => (
                   <AdvisoryProposalCard
                     key={proposal.id}
                     editable={editable}
                     isMutating={isMutating}
                     proposal={proposal}
+                    onDismiss={dismissProposal}
                     onApprovalDecision={onApprovalDecision}
                     onSendToMainAgent={onSendToMainAgent}
                   />
                 ))}
+                {visibleProposals.length > proposalCardLimit ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setProposalUiState({
+                        ...activeProposalUiState,
+                        showAllProposals: !activeProposalUiState.showAllProposals,
+                      })
+                    }
+                    className="h-9 rounded-md border border-neutral-200 bg-white px-3 text-sm font-medium text-neutral-700 hover:bg-neutral-100 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-200 dark:hover:bg-white/8"
+                  >
+                    {showAllProposals
+                      ? 'Show fewer proposals'
+                      : `Show ${visibleProposals.length - proposalCardLimit} more proposal${
+                          visibleProposals.length - proposalCardLimit === 1 ? '' : 's'
+                        }`}
+                  </button>
+                ) : null}
               </div>
             )}
+            {hiddenProposalCount > 0 ? (
+              <button
+                type="button"
+                onClick={restoreDismissedProposals}
+                className="text-sm font-medium text-neutral-600 underline-offset-4 hover:underline dark:text-slate-300"
+              >
+                Restore {hiddenProposalCount} dismissed proposal
+                {hiddenProposalCount === 1 ? '' : 's'}
+              </button>
+            ) : null}
           </section>
 
           <section className="space-y-3">
