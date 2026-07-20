@@ -372,6 +372,19 @@ function mergeMessage(current: ConversationMessage[], next: ConversationMessage)
   return sortMessages([...current, next]);
 }
 
+function replaceOptimisticMessage(
+  current: ConversationMessage[],
+  optimisticMessageId: string,
+  persistedMessage: ConversationMessage
+) {
+  // The stream may deliver the persisted row before the POST resolves, so remove the local
+  // placeholder and merge by the server id to keep exactly one copy in either arrival order.
+  return mergeMessage(
+    current.filter((message) => message.id !== optimisticMessageId),
+    persistedMessage
+  );
+}
+
 function isTerminalAssistantTurnMessage(message: ConversationMessage) {
   return (
     message.role === 'assistant' ||
@@ -1479,14 +1492,6 @@ function metadataToneClasses(message: ConversationMessage) {
 
 function transcriptWidthClasses(message: ConversationMessage) {
   return message.role === 'system' ? 'max-w-xl' : 'max-w-3xl';
-}
-
-function messageBodyScrollClasses(message: ConversationMessage) {
-  // Long assistant/user replies should stay readable inside the transcript instead of stretching
-  // the entire chat window. The cap keeps the bubble size predictable while preserving content.
-  return message.role === 'system'
-    ? 'max-h-48 overflow-y-auto overscroll-contain pr-1'
-    : 'max-h-80 overflow-y-auto overscroll-contain pr-1';
 }
 
 function messageBodyToneClasses(message: ConversationMessage) {
@@ -4440,6 +4445,7 @@ export default function ConversationWorkspace({
   const contextScopedConversationIdsRef = useRef<Set<string>>(new Set());
   const suppressedWorkflowAutoOpenRef = useRef<Set<string>>(new Set());
   const initialConversationRestoreRef = useRef(false);
+  const optimisticMessageSequenceRef = useRef(0);
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const documentInputRef = useRef<HTMLInputElement | null>(null);
   const messageInputRef = useRef<HTMLInputElement | null>(null);
@@ -5369,6 +5375,7 @@ export default function ConversationWorkspace({
 
     startTransition(() => {
       void (async () => {
+        let optimisticMessageId: string | null = null;
         try {
           const targetConversation = await ensureConversation();
           const messageMetadata = currentContextMetadata();
@@ -5416,6 +5423,25 @@ export default function ConversationWorkspace({
               ? `${messageTextToSend}\n\n${documentNote}`
               : documentNote;
           }
+          optimisticMessageSequenceRef.current += 1;
+          optimisticMessageId = [
+            'optimistic-user',
+            targetConversation.id,
+            Date.now(),
+            optimisticMessageSequenceRef.current,
+          ].join('-');
+          const optimisticMessage: ConversationMessage = {
+            id: optimisticMessageId,
+            conversation_id: targetConversation.id,
+            role: 'user',
+            message_type: 'user_text',
+            plain_text: messageTextToSend,
+            content: { text: messageTextToSend },
+            metadata: messageMetadata,
+            created_at: new Date().toISOString(),
+          };
+          setMessages((current) => mergeMessage(current, optimisticMessage));
+
           const response = await conversationsApi.postMessage(targetConversation.id, {
             message: {
               role: 'user',
@@ -5427,7 +5453,11 @@ export default function ConversationWorkspace({
             response_mode: 'async',
           });
 
-          setMessages((current) => mergeMessage(current, response.message));
+          const submittedOptimisticMessageId = optimisticMessageId;
+          setMessages((current) =>
+            replaceOptimisticMessage(current, submittedOptimisticMessageId, response.message)
+          );
+          optimisticMessageId = null;
           if (response.assistant_message) {
             setMessages((current) => mergeMessage(current, response.assistant_message!));
             setTurnActivities((current) =>
@@ -5455,6 +5485,11 @@ export default function ConversationWorkspace({
           void conversationsQuery.refetch();
         } catch (submitError) {
           console.error('Failed to send conversation message', submitError);
+          if (optimisticMessageId) {
+            setMessages((current) =>
+              current.filter((message) => message.id !== optimisticMessageId)
+            );
+          }
           setError(submitError instanceof Error ? submitError.message : 'Failed to send message.');
           setInput(trimmed);
           setSelectedDocument(documentToUpload);
@@ -5818,7 +5853,7 @@ export default function ConversationWorkspace({
             onSelectPrompt={selectPromptSuggestion}
           />
         ) : (
-          <div className="mx-auto max-w-4xl space-y-4">
+          <div className="mx-auto max-w-4xl space-y-3">
             {messages.map((message, index) => {
               const approval = message.approval_request_id
                 ? approvals[message.approval_request_id]
@@ -5826,7 +5861,7 @@ export default function ConversationWorkspace({
               const messageActivity = activityForMessage(message, turnActivities);
               const personaAttribution = personaAttributionLabel(message);
               return (
-                <div key={message.id} className="space-y-2">
+                <div key={message.id} className="space-y-1.5">
                   {messageActivity ? (
                     <ConversationActivityPanel
                       activity={messageActivity}
@@ -5838,14 +5873,14 @@ export default function ConversationWorkspace({
                   >
                     <div
                       className={[
-                        'w-full rounded-3xl px-4 py-3',
+                        'w-full rounded-2xl px-4 py-2.5',
                         transcriptWidthClasses(message),
                         messageShellClasses(message),
                         index === messages.length - 1 ? 'ring-1 ring-slate-200/70' : '',
                       ].join(' ')}
                     >
                       <div
-                        className={`mb-2 flex items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] ${metadataToneClasses(message)}`}
+                        className={`mb-1.5 flex items-center justify-between gap-3 text-[10px] font-semibold uppercase tracking-[0.16em] ${metadataToneClasses(message)}`}
                       >
                         <span>{messageTypeLabel(message, mainAgentName)}</span>
                         <span>{formatTimestamp(message.created_at)}</span>
@@ -5861,7 +5896,7 @@ export default function ConversationWorkspace({
                       {message.role === 'assistant' ? (
                         <div
                           className={[
-                            'mb-3 h-px w-full',
+                            'mb-2 h-px w-full',
                             message.message_type === 'approval_result'
                               ? 'bg-linear-to-r from-emerald-300 via-emerald-200/70 to-transparent dark:from-emerald-300/90 dark:via-emerald-200/55'
                               : message.message_type === 'approval_request'
@@ -5875,7 +5910,6 @@ export default function ConversationWorkspace({
                         className={[
                           'max-w-none wrap-break-word whitespace-pre-wrap',
                           messageBodyToneClasses(message),
-                          messageBodyScrollClasses(message),
                         ].join(' ')}
                         style={{ tabSize: 8 }}
                       >

@@ -656,6 +656,48 @@ describe('ConversationWorkspace', () => {
     expect(screen.queryByText('Main is working')).not.toBeInTheDocument();
   });
 
+  it('renders a submitted user message before the async request resolves', async () => {
+    let resolvePostMessage: ((value: unknown) => void) | undefined;
+    conversationsApi.postMessage.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvePostMessage = resolve;
+        })
+    );
+
+    renderConversationWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getByText('Initial assistant reply')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Message Main'), {
+      target: { value: 'Show this immediately.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+
+    expect(await screen.findByText('Show this immediately.')).toBeInTheDocument();
+    expect(conversationsApi.postMessage).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      resolvePostMessage?.({
+        message: {
+          id: 'message-immediate-user',
+          conversation_id: 'conversation-1',
+          role: 'user',
+          message_type: 'user_text',
+          plain_text: 'Show this immediately.',
+          content: { text: 'Show this immediately.' },
+          created_at: '2026-05-06T00:00:02.000Z',
+        },
+      });
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(screen.getAllByText('Show this immediately.')).toHaveLength(1);
+  });
+
   it('updates the pending-turn elapsed time every second', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     vi.setSystemTime(new Date('2026-05-06T00:00:10.000Z'));
@@ -842,7 +884,7 @@ describe('ConversationWorkspace', () => {
     expect(scoped.queryByRole('button', { name: 'WhatsApp' })).not.toBeInTheDocument();
   });
 
-  it('caps long chat replies and makes the message body scrollable', async () => {
+  it('expands long chat replies without a nested vertical scrollbar', async () => {
     conversationsApi.listMessages.mockResolvedValue({
       items: [
         {
@@ -852,11 +894,11 @@ describe('ConversationWorkspace', () => {
           message_type: 'assistant_text',
           plain_text:
             'This is a very long assistant reply. '.repeat(40) +
-            'It should stay inside a fixed-height bubble and scroll internally.',
+            'It should expand inside the conversation without a nested scrollbar.',
           content: {
             text:
               'This is a very long assistant reply. '.repeat(40) +
-              'It should stay inside a fixed-height bubble and scroll internally.',
+              'It should expand inside the conversation without a nested scrollbar.',
           },
           created_at: '2026-05-06T00:00:01.000Z',
         },
@@ -871,11 +913,13 @@ describe('ConversationWorkspace', () => {
         .find(
           (element) =>
             element.textContent?.includes('This is a very long assistant reply.') &&
-            element.textContent?.includes('fixed-height bubble and scroll internally.')
+            element.textContent?.includes(
+              'expand inside the conversation without a nested scrollbar.'
+            )
         )
     );
     expect(body).not.toBeNull();
-    expect(body).toHaveClass('max-h-80', 'overflow-y-auto', 'overscroll-contain');
+    expect(body).not.toHaveClass('max-h-80', 'overflow-y-auto', 'overscroll-contain');
   });
 
   it('preserves assistant whitespace formatting in the transcript', async () => {
@@ -2391,7 +2435,9 @@ describe('ConversationWorkspace', () => {
     await waitFor(() => {
       expect(screen.getByText('Workflow update proposal')).toBeInTheDocument();
     });
-    const proposalSection = screen.getByText('Workflow update proposal').closest('div.space-y-2');
+    const proposalSection = screen
+      .getByText('Workflow update proposal')
+      .closest('div.space-y-1\\.5');
     expect(proposalSection).not.toBeNull();
     fireEvent.click(
       within(proposalSection as HTMLElement).getByRole('button', { name: 'Show details' })
@@ -2719,8 +2765,8 @@ describe('ConversationWorkspace', () => {
     renderConversationWorkspace();
 
     expect(await screen.findByText('Tool call')).toBeInTheDocument();
-    const toolCallSection = screen.getByText('Tool call').closest('div.space-y-2');
-    const toolResultSection = screen.getByText('Tool result').closest('div.space-y-2');
+    const toolCallSection = screen.getByText('Tool call').closest('div.space-y-1\\.5');
+    const toolResultSection = screen.getByText('Tool result').closest('div.space-y-1\\.5');
     expect(toolCallSection).not.toBeNull();
     expect(toolResultSection).not.toBeNull();
     expect(screen.getByText('Completed')).toBeInTheDocument();
