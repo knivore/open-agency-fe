@@ -4,6 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { formatAssistantMarkdownText } from '@/components/conversations/AssistantMarkdown';
 import ConversationWorkspace from '@/components/conversations/ConversationWorkspace';
+import { ApiError } from '@/lib/api/errors';
 
 const {
   conversationsApi,
@@ -2217,6 +2218,26 @@ describe('ConversationWorkspace', () => {
     });
     expect(screen.queryByText('Initial assistant reply')).not.toBeInTheDocument();
     expect(window.localStorage.getItem('agency.active_conversation_id')).toBeNull();
+  });
+
+  it('silently clears a stale active conversation after the backend removes it', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    conversationsApi.getConversation.mockRejectedValueOnce(
+      new ApiError({ status: 404, message: 'Conversation not found' })
+    );
+
+    renderConversationWorkspace();
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem('agency.active_conversation_id')).toBeNull();
+    });
+    expect(consoleError).not.toHaveBeenCalledWith(
+      'Failed to restore active conversation',
+      expect.any(ApiError)
+    );
+    expect(conversationsApi.listMessages).not.toHaveBeenCalled();
+    expect(conversationsApi.listApprovalRequests).not.toHaveBeenCalled();
+    consoleError.mockRestore();
   });
 
   it('previews and saves compact packs from the conversation header', async () => {

@@ -41,35 +41,67 @@ export interface GoalListResponse extends JsonObject {
 
 export interface GoalOperatorSummary extends JsonObject {
   goal: GoalDefinition;
+  goal_id?: string;
+  objective?: string;
+  status?: GoalStatus;
   status_label: string;
   autonomy: GoalAutonomyMode | string;
+  priority?: string;
+  deadline_at?: string | null;
+  owner_actor?: string | null;
+  current_plan?: JsonObject | null;
+  active_plan_version?: number | null;
+  active_executions?: JsonObject[];
   blocked: boolean;
   stale: boolean;
+  blocked_reason?: JsonObject | string | null;
+  blockers?: JsonObject[];
+  pending_approvals?: JsonObject[];
+  pending_approval_count?: number;
+  automatic_actions?: JsonObject[];
+  automatic_action_count?: number;
+  flags?: Record<string, boolean>;
   active_execution_count: number;
-  latest_finding?: JsonObject | null;
-  next_supervisor_action?: string | null;
-  operator_actions?: JsonObject;
+  linked_execution_count?: number;
+  next_supervisor_action?: JsonObject | null;
+  success_criteria_count?: number;
+  evidence_count?: number;
+  evaluation_status?: string | null;
+  updated_at?: string;
+  created_at?: string;
 }
 
 export interface GoalOperatorViewResponse extends JsonObject {
   items: GoalOperatorSummary[];
+  count: number;
   filters?: JsonObject;
-  counts?: JsonObject;
+  summary: {
+    blocked_count: number;
+    stale_count: number;
+    failing_count: number;
+    pending_approval_count: number;
+    automatic_action_count: number;
+  };
 }
 
-export interface GoalOperatorDetailResponse extends JsonObject {
+export interface GoalOperatorDetailResponse extends GoalOperatorSummary {
   goal: GoalDefinition;
-  plan?: JsonObject | null;
-  executions: JsonObject[];
-  evidence: JsonObject[];
-  artifacts: JsonObject[];
-  approvals: JsonObject[];
-  memory: JsonObject[];
-  evaluation?: JsonObject | null;
-  findings: ExecutionEventRecord[];
-  decisions: JsonObject[];
   timeline: JsonObject[];
-  operator_actions?: JsonObject;
+  evidence: JsonObject[];
+  artifacts: Record<string, JsonObject[]>;
+  approvals: JsonObject[];
+  memory: JsonObject;
+  evaluation?: JsonObject | null;
+  supervisor: {
+    findings: JsonObject[];
+    decisions: JsonObject[];
+    supervisor_actions: JsonObject[];
+    operator_actions: JsonObject[];
+    approval_requests: JsonObject[];
+  };
+  executions: Record<string, JsonObject>;
+  events: Record<string, ExecutionEventRecord[]>;
+  operator_actions: Record<string, boolean>;
 }
 
 export interface CreateGoalPayload extends JsonObject {

@@ -32,6 +32,7 @@ const defaultQueryKeys: RunsModuleQueryKeys = {
   runEvents: (runId) => queryKeys.backendRunEvents(runId),
   runGovernanceEvents: (runId) => queryKeys.backendRunGovernanceEvents(runId),
   runApprovals: (runId) => queryKeys.backendRunApprovals(runId),
+  runWaits: (runId) => queryKeys.backendRunWaits(runId),
   runUsage: (runId) => queryKeys.backendRunUsage(runId),
   runContextUsage: (runId) => queryKeys.backendRunContextUsage(runId),
   runArtifacts: (runId) => ['backendRunArtifacts', runId] as const,

@@ -6,38 +6,39 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 210 40% 99%;
-    --foreground: 222 47% 11%;
+    --background: 40 24% 97%;
+    --foreground: 220 17% 13%;
     --card: 0 0% 100%;
-    --card-foreground: 222 28% 12%;
+    --card-foreground: 220 17% 13%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 28% 12%;
+    --popover-foreground: 220 17% 13%;
 
-    --primary-50: 204 100% 97%;
-    --primary-100: 203 100% 94%;
-    --primary-200: 202 100% 87%;
-    --primary-300: 202 100% 78%;
-    --primary-400: 202 100% 69%;
-    --primary-500: 202 88% 56%;
-    --primary-600: 204 78% 45%;
-    --primary-700: 207 80% 36%;
-    --primary-800: 211 74% 28%;
-    --primary-900: 215 68% 22%;
-    --primary-950: 219 74% 13%;
+    /* Ultra violet is identity, selection, and direct action—not a generic surface tint. */
+    --primary-50: 266 100% 98%;
+    --primary-100: 266 100% 95%;
+    --primary-200: 266 100% 90%;
+    --primary-300: 266 100% 82%;
+    --primary-400: 266 100% 70%;
+    --primary-500: 266 100% 57%;
+    --primary-600: 266 100% 52%;
+    --primary-700: 266 100% 48%;
+    --primary-800: 266 100% 40%;
+    --primary-900: 266 100% 31%;
+    --primary-950: 266 100% 18%;
     --primary-foreground: 0 0% 98%;
 
-    --secondary-50: 173 48% 96%;
-    --secondary-100: 174 45% 91%;
-    --secondary-200: 174 42% 82%;
-    --secondary-300: 174 38% 68%;
-    --secondary-400: 174 35% 52%;
-    --secondary-500: 176 50% 39%;
-    --secondary-600: 177 58% 31%;
-    --secondary-700: 178 64% 24%;
-    --secondary-800: 181 58% 19%;
-    --secondary-900: 184 52% 15%;
-    --secondary-950: 186 58% 9%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary-50: 220 18% 97%;
+    --secondary-100: 220 16% 94%;
+    --secondary-200: 220 14% 88%;
+    --secondary-300: 220 12% 78%;
+    --secondary-400: 220 10% 64%;
+    --secondary-500: 220 10% 48%;
+    --secondary-600: 220 12% 37%;
+    --secondary-700: 220 14% 27%;
+    --secondary-800: 220 16% 19%;
+    --secondary-900: 220 18% 14%;
+    --secondary-950: 220 20% 9%;
+    --secondary-foreground: 40 24% 97%;
 
     /* Neutral Colors */
     --neutral-950: 0 0% 0%; /* hsla(0, 0%, 0%, 1) */
@@ -92,179 +93,197 @@
     --destructive-900: 0 85% 31%; /* hsla(0, 85%, 31%, 1) */
     --destructive-950: 0 84% 15%; /* hsla(0, 84%, 15%, 1) */
 
-    --primary: 216 91% 60%;
-    --muted: 214 32% 96%;
-    --muted-foreground: 215 16% 42%;
-    --accent: 216 100% 97%;
-    --accent-foreground: 222 47% 18%;
-    --destructive: 0 84.2% 60.2%;
+    --primary: 266 100% 48%;
+    --primary-hover: 266 100% 42%;
+    --primary-subtle: rgba(106, 0, 244, 0.1);
+    --activity: #b6ff2e;
+    --activity-foreground: #486a00;
+    --activity-subtle: rgba(182, 255, 46, 0.24);
+    --selection: 266 100% 48%;
+    --surface: #ffffff;
+    --surface-elevated: #ffffff;
+    --surface-hover: #f1f0ed;
+    --border-subtle: #e5e3df;
+    --muted: 40 16% 93%;
+    --muted-foreground: 220 9% 42%;
+    --accent: 266 100% 96%;
+    --accent-foreground: 266 100% 31%;
+    --success: #15803d;
+    --success-subtle: #eaf7ed;
+    --warning: #b45309;
+    --warning-subtle: #fff6df;
+    --destructive: 0 72% 46%;
+    --destructive-subtle: #fff0f0;
     --destructive-foreground: 0 0% 98%;
-    --border: 214 27% 90%;
-    --input: 214 24% 82%;
-    --ring: 216 91% 60%;
-    --chart-1: 202 100% 69%;
-    --chart-2: 207 80% 36%;
-    --chart-3: 215 68% 22%;
-    --chart-4: 196 82% 62%;
-    --chart-5: 218 74% 48%;
+    --border: 220 10% 84%;
+    --input: 220 10% 74%;
+    --ring: 266 100% 48%;
+    --chart-1: 266 100% 48%;
+    --chart-2: 220 14% 38%;
+    --chart-3: 142 65% 34%;
+    --chart-4: 36 92% 42%;
+    --chart-5: 0 72% 46%;
     --radius: 0.75rem;
-    --agency-human: #1d4ed8;
-    --agency-agent: #7c3aed;
-    --agency-memory: #0f766e;
-    --agency-knowledge: #ea580c;
-    --agency-workflow: #d97706;
-    --agency-model: #0891b2;
-    --agency-integration: #4f46e5;
-    --agency-assistant: #7c3aed;
-    --agency-run: #0e7490;
-    --agency-monitor: #e11d48;
-    --agency-help: #ca8a04;
-    --agency-success: #16a34a;
+    --agency-human: #6a00f4;
+    --agency-agent: #6a00f4;
+    --agency-memory: #6a00f4;
+    --agency-knowledge: #6a00f4;
+    --agency-workflow: #6a00f4;
+    --agency-model: #6a00f4;
+    --agency-integration: #6a00f4;
+    --agency-assistant: #6a00f4;
+    --agency-run: var(--activity-foreground);
+    --agency-monitor: #dc2626;
+    --agency-operator: #6a00f4;
+    --agency-help: #b45309;
+    --agency-success: #15803d;
     --agency-failure: #dc2626;
-    --agency-shell-bg: #fbfcfe;
+    --agent-running: var(--activity-foreground);
+    --workflow-running: var(--activity-foreground);
+    --tool-running: var(--activity-foreground);
+    --graph-running: var(--activity);
+    --agency-shell-bg: #f8f7f4;
     --agency-shell-panel: rgba(255, 255, 255, 0.88);
     --agency-shell-panel-strong: rgba(255, 255, 255, 0.97);
     --agency-surface-raised: #ffffff;
-    --agency-surface-subtle: #f7f9fc;
-    --agency-shell-text: #0f172a;
-    --agency-shell-muted: #64748b;
-    --agency-shell-border: rgba(148, 163, 184, 0.24);
-    --agency-shell-border-strong: rgba(100, 116, 139, 0.34);
-    --agency-header-border: rgba(148, 163, 184, 0.26);
-    --agency-header-eyebrow: #4f46e5;
+    --agency-surface-subtle: #f1f0ed;
+    --agency-shell-text: #1b1e25;
+    --agency-shell-muted: #646975;
+    --agency-shell-border: rgba(35, 38, 47, 0.16);
+    --agency-shell-border-strong: rgba(35, 38, 47, 0.28);
+    --agency-header-border: rgba(35, 38, 47, 0.16);
+    --agency-header-eyebrow: #6a00f4;
     --agency-input-bg: rgba(255, 255, 255, 0.98);
-    --agency-input-shadow: 0 1px 2px rgba(15, 23, 42, 0.035);
+    --agency-input-shadow: 0 1px 2px rgba(35, 38, 47, 0.04);
     --agency-control-bg: rgba(255, 255, 255, 0.96);
-    --agency-control-bg-hover: #f8fafc;
-    --agency-control-border: rgba(148, 163, 184, 0.34);
-    --agency-control-text: #172033;
-    --agency-outline-shadow: 0 1px 2px rgba(15, 23, 42, 0.045);
-    --agency-elevation-1: 0 1px 2px rgba(15, 23, 42, 0.04);
-    --agency-elevation-2: 0 12px 28px rgba(15, 23, 42, 0.08);
-    --agency-elevation-3: 0 24px 64px rgba(15, 23, 42, 0.14);
+    --agency-control-bg-hover: #f1f0ed;
+    --agency-control-border: rgba(35, 38, 47, 0.22);
+    --agency-control-text: #1b1e25;
+    --agency-outline-shadow: 0 1px 2px rgba(35, 38, 47, 0.05);
+    --agency-elevation-1: 0 1px 2px rgba(35, 38, 47, 0.04);
+    --agency-elevation-2: 0 12px 28px rgba(35, 38, 47, 0.08);
+    --agency-elevation-3: 0 24px 64px rgba(35, 38, 47, 0.14);
     --agency-radius-control: 0.625rem;
     --agency-radius-panel: 0.75rem;
     --agency-radius-dialog: 1rem;
     --agency-motion-fast: 140ms;
     --agency-motion-standard: 200ms;
-    --agency-sidebar-bg: rgba(250, 252, 255, 0.94);
-    --agency-row-hover: rgba(239, 246, 255, 0.7);
-    --agency-active-bg: rgba(219, 234, 254, 0.65);
-    --agency-grid-dot: rgba(37, 99, 235, 0.08);
-    --agency-success-bg: #ecfdf5;
-    --agency-success-border: #a7f3d0;
-    --agency-success-text: #047857;
-    --agency-warning-bg: #fffbeb;
-    --agency-warning-border: #fde68a;
+    --agency-sidebar-bg: rgba(248, 247, 244, 0.94);
+    --agency-row-hover: rgba(35, 38, 47, 0.05);
+    --agency-active-bg: rgba(106, 0, 244, 0.1);
+    --agency-grid-dot: rgba(106, 0, 244, 0.08);
+    --agency-success-bg: var(--success-subtle);
+    --agency-success-border: #b6dfc1;
+    --agency-success-text: #166534;
+    --agency-warning-bg: var(--warning-subtle);
+    --agency-warning-border: #f1d493;
     --agency-warning-text: #92400e;
-    --agency-danger-bg: #fff1f2;
-    --agency-danger-border: #fecdd3;
-    --agency-danger-text: #be123c;
+    --agency-danger-bg: var(--destructive-subtle);
+    --agency-danger-border: #fecaca;
+    --agency-danger-text: #b91c1c;
     --agency-footer-bg: rgba(255, 255, 255, 0.92);
     --agency-footer-text: #5f6b7c;
   }
-  .dark {
-    --background: 219 56% 7%;
-    --foreground: 0 0% 98%;
-    --card: 218 48% 9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 218 48% 9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 216 36% 15%;
-    --muted-foreground: 211 28% 70%;
-    --accent: 209 52% 17%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 214 34% 18%;
-    --input: 214 34% 23%;
-    --ring: 202 100% 69%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
-
+  .dark,
   [data-agency-theme='dark'] {
     color-scheme: dark;
-    --background: 220 38% 7%;
-    --foreground: 210 40% 96%;
-    --card: 220 35% 9%;
-    --card-foreground: 210 40% 96%;
-    --popover: 220 35% 9%;
-    --popover-foreground: 210 40% 96%;
-    --primary: 213 94% 68%;
-    --primary-foreground: 222 47% 11%;
-    --muted: 218 28% 15%;
-    --muted-foreground: 215 19% 66%;
-    --accent: 218 35% 16%;
-    --accent-foreground: 210 40% 98%;
-    --border: 217 24% 18%;
-    --input: 217 24% 24%;
-    --ring: 213 94% 68%;
-    --neutral-50: 218 30% 13%;
-    --neutral-100: 218 27% 16%;
-    --neutral-200: 217 24% 21%;
-    --neutral-300: 216 22% 30%;
-    --neutral-400: 215 18% 53%;
-    --neutral-500: 215 19% 66%;
-    --neutral-600: 215 20% 75%;
-    --neutral-700: 214 24% 84%;
-    --neutral-800: 213 31% 91%;
-    --neutral-900: 210 40% 96%;
-    --neutral-950: 210 40% 98%;
-    --agency-human: #60a5fa;
-    --agency-agent: #a78bfa;
-    --agency-memory: #2dd4bf;
-    --agency-knowledge: #fb923c;
-    --agency-workflow: #fbbf24;
-    --agency-model: #22d3ee;
-    --agency-integration: #818cf8;
-    --agency-assistant: #c084fc;
-    --agency-run: #67e8f9;
+    --background: 220 14% 9%;
+    --foreground: 40 24% 97%;
+    --card: 220 16% 13%;
+    --card-foreground: 40 24% 97%;
+    --popover: 220 16% 13%;
+    --popover-foreground: 40 24% 97%;
+    --primary: 266 100% 58%;
+    --primary-hover: 266 100% 64%;
+    --primary-subtle: rgba(137, 66, 255, 0.18);
+    --primary-foreground: 0 0% 100%;
+    --activity: #b6ff2e;
+    --activity-foreground: #d9ff9b;
+    --activity-subtle: rgba(182, 255, 46, 0.14);
+    --selection: 266 100% 58%;
+    --surface: #1b1e25;
+    --surface-elevated: #23262f;
+    --surface-hover: #2b2f39;
+    --border-subtle: #292d35;
+    --muted: 220 12% 16%;
+    --muted-foreground: 220 10% 70%;
+    --accent: 266 45% 18%;
+    --accent-foreground: 40 24% 97%;
+    --success: #4ade80;
+    --success-subtle: rgba(74, 222, 128, 0.12);
+    --warning: #fbbf24;
+    --warning-subtle: rgba(251, 191, 36, 0.12);
+    --destructive: 0 82% 64%;
+    --destructive-subtle: rgba(248, 113, 113, 0.12);
+    --border: 220 11% 24%;
+    --input: 220 11% 30%;
+    --ring: 266 100% 58%;
+    --chart-1: 266 100% 66%;
+    --chart-2: 220 10% 72%;
+    --chart-3: 142 65% 58%;
+    --chart-4: 44 96% 66%;
+    --chart-5: 0 82% 70%;
+    --neutral-50: 220 14% 13%;
+    --neutral-100: 220 13% 16%;
+    --neutral-200: 220 12% 21%;
+    --neutral-300: 220 11% 29%;
+    --neutral-400: 220 10% 45%;
+    --neutral-500: 220 10% 58%;
+    --neutral-600: 220 10% 68%;
+    --neutral-700: 220 12% 78%;
+    --neutral-800: 220 14% 88%;
+    --neutral-900: 220 16% 94%;
+    --neutral-950: 40 24% 97%;
+    --agency-human: #a66cff;
+    --agency-agent: #a66cff;
+    --agency-memory: #a66cff;
+    --agency-knowledge: #a66cff;
+    --agency-workflow: #a66cff;
+    --agency-model: #a66cff;
+    --agency-integration: #a66cff;
+    --agency-assistant: #a66cff;
+    --agency-run: #b6ff2e;
     --agency-monitor: #fb7185;
-    --agency-help: #facc15;
-    --agency-shell-bg: #07101d;
-    --agency-shell-panel: rgba(7, 16, 29, 0.94);
-    --agency-shell-panel-strong: rgba(10, 20, 36, 0.98);
-    --agency-surface-raised: #0b1627;
-    --agency-surface-subtle: #091321;
-    --agency-shell-text: #f4f7fb;
-    --agency-shell-muted: #9aa9be;
-    --agency-shell-border: rgba(100, 116, 139, 0.24);
-    --agency-shell-border-strong: rgba(125, 145, 171, 0.32);
-    --agency-header-border: rgba(100, 116, 139, 0.26);
-    --agency-header-eyebrow: #93c5fd;
-    --agency-input-bg: rgba(12, 19, 34, 0.95);
+    --agency-operator: #a66cff;
+    --agency-help: #fbbf24;
+    --agency-success: #4ade80;
+    --agency-failure: #fb7185;
+    --agency-shell-bg: #15171c;
+    --agency-shell-panel: rgba(27, 30, 37, 0.94);
+    --agency-shell-panel-strong: rgba(35, 38, 47, 0.98);
+    --agency-surface-raised: #23262f;
+    --agency-surface-subtle: #1b1e25;
+    --agency-shell-text: #f8f7f4;
+    --agency-shell-muted: #a9adb8;
+    --agency-shell-border: rgba(169, 173, 184, 0.17);
+    --agency-shell-border-strong: rgba(169, 173, 184, 0.27);
+    --agency-header-border: rgba(169, 173, 184, 0.17);
+    --agency-header-eyebrow: #a66cff;
+    --agency-input-bg: rgba(27, 30, 37, 0.96);
     --agency-input-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
-    --agency-control-bg: rgba(12, 19, 34, 0.94);
-    --agency-control-bg-hover: rgba(16, 26, 44, 0.98);
-    --agency-control-border: rgba(100, 116, 139, 0.3);
-    --agency-control-text: #f4f7fb;
+    --agency-control-bg: rgba(35, 38, 47, 0.94);
+    --agency-control-bg-hover: #2b2f39;
+    --agency-control-border: rgba(169, 173, 184, 0.24);
+    --agency-control-text: #f8f7f4;
     --agency-outline-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
     --agency-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.28);
     --agency-elevation-2: 0 16px 34px rgba(0, 0, 0, 0.3);
     --agency-elevation-3: 0 28px 72px rgba(0, 0, 0, 0.46);
-    --agency-sidebar-bg: rgba(7, 13, 24, 0.94);
-    --agency-row-hover: rgba(30, 41, 59, 0.5);
-    --agency-active-bg: rgba(37, 99, 235, 0.16);
-    --agency-grid-dot: rgba(96, 165, 250, 0.07);
-    --agency-success-bg: rgba(16, 185, 129, 0.1);
-    --agency-success-border: rgba(52, 211, 153, 0.25);
-    --agency-success-text: #a7f3d0;
-    --agency-warning-bg: rgba(245, 158, 11, 0.1);
-    --agency-warning-border: rgba(251, 191, 36, 0.24);
+    --agency-sidebar-bg: rgba(21, 23, 28, 0.94);
+    --agency-row-hover: rgba(248, 247, 244, 0.06);
+    --agency-active-bg: rgba(166, 108, 255, 0.18);
+    --agency-grid-dot: rgba(166, 108, 255, 0.09);
+    --agency-success-bg: var(--success-subtle);
+    --agency-success-border: rgba(74, 222, 128, 0.28);
+    --agency-success-text: #bbf7d0;
+    --agency-warning-bg: var(--warning-subtle);
+    --agency-warning-border: rgba(251, 191, 36, 0.28);
     --agency-warning-text: #fde68a;
-    --agency-danger-bg: rgba(244, 63, 94, 0.1);
-    --agency-danger-border: rgba(251, 113, 133, 0.24);
+    --agency-danger-bg: var(--destructive-subtle);
+    --agency-danger-border: rgba(251, 113, 133, 0.28);
     --agency-danger-text: #fecdd3;
-    --agency-footer-bg: rgba(8, 13, 24, 0.9);
-    --agency-footer-text: #9aa9be;
+    --agency-footer-bg: rgba(21, 23, 28, 0.9);
+    --agency-footer-text: #a9adb8;
   }
 }
 
@@ -390,6 +409,10 @@
     --agency-nav-tone: var(--agency-monitor);
   }
 
+  .agency-nav-item[data-tone='operator'] {
+    --agency-nav-tone: var(--agency-operator);
+  }
+
   .agency-nav-icon {
     border: 1px solid
       color-mix(in srgb, var(--agency-nav-tone) 18%, transparent);
@@ -458,6 +481,10 @@
 
   .agency-page-header[data-tone='monitor'] {
     --agency-page-tone: var(--agency-monitor);
+  }
+
+  .agency-page-header[data-tone='operator'] {
+    --agency-page-tone: var(--agency-operator);
   }
 
   .agency-page-header[data-tone='run'] {
@@ -1055,11 +1082,11 @@
 }
 
 .workflow-graph-node-card .workflow-node-connector-input {
-  color: #0284c7;
+  color: var(--workflow-connector-agent-input);
 }
 
 .workflow-graph-node-card .workflow-node-connector-output {
-  color: #059669;
+  color: var(--workflow-connector-agent-output);
 }
 
 .react-flow__node.graph-workflow-node-muted {
@@ -1100,23 +1127,23 @@
 }
 
 :root {
-  --workflow-connector-agent-input: #22d3ee;
-  --workflow-connector-agent-output: #0891b2;
-  --workflow-connector-task-input: #fbbf24;
-  --workflow-connector-task-output: #d97706;
-  --workflow-connector-tool-input: #a78bfa;
-  --workflow-connector-tool-output: #7c3aed;
-  --workflow-connector-approval-input: #60a5fa;
-  --workflow-connector-approval-output: #2563eb;
-  --workflow-connector-memory-input: #06b6d4;
-  --workflow-connector-memory-output: #0891b2;
-  --workflow-connector-default-input: #64748b;
-  --workflow-connector-default-output: #475569;
+  --workflow-connector-agent-input: #8c43ff;
+  --workflow-connector-agent-output: #6a00f4;
+  --workflow-connector-task-input: #b18cff;
+  --workflow-connector-task-output: #6a00f4;
+  --workflow-connector-tool-input: #8c43ff;
+  --workflow-connector-tool-output: #4d00b4;
+  --workflow-connector-approval-input: #b18cff;
+  --workflow-connector-approval-output: #6a00f4;
+  --workflow-connector-memory-input: #b18cff;
+  --workflow-connector-memory-output: #6a00f4;
+  --workflow-connector-default-input: #747985;
+  --workflow-connector-default-output: #343842;
 }
 
 .graph-runtime-edge-focused .react-flow__edge-path {
   stroke-width: 4px;
-  filter: drop-shadow(0 0 4px rgb(14 165 233 / 0.45));
+  filter: drop-shadow(0 0 4px rgb(106 0 244 / 0.36));
 }
 
 .workflow-graph-legend-scroll {
@@ -1169,6 +1196,11 @@
 .graph-runtime-edge-flow .react-flow__edge-path {
   stroke-dasharray: 8 6;
   animation: graph-edge-flow 900ms linear infinite;
+  /* A traversing edge is live work, regardless of the edge's static category. */
+  stroke: var(--graph-running) !important;
+  filter: drop-shadow(
+    0 0 4px color-mix(in srgb, var(--graph-running) 46%, transparent)
+  );
 }
 
 .graph-runtime-edge-tool.graph-runtime-edge-flow .react-flow__edge-path {
@@ -1214,55 +1246,55 @@
 }
 
 .graph-workflow-edge-tool .react-flow__edge-path {
-  stroke: #d97706;
+  stroke: var(--workflow-connector-tool-output);
 }
 
 .graph-workflow-edge-assignment .react-flow__edge-path {
-  stroke: #059669;
+  stroke: var(--workflow-connector-agent-output);
 }
 
 .graph-workflow-edge-memory .react-flow__edge-path {
-  stroke: #0891b2;
+  stroke: var(--workflow-connector-memory-output);
 }
 
 .graph-workflow-edge-condition .react-flow__edge-path {
-  stroke: #7c3aed;
+  stroke: var(--workflow-connector-task-output);
 }
 
 .graph-workflow-edge-failure .react-flow__edge-path {
-  stroke: #dc2626;
+  stroke: var(--agency-failure);
 }
 
 .graph-workflow-edge-data-flow .react-flow__edge-path {
-  stroke: #0284c7;
+  stroke: var(--workflow-connector-default-output);
 }
 
 .graph-workflow-edge-approval .react-flow__edge-path {
-  stroke: #2563eb;
+  stroke: var(--workflow-connector-approval-output);
   stroke-width: 2.6px;
-  filter: drop-shadow(0 0 5px rgb(37 99 235 / 0.28));
+  filter: drop-shadow(0 0 5px rgb(106 0 244 / 0.28));
 }
 
 .graph-workflow-edge-related .react-flow__edge-path {
   stroke-width: 3.4px;
-  filter: drop-shadow(0 0 8px rgb(37 99 235 / 0.34))
+  filter: drop-shadow(0 0 8px rgb(106 0 244 / 0.34))
     drop-shadow(0 2px 6px rgb(15 23 42 / 0.18));
 }
 
 .graph-workflow-edge-dependency .react-flow__edge-path {
-  stroke: #475569;
+  stroke: var(--workflow-connector-default-output);
 }
 
 .dark .graph-workflow-edge-dependency .react-flow__edge-path,
 [data-agency-theme='dark']
   .graph-workflow-edge-dependency
   .react-flow__edge-path {
-  stroke: #94a3b8;
+  stroke: #a9adb8;
 }
 
 .graph-runtime-edge-packet {
   pointer-events: none;
-  color: #0ea5e9;
+  color: var(--graph-running);
   fill: currentColor;
   stroke: #ffffff;
   stroke-width: 1.75px;
@@ -1290,84 +1322,84 @@
 }
 
 .graph-workflow-edge-tool .graph-edge-packet {
-  color: #d97706;
+  color: var(--workflow-connector-tool-output);
 }
 
 .graph-workflow-edge-assignment .graph-edge-packet {
-  color: #059669;
+  color: var(--workflow-connector-agent-output);
 }
 
 .graph-workflow-edge-memory .graph-edge-packet {
-  color: #0891b2;
+  color: var(--workflow-connector-memory-output);
 }
 
 .graph-workflow-edge-condition .graph-edge-packet {
-  color: #7c3aed;
+  color: var(--workflow-connector-task-output);
 }
 
 .graph-workflow-edge-failure .graph-edge-packet {
-  color: #dc2626;
+  color: var(--agency-failure);
 }
 
 .graph-workflow-edge-data-flow .graph-edge-packet {
-  color: #0284c7;
+  color: var(--workflow-connector-default-output);
 }
 
 .graph-workflow-edge-approval .graph-edge-packet {
-  color: #2563eb;
+  color: var(--workflow-connector-approval-output);
 }
 
 .graph-workflow-edge-dependency .graph-edge-packet {
-  color: #64748b;
+  color: var(--workflow-connector-default-input);
 }
 
 .graph-workflow-edge-tool .graph-runtime-edge-packet,
 .graph-runtime-edge-tool .graph-runtime-edge-packet {
-  color: #d97706;
+  color: var(--graph-running);
 }
 
 .graph-workflow-edge-assignment .graph-runtime-edge-packet,
 .graph-runtime-edge-assignment .graph-runtime-edge-packet {
-  color: #059669;
+  color: var(--graph-running);
 }
 
 .graph-workflow-edge-memory .graph-runtime-edge-packet,
 .graph-runtime-edge-memory .graph-runtime-edge-packet {
-  color: #0891b2;
+  color: var(--graph-running);
 }
 
 .graph-workflow-edge-condition .graph-runtime-edge-packet,
 .graph-runtime-edge-condition .graph-runtime-edge-packet {
-  color: #7c3aed;
+  color: var(--graph-running);
 }
 
 .graph-workflow-edge-failure .graph-runtime-edge-packet,
 .graph-runtime-edge-error .graph-runtime-edge-packet {
-  color: #dc2626;
+  color: var(--agency-failure);
 }
 
 .graph-workflow-edge-data-flow .graph-runtime-edge-packet,
 .graph-runtime-edge-data-flow .graph-runtime-edge-packet,
 .graph-runtime-edge-output .graph-runtime-edge-packet {
-  color: #0284c7;
+  color: var(--graph-running);
 }
 
 .graph-workflow-edge-approval .graph-runtime-edge-packet,
 .graph-runtime-edge-approval .graph-runtime-edge-packet {
-  color: #2563eb;
+  color: var(--graph-running);
 }
 
 .graph-workflow-edge-dependency .graph-runtime-edge-packet,
 .graph-runtime-edge-dependency .graph-runtime-edge-packet {
-  color: #64748b;
+  color: var(--graph-running);
 }
 
 .graph-runtime-edge-approval .graph-runtime-edge-packet {
-  color: #f59e0b;
+  color: var(--graph-running);
 }
 
 .graph-runtime-edge-artifact .graph-runtime-edge-packet {
-  color: #7c3aed;
+  color: var(--graph-running);
 }
 
 .graph-runtime-edge-packet-active {
@@ -1422,23 +1454,24 @@
 }
 
 :root {
-  --brand-cyan: #5fc3ff;
-  --brand-blue: #0b72b9;
-  --brand-blue-deep: #06355e;
-  --brand-violet: #8a56ff;
-  --surface-blue: #f5fbff;
-  --surface-blue-strong: #eaf7ff;
+  /* Legacy chat and utility classes consume these aliases; keep them semantic. */
+  --brand-cyan: #8c43ff;
+  --brand-blue: #6a00f4;
+  --brand-blue-deep: #3d0090;
+  --brand-violet: #6a00f4;
+  --surface-blue: #f1edff;
+  --surface-blue-strong: #e9e0ff;
   --foreground-rgb: 0, 0, 0;
   --background-start-rgb: 214, 219, 220;
   --background-end-rgb: 255, 255, 255;
   --text-primary: #ffffff;
-  --text-primary-inverse: #090909;
-  --text-primary-main: #0f6ea8;
+  --text-primary-inverse: #1b1e25;
+  --text-primary-main: #5b00d6;
   --text-secondary: #a6aaae;
   --text-secondary-inverse: #494a4d;
-  --background-bubble-primary: #0b72b9;
-  --background-bubble-secondary: #f7f7f7;
-  --border-primary: #ced0d2;
+  --background-bubble-primary: #6a00f4;
+  --background-bubble-secondary: #f1f0ed;
+  --border-primary: #dedbd5;
   --background-soft: #eaf7ff;
   --text-tertiary: #6b6f73;
   --shadow-primary:
@@ -1448,21 +1481,21 @@
 }
 
 .dark {
-  --brand-cyan: #5fc3ff;
-  --brand-blue: #5fc3ff;
-  --brand-blue-deep: #02192b;
-  --brand-violet: #a989ff;
-  --surface-blue: #061d31;
-  --surface-blue-strong: #062a44;
-  --text-primary: #090909;
-  --text-primary-inverse: #ffffff;
-  --text-primary-main: #5fc3ff;
+  --brand-cyan: #c8a7ff;
+  --brand-blue: #a66cff;
+  --brand-blue-deep: #3d0090;
+  --brand-violet: #a66cff;
+  --surface-blue: #241b32;
+  --surface-blue-strong: #302243;
+  --text-primary: #1b1e25;
+  --text-primary-inverse: #f8f7f4;
+  --text-primary-main: #c8a7ff;
   --text-secondary: #494a4d;
   --text-secondary-inverse: #a6aaae;
-  --background-bubble-primary: #5fc3ff;
-  --background-bubble-secondary: #232324;
+  --background-bubble-primary: #a66cff;
+  --background-bubble-secondary: #23262f;
   --background-soft: #062a44;
-  --border-primary: #262626;
+  --border-primary: #343842;
   --background-start-rgb: 23, 23, 23;
   --background-end-rgb: 28, 28, 28;
 }
@@ -1492,9 +1525,9 @@
   .agency-gradient-action {
     background-image: linear-gradient(
       135deg,
-      #2563eb 0%,
-      #0b72b9 52%,
-      #7c3aed 100%
+      #8c43ff 0%,
+      #6a00f4 52%,
+      #4d00b4 100%
     );
   }
 
@@ -1546,9 +1579,9 @@
   [data-agency-theme='dark'] .agency-gradient-text {
     background-image: linear-gradient(
       135deg,
-      #b9c8ff 0%,
-      #67e8f9 40%,
-      #a78bfa 100%
+      #d9c5ff 0%,
+      #a66cff 40%,
+      #6a00f4 100%
     );
   }
 
@@ -1563,10 +1596,10 @@
   }
 
   [data-agency-theme='dark'] .react-flow__controls {
-    border: 1px solid rgba(148, 163, 184, 0.14);
+    border: 1px solid rgba(169, 173, 184, 0.16);
     border-radius: 14px;
     overflow: hidden;
-    background: rgba(8, 18, 31, 0.92);
+    background: rgba(35, 38, 47, 0.92);
     box-shadow: 0 18px 42px rgba(0, 0, 0, 0.34);
     backdrop-filter: blur(10px);
   }
@@ -1574,18 +1607,18 @@
   [data-agency-theme='dark'] .react-flow__controls-button {
     border-bottom-color: rgba(148, 163, 184, 0.12);
     background: transparent;
-    color: #c7d6ea;
+    color: #d5d8df;
   }
 
   [data-agency-theme='dark'] .react-flow__controls-button:hover {
-    background: rgba(34, 211, 238, 0.08);
-    color: #f8fbff;
+    background: rgba(166, 108, 255, 0.12);
+    color: #f8f7f4;
   }
 
   [data-agency-theme='dark'] .react-flow__attribution {
-    background: rgba(8, 18, 31, 0.88);
-    color: #8ea2bb;
-    border: 1px solid rgba(148, 163, 184, 0.12);
+    background: rgba(35, 38, 47, 0.88);
+    color: #a9adb8;
+    border: 1px solid rgba(169, 173, 184, 0.12);
   }
 
   .dark .agency-gradient-soft {
@@ -1836,13 +1869,13 @@
   [data-agency-theme='dark'] .bg-gray-50,
   [data-agency-theme='dark'] .bg-gray-100 {
     background:
-      linear-gradient(180deg, rgba(17, 31, 49, 0.96), rgba(9, 18, 31, 0.98)),
+      linear-gradient(180deg, rgba(35, 38, 47, 0.96), rgba(27, 30, 37, 0.98)),
       radial-gradient(
         circle at top left,
-        rgba(34, 211, 238, 0.08),
+        rgba(166, 108, 255, 0.08),
         transparent 34%
       ) !important;
-    color: #eaf2ff !important;
+    color: #f8f7f4 !important;
   }
 
   [data-agency-theme='dark'] .border-neutral-200,
@@ -1851,7 +1884,7 @@
   [data-agency-theme='dark'] .border-slate-300,
   [data-agency-theme='dark'] .border-gray-200,
   [data-agency-theme='dark'] .border-gray-300 {
-    border-color: rgba(148, 163, 184, 0.18) !important;
+    border-color: rgba(169, 173, 184, 0.18) !important;
   }
 
   [data-agency-theme='dark'] .text-neutral-950,
@@ -1863,7 +1896,7 @@
   [data-agency-theme='dark'] .text-gray-950,
   [data-agency-theme='dark'] .text-gray-900,
   [data-agency-theme='dark'] .text-gray-800 {
-    color: #f4f8ff !important;
+    color: #f8f7f4 !important;
   }
 
   [data-agency-theme='dark'] .text-neutral-700,
@@ -1872,13 +1905,34 @@
   [data-agency-theme='dark'] .text-slate-600,
   [data-agency-theme='dark'] .text-gray-700,
   [data-agency-theme='dark'] .text-gray-600 {
-    color: #c9d7ea !important;
+    color: #d5d8df !important;
   }
 
   [data-agency-theme='dark'] .text-neutral-500,
   [data-agency-theme='dark'] .text-slate-500,
   [data-agency-theme='dark'] .text-gray-500 {
-    color: #9fb2ca !important;
+    color: #a9adb8 !important;
+  }
+
+  /* Older feature cards still name cyan/sky Tailwind utilities for generic AI emphasis.
+   * In Open Agency dark mode, that meaning is violet; live state is handled by activity tokens. */
+  [data-agency-theme='dark'] [class*='dark:border-cyan'],
+  [data-agency-theme='dark'] [class*='dark:border-sky'] {
+    border-color: color-mix(
+      in srgb,
+      var(--agency-agent) 30%,
+      transparent
+    ) !important;
+  }
+
+  [data-agency-theme='dark'] [class*='dark:bg-cyan'],
+  [data-agency-theme='dark'] [class*='dark:bg-sky'] {
+    background-color: var(--agency-active-bg) !important;
+  }
+
+  [data-agency-theme='dark'] [class*='dark:text-cyan'],
+  [data-agency-theme='dark'] [class*='dark:text-sky'] {
+    color: var(--agency-agent) !important;
   }
 
   [data-agency-theme='dark']
@@ -1893,7 +1947,7 @@
     .divide-gray-200
     > :not([hidden])
     ~ :not([hidden]) {
-    border-color: rgba(148, 163, 184, 0.14) !important;
+    border-color: rgba(169, 173, 184, 0.14) !important;
   }
 
   [data-agency-theme='dark'] .shadow-sm,
@@ -1906,14 +1960,14 @@
   [data-agency-theme='dark'] input,
   [data-agency-theme='dark'] textarea,
   [data-agency-theme='dark'] select {
-    border-color: rgba(125, 211, 252, 0.18);
-    background: rgba(8, 18, 31, 0.94);
-    color: #edf5ff;
+    border-color: rgba(169, 173, 184, 0.2);
+    background: rgba(27, 30, 37, 0.94);
+    color: #f8f7f4;
   }
 
   [data-agency-theme='dark'] input::placeholder,
   [data-agency-theme='dark'] textarea::placeholder {
-    color: #7f93ad;
+    color: #747985;
   }
 
   [data-agency-theme='dark'] [data-testid='message-body'],
@@ -1923,6 +1977,6 @@
   [data-agency-theme='dark'] [data-testid='message-body'] strong,
   [data-agency-theme='dark'] [data-testid='message-body'] em,
   [data-agency-theme='dark'] [data-testid='message-body'] code {
-    color: #eaf2ff !important;
+    color: #f8f7f4 !important;
   }
 }

@@ -18,6 +18,11 @@ describe('run lifecycle metadata', () => {
           next_wake_at: '2026-07-13T12:00:00Z',
           consecutive_failures: 1,
           no_progress_cycles: 2,
+          usage: { total_tokens: 1250, estimated_cost: 0.42, runtime_seconds: 95.5 },
+          history: [
+            { cycle_number: 2, status: 'completed', completed_at: '2026-07-13T11:00:00Z' },
+            { cycle_number: 3, status: 'failed', error: 'source unavailable' },
+          ],
         },
       })
     ).toEqual({
@@ -38,6 +43,21 @@ describe('run lifecycle metadata', () => {
         noProgressCycles: 2,
         guardReason: null,
         lastError: null,
+        usage: { totalTokens: 1250, estimatedCost: 0.42, runtimeSeconds: 95.5 },
+        history: [
+          {
+            cycleNumber: 2,
+            status: 'completed',
+            completedAt: '2026-07-13T11:00:00Z',
+            error: null,
+          },
+          {
+            cycleNumber: 3,
+            status: 'failed',
+            completedAt: null,
+            error: 'source unavailable',
+          },
+        ],
       },
     });
   });

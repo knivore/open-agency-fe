@@ -6,6 +6,8 @@ describe('resolveAssistantRouteContext', () => {
     ['/workflows', 'workflow.list'],
     ['/workflows/workflow-1', 'workflow.detail'],
     ['/agents', 'agent.list'],
+    ['/goals', 'goal.list'],
+    ['/goals/goal-1', 'goal.detail'],
     ['/persona', 'persona.list'],
     ['/persona/persona-1', 'persona.detail'],
     ['/runs', 'runs.list'],

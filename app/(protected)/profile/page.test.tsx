@@ -18,6 +18,7 @@ const { apiTokensApi, profileApi, signOut, usersApi } = vi.hoisted(() => ({
       message: 'Automation keys are enabled.',
     })),
     getPublicEndpointInfo: vi.fn(),
+    updatePublicEndpointPreference: vi.fn(),
     getOpenVoiceStatus: vi.fn(),
     updateOpenVoiceSettings: vi.fn(),
     installOpenVoiceCheckpoints: vi.fn(),
@@ -209,6 +210,33 @@ describe('ProfilePage', () => {
       source: 'launcher',
       updated_at: '2026-06-24T00:00:00Z',
       current_public_url: 'https://agency.trycloudflare.com',
+      runtime_control: {
+        request_id: null,
+        state: 'idle',
+        provider: null,
+        requested_at: null,
+        updated_at: null,
+        supervisor_updated_at: '2026-06-24T00:00:00Z',
+        supervisor_available: true,
+        message: null,
+      },
+    });
+    profileApi.updatePublicEndpointPreference.mockResolvedValue({
+      provider: 'ngrok',
+      custom_domain: null,
+      source: 'browser',
+      updated_at: '2026-06-24T00:00:00Z',
+      current_public_url: null,
+      runtime_control: {
+        request_id: 'request-1',
+        state: 'requested',
+        provider: 'ngrok',
+        requested_at: '2026-06-24T00:00:00Z',
+        updated_at: '2026-06-24T00:00:00Z',
+        supervisor_updated_at: '2026-06-24T00:00:00Z',
+        supervisor_available: true,
+        message: 'Waiting for the local launcher to reload the public tunnel.',
+      },
     });
   });
 
@@ -243,6 +271,72 @@ describe('ProfilePage', () => {
       screen.getByText(
         'https://agency.trycloudflare.com/integrations/conversations/adapters/<provider>/webhook'
       )
+    ).toBeInTheDocument();
+  });
+
+  it('asks before applying a selected tunnel provider and queues the tunnel reload', async () => {
+    renderPage();
+
+    await screen.findByText('https://agency.trycloudflare.com');
+    fireEvent.click(await screen.findByRole('combobox', { name: 'Public tunnel provider' }));
+    fireEvent.click(await screen.findByRole('option', { name: 'ngrok' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Apply tunnel change now?' })
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Apply now' }));
+
+    await waitFor(() => {
+      expect(profileApi.updatePublicEndpointPreference).toHaveBeenCalledWith('ngrok', null, true);
+    });
+    expect(
+      await screen.findByText('Waiting for the local launcher to reload the public tunnel.')
+    ).toBeInTheDocument();
+  });
+
+  it('copies the public backend base URL from the profile card', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderPage();
+
+    const copyButton = await screen.findByRole('button', {
+      name: 'Copy public backend base URL',
+    });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('https://agency.trycloudflare.com');
+    });
+    expect(
+      await screen.findByRole('button', { name: 'Public backend base URL copied' })
+    ).toBeInTheDocument();
+  });
+
+  it('copies the common integration URL format from the profile card', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+
+    renderPage();
+
+    const copyButton = await screen.findByRole('button', {
+      name: 'Copy common integration URL',
+    });
+    fireEvent.click(copyButton);
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        'https://agency.trycloudflare.com/integrations/conversations/adapters/<provider>/webhook'
+      );
+    });
+    expect(
+      await screen.findByRole('button', { name: 'Common integration URL copied' })
     ).toBeInTheDocument();
   });
 

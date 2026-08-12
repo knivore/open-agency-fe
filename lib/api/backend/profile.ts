@@ -9,12 +9,26 @@ export interface BackendFeatureCapability {
   message: string;
 }
 
+export type TunnelProvider = 'auto' | 'none' | 'ngrok' | 'cloudflare';
+
+export interface TunnelRuntimeControl {
+  request_id: string | null;
+  state: 'idle' | 'requested' | 'applying' | 'ready' | 'failed';
+  provider: TunnelProvider | null;
+  requested_at: string | null;
+  updated_at: string | null;
+  supervisor_updated_at: string | null;
+  supervisor_available: boolean;
+  message: string | null;
+}
+
 export interface PublicEndpointInfo {
-  provider: 'auto' | 'none' | 'ngrok' | 'cloudflare';
+  provider: TunnelProvider;
   custom_domain: string | null;
   source: string;
   updated_at: string;
   current_public_url: string | null;
+  runtime_control: TunnelRuntimeControl;
 }
 
 export interface OpenVoiceStatus {
@@ -88,7 +102,20 @@ export const profileApi = {
       source: payload.source,
       updated_at: payload.updated_at,
       current_public_url: payload.current_public_url,
+      runtime_control: payload.runtime_control,
     };
+  },
+
+  updatePublicEndpointPreference(
+    provider: TunnelProvider,
+    customDomain: string | null,
+    applyNow: boolean
+  ) {
+    return agencyApiClient.put<PublicEndpointInfo>('/setup/tunnel-preference', {
+      provider,
+      custom_domain: customDomain,
+      apply_now: applyNow,
+    });
   },
 
   getApiTokenCapability(): BackendFeatureCapability {

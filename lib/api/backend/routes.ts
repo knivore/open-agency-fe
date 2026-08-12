@@ -78,6 +78,35 @@ export const backendRoutes = {
     cancel: (goalId: string) => `/goals/${encodePathSegment(goalId)}/cancel`,
     complete: (goalId: string) => `/goals/${encodePathSegment(goalId)}/complete`,
   },
+  operators: {
+    list: () => '/operators',
+    create: () => '/operators',
+    summary: () => '/operators/summary',
+    proposeFromResponsibility: () => '/operators/proposals/from-responsibility',
+    emergencyStop: () => '/operators/emergency-stop',
+    byId: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}`,
+    standingOrders: (operatorId: string) =>
+      `/operators/${encodePathSegment(operatorId)}/standing-orders`,
+    resourceBindings: (operatorId: string) =>
+      `/operators/${encodePathSegment(operatorId)}/resource-bindings`,
+    triggers: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/triggers`,
+    signals: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/signals`,
+    evaluations: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/evaluations`,
+    goals: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/goals`,
+    notifications: (operatorId: string) =>
+      `/operators/${encodePathSegment(operatorId)}/notifications`,
+    commitments: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/commitments`,
+    allowedWorkflows: (operatorId: string) =>
+      `/operators/${encodePathSegment(operatorId)}/allowed-workflows`,
+    capabilities: (operatorId: string) =>
+      `/operators/${encodePathSegment(operatorId)}/capabilities`,
+    simulate: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/simulate`,
+    activate: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/activate`,
+    pause: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/pause`,
+    resume: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/resume`,
+    stop: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/stop`,
+    wake: (operatorId: string) => `/operators/${encodePathSegment(operatorId)}/wake`,
+  },
   tools: {
     list: () => '/tools',
     create: () => '/tools',
@@ -311,6 +340,11 @@ export const backendRoutes = {
     contextUsage: (executionId: string) =>
       `/executions/${encodePathSegment(executionId)}/context-usage`,
     approvals: (executionId: string) => `/executions/${encodePathSegment(executionId)}/approvals`,
+    waits: (executionId: string) => `/executions/${encodePathSegment(executionId)}/waits`,
+    wait: (executionId: string, waitId: string) =>
+      `/executions/${encodePathSegment(executionId)}/waits/${encodePathSegment(waitId)}`,
+    resolveWait: (executionId: string, waitId: string) =>
+      `/executions/${encodePathSegment(executionId)}/waits/${encodePathSegment(waitId)}/resolve`,
     artifacts: (executionId: string) => `/executions/${encodePathSegment(executionId)}/artifacts`,
     artifactImagesStream: (executionId: string) =>
       `/executions/${encodePathSegment(executionId)}/artifacts/images/stream`,

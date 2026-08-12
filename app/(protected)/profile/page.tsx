@@ -1,7 +1,7 @@
 'use client';
 
 import { apiTokensApi } from '@/lib/api/backend/apiTokens';
-import { profileApi } from '@/lib/api/backend/profile';
+import { profileApi, type TunnelProvider } from '@/lib/api/backend/profile';
 import { getBackendUserProfilePreferences, usersApi } from '@/lib/api/backend/users';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { useAgencyUserPreferences } from '@/lib/userPreferences';
@@ -15,6 +15,24 @@ import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Card, CardContent, CardHeader } from '@/components/library/shadcn/card';
 import { Input } from '@/components/library/shadcn/input';
+import { Label } from '@/components/library/shadcn/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/library/shadcn/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/library/shadcn/alert-dialog';
 import {
   Table,
   TableBody,
@@ -31,8 +49,10 @@ import PersonalProfileSettingsCard from '@/components/profile/PersonalProfileSet
 import {
   AlertCircle,
   BotMessageSquare,
+  Check,
   ChevronDown,
   CircleUserRound,
+  Copy,
   EyeOff,
   Globe2,
   Key,
@@ -137,6 +157,13 @@ const FALLBACK_TOKEN_SCOPES: ApiTokenScopeDefinition[] = [
   },
 ];
 
+const TUNNEL_PROVIDER_LABELS: Record<TunnelProvider, string> = {
+  auto: 'Automatic recommendation',
+  none: 'Local only',
+  cloudflare: 'Cloudflare Tunnel',
+  ngrok: 'ngrok',
+};
+
 function formatDateTime(value?: string | null, timezone?: string | null) {
   if (!value) {
     return 'Never';
@@ -192,6 +219,10 @@ export default function ProfilePage() {
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [tokenError, setTokenError] = useState<string | null>(null);
   const [tokenNameTouched, setTokenNameTouched] = useState(false);
+  const [publicUrlCopied, setPublicUrlCopied] = useState(false);
+  const [commonIntegrationUrlCopied, setCommonIntegrationUrlCopied] = useState(false);
+  const [pendingTunnelProvider, setPendingTunnelProvider] = useState<TunnelProvider | null>(null);
+  const [tunnelPreferenceError, setTunnelPreferenceError] = useState<string | null>(null);
   const {
     preferences: { showDiagnostics, assistantLauncherMode, assistantLauncherIcon },
     setShowDiagnostics,
@@ -224,7 +255,40 @@ export default function ProfilePage() {
     queryKey: ['profilePublicEndpointInfo'],
     queryFn: () => profileApi.getPublicEndpointInfo(),
     enabled: Boolean(user?.id),
+    refetchInterval: (query) =>
+      ['requested', 'applying'].includes(query.state.data?.runtime_control?.state ?? '')
+        ? 2_500
+        : false,
   });
+
+  const copyPublicUrl = async () => {
+    const publicUrl = publicEndpointQuery.data?.current_public_url;
+    if (!publicUrl) {
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setPublicUrlCopied(true);
+    } catch {
+      setPublicUrlCopied(false);
+    }
+  };
+
+  const copyCommonIntegrationUrl = async () => {
+    const publicUrl = publicEndpointQuery.data?.current_public_url;
+    if (!publicUrl) {
+      return;
+    }
+
+    const integrationUrl = `${publicUrl}/integrations/conversations/adapters/<provider>/webhook`;
+    try {
+      await navigator.clipboard.writeText(integrationUrl);
+      setCommonIntegrationUrlCopied(true);
+    } catch {
+      setCommonIntegrationUrlCopied(false);
+    }
+  };
 
   const apiTokenRows = apiTokensQuery.data?.items ?? [];
   const automationKeyRows = apiTokenRows.filter((token) => !isBackendManagedSessionToken(token));
@@ -279,6 +343,42 @@ export default function ProfilePage() {
       setTokenError(error instanceof Error ? error.message : 'Failed to revoke automation key.');
     },
   });
+
+  const tunnelPreferenceMutation = useMutation({
+    mutationFn: ({ provider, applyNow }: { provider: TunnelProvider; applyNow: boolean }) =>
+      profileApi.updatePublicEndpointPreference(
+        provider,
+        provider === 'cloudflare' || provider === 'ngrok'
+          ? (publicEndpointQuery.data?.custom_domain ?? null)
+          : null,
+        applyNow
+      ),
+    onSuccess: (endpoint) => {
+      queryClient.setQueryData(['profilePublicEndpointInfo'], endpoint);
+      setPendingTunnelProvider(null);
+      setTunnelPreferenceError(null);
+    },
+    onError: (error) => {
+      setTunnelPreferenceError(
+        error instanceof Error ? error.message : 'Could not save the tunnel preference.'
+      );
+    },
+  });
+
+  const requestTunnelProviderChange = (provider: TunnelProvider) => {
+    if (provider !== publicEndpointQuery.data?.provider) {
+      setTunnelPreferenceError(null);
+      setPendingTunnelProvider(provider);
+    }
+  };
+
+  const saveTunnelPreference = (applyNow: boolean) => {
+    if (!pendingTunnelProvider) {
+      return;
+    }
+
+    tunnelPreferenceMutation.mutate({ provider: pendingTunnelProvider, applyNow });
+  };
 
   const renderSupportChip = (supported: boolean, label: string) => (
     <Badge variant={supported ? 'successful' : 'outline'}>
@@ -473,14 +573,34 @@ export default function ProfilePage() {
                     Public Backend Base URL
                   </p>
                   {publicEndpointQuery.data?.current_public_url ? (
-                    <a
-                      className="mt-3 block break-all text-sm font-medium text-sky-700 underline dark:text-sky-300"
-                      href={publicEndpointQuery.data.current_public_url}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {publicEndpointQuery.data.current_public_url}
-                    </a>
+                    <div className="mt-3 flex items-start gap-2">
+                      <a
+                        className="min-w-0 flex-1 break-all text-sm font-medium text-sky-700 underline dark:text-sky-300"
+                        href={publicEndpointQuery.data.current_public_url}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {publicEndpointQuery.data.current_public_url}
+                      </a>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-8 shrink-0 text-sky-700 hover:text-sky-900 dark:text-sky-300 dark:hover:text-sky-100"
+                        aria-label={
+                          publicUrlCopied
+                            ? 'Public backend base URL copied'
+                            : 'Copy public backend base URL'
+                        }
+                        onClick={copyPublicUrl}
+                      >
+                        {publicUrlCopied ? (
+                          <Check className="size-4" aria-hidden="true" />
+                        ) : (
+                          <Copy className="size-4" aria-hidden="true" />
+                        )}
+                      </Button>
+                    </div>
                   ) : (
                     <p className="mt-3 text-sm text-neutral-600 dark:text-slate-300">
                       Waiting for the launcher to report a tunnel URL.
@@ -491,14 +611,58 @@ export default function ProfilePage() {
                   <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                     Tunnel Preference
                   </p>
-                  <p className="mt-3 text-sm font-medium text-neutral-900 dark:text-slate-100">
-                    {publicEndpointQuery.data?.provider ?? 'Loading'}
-                  </p>
-                  <p className="mt-1 break-all text-xs text-neutral-500 dark:text-slate-400">
+                  <div className="mt-3 space-y-2">
+                    <Label htmlFor="profile-tunnel-provider">Public tunnel provider</Label>
+                    <Select
+                      value={publicEndpointQuery.data?.provider ?? ''}
+                      disabled={!publicEndpointQuery.data || tunnelPreferenceMutation.isPending}
+                      onValueChange={(value) =>
+                        requestTunnelProviderChange(value as TunnelProvider)
+                      }
+                    >
+                      <SelectTrigger
+                        id="profile-tunnel-provider"
+                        aria-label="Public tunnel provider"
+                      >
+                        <SelectValue placeholder="Loading" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(TUNNEL_PROVIDER_LABELS).map(([provider, label]) => (
+                          <SelectItem key={provider} value={provider}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <p className="mt-3 break-all text-xs text-neutral-500 dark:text-slate-400">
                     {publicEndpointQuery.data?.custom_domain
                       ? `Custom domain: ${publicEndpointQuery.data.custom_domain}`
                       : 'Provider-assigned tunnel URL'}
                   </p>
+                  {publicEndpointQuery.data?.runtime_control?.state === 'requested' ||
+                  publicEndpointQuery.data?.runtime_control?.state === 'applying' ? (
+                    <p className="mt-3 text-xs font-medium text-sky-700 dark:text-sky-300">
+                      {publicEndpointQuery.data.runtime_control.message ||
+                        'Applying tunnel change…'}
+                    </p>
+                  ) : null}
+                  {publicEndpointQuery.data?.runtime_control?.state === 'ready' ? (
+                    <p className="mt-3 text-xs font-medium text-emerald-700 dark:text-emerald-300">
+                      {publicEndpointQuery.data.runtime_control.message || 'Tunnel is ready.'}
+                    </p>
+                  ) : null}
+                  {publicEndpointQuery.data?.runtime_control?.state === 'failed' ? (
+                    <p className="mt-3 text-xs font-medium text-red-700 dark:text-red-300">
+                      {publicEndpointQuery.data.runtime_control.message ||
+                        'Tunnel could not be started. Check launcher logs.'}
+                    </p>
+                  ) : null}
+                  {tunnelPreferenceError ? (
+                    <p className="mt-3 text-xs font-medium text-red-700 dark:text-red-300">
+                      {tunnelPreferenceError}
+                    </p>
+                  ) : null}
                 </div>
               </div>
 
@@ -507,10 +671,30 @@ export default function ProfilePage() {
                   <p className="text-sm font-semibold text-sky-900 dark:text-sky-100">
                     Common integration URL format
                   </p>
-                  <code className="mt-2 block break-all rounded bg-white px-3 py-2 text-xs text-sky-900 dark:bg-slate-950/80 dark:text-sky-100">
-                    {publicEndpointQuery.data.current_public_url}
-                    /integrations/conversations/adapters/&lt;provider&gt;/webhook
-                  </code>
+                  <div className="mt-2 flex items-start gap-2">
+                    <code className="min-w-0 flex-1 break-all rounded bg-white px-3 py-2 text-xs text-sky-900 dark:bg-slate-950/80 dark:text-sky-100">
+                      {publicEndpointQuery.data.current_public_url}
+                      /integrations/conversations/adapters/&lt;provider&gt;/webhook
+                    </code>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="size-8 shrink-0 text-sky-700 hover:text-sky-900 dark:text-sky-300 dark:hover:text-sky-100"
+                      aria-label={
+                        commonIntegrationUrlCopied
+                          ? 'Common integration URL copied'
+                          : 'Copy common integration URL'
+                      }
+                      onClick={copyCommonIntegrationUrl}
+                    >
+                      {commonIntegrationUrlCopied ? (
+                        <Check className="size-4" aria-hidden="true" />
+                      ) : (
+                        <Copy className="size-4" aria-hidden="true" />
+                      )}
+                    </Button>
+                  </div>
                   <p className="mt-2 text-xs leading-5 text-sky-900/80 dark:text-sky-100/80">
                     Replace <code>&lt;provider&gt;</code> with the adapter name requested by the
                     selected integration.
@@ -519,6 +703,47 @@ export default function ProfilePage() {
               ) : null}
             </CardContent>
           </Card>
+
+          <AlertDialog
+            open={Boolean(pendingTunnelProvider)}
+            onOpenChange={(open) => {
+              if (!open && !tunnelPreferenceMutation.isPending) {
+                setPendingTunnelProvider(null);
+              }
+            }}
+          >
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Apply tunnel change now?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Switch to{' '}
+                  {pendingTunnelProvider ? TUNNEL_PROVIDER_LABELS[pendingTunnelProvider] : ''}.{' '}
+                  {publicEndpointQuery.data?.runtime_control?.supervisor_available
+                    ? 'Applying now stops the current public tunnel and starts the selected one. Open Agency stays running, but the public URL may change.'
+                    : 'The local launcher is not running, so this change can only be applied on the next launch.'}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={tunnelPreferenceMutation.isPending}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={tunnelPreferenceMutation.isPending}
+                  onClick={() => saveTunnelPreference(false)}
+                >
+                  Save for next launch
+                </AlertDialogAction>
+                {publicEndpointQuery.data?.runtime_control?.supervisor_available ? (
+                  <AlertDialogAction
+                    disabled={tunnelPreferenceMutation.isPending}
+                    onClick={() => saveTunnelPreference(true)}
+                  >
+                    {tunnelPreferenceMutation.isPending ? 'Applying…' : 'Apply now'}
+                  </AlertDialogAction>
+                ) : null}
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <OpenVoiceSettingsCard id="openvoice" />
 

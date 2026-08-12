@@ -26,6 +26,7 @@ import type {
   ExecutionEventRecord,
   ExecutionArtifact,
   ExecutionStateSnapshot,
+  ExecutionWaitRecord,
   RunLogEntry,
   RuntimeLogLine,
   RunSessionSummary,
@@ -33,6 +34,7 @@ import type {
 import type { WorkflowDefinition } from '@/types/workflows';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
+import { Textarea } from '@/components/library/shadcn/textarea';
 import {
   Card,
   CardContent,
@@ -148,8 +150,19 @@ function formatLifecycleReason(value: string) {
   return value.replace(/_/g, ' ');
 }
 
-function PersistentRunLifecyclePanel({ run }: { run: RunSessionSummary }) {
+function PersistentRunLifecyclePanel({
+  run,
+  wait,
+  resolving,
+  onResolveWait,
+}: {
+  run: RunSessionSummary;
+  wait: ExecutionWaitRecord | null;
+  resolving: boolean;
+  onResolveWait: (payload: Record<string, unknown>) => void;
+}) {
   const { activeWait, persistentCycle } = readRunLifecycle(run.metadata);
+  const [inputResponse, setInputResponse] = useState('');
   if (!activeWait && !persistentCycle) {
     return null;
   }
@@ -162,6 +175,19 @@ function PersistentRunLifecyclePanel({ run }: { run: RunSessionSummary }) {
     : persistentCycle?.guardReason
       ? `Paused by guard: ${formatLifecycleReason(persistentCycle.guardReason)}`
       : 'Persistent execution lifecycle';
+  const requestPayload = wait?.request_payload ?? null;
+  const checkpoint = wait?.checkpoint ?? null;
+  const expectedWake = wait?.correlation_key
+    ? `Event correlation: ${wait.correlation_key}`
+    : wait?.wake_at
+      ? `Timer due ${formatDate(wait.wake_at)}`
+      : wait?.deadline_at
+        ? `Deadline ${formatDate(wait.deadline_at)}`
+        : wait?.kind === 'approval'
+          ? 'An approval decision resolves this wait.'
+          : wait?.kind === 'input'
+            ? 'An operator response resolves this wait.'
+            : null;
 
   return (
     <section
@@ -187,7 +213,7 @@ function PersistentRunLifecyclePanel({ run }: { run: RunSessionSummary }) {
             <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">{summary}</p>
           </div>
         </div>
-        <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-4">
+        <dl className="grid min-w-0 grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-5">
           <div>
             <dt className="text-xs text-neutral-500 dark:text-slate-400">Current cycle</dt>
             <dd className="mt-1 font-medium text-neutral-900 dark:text-slate-100">
@@ -214,12 +240,109 @@ function PersistentRunLifecyclePanel({ run }: { run: RunSessionSummary }) {
                 : 'None'}
             </dd>
           </div>
+          <div>
+            <dt className="text-xs text-neutral-500 dark:text-slate-400">Cumulative budget</dt>
+            <dd className="mt-1 font-medium text-neutral-900 dark:text-slate-100">
+              {persistentCycle
+                ? `${formatTokenCount(persistentCycle.usage.totalTokens)} tokens · ${formatCost(persistentCycle.usage.estimatedCost)}`
+                : '—'}
+            </dd>
+            {persistentCycle ? (
+              <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                {Math.round(persistentCycle.usage.runtimeSeconds)}s active runtime
+              </p>
+            ) : null}
+          </div>
         </dl>
       </div>
       {persistentCycle?.lastError ? (
         <p className="mt-3 text-xs text-red-700 dark:text-red-200">
           Last cycle error: {persistentCycle.lastError}
         </p>
+      ) : null}
+      {wait ? (
+        <div className="mt-4 grid gap-3 border-t border-neutral-200 pt-4 text-sm dark:border-white/10 lg:grid-cols-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+              Requested work
+            </p>
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
+              {JSON.stringify(requestPayload ?? {}, null, 2)}
+            </pre>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+              Expected wake condition
+            </p>
+            <p className="mt-2 text-neutral-800 dark:text-slate-200">
+              {expectedWake ?? 'Manual resolution'}
+            </p>
+            {wait.policy && Object.keys(wait.policy).length > 0 ? (
+              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
+                {JSON.stringify(wait.policy, null, 2)}
+              </pre>
+            ) : null}
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+              Persisted checkpoint
+            </p>
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
+              {JSON.stringify(checkpoint ?? {}, null, 2)}
+            </pre>
+          </div>
+          {wait.kind === 'input' ? (
+            <div className="lg:col-span-3">
+              <Textarea
+                aria-label="Wait response"
+                value={inputResponse}
+                onChange={(event) => setInputResponse(event.target.value)}
+                placeholder="Provide the requested input"
+              />
+              <Button
+                type="button"
+                className="mt-2"
+                disabled={resolving || !inputResponse.trim()}
+                onClick={() => onResolveWait({ response: inputResponse.trim() })}
+              >
+                {resolving ? 'Submitting...' : 'Submit input and resume'}
+              </Button>
+            </div>
+          ) : wait.kind === 'event' || wait.kind === 'sleep' ? (
+            <div className="lg:col-span-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={resolving}
+                onClick={() => onResolveWait({ source: 'operator_wake_now' })}
+              >
+                {resolving ? 'Waking...' : 'Wake now'}
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {persistentCycle?.history.length ? (
+        <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-white/10">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+            Recent cycle outcomes
+          </p>
+          <ul className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
+            {persistentCycle.history.map((item, index) => (
+              <li
+                key={`${item.cycleNumber ?? 'cycle'}-${index}`}
+                className="rounded-md border p-3 dark:border-white/10"
+              >
+                <span className="font-medium">
+                  Cycle {item.cycleNumber ?? '—'} · {formatLifecycleReason(item.status)}
+                </span>
+                <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                  {item.error ?? formatDate(item.completedAt)}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </section>
   );
@@ -2419,6 +2542,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     eventsQuery,
     governanceEventsQuery,
     nativeApprovalsQuery,
+    waitsQuery,
     usageQuery,
     contextUsageQuery,
     artifactsQuery,
@@ -2431,6 +2555,7 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
     cancelMutation,
     approvalDecisionMutation,
     nativeApprovalDecisionMutation,
+    resolveWaitMutation,
   } = useRunDetailData(runId);
 
   const runDetail = runQuery.data;
@@ -2818,6 +2943,12 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
   const canResume = run.status === 'paused';
   const canCancel = !TERMINAL_STATUSES.has(run.status);
   const runLifecycle = readRunLifecycle(run.metadata);
+  const activeWait =
+    waitsQuery.data?.items.find(
+      (wait) =>
+        wait.status === 'pending' &&
+        (!runLifecycle.activeWait?.waitId || wait.id === runLifecycle.activeWait.waitId)
+    ) ?? null;
   const activeNativeApproval =
     run.status === 'waiting_for_approval'
       ? (nativeApprovals.find((approval) => approval.status === 'pending') ?? null)
@@ -2872,6 +3003,25 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         error instanceof Error ? error.message : `Failed to ${action} native approval.`,
       position: 'top-right',
     });
+  };
+
+  const handleResolveWait = async (resolutionPayload: Record<string, unknown>) => {
+    if (!activeWait) {
+      return;
+    }
+    await toast.promise(
+      resolveWaitMutation.mutateAsync({
+        waitId: activeWait.id,
+        resolutionPayload,
+        resolutionKey: `operator:${Date.now()}`,
+      }),
+      {
+        loading: 'Resolving durable wait...',
+        success: 'Wait resolved and run resumed.',
+        error: (error) => (error instanceof Error ? error.message : 'Failed to resolve wait.'),
+        position: 'top-right',
+      }
+    );
   };
 
   const handleRerun = async () => {
@@ -3002,7 +3152,12 @@ export default function RunDetailWorkspace({ runId }: { runId: string }) {
         />
       ) : null}
 
-      <PersistentRunLifecyclePanel run={run} />
+      <PersistentRunLifecyclePanel
+        run={run}
+        wait={activeWait}
+        resolving={resolveWaitMutation.isPending}
+        onResolveWait={(payload) => void handleResolveWait(payload)}
+      />
 
       <ActiveApprovalCheckpointPanel
         approval={activeNativeApproval}

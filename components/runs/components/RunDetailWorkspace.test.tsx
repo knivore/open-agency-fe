@@ -75,6 +75,7 @@ function createRunsModuleApi() {
         },
       }),
       listRunApprovals: vi.fn().mockResolvedValue({ items: [] }),
+      listRunWaits: vi.fn().mockResolvedValue({ items: [] }),
       getRunUsage: vi.fn().mockResolvedValue({
         execution_id: 'run-1',
         workflow_id: 'workflow-1',
@@ -139,6 +140,7 @@ function createRunsModuleApi() {
       cancelRun: vi.fn(),
       approveRun: vi.fn(),
       rejectRun: vi.fn(),
+      resolveRunWait: vi.fn(),
     },
     runtimeAdapters: {
       listRuntimeAdapters: vi.fn().mockResolvedValue({
@@ -232,6 +234,7 @@ describe('RunDetailWorkspace', () => {
         status: 'sleeping',
         metadata: {
           active_wait: {
+            wait_id: 'wait-cycle-4',
             kind: 'sleep',
             wake_at: '2026-07-13T12:00:00.000Z',
           },
@@ -243,6 +246,14 @@ describe('RunDetailWorkspace', () => {
             next_wake_at: '2026-07-13T12:00:00.000Z',
             consecutive_failures: 1,
             no_progress_cycles: 2,
+            usage: { total_tokens: 1250, estimated_cost: 0.42, runtime_seconds: 95 },
+            history: [
+              {
+                cycle_number: 3,
+                status: 'completed',
+                completed_at: '2026-07-13T11:00:00.000Z',
+              },
+            ],
           },
         },
         container: {},
@@ -251,12 +262,41 @@ describe('RunDetailWorkspace', () => {
       runtime: { diagnostics: {} },
       replacement: { replacedByExecutions: [] },
     });
+    api.runSessions.listRunWaits.mockResolvedValue({
+      items: [
+        {
+          id: 'wait-cycle-4',
+          execution_id: 'run-1',
+          kind: 'sleep',
+          status: 'pending',
+          idempotency_key: 'persistent-cycle:4',
+          request_payload: { reason: 'cycle_completed', next_cycle_number: 4 },
+          checkpoint: { last_cycle_output: { final_output: 'healthy' } },
+          policy: { max_total_tokens: 5000 },
+          wake_at: '2026-07-13T12:00:00.000Z',
+        },
+      ],
+    });
 
     renderWorkspace(api);
 
     expect(await screen.findByRole('heading', { name: 'Persistent monitor' })).toBeInTheDocument();
     expect(screen.getByText('Sleeping between monitor cycles')).toBeInTheDocument();
     expect(screen.getByText('1 failures · 2 repeated')).toBeInTheDocument();
+    expect(screen.getByText('1,250 tokens · US$0.42')).toBeInTheDocument();
+    expect(screen.getByText('Recent cycle outcomes')).toBeInTheDocument();
+    expect(screen.getByText(/cycle_completed/)).toBeInTheDocument();
+    expect(screen.getByText(/last_cycle_output/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Wake now' }));
+    await waitFor(() =>
+      expect(api.runs.resolveRunWait).toHaveBeenCalledWith(
+        'run-1',
+        'wait-cycle-4',
+        { source: 'operator_wake_now' },
+        expect.stringMatching(/^operator:/)
+      )
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Pause' }));
     await waitFor(() => expect(api.runs.pauseRun).toHaveBeenCalledWith('run-1'));

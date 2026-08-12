@@ -168,6 +168,23 @@ export interface ExecutionApprovalRequest extends JsonObject {
   responded_by?: string | null;
 }
 
+export interface ExecutionWaitRecord extends JsonObject {
+  id: string;
+  execution_id: string;
+  kind: 'input' | 'approval' | 'event' | 'sleep' | string;
+  status: 'pending' | 'resolved' | 'expired' | 'cancelled' | string;
+  idempotency_key: string;
+  correlation_key?: string | null;
+  checkpoint?: JsonObject;
+  request_payload?: JsonObject;
+  policy?: JsonObject;
+  resolution_payload?: JsonObject | null;
+  wake_at?: string | null;
+  deadline_at?: string | null;
+  created_at?: string | null;
+  metadata?: JsonObject;
+}
+
 export interface ExecutionUsageResponse extends JsonObject {
   execution_id: string;
   workflow_id?: string | null;

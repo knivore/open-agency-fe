@@ -20,6 +20,7 @@ import {
   Sprite,
   SpriteMaterial,
 } from 'three';
+import { agencyColors, graphStateColors } from '../design/colors';
 import { createConstellationSigmaGraphPositions } from './layout';
 import { normalizeSigmaGraphDocument } from './normalize';
 import type {
@@ -1247,56 +1248,56 @@ function forceGraph3DPalette(theme: 'dark' | 'light'): ForceGraph3DPalette {
   if (theme === 'light') {
     return {
       ambientLight: '#ffffff',
-      atmosphere: '#f1f5f9',
-      background: '#e8eff8',
-      chipLabel: '#020617',
+      atmosphere: agencyColors.graphiteLight,
+      background: agencyColors.porcelain,
+      chipLabel: agencyColors.graphite,
       clusterGlowAlpha: 0,
-      dimmedLink: '#94a3b8',
-      dimmedNode: '#64748b',
-      fillLight: '#cbd5e1',
-      halo: '#2563eb',
+      dimmedLink: agencyColors.borderLight,
+      dimmedNode: agencyColors.graphiteMuted,
+      fillLight: agencyColors.violetSoft,
+      halo: agencyColors.violet,
       keyLight: '#ffffff',
-      labelBackgroundSoft: 'rgba(241,247,255,0.76)',
-      labelBackgroundStrong: 'rgba(248,251,255,0.96)',
-      link: '#475569',
-      linkOperational: '#0f766e',
-      linkSubtle: '#cbd5e1',
-      linkWarning: '#ef4444',
+      labelBackgroundSoft: 'rgba(248,247,244,0.76)',
+      labelBackgroundStrong: 'rgba(255,255,255,0.96)',
+      link: agencyColors.graphiteMuted,
+      linkOperational: agencyColors.violet,
+      linkSubtle: agencyColors.borderLight,
+      linkWarning: agencyColors.error,
       linkWidthScale: { base: 1.12, dimmed: 0.88, focus: 1.22, hover: 1.28, selected: 1.34 },
       nodeCore: '#ffffff',
-      nodeHaloSoft: '#bfdbfe',
-      selectedLink: '#0f172a',
-      selectedNode: '#0f172a',
-      starfield: '#f59e0b',
-      starfieldMuted: '#f5e1b8',
-      text: '#0f172a',
+      nodeHaloSoft: agencyColors.violetSoft,
+      selectedLink: agencyColors.violet,
+      selectedNode: agencyColors.violet,
+      starfield: agencyColors.violet,
+      starfieldMuted: agencyColors.violetSoft,
+      text: agencyColors.graphite,
     };
   }
   return {
-    ambientLight: '#dbeafe',
-    atmosphere: '#09111f',
-    background: '#07090f',
-    chipLabel: '#f8fafc',
+    ambientLight: agencyColors.violetSoft,
+    atmosphere: agencyColors.backgroundDark,
+    background: agencyColors.backgroundDark,
+    chipLabel: agencyColors.porcelain,
     clusterGlowAlpha: 0.035,
-    dimmedLink: '#4b5563',
-    dimmedNode: '#52525b',
-    fillLight: '#93c5fd',
-    halo: '#93c5fd',
+    dimmedLink: agencyColors.borderDark,
+    dimmedNode: agencyColors.graphiteMuted,
+    fillLight: agencyColors.violetBright,
+    halo: agencyColors.violetBright,
     keyLight: '#f8fafc',
-    labelBackgroundSoft: 'rgba(15,23,42,0.56)',
-    labelBackgroundStrong: 'rgba(15,23,42,0.88)',
-    link: '#cbd5e1',
-    linkOperational: '#67e8f9',
-    linkSubtle: '#94a3b8',
-    linkWarning: '#fca5a5',
+    labelBackgroundSoft: 'rgba(27,30,37,0.56)',
+    labelBackgroundStrong: 'rgba(27,30,37,0.88)',
+    link: '#a9adb8',
+    linkOperational: agencyColors.violetBright,
+    linkSubtle: agencyColors.borderDark,
+    linkWarning: agencyColors.errorBright,
     linkWidthScale: { base: 1, dimmed: 1, focus: 1, hover: 1, selected: 1 },
-    nodeCore: '#f8fafc',
-    nodeHaloSoft: '#7dd3fc',
-    selectedLink: '#f8fafc',
-    selectedNode: '#ffffff',
-    starfield: '#cbd5e1',
-    starfieldMuted: '#334155',
-    text: '#f8fafc',
+    nodeCore: agencyColors.porcelain,
+    nodeHaloSoft: agencyColors.violetBright,
+    selectedLink: agencyColors.violetBright,
+    selectedNode: agencyColors.violetBright,
+    starfield: agencyColors.violetSoft,
+    starfieldMuted: agencyColors.borderDark,
+    text: agencyColors.porcelain,
   };
 }
 
@@ -1445,18 +1446,18 @@ function agencyGraph3DBucketOrder(bucket: string) {
 
 function agencyGraph3DStatusColor(status: string) {
   if (status === 'failed') {
-    return '#f87171';
+    return graphStateColors.failedDark;
   }
   if (status === 'running') {
-    return '#38bdf8';
+    return graphStateColors.running;
   }
   if (status === 'completed') {
-    return '#4ade80';
+    return graphStateColors.completedDark;
   }
   if (status === 'cancelled') {
-    return '#94a3b8';
+    return agencyColors.graphiteMuted;
   }
-  return '#cbd5e1';
+  return agencyColors.borderLight;
 }
 
 function agencyGraph3DClusterPolicy({
@@ -1505,8 +1506,8 @@ function agencyGraph3DRunClusterLabel(
 function forceColorForNode(node: SigmaGraphNode, theme: 'dark' | 'light') {
   const palette =
     theme === 'light'
-      ? ['#0369a1', '#1d4ed8', '#0f766e', '#b45309', '#b91c1c', '#6d28d9']
-      : ['#60a5fa', '#38bdf8', '#34d399', '#fbbf24', '#f87171', '#a78bfa'];
+      ? [agencyColors.graphite, agencyColors.graphiteMuted, agencyColors.violet, '#8C43FF']
+      : [agencyColors.graphiteMuted, '#A9ADB8', agencyColors.violetBright, agencyColors.violetSoft];
   const index =
     Math.abs([...node.type].reduce((total, character) => total + character.charCodeAt(0), 0)) %
     palette.length;
@@ -1514,7 +1515,9 @@ function forceColorForNode(node: SigmaGraphNode, theme: 'dark' | 'light') {
 }
 
 function forceColorForEdge(edge: SigmaGraphEdge) {
-  return edge.type.toLowerCase().includes('warn') ? '#f97316' : '#64748b';
+  return edge.type.toLowerCase().includes('warn')
+    ? agencyColors.warning
+    : agencyColors.graphiteMuted;
 }
 
 function normalizedCameraDirection(vector: { x: number; y: number; z: number } | null | undefined) {

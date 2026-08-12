@@ -13,6 +13,7 @@ import type {
   ExecutionArtifact,
   ExecutionRecord,
   ExecutionUsageResponse,
+  ExecutionWaitRecord,
 } from '@/types/runtime';
 import type { CrudListResponse } from '@/types/api';
 import type { AuthUser } from '@/types/auth';
@@ -202,6 +203,27 @@ export const executionsApi = {
   listExecutionApprovals(executionId: string) {
     return agencyApiClient.get<CrudListResponse<ExecutionApprovalRequest>>(
       backendRoutes.executions.approvals(executionId)
+    );
+  },
+  listExecutionWaits(executionId: string, status?: string) {
+    return agencyApiClient.get<CrudListResponse<ExecutionWaitRecord>>(
+      backendRoutes.executions.waits(executionId),
+      { query: { status: status || undefined } }
+    );
+  },
+  resolveExecutionWait(
+    executionId: string,
+    waitId: string,
+    payload: {
+      resolution_key: string;
+      resolution_payload?: Record<string, unknown>;
+      status?: 'resolved' | 'expired' | 'cancelled';
+      resume?: boolean;
+    }
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      backendRoutes.executions.resolveWait(executionId, waitId),
+      payload
     );
   },
   getExecutionUsage(executionId: string) {

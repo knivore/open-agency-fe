@@ -19,6 +19,7 @@ interface PageHeaderProps {
     | 'memory'
     | 'model'
     | 'monitor'
+    | 'operator'
     | 'persona'
     | 'profile'
     | 'run'

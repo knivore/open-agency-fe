@@ -18,6 +18,17 @@ export interface PersistentRunCycle {
   noProgressCycles: number;
   guardReason: string | null;
   lastError: string | null;
+  usage: {
+    totalTokens: number;
+    estimatedCost: number;
+    runtimeSeconds: number;
+  };
+  history: Array<{
+    cycleNumber: number | null;
+    status: string;
+    completedAt: string | null;
+    error: string | null;
+  }>;
 }
 
 export interface RunLifecycleSummary {
@@ -37,9 +48,15 @@ function integerValue(value: unknown) {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : null;
 }
 
+function numberValue(value: unknown) {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : 0;
+}
+
 export function readRunLifecycle(metadata: JsonObject | undefined): RunLifecycleSummary {
   const wait = isRecord(metadata?.active_wait) ? metadata.active_wait : null;
   const cycle = isRecord(metadata?.persistent_cycle) ? metadata.persistent_cycle : null;
+  const usage = isRecord(cycle?.usage) ? cycle.usage : null;
+  const history = Array.isArray(cycle?.history) ? cycle.history.filter(isRecord) : [];
 
   return {
     activeWait: wait
@@ -62,6 +79,17 @@ export function readRunLifecycle(metadata: JsonObject | undefined): RunLifecycle
           noProgressCycles: integerValue(cycle.no_progress_cycles) ?? 0,
           guardReason: stringValue(cycle.guard_reason),
           lastError: stringValue(cycle.last_error),
+          usage: {
+            totalTokens: numberValue(usage?.total_tokens),
+            estimatedCost: numberValue(usage?.estimated_cost),
+            runtimeSeconds: numberValue(usage?.runtime_seconds),
+          },
+          history: history.slice(-5).map((item) => ({
+            cycleNumber: integerValue(item.cycle_number),
+            status: stringValue(item.status) ?? 'unknown',
+            completedAt: stringValue(item.completed_at),
+            error: stringValue(item.error),
+          })),
         }
       : null,
   };

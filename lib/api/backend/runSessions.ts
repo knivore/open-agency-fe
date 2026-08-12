@@ -11,6 +11,7 @@ import type {
   ExecutionEventRecord,
   ExecutionRecord,
   ExecutionUsageResponse,
+  ExecutionWaitRecord,
   RunLogEntry,
   RunSessionDetail,
   RunSessionSummary,
@@ -44,6 +45,9 @@ export const runSessionsApi = {
   },
   listRunApprovals(runId: string): Promise<CrudListResponse<ExecutionApprovalRequest>> {
     return executionsApi.listExecutionApprovals(runId);
+  },
+  listRunWaits(runId: string): Promise<CrudListResponse<ExecutionWaitRecord>> {
+    return executionsApi.listExecutionWaits(runId, 'pending');
   },
   getRunUsage(runId: string): Promise<ExecutionUsageResponse> {
     return executionsApi.getExecutionUsage(runId);

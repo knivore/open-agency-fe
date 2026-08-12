@@ -61,6 +61,7 @@ import { createGraphEdgeId } from './ids';
 import { layoutGraphDocumentGrid, type LayoutGraphDocumentGridOptions } from './layout';
 import { stringifyGraphDocument } from './persistence';
 import { downloadGraphDocumentJson } from './export';
+import { agencyColors, graphStateColors } from '../design/colors';
 
 export const graphBuiltInToolbarActionIds = {
   addNode: 'graph.addNode',
@@ -81,29 +82,29 @@ function minimapNodeColor(node: XyflowGraphNode) {
   const graphNodeType = node.data?.graphNode?.type ?? node.type ?? '';
 
   if (graphNodeType.includes('agent')) {
-    return '#22d3ee';
+    return agencyColors.violet;
   }
   if (graphNodeType.includes('task')) {
-    return '#fbbf24';
+    return agencyColors.violetBright;
   }
   if (graphNodeType.includes('tool')) {
-    return '#c084fc';
+    return agencyColors.violet;
   }
   if (graphNodeType.includes('approval')) {
-    return '#60a5fa';
+    return agencyColors.violetBright;
   }
   if (graphNodeType.includes('memory')) {
-    return '#34d399';
+    return agencyColors.violetSoft;
   }
   if (graphNodeType.includes('artifact')) {
-    return '#fb7185';
+    return agencyColors.graphiteMuted;
   }
 
-  return '#94a3b8';
+  return agencyColors.graphiteMuted;
 }
 
 function minimapNodeStrokeColor(node: XyflowGraphNode) {
-  return node.selected ? '#f8fafc' : '#0f172a';
+  return node.selected ? agencyColors.violet : agencyColors.graphite;
 }
 
 function mergeClassNames(...values: Array<string | undefined | null | false>) {
@@ -112,23 +113,23 @@ function mergeClassNames(...values: Array<string | undefined | null | false>) {
 
 function runtimeNodeClassName(status: string | undefined) {
   if (status === 'running') {
-    return 'border-sky-400 ring-2 ring-sky-100 animate-pulse';
+    return 'border-(--agent-running) ring-2 ring-(--activity-subtle) animate-pulse';
   }
 
   if (status === 'queued') {
-    return 'border-blue-300 ring-2 ring-blue-100 animate-pulse';
+    return 'border-primary-300 ring-2 ring-primary-100 animate-pulse';
   }
 
   if (status === 'waiting') {
-    return 'border-amber-400 ring-2 ring-amber-100 animate-pulse';
+    return 'border-warning-400 ring-2 ring-warning-100 animate-pulse';
   }
 
   if (status === 'succeeded' || status === 'completed') {
-    return 'border-emerald-300 ring-2 ring-emerald-100';
+    return 'border-success-300 ring-2 ring-success-100';
   }
 
   if (status === 'failed' || status === 'blocked') {
-    return 'border-red-400 ring-2 ring-red-100';
+    return 'border-destructive-400 ring-2 ring-destructive-100';
   }
 
   if (status === 'skipped') {
@@ -269,33 +270,31 @@ function graphEdgePacketClassName(edge: GraphEdge | undefined) {
     : 'graph-edge-packet';
 }
 
-function runtimeEdgeStyle(status: string | undefined, edge: GraphEdge | undefined) {
-  const activeStroke = edge?.style?.color ?? edge?.style?.borderColor ?? '#0284c7';
-
+function runtimeEdgeStyle(status: string | undefined) {
   if (status === 'running' || status === 'transmitting' || status === 'queued') {
     return {
-      stroke: activeStroke,
+      stroke: graphStateColors.running,
       strokeWidth: 2.5,
     };
   }
 
   if (status === 'waiting' || status === 'blocked') {
     return {
-      stroke: '#d97706',
+      stroke: graphStateColors.warning,
       strokeWidth: 2,
     };
   }
 
   if (status === 'succeeded' || status === 'completed') {
     return {
-      stroke: '#059669',
+      stroke: graphStateColors.completed,
       strokeWidth: 2,
     };
   }
 
   if (status === 'failed') {
     return {
-      stroke: '#dc2626',
+      stroke: graphStateColors.failed,
       strokeWidth: 2,
     };
   }
@@ -1510,7 +1509,7 @@ export default function GraphCanvas({
                 }
               : {
                   ...(edge.style ?? {}),
-                  ...runtimeEdgeStyle(visualRuntimeStatus, graphEdge),
+                  ...runtimeEdgeStyle(visualRuntimeStatus),
                 },
         };
       }),

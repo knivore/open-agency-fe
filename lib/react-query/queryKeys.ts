@@ -10,6 +10,13 @@ export const queryKeys = {
     ['backendGoalOperatorView', filters] as const,
   backendGoalOperatorDetail: (goalId: string) => ['backendGoalOperatorDetail', goalId] as const,
   backendAgentRuns: () => ['backendAgentRuns'] as const,
+  backendOperators: (workspaceId: string) => ['backendOperators', workspaceId] as const,
+  backendOperatorSummary: (workspaceId: string) =>
+    ['backendOperators', workspaceId, 'summary'] as const,
+  backendOperator: (workspaceId: string, operatorId: string) =>
+    ['backendOperators', workspaceId, operatorId] as const,
+  backendOperatorResource: (workspaceId: string, operatorId: string, resource: string) =>
+    ['backendOperators', workspaceId, operatorId, resource] as const,
   backendWorkflowList: () => ['backendWorkflowList'] as const,
   backendWorkflow: (workflowId: string) => ['backendWorkflow', workflowId] as const,
   backendWorkflowVersions: (workflowId: string) => ['backendWorkflowVersions', workflowId] as const,
@@ -80,6 +87,7 @@ export const queryKeys = {
   backendRunEvents: (runId: string) => ['backendRunEvents', runId] as const,
   backendRunGovernanceEvents: (runId: string) => ['backendRunGovernanceEvents', runId] as const,
   backendRunApprovals: (runId: string) => ['backendRunApprovals', runId] as const,
+  backendRunWaits: (runId: string) => ['backendRunWaits', runId] as const,
   backendRunUsage: (runId: string) => ['backendRunUsage', runId] as const,
   backendRunContextUsage: (runId: string) => ['backendRunContextUsage', runId] as const,
   backendRunTimeline: (runId: string) => ['backendRunTimeline', runId] as const,

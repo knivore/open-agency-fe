@@ -62,6 +62,7 @@ import {
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
 import { goalMentionHandle } from '@/components/goals/GoalSelector';
 import { conversationsApi } from '@/lib/api/backend/conversations';
+import { isApiError } from '@/lib/api/errors';
 import { documentsApi } from '@/lib/api/backend/documents';
 import { logsApi } from '@/lib/api/backend/logs';
 import { personasApi } from '@/lib/api/backend/personas';
@@ -126,6 +127,14 @@ const SENSITIVE_KEY_FRAGMENTS = [
 ];
 const SENSITIVE_TOKEN_PATTERN =
   /\b(Bearer\s+)[A-Za-z0-9._~+/=-]+|\b(sk-[A-Za-z0-9_-]{8,})\b|\b(xox[a-z]-[A-Za-z0-9-]{8,})\b|\b(gh[pousr]_[A-Za-z0-9_]{8,})\b|\b(glpat-[A-Za-z0-9_-]{8,})\b/g;
+
+function isMissingConversationError(error: unknown) {
+  return (
+    isApiError(error) &&
+    error.status === 404 &&
+    error.message.toLowerCase().includes('conversation not found')
+  );
+}
 
 type PendingAsyncTurn = {
   conversationId: string;
@@ -4680,14 +4689,19 @@ export default function ConversationWorkspace({
 
   useEffect(() => {
     return () => {
+      // Background backfill loops check this ref after each delay; clearing it prevents work from
+      // surviving the conversation workspace and scheduling browser timers after unmount.
+      activeConversationIdRef.current = undefined;
       speechRecognitionRef.current?.stop();
       speechRecognitionRef.current = null;
     };
   }, []);
 
   async function loadConversationThread(conversationId: string) {
-    const [storedConversation, storedMessages, storedApprovals] = await Promise.all([
-      conversationsApi.getConversation(conversationId),
+    // Resolve the parent first so a stale persisted ID does not trigger dependent requests for a
+    // resource that no longer exists.
+    const storedConversation = await conversationsApi.getConversation(conversationId);
+    const [storedMessages, storedApprovals] = await Promise.all([
       conversationsApi.listMessages(conversationId),
       conversationsApi.listApprovalRequests(conversationId),
     ]);
@@ -4837,7 +4851,9 @@ export default function ConversationWorkspace({
       try {
         await loadConversationThread(conversationId);
       } catch (loadError) {
-        console.error('Failed to restore active conversation', loadError);
+        if (!isMissingConversationError(loadError)) {
+          console.error('Failed to restore active conversation', loadError);
+        }
         window.localStorage.removeItem(ACTIVE_CONVERSATION_STORAGE_KEY);
       }
     })();

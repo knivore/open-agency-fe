@@ -5,6 +5,11 @@ export type AssistantPageSurface =
   | 'workflow.list'
   | 'workflow.detail'
   | 'agent.list'
+  | 'operator.list'
+  | 'operator.create'
+  | 'operator.detail'
+  | 'goal.list'
+  | 'goal.detail'
   | 'persona.list'
   | 'persona.detail'
   | 'runs.list'
@@ -141,6 +146,106 @@ const assistantRouteContexts: AssistantRouteContextDefinition[] = [
         'Design a focused agent',
         'Help me define a focused agent with a clear role, boundaries, tools, and handoff behavior.',
         'configure'
+      ),
+    ],
+  },
+  {
+    matches: exact('/operators'),
+    surface: 'operator.list',
+    title: 'Operators',
+    description: 'Supervise persistent, governed responsibility owners.',
+    allowedActions: ['operator.inspect', 'operator.propose_create', 'operator.health'],
+    suggestedPrompts: [
+      prompt(
+        'operator-attention',
+        'Find what needs attention',
+        'Review Operator health and explain which responsibility needs owner attention first.',
+        'diagnose'
+      ),
+      prompt(
+        'operator-no-action',
+        'Explain recent silence',
+        'Explain which Operators recently chose no action and why that was the correct bounded result.',
+        'understand'
+      ),
+    ],
+  },
+  {
+    matches: exact('/operators/create'),
+    surface: 'operator.create',
+    title: 'Create operator',
+    description: 'Propose and review a persistent responsibility and its boundaries.',
+    allowedActions: ['operator.propose_create', 'operator.validate_proposal'],
+    suggestedPrompts: [
+      prompt(
+        'operator-scope',
+        'Tighten this responsibility',
+        'Help me make this Operator responsibility narrower, measurable, and safe to supervise.',
+        'configure'
+      ),
+    ],
+  },
+  {
+    matches: under('/operators'),
+    surface: 'operator.detail',
+    title: 'Operator',
+    description: 'Inspect decision lineage, goals, capabilities, waits, delivery, and lifecycle.',
+    allowedActions: ['operator.inspect', 'operator.pause', 'operator.wake', 'operator.stop'],
+    suggestedPrompts: [
+      prompt(
+        'operator-decision',
+        'Explain the latest decision',
+        'Explain the latest Operator wake reason, evidence, decision, and resulting authoritative action.',
+        'understand'
+      ),
+      prompt(
+        'operator-boundary',
+        'Check the boundaries',
+        'Review this Operator’s grants, autonomy, approvals, and budgets for any unsafe or missing boundary.',
+        'diagnose'
+      ),
+    ],
+  },
+  {
+    matches: exact('/goals'),
+    surface: 'goal.list',
+    title: 'Goals',
+    description: 'Supervise durable objectives across workflow attempts, evidence, and approvals.',
+    allowedActions: ['goal.inspect', 'goal.create', 'goal.pause', 'goal.resume'],
+    suggestedPrompts: [
+      prompt(
+        'goal-attention',
+        'Find blocked work',
+        'Review these goals and explain which blocked, stale, or missing-evidence objective needs attention first.',
+        'diagnose'
+      ),
+      prompt(
+        'goal-progress',
+        'Summarize progress',
+        'Summarize active goal progress, linked workflow attempts, and the next supervisor action.',
+        'understand'
+      ),
+    ],
+  },
+  {
+    matches: under('/goals'),
+    surface: 'goal.detail',
+    title: 'Goal',
+    description:
+      'Inspect one durable objective, its plan, runs, waits, evidence, and supervision history.',
+    allowedActions: ['goal.inspect', 'goal.pause', 'goal.resume', 'goal.evaluate'],
+    suggestedPrompts: [
+      prompt(
+        'goal-next-action',
+        'Explain the next action',
+        'Explain this goal’s current plan, blockers, active runs, and safest next action.',
+        'understand'
+      ),
+      prompt(
+        'goal-evidence-gap',
+        'Find evidence gaps',
+        'Review this goal’s success criteria and evidence and identify the smallest missing proof.',
+        'diagnose'
       ),
     ],
   },

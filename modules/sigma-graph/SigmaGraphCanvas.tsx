@@ -5,6 +5,7 @@ import type { SigmaGraphDocument, SigmaGraphSelection } from './types';
 import { normalizeSigmaGraphDocument } from './normalize';
 import { sigmaDocumentToGraphology } from './graphologyAdapter';
 import { createConstellationSigmaGraphPositions } from './layout';
+import { agencyColors } from '../design/colors';
 
 export interface SigmaGraphCanvasProps {
   document: SigmaGraphDocument;
@@ -111,12 +112,14 @@ export default function SigmaGraphCanvas({
         enableEdgeEvents: Boolean(onSelectionChange),
         defaultEdgeType: appearance === 'constellation' ? 'line' : 'arrow',
         allowInvalidContainer: true,
-        defaultNodeColor: appearance === 'constellation' ? palette.defaultNodeColor : '#999999',
-        defaultEdgeColor: appearance === 'constellation' ? palette.defaultEdgeColor : '#94a3b8',
+        defaultNodeColor:
+          appearance === 'constellation' ? palette.defaultNodeColor : agencyColors.graphiteMuted,
+        defaultEdgeColor:
+          appearance === 'constellation' ? palette.defaultEdgeColor : agencyColors.borderLight,
         hideEdgesOnMove: appearance === 'constellation',
         hideLabelsOnMove: false,
         labelColor: {
-          color: appearance === 'constellation' ? palette.labelColor : '#111827',
+          color: appearance === 'constellation' ? palette.labelColor : agencyColors.graphite,
         },
         defaultDrawNodeLabel:
           appearance === 'constellation'
@@ -1135,83 +1138,83 @@ function constellationPalette(theme: 'dark' | 'light'): ConstellationPalette {
   if (theme === 'light') {
     return {
       ambientEdgeAlpha: { base: 0.66, gain: 0.14 },
-      ambientEdgeFallback: '#334155',
+      ambientEdgeFallback: agencyColors.graphiteMuted,
       ambientEdgeWidthScale: 1.18,
       ambientNodeAlpha: { base: 0.94, gain: 0.08 },
-      background: 'linear-gradient(180deg, rgba(245,248,252,0.98) 0%, rgba(228,236,246,0.98) 100%)',
+      background: 'linear-gradient(180deg, rgba(248,247,244,0.98) 0%, rgba(241,240,237,0.98) 100%)',
       connectedNodeAlpha: { base: 0.92, gain: 0.08 },
-      connectedNodeFallback: '#0f172a',
-      defaultEdgeColor: '#334155',
-      defaultNodeColor: '#1e293b',
+      connectedNodeFallback: agencyColors.graphite,
+      defaultEdgeColor: agencyColors.graphiteMuted,
+      defaultNodeColor: agencyColors.graphite,
       dimmedEdgeAlpha: { base: 0.52, gain: 0.08 },
-      dimmedEdgeColor: '#64748b',
+      dimmedEdgeColor: agencyColors.graphiteMuted,
       dimmedEdgeWidthScale: 0.94,
       dimmedNodeAlpha: 0.98,
-      dimmedNodeColor: '#475569',
+      dimmedNodeColor: agencyColors.graphiteMuted,
       emphasizedEdgeAlpha: { base: 0.62, gain: 0.16 },
-      emphasizedEdgeFallback: '#1e293b',
+      emphasizedEdgeFallback: agencyColors.graphite,
       emphasizedEdgeWidthScale: 1.22,
       hoverChipAlpha: 0.98,
-      hoverChipBorder: '#60a5fa',
+      hoverChipBorder: agencyColors.violet,
       hoverChipBorderAlpha: 0.62,
-      hoverChipColor: '#f8fbff',
+      hoverChipColor: agencyColors.porcelain,
       hoverConnectorAlpha: 0.52,
-      hoverConnectorColor: '#1d4ed8',
+      hoverConnectorColor: agencyColors.violet,
       hoverHaloAlpha: 0.1,
-      hoverHaloColor: '#93c5fd',
+      hoverHaloColor: agencyColors.violetSoft,
       hoverRingAlpha: 0.72,
-      hoverRingColor: '#1d4ed8',
+      hoverRingColor: agencyColors.violet,
       hoverChipShadowAlpha: 0.18,
       hoverChipShadowBlur: 18,
-      hoverChipShadowColor: '#93c5fd',
-      hoverChipTextColor: '#020617',
+      hoverChipShadowColor: agencyColors.violetSoft,
+      hoverChipTextColor: agencyColors.graphite,
       hoverConnectedNodeAlpha: { base: 0.94, gain: 0.06 },
       hoverEdgeAlpha: { base: 0.72, gain: 0.12 },
-      labelColor: '#020617',
+      labelColor: agencyColors.graphite,
       labelGlowAlpha: { base: 0.004, gain: 0.01 },
       labelPlateAlpha: { base: 0.95, gain: 0.04 },
-      labelPlateBorder: '#60a5fa',
+      labelPlateBorder: agencyColors.violet,
       labelPlateBorderAlpha: { base: 0.26, gain: 0.1 },
-      labelPlateColor: '#f8fbff',
+      labelPlateColor: agencyColors.porcelain,
       labelShadowBlur: 8,
-      labelShadowColor: '#93c5fd',
+      labelShadowColor: agencyColors.violetSoft,
       labelTextStroke: '#ffffff',
       labelTextStrokeAlpha: { base: 0.92, gain: 0.04 },
       selectedEdgeAlpha: { base: 0.78, gain: 0.16 },
-      selectedEdgeColor: '#0f172a',
+      selectedEdgeColor: agencyColors.violet,
       selectedEdgeWidthScale: 1.3,
-      selectedNodeColor: '#020617',
+      selectedNodeColor: agencyColors.violet,
     };
   }
   return {
     ambientEdgeAlpha: { base: 0.08, gain: 0.06 },
-    ambientEdgeFallback: '#52525b',
+    ambientEdgeFallback: agencyColors.borderDark,
     ambientEdgeWidthScale: 1,
     ambientNodeAlpha: { base: 0.55, gain: 0.45 },
     background:
-      'radial-gradient(circle at 50% 45%, rgba(63,63,70,0.35), rgba(24,24,27,0.96) 45%, rgba(10,10,12,1) 100%)',
+      'radial-gradient(circle at 50% 45%, rgba(106,0,244,0.12), rgba(35,38,47,0.96) 45%, rgba(21,23,28,1) 100%)',
     connectedNodeAlpha: { base: 0.58, gain: 0.34 },
-    connectedNodeFallback: '#d4d4d8',
-    defaultEdgeColor: '#3f3f46',
-    defaultNodeColor: '#d4d4d8',
+    connectedNodeFallback: '#f8f7f4',
+    defaultEdgeColor: agencyColors.borderDark,
+    defaultNodeColor: '#f8f7f4',
     dimmedEdgeAlpha: { base: 0.01, gain: 0.025 },
-    dimmedEdgeColor: '#52525b',
+    dimmedEdgeColor: agencyColors.borderDark,
     dimmedEdgeWidthScale: 1,
     dimmedNodeAlpha: 1,
-    dimmedNodeColor: '#3f3f46',
+    dimmedNodeColor: agencyColors.graphiteMuted,
     emphasizedEdgeAlpha: { base: 0.3, gain: 0.34 },
-    emphasizedEdgeFallback: '#d4d4d8',
+    emphasizedEdgeFallback: '#f8f7f4',
     emphasizedEdgeWidthScale: 1,
     hoverChipAlpha: 0.96,
-    hoverChipBorder: '#bfdbfe',
+    hoverChipBorder: agencyColors.violetBright,
     hoverChipBorderAlpha: 0.34,
     hoverChipColor: '#060a12',
     hoverConnectorAlpha: 0.34,
-    hoverConnectorColor: '#cbd5e1',
+    hoverConnectorColor: agencyColors.violetBright,
     hoverHaloAlpha: 0.16,
-    hoverHaloColor: '#93c5fd',
+    hoverHaloColor: agencyColors.violetBright,
     hoverRingAlpha: 0.56,
-    hoverRingColor: '#e2e8f0',
+    hoverRingColor: agencyColors.violetBright,
     hoverChipShadowAlpha: 0.35,
     hoverChipShadowBlur: 12,
     hoverChipShadowColor: '#0f172a',
@@ -1221,7 +1224,7 @@ function constellationPalette(theme: 'dark' | 'light'): ConstellationPalette {
     labelColor: '#e8eef8',
     labelGlowAlpha: { base: 0.18, gain: 0.24 },
     labelPlateAlpha: { base: 0.28, gain: 0.18 },
-    labelPlateBorder: '#e2e8f0',
+    labelPlateBorder: agencyColors.violetBright,
     labelPlateBorderAlpha: { base: 0.08, gain: 0.08 },
     labelPlateColor: '#060a12',
     labelShadowBlur: 14,
@@ -1229,9 +1232,9 @@ function constellationPalette(theme: 'dark' | 'light'): ConstellationPalette {
     labelTextStroke: '#020617',
     labelTextStrokeAlpha: { base: 0.9, gain: -0.12 },
     selectedEdgeAlpha: { base: 0.5, gain: 0.28 },
-    selectedEdgeColor: '#f4f4f5',
+    selectedEdgeColor: agencyColors.violetBright,
     selectedEdgeWidthScale: 1,
-    selectedNodeColor: '#fafafa',
+    selectedNodeColor: agencyColors.violetBright,
   };
 }
 
@@ -1413,23 +1416,23 @@ function easeOutCubic(value: number) {
 function constellationBackdropPalette(theme: 'dark' | 'light') {
   if (theme === 'light') {
     return {
-      accentColors: ['#d97706', '#f59e0b', '#ca8a04', '#0f766e', '#7c3aed'],
-      asteroidTones: ['#6b7280', '#78716c', '#94a3b8', '#a8a29e', '#475569', '#9ca3af'],
+      accentColors: ['#6a00f4', '#8c43ff', '#b18cff', '#747985', '#343842'],
+      asteroidTones: ['#747985', '#898d97', '#a9adb8', '#c7c4be', '#4d5058', '#b8b5b0'],
       clusterGlowAlpha: { core: 0.08, mid: 0.03 },
-      cometColor: '#64748b',
-      coreGlow: 'rgba(251,191,36,0.12)',
-      edgeColor: '#d6a54f',
-      softColor: '#eab308',
+      cometColor: '#747985',
+      coreGlow: 'rgba(106,0,244,0.12)',
+      edgeColor: '#8c43ff',
+      softColor: '#6a00f4',
     } as const;
   }
   return {
-    accentColors: ['#67e8f9', '#93c5fd', '#34d399', '#fbbf24', '#c4b5fd'],
-    asteroidTones: ['#52525b', '#71717a', '#94a3b8', '#a1a1aa', '#3f3f46', '#78716c'],
+    accentColors: ['#a66cff', '#c8a7ff', '#b6ff2e', '#747985', '#f8f7f4'],
+    asteroidTones: ['#343842', '#4d5058', '#747985', '#a9adb8', '#292d35', '#646975'],
     clusterGlowAlpha: { core: 0.13, mid: 0.05 },
-    cometColor: '#94a3b8',
-    coreGlow: 'rgba(56,189,248,0.11)',
-    edgeColor: '#e4e4e7',
-    softColor: '#7dd3fc',
+    cometColor: '#a9adb8',
+    coreGlow: 'rgba(166,108,255,0.13)',
+    edgeColor: '#a66cff',
+    softColor: '#c8a7ff',
   } as const;
 }
 
@@ -1606,7 +1609,7 @@ function buildConstellationBackdropRegions(
     }
     const clusterId = node.clusterId || node.type || 'other';
     const cluster = byCluster.get(clusterId) || {
-      color: node.color || normalizeColor(undefined, '#7dd3fc'),
+      color: node.color || normalizeColor(undefined, agencyColors.violetBright),
       points: [],
     };
     cluster.points.push(point);

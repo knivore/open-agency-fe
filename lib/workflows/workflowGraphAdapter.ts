@@ -1,5 +1,6 @@
 import { createGraphDefinition } from '@/modules/react-flow-graph/definition';
 import { createGraphEdgeId } from '@/modules/react-flow-graph/ids';
+import { agencyColors } from '@/lib/design/colors';
 import {
   graphBuiltInToolbarActionIds,
   type GraphBuiltInToolbarActionId,
@@ -1755,55 +1756,55 @@ function graphEdgeTypeForWorkflowEdge(
 function workflowGraphEdgeStyle(type: WorkflowGraphEdgeType) {
   if (type === workflowGraphEdgeTypes.assignment) {
     return {
-      color: '#059669',
+      color: agencyColors.violet,
       className: 'graph-workflow-edge-assignment',
     };
   }
 
   if (type === workflowGraphEdgeTypes.condition) {
     return {
-      color: '#7c3aed',
+      color: agencyColors.violet,
       className: 'graph-workflow-edge-condition',
     };
   }
 
   if (type === workflowGraphEdgeTypes.dataFlow) {
     return {
-      color: '#0284c7',
+      color: agencyColors.graphiteMuted,
       className: 'graph-workflow-edge-data-flow',
     };
   }
 
   if (type === workflowGraphEdgeTypes.tool) {
     return {
-      color: '#d97706',
+      color: agencyColors.violet,
       className: 'graph-workflow-edge-tool',
     };
   }
 
   if (type === workflowGraphEdgeTypes.memory) {
     return {
-      color: '#0891b2',
+      color: agencyColors.violet,
       className: 'graph-workflow-edge-memory',
     };
   }
 
   if (type === workflowGraphEdgeTypes.approval) {
     return {
-      color: '#2563eb',
+      color: agencyColors.violet,
       className: 'graph-workflow-edge-approval',
     };
   }
 
   if (type === workflowGraphEdgeTypes.handoff) {
     return {
-      color: '#4f46e5',
+      color: agencyColors.violet,
       className: 'graph-workflow-edge-handoff',
     };
   }
 
   return {
-    color: '#64748b',
+    color: agencyColors.graphiteMuted,
     className: 'graph-workflow-edge-dependency',
   };
 }
@@ -1815,7 +1816,7 @@ function workflowGraphTaskFlowEdgeStyle(
   if (edgeType === 'success') {
     return {
       ...workflowGraphEdgeStyle(graphEdgeType),
-      color: '#059669',
+      color: agencyColors.success,
       className: 'graph-workflow-edge-assignment',
     };
   }
@@ -1823,7 +1824,7 @@ function workflowGraphTaskFlowEdgeStyle(
   if (edgeType === 'failure') {
     return {
       ...workflowGraphEdgeStyle(graphEdgeType),
-      color: '#dc2626',
+      color: agencyColors.error,
       className: 'graph-workflow-edge-failure',
     };
   }

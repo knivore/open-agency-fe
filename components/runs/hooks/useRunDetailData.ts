@@ -73,6 +73,15 @@ export function useRunDetailData(runId: string) {
     },
   });
 
+  const waitsQuery = useQuery({
+    queryKey: queryKeys.runWaits(runId),
+    queryFn: () => api.runSessions.listRunWaits(runId),
+    refetchInterval: () => {
+      const runStatus = runStatusValue(runQuery.data?.summary.status);
+      return runStatus && TERMINAL_STATUSES.has(runStatus) ? false : 5000;
+    },
+  });
+
   const usageQuery = useQuery({
     queryKey: queryKeys.runUsage(runId),
     queryFn: () => api.runSessions.getRunUsage(runId),
@@ -125,6 +134,7 @@ export function useRunDetailData(runId: string) {
       eventsQuery.refetch(),
       governanceEventsQuery.refetch(),
       nativeApprovalsQuery.refetch(),
+      waitsQuery.refetch(),
       usageQuery.refetch(),
       contextUsageQuery.refetch(),
       artifactsQuery.refetch(),
@@ -198,6 +208,20 @@ export function useRunDetailData(runId: string) {
       await refreshAll();
     },
   });
+  const resolveWaitMutation = useMutation({
+    mutationFn: ({
+      waitId,
+      resolutionPayload,
+      resolutionKey,
+    }: {
+      waitId: string;
+      resolutionPayload: Record<string, unknown>;
+      resolutionKey: string;
+    }) => api.runs.resolveRunWait(runId, waitId, resolutionPayload, resolutionKey),
+    onSuccess: async () => {
+      await refreshAll();
+    },
+  });
 
   return {
     runQuery,
@@ -205,6 +229,7 @@ export function useRunDetailData(runId: string) {
     eventsQuery,
     governanceEventsQuery,
     nativeApprovalsQuery,
+    waitsQuery,
     usageQuery,
     contextUsageQuery,
     artifactsQuery,
@@ -217,5 +242,6 @@ export function useRunDetailData(runId: string) {
     cancelMutation,
     approvalDecisionMutation,
     nativeApprovalDecisionMutation,
+    resolveWaitMutation,
   };
 }

@@ -99,4 +99,17 @@ export const runsApi = {
   rejectRun(runId: string, toolId: string, reason?: string) {
     return executionsApi.rejectExecution(runId, { toolId, reason });
   },
+  resolveRunWait(
+    runId: string,
+    waitId: string,
+    resolutionPayload: Record<string, unknown>,
+    resolutionKey: string
+  ) {
+    return executionsApi.resolveExecutionWait(runId, waitId, {
+      resolution_key: resolutionKey,
+      resolution_payload: resolutionPayload,
+      status: 'resolved',
+      resume: true,
+    });
+  },
 };

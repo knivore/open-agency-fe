@@ -53,8 +53,9 @@ const statePresentation = {
   },
   loading: {
     icon: LoaderCircle,
-    iconClass: 'animate-spin text-sky-700 dark:text-cyan-200',
-    surfaceClass: 'border-sky-200 bg-sky-50/35 dark:border-cyan-300/15 dark:bg-cyan-400/5',
+    iconClass: 'animate-spin text-(--activity-foreground) dark:text-(--activity)',
+    surfaceClass:
+      'border-(--activity-foreground) bg-(--activity-subtle) dark:border-(--activity) dark:bg-(--activity-subtle)',
   },
   offline: {
     icon: WifiOff,

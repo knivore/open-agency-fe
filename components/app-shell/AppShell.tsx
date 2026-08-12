@@ -20,12 +20,14 @@ import {
   PanelLeftOpen,
   Plug,
   Radar,
+  RadioTower,
   Router,
   SlidersHorizontal,
   Sparkles,
   Stethoscope,
   Sun,
   TabletSmartphone,
+  Target,
   UserRoundCog,
   Workflow,
   X,
@@ -86,6 +88,7 @@ interface NavItem {
     | 'memory'
     | 'model'
     | 'monitor'
+    | 'operator'
     | 'persona'
     | 'profile'
     | 'run'
@@ -119,6 +122,20 @@ const navSections: NavSection[] = [
         icon: Bot,
         description: 'Canonical agent definitions',
         tone: 'agent',
+      },
+      {
+        name: 'Operators',
+        path: '/operators',
+        icon: RadioTower,
+        description: 'Persistent governed responsibility owners',
+        tone: 'operator',
+      },
+      {
+        name: 'Goals',
+        path: '/goals',
+        icon: Target,
+        description: 'Durable objectives and supervision',
+        tone: 'operator',
       },
       {
         name: 'Persona',

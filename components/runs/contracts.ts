@@ -13,6 +13,7 @@ import type {
   ExecutionEventRecord,
   ExecutionTimelineResponse,
   ExecutionUsageResponse,
+  ExecutionWaitRecord,
   RuntimeAdapterDefinition,
   RunLogEntry,
   RunSessionDetail,
@@ -26,6 +27,7 @@ export interface RunsModuleApi {
     listRunSessions(): Promise<RunSessionSummary[]>;
     getRunSession(runId: string): Promise<RunSessionDetail>;
     listRunApprovals(runId: string): Promise<CrudListResponse<ExecutionApprovalRequest>>;
+    listRunWaits(runId: string): Promise<CrudListResponse<ExecutionWaitRecord>>;
     getRunUsage(runId: string): Promise<ExecutionUsageResponse>;
     getRunContextUsage(runId: string): Promise<ExecutionContextUsageResponse>;
     listRunArtifacts(runId: string): Promise<CrudListResponse<ExecutionArtifact>>;
@@ -70,6 +72,12 @@ export interface RunsModuleApi {
     cancelRun(runId: string): Promise<unknown>;
     approveRun(runId: string, toolId: string, reason?: string): Promise<unknown>;
     rejectRun(runId: string, toolId: string, reason?: string): Promise<unknown>;
+    resolveRunWait(
+      runId: string,
+      waitId: string,
+      resolutionPayload: Record<string, unknown>,
+      resolutionKey: string
+    ): Promise<unknown>;
   };
   runtimeAdapters: {
     listRuntimeAdapters(): Promise<{ items: RuntimeAdapterDefinition[] }>;
@@ -96,6 +104,7 @@ export interface RunsModuleQueryKeys {
   runEvents(runId: string): readonly unknown[];
   runGovernanceEvents(runId: string): readonly unknown[];
   runApprovals(runId: string): readonly unknown[];
+  runWaits(runId: string): readonly unknown[];
   runUsage(runId: string): readonly unknown[];
   runContextUsage(runId: string): readonly unknown[];
   runArtifacts(runId: string): readonly unknown[];
