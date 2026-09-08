@@ -281,6 +281,50 @@ export const mainAgentMonitorApi = {
 };
 
 export const backendWorkflowsApi = {
+  listWorkflowWebhookEndpoints(workflowId: string, user: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.get<{ items: unknown[] }>(
+      `${backendRoutes.workflows.byId(workflowId)}/webhook-endpoints`,
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
+  },
+  createWorkflowWebhookEndpoint(
+    workflowId: string,
+    payload: Record<string, unknown>,
+    user: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      `${backendRoutes.workflows.byId(workflowId)}/webhook-endpoints`,
+      payload,
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
+  },
+  getWorkflowWebhookTrigger(workflowId: string, user: AuthUser, internalApiKey?: string | null) {
+    return agencyApiClient.get<Record<string, unknown>>(
+      `${backendRoutes.workflows.byId(workflowId)}/webhook-trigger`,
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
+  },
+  createWorkflowWebhookTrigger(
+    workflowId: string,
+    payload: Record<string, unknown>,
+    user: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<Record<string, unknown>>(
+      `${backendRoutes.workflows.byId(workflowId)}/webhook-trigger`,
+      payload,
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
+  },
   listWorkflows(user: AuthUser, internalApiKey?: string | null) {
     return agencyApiClient.get<CrudListResponse<WorkflowDefinition>>(
       backendRoutes.workflows.list(),

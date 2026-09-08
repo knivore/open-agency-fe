@@ -97,6 +97,8 @@ import {
 } from '@/components/workflow/WorkflowSettingsPrimitives';
 import WorkflowSharedMemoryControls from '@/components/workflow/WorkflowSharedMemoryControls';
 import WorkflowTaskFocusPanel from '@/components/workflow/WorkflowTaskFocusPanel';
+import WorkflowApiAccessPanel from '@/components/workflow/WorkflowApiAccessPanel';
+import WorkflowWebhooksPanel from '@/components/workflow/WorkflowWebhooksPanel';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
 import {
@@ -7248,6 +7250,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           ) : (
             renderReadOnlyWorkflowMetadata()
           )}
+
+          <WorkflowApiAccessPanel workflowId={workflowId} />
+          <WorkflowWebhooksPanel workflowId={workflowId} />
 
           <section className="rounded-xl border border-neutral-200 bg-neutral-50/65 dark:border-white/10 dark:bg-white/3">
             <div className="flex items-start justify-between gap-4 rounded-xl px-4 py-3">
