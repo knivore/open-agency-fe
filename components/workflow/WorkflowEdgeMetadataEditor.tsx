@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { Button } from '../library/shadcn/button';
 import { Input } from '../library/shadcn/input';
 import { Label } from '../library/shadcn/label';
@@ -196,7 +197,7 @@ export default function WorkflowEdgeMetadataEditor({
                   onChange={(event) => updateField(field.id, { key: event.target.value })}
                   placeholder="Key"
                 />
-                <select
+                <NativeSelect
                   value={field.valueType}
                   onChange={(event) =>
                     updateField(field.id, {
@@ -210,16 +211,16 @@ export default function WorkflowEdgeMetadataEditor({
                   <option value="number">number</option>
                   <option value="boolean">boolean</option>
                   <option value="null">null</option>
-                </select>
+                </NativeSelect>
                 {field.valueType === 'boolean' ? (
-                  <select
+                  <NativeSelect
                     value={field.value || 'false'}
                     onChange={(event) => updateField(field.id, { value: event.target.value })}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100"
                   >
                     <option value="true">true</option>
                     <option value="false">false</option>
-                  </select>
+                  </NativeSelect>
                 ) : field.valueType === 'null' ? (
                   <div className="flex h-10 items-center rounded-md border border-dashed border-neutral-300 px-3 text-sm text-neutral-500 dark:border-white/10 dark:text-slate-400">
                     null

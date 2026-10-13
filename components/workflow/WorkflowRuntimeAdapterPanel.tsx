@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import type { ReactNode } from 'react';
 import type { RuntimeAdapterDefinition } from '@/types/runtime';
 import type { ExecutionHost } from '@/types/workflows';
@@ -110,7 +111,7 @@ export default function WorkflowRuntimeAdapterPanel({
           >
             {selectLabel}
           </label>
-          <select
+          <NativeSelect
             id={selectId}
             value={selectedAdapterId}
             onChange={(event) => onAdapterChange(event.target.value)}
@@ -126,7 +127,7 @@ export default function WorkflowRuntimeAdapterPanel({
                 </option>
               ))
             )}
-          </select>
+          </NativeSelect>
         </div>
         <div className="space-y-2">
           <label
@@ -135,7 +136,7 @@ export default function WorkflowRuntimeAdapterPanel({
           >
             Execution host
           </label>
-          <select
+          <NativeSelect
             id={`${selectId}-host`}
             value={host}
             onChange={(event) => onExecutionHostChange?.(event.target.value as ExecutionHost)}
@@ -144,7 +145,7 @@ export default function WorkflowRuntimeAdapterPanel({
           >
             <option value="local">Local backend process</option>
             <option value="docker">Docker container</option>
-          </select>
+          </NativeSelect>
         </div>
         <div className="space-y-1 text-xs text-neutral-500 dark:text-neutral-400 md:col-span-2">
           <p>{availabilityText}</p>

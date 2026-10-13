@@ -1,23 +1,23 @@
-import { agencyApiClient, appApiClient } from '@/lib/api/clientInstances';
-import { toAgentRun } from '@/lib/api/backend/agentTransforms';
-import { currentUserHeaders } from '@/lib/api/backend/identity';
-import { backendRoutes } from '@/lib/api/backend/routes';
-import type { AgentRun, ExecutionRecord } from '@/types/runtime';
-import type { CrudListResponse, DeleteResponse } from '@/types/api';
+import {agencyApiClient, appApiClient} from '@/lib/api/clientInstances';
+import {toAgentRun} from '@/lib/api/backend/agentTransforms';
+import {currentUserHeaders} from '@/lib/api/backend/identity';
+import {backendRoutes} from '@/lib/api/backend/routes';
+import type {AgentRun, ExecutionRecord} from '@/types/runtime';
+import type {CrudListResponse, DeleteResponse} from '@/types/api';
 import type {
-  WorkflowDefinition,
   MainAgentMonitorCommandCenterResponse,
+  WorkflowAgentPromotionRequest,
+  WorkflowAgentPromotionResponse,
+  WorkflowDefinition,
+  WorkflowGovernanceActionResponse,
+  WorkflowGovernanceBundleResponse,
+  WorkflowGovernanceDocumentSuggestResponse,
+  WorkflowGovernanceReviewQueueResponse,
   WorkflowMonitoringEventsResponse,
   WorkflowMonitoringOperatorPayload,
   WorkflowMonitoringProposalDispatchResponse,
   WorkflowMonitoringUpdateResponse,
-  WorkflowGovernanceBundleResponse,
-  WorkflowGovernanceActionResponse,
-  WorkflowGovernanceDocumentSuggestResponse,
-  WorkflowGovernanceReviewQueueResponse,
   WorkflowPersonaAgentVersionActionResponse,
-  WorkflowAgentPromotionRequest,
-  WorkflowAgentPromotionResponse,
   WorkflowPersonaVersionNoticesResponse,
   WorkflowRuntimeGovernanceOperatorPayload,
   WorkflowRuntimeGovernanceUpdateResponse,
@@ -28,8 +28,8 @@ import type {
   WorkflowVersionRecord,
   WorkflowVersionsResponse,
 } from '@/types/workflows';
-import type { AuthUser } from '@/types/auth';
-import type { BackendUser } from '@/lib/api/backend/users';
+import type {AuthUser} from '@/types/auth';
+import type {BackendUser} from '@/lib/api/backend/users';
 import type {
   WorkflowMemoryLinkCreateResponse,
   WorkflowMemoryLinkDeleteResponse,
@@ -346,6 +346,34 @@ export const backendWorkflowsApi = {
     return agencyApiClient.post<WorkflowDefinition>(backendRoutes.workflows.create(), payload, {
       headers: currentUserHeaders(user, internalApiKey),
     });
+  },
+  publishWorkflow(
+    workflowId: string,
+    payload: Record<string, unknown>,
+    user: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<WorkflowDefinition>(
+      `${backendRoutes.workflows.byId(workflowId)}/publish`,
+      payload,
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
+  },
+  unpublishWorkflow(
+    workflowId: string,
+    payload: Record<string, unknown>,
+    user: AuthUser,
+    internalApiKey?: string | null
+  ) {
+    return agencyApiClient.post<WorkflowDefinition>(
+      `${backendRoutes.workflows.byId(workflowId)}/unpublish`,
+      payload,
+      {
+        headers: currentUserHeaders(user, internalApiKey),
+      }
+    );
   },
   updateWorkflow(
     workflowId: string,
@@ -765,7 +793,7 @@ export const backendWorkflowsApi = {
   ) {
     return agencyApiClient.post<{ owner_ids: string[]; workflow: WorkflowDefinition }>(
       `${backendRoutes.workflows.byId(workflowId)}/owners`,
-      { owner_ids: ownerIds },
+      {owner_ids: ownerIds},
       {
         headers: currentUserHeaders(user, internalApiKey),
       }
@@ -776,7 +804,7 @@ export const backendWorkflowsApi = {
       `${backendRoutes.workflows.byId(workflowId)}/owners`,
       {
         headers: currentUserHeaders(user, internalApiKey),
-        body: { owner_id: ownerId },
+        body: {owner_id: ownerId},
       }
     );
   },

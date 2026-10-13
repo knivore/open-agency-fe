@@ -1,5 +1,6 @@
 'use client';
 
+import { Input } from '@/components/library/shadcn/input';
 import type { ObservatoryNormalizedOfficeEvent } from '@/modules/observatory/runtime/events';
 import {
   clampObservatoryReplayCursor,
@@ -43,7 +44,7 @@ export default function RuntimeReplayControls({
       </div>
 
       <div className={styles.timeline}>
-        <input
+        <Input
           aria-label="Replay timeline cursor"
           className={styles.range}
           disabled={disabled || frame.totalEvents === 0}

@@ -103,7 +103,12 @@ export function formatRunDuration(run: RunSessionSummary) {
 
 export function describeRunEvidence(run: RunSessionSummary) {
   if (run.error?.trim()) {
-    return run.error.trim();
+    const error = run.error.trim();
+    if (/Failed validating|is not of type/i.test(error)) return 'Tool input did not match the required schema. Inspect the run for validation details.';
+    if (/Network is unreachable|ECONNREFUSED|ConnectError/i.test(error)) return 'A provider connection failed. Inspect the run for the endpoint and full error.';
+    if (/certificate|TLS CA|SSL/i.test(error)) return 'A secure connection failed. Inspect the run for certificate details.';
+    const firstLine = error.split(/\r?\n/)[0];
+    return firstLine.length > 220 ? firstLine.slice(0, 217) + '…' : firstLine;
   }
   if (run.status === 'waiting_for_approval') {
     return run.currentNodeId
@@ -131,7 +136,7 @@ export function describeRunEvidence(run: RunSessionSummary) {
     return run.currentNodeId ? `Paused at ${run.currentNodeId}.` : 'Execution is paused.';
   }
   if (run.status === 'completed') {
-    return 'Execution completed successfully.';
+    return 'Execution completed. Inspect outputs and evidence for the result.';
   }
   if (run.status === 'cancelled') {
     return 'Execution was stopped before completion.';

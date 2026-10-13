@@ -1,60 +1,73 @@
-import { ComponentPropsWithoutRef } from 'react';
+'use client';
+import { useId } from 'react';
 import {
-  Control,
-  FieldError,
-  RegisterOptions,
   Controller,
+  type Control,
+  type FieldError,
   type FieldPath,
   type FieldValues,
+  type RegisterOptions,
 } from 'react-hook-form';
+import { Combobox as SearchableSelect, type ComboboxOption } from '../library/shadcn/combobox';
+import { FormField } from '../app-shell/FormSection';
 
-import { Label } from '../library/shadcn/label';
-import { Combobox as ShadcnCombobox } from '../library/shadcn/combobox';
-import { cn } from '@/lib/utils';
-
-type ComboboxOption = {
-  value: string;
+type FormComboboxProps<T extends FieldValues> = {
+  name: FieldPath<T>;
   label: string;
+  control: Control<T>;
+  options: readonly ComboboxOption[];
+  error?: FieldError;
+  validation?: RegisterOptions<T, FieldPath<T>>;
+  placeholder?: string;
+  className?: string;
+  searchPlaceholder?: string;
+  noResultsText?: string;
+  canDeselect?: boolean;
+  id?: string;
+  description?: string;
+  disabled?: boolean;
 };
 
-type FormComboboxProps<TFieldValues extends FieldValues> = {
-  name: FieldPath<TFieldValues>;
-  label: string;
-  control: Control<TFieldValues>;
-  options: ComboboxOption[];
-  error?: FieldError;
-  validation?: RegisterOptions<TFieldValues, FieldPath<TFieldValues>>;
-} & Omit<ComponentPropsWithoutRef<typeof ShadcnCombobox>, 'value' | 'onChange' | 'options'>;
-
-export default function Combobox<TFieldValues extends FieldValues>({
+export default function Combobox<T extends FieldValues>({
   name,
   label,
   control,
   options,
   error,
   validation,
-  className = '',
+  id,
+  description,
+  disabled,
   ...props
-}: FormComboboxProps<TFieldValues>) {
+}: FormComboboxProps<T>) {
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
   return (
-    <div className="flex flex-col gap-2" data-invalid={error ? true : undefined}>
-      <Label className="text-sm font-medium text-(--agency-shell-text)">{label}</Label>
-      <Controller
-        name={name}
-        control={control}
-        rules={validation}
-        render={({ field }) => (
-          <ShadcnCombobox
-            value={field.value}
-            onChange={field.onChange}
-            options={options}
-            aria-invalid={error ? true : undefined}
-            className={cn(error && 'border-destructive ring-destructive/20', className)}
+    <Controller
+      name={name}
+      control={control}
+      rules={validation}
+      disabled={disabled}
+      render={({ field, fieldState }) => (
+        <FormField
+          label={label}
+          htmlFor={controlId}
+          error={(error ?? fieldState.error)?.message}
+          description={description}
+          disabled={disabled}
+        >
+          <SearchableSelect
             {...props}
+            id={controlId}
+            ref={field.ref}
+            onBlur={field.onBlur}
+            disabled={disabled}
+            options={options}
+            value={String(field.value ?? '')}
+            onChange={field.onChange}
           />
-        )}
-      />
-      {error ? <p className="text-sm text-(--agency-danger-text)">{error.message}</p> : null}
-    </div>
+        </FormField>
+      )}
+    />
   );
 }

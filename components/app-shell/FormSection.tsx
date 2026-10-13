@@ -1,10 +1,18 @@
 'use client';
 
-import type { HTMLAttributes, ReactNode } from 'react';
+import {
+  Children,
+  cloneElement,
+  isValidElement,
+  useId,
+  type HTMLAttributes,
+  type ReactNode,
+} from 'react';
 import { ChevronDown, CircleCheck, CircleHelp, CircleX } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface FormSectionProps {
+  id?: string;
   title: string;
   description?: string;
   icon?: ReactNode;
@@ -14,9 +22,11 @@ interface FormSectionProps {
   className?: string;
   contentClassName?: string;
   advancedLabel?: string;
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function FormSection({
+  id,
   title,
   description,
   icon,
@@ -26,7 +36,11 @@ export function FormSection({
   className,
   contentClassName,
   advancedLabel = 'Optional settings',
+  onOpenChange,
 }: FormSectionProps) {
+  const instanceId = useId();
+  const headingId =
+    id ?? `form-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${instanceId}`;
   const content = (
     <div
       className={cn(
@@ -46,6 +60,7 @@ export function FormSection({
           className
         )}
         open={defaultOpen}
+        onToggle={(event) => onOpenChange?.(event.currentTarget.open)}
       >
         <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
           {icon ? (
@@ -77,7 +92,7 @@ export function FormSection({
         'overflow-hidden rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)',
         className
       )}
-      aria-labelledby={`form-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
+      aria-labelledby={headingId}
     >
       <div className="flex items-start gap-3 px-4 py-3.5 sm:px-5">
         {icon ? (
@@ -86,10 +101,7 @@ export function FormSection({
           </span>
         ) : null}
         <div className="min-w-0">
-          <h3
-            id={`form-section-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-            className="text-sm font-semibold text-(--agency-shell-text)"
-          >
+          <h3 id={headingId} className="text-sm font-semibold text-(--agency-shell-text)">
             {title}
           </h3>
           {description ? (
@@ -148,6 +160,32 @@ export function FormField({
   ...props
 }: FormFieldProps) {
   const feedbackId = `${htmlFor}-feedback`;
+  const hasFeedback = Boolean(error || success || description);
+  // Link direct controls to their feedback once, rather than repeating ARIA
+  // wiring on every page. Compound controls retain their explicit wiring.
+  const control = Children.map(children, (child) => {
+    if (
+      !isValidElement<{
+        id?: string;
+        'aria-describedby'?: string;
+        'aria-invalid'?: boolean | 'true' | 'false' | 'grammar' | 'spelling';
+      }>(child) ||
+      child.props.id !== htmlFor
+    )
+      return child;
+    return cloneElement(child, {
+      'aria-describedby':
+        [
+          ...new Set([
+            ...(child.props['aria-describedby']?.split(/\s+/) ?? []),
+            ...(hasFeedback ? [feedbackId] : []),
+          ]),
+        ]
+          .filter(Boolean)
+          .join(' ') || undefined,
+      'aria-invalid': error ? true : child.props['aria-invalid'],
+    });
+  });
 
   return (
     <div
@@ -170,7 +208,7 @@ export function FormField({
           <span className="text-[11px] text-(--agency-shell-muted)">Optional</span>
         ) : null}
       </div>
-      {children}
+      {control}
       <FieldFeedback
         id={feedbackId}
         error={error}

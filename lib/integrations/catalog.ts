@@ -1,10 +1,10 @@
-import { credentialsApi } from '@/lib/api/backend/credentials';
-import { toolDisplayName } from '@/lib/tools/displayName';
+import {credentialsApi} from '@/lib/api/backend/credentials';
+import {toolDisplayName} from '@/lib/tools/displayName';
 import type {
   CredentialDefinition,
   IntegrationCategory,
-  IntegrationRegistryCategoryDefinition,
   IntegrationProvider,
+  IntegrationRegistryCategoryDefinition,
   IntegrationStatus,
   MCPServerDefinition,
   ModelProfileDefinition,
@@ -13,8 +13,8 @@ import type {
   PlannedIntegrationState,
   ProviderCredentialStatus,
 } from '@/types/integrations';
-import type { ProviderConfigField, ToolDefinition } from '@/types/tools';
-import type { RuntimeAdapterDefinition } from '@/types/runtime';
+import type {ProviderConfigField, ToolDefinition} from '@/types/tools';
+import type {RuntimeAdapterDefinition} from '@/types/runtime';
 
 function createCredentialStatus(
   refs: Array<{ name: string; source?: string | null; description?: string | null }>
@@ -246,7 +246,7 @@ function toModelProfile(profile: ModelProfileDefinition): IntegrationProvider {
     ],
     credentialStatus: createCredentialStatus(
       profile.api_key_ref
-        ? [{ name: profile.api_key_ref, description: 'Backend secret or reference name' }]
+        ? [{name: profile.api_key_ref, description: 'Backend secret or reference name'}]
         : []
     ),
     actions: {
@@ -429,8 +429,8 @@ export function buildIntegrationCatalog(input: {
     },
     {
       id: 'custom',
-      name: 'Custom',
-      description: 'Tools and MCP servers currently exposed by backend route groups.',
+      name: 'Capabilities',
+      description: 'Tool operations grouped by capability, plus connected MCP servers.',
       status: 'supported',
       providers: customProviders,
     },

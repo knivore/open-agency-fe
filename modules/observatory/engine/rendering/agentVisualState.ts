@@ -18,6 +18,7 @@ export interface ObservatoryAgentVisualState {
   speechTone?: 'chat' | 'computer' | 'pantry' | 'planning' | 'runtime' | 'storage';
   targetPoint?: { x: number; y: number };
   targetRoomId?: string;
+  targetObjectId?: string;
   taskEffectKey?: string;
   taskOutcome?: 'complete' | 'error';
   taskProgress?: number;

@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, {useEffect, useMemo, useState} from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import {usePathname, useRouter} from 'next/navigation';
 import {
   Activity,
   Bot,
@@ -32,17 +32,17 @@ import {
   Workflow,
   X,
 } from 'lucide-react';
-import type { IconType } from 'react-icons';
-import { useQuery } from '@tanstack/react-query';
-import { useSession } from 'next-auth/react';
+import type {IconType} from 'react-icons';
+import {useQuery} from '@tanstack/react-query';
+import {useSession} from 'next-auth/react';
 
-import { useAgencyTheme } from '@/app/providers';
+import {useAgencyTheme} from '@/app/providers';
 import {
   AssistantPageContextProvider,
   useAssistantPageContextMetadata,
 } from '@/components/assistant/AssistantPageContext';
 import ConversationWorkspace from '@/components/conversations/ConversationWorkspace';
-import { Badge } from '@/components/library/shadcn/badge';
+import {Badge} from '@/components/library/shadcn/badge';
 import {
   Dialog,
   DialogContent,
@@ -62,17 +62,17 @@ import {
   TooltipTrigger,
 } from '@/components/library/shadcn/tooltip';
 import UserAvatar from '@/components/navbar/UserAvatar';
-import { conversationsApi } from '@/lib/api/backend/conversations';
-import { assistantOpenEvent } from '@/lib/assistant/events';
-import { physicalDevicesApi } from '@/lib/api/backend/physicalDevices';
-import { smartHomeApi } from '@/lib/api/backend/smartHome';
-import { useAgencyUserPreferences } from '@/lib/userPreferences';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import { cn } from '@/lib/utils';
+import {conversationsApi} from '@/lib/api/backend/conversations';
+import {assistantOpenEvent} from '@/lib/assistant/events';
+import {physicalDevicesApi} from '@/lib/api/backend/physicalDevices';
+import {smartHomeApi} from '@/lib/api/backend/smartHome';
+import {useAgencyUserPreferences} from '@/lib/userPreferences';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import {cn} from '@/lib/utils';
 
 import BackendHealthIndicator from './BackendHealthIndicator';
 import CommandPalette from './CommandPalette';
-import { rememberWorkspaceItem } from '@/lib/workspaceHistory';
+import {rememberWorkspaceItem} from '@/lib/workspaceHistory';
 
 interface NavItem {
   name: string;
@@ -264,7 +264,7 @@ function isNavItemActive(pathname: string, path: string) {
 
 function useVisibleNavSections() {
   const {
-    preferences: { showDiagnostics },
+    preferences: {showDiagnostics},
   } = useAgencyUserPreferences();
   const physicalDevicesAvailabilityQuery = useQuery({
     queryKey: queryKeys.backendPhysicalDevicesAvailability(),
@@ -300,15 +300,16 @@ function useVisibleNavSections() {
   );
 }
 
-function Logo({ compact = false }: { compact?: boolean }) {
+function Logo({compact = false}: { compact?: boolean }) {
   return (
     <Link
       href="/"
       className="flex items-center gap-3 rounded-lg outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <Image src="/images/open-agency.svg" alt="Open Agency" width={32} height={32} priority />
+      <Image src="/images/open-agency.svg" alt="Open Agency" width={32} height={32} priority/>
       {compact ? null : (
-        <span className="text-[1.05rem] font-semibold tracking-[-0.025em] text-(--agency-shell-text)">
+        <span
+          className="text-[1.05rem] font-semibold tracking-[-0.025em] text-(--agency-shell-text)">
           Open Agency
         </span>
       )}
@@ -316,7 +317,7 @@ function Logo({ compact = false }: { compact?: boolean }) {
   );
 }
 
-function NavigationItem({ item, onNavigate }: { item: NavItem; onNavigate?: () => void }) {
+function NavigationItem({item, onNavigate}: { item: NavItem; onNavigate?: () => void }) {
   const pathname = usePathname();
   const Icon = item.icon;
   const isActive = isNavItemActive(pathname, item.path);
@@ -333,14 +334,15 @@ function NavigationItem({ item, onNavigate }: { item: NavItem; onNavigate?: () =
             className={cn(
               'agency-nav-item group relative flex min-h-11 items-center gap-3 rounded-lg px-2.5 py-2 text-[0.94rem] font-medium text-(--agency-shell-muted) outline-none transition-colors',
               'hover:bg-(--agency-row-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring',
-              isActive && 'bg-(--agency-active-bg) text-(--agency-shell-text)'
+              isActive && 'bg-accent text-primary hover:bg-accent hover:text-primary'
             )}
           >
             {isActive ? (
-              <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-(--agency-nav-tone)" />
+              <span className="absolute inset-y-2 left-0 w-[3px] rounded-r-full bg-primary"/>
             ) : null}
-            <span className="agency-nav-icon flex size-7 shrink-0 items-center justify-center rounded-md">
-              <Icon className="size-[1.05rem] stroke-[1.75]" />
+            <span
+              className="agency-nav-icon flex size-7 shrink-0 items-center justify-center rounded-md">
+              <Icon className="size-[1.05rem] stroke-[1.75]"/>
             </span>
             <span className="min-w-0 flex-1 truncate">{item.name}</span>
             {item.badge ? <Badge variant="outline">{item.badge}</Badge> : null}
@@ -352,13 +354,14 @@ function NavigationItem({ item, onNavigate }: { item: NavItem; onNavigate?: () =
   );
 }
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({onNavigate}: { onNavigate?: () => void }) {
   const visibleNavSections = useVisibleNavSections();
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex h-[72px] shrink-0 items-center border-b border-(--agency-shell-border) px-5">
-        <Logo />
+      <div
+        className="flex h-[72px] shrink-0 items-center border-b border-(--agency-shell-border) px-5">
+        <Logo/>
       </div>
       <nav
         className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-3 py-5"
@@ -366,11 +369,12 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
       >
         {visibleNavSections.map((section) => (
           <section key={section.title} className="flex flex-col gap-1">
-            <h2 className="px-3 pb-1.5 text-[0.67rem] font-semibold uppercase tracking-[0.14em] text-(--agency-shell-muted)">
+            <h2
+              className="px-3 pb-1.5 text-[0.67rem] font-semibold uppercase tracking-[0.14em] text-(--agency-shell-muted)">
               {section.title}
             </h2>
             {section.items.map((item) => (
-              <NavigationItem key={item.path} item={item} onNavigate={onNavigate} />
+              <NavigationItem key={item.path} item={item} onNavigate={onNavigate}/>
             ))}
           </section>
         ))}
@@ -380,11 +384,11 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 }
 
 function IconButton({
-  children,
-  label,
-  onClick,
-  className,
-}: {
+                      children,
+                      label,
+                      onClick,
+                      className,
+                    }: {
   children: React.ReactNode;
   label: string;
   onClick: () => void;
@@ -414,7 +418,7 @@ function IconButton({
 }
 
 function ThemeToggleButton() {
-  const { theme, toggleTheme } = useAgencyTheme();
+  const {theme, toggleTheme} = useAgencyTheme();
   const isDark = theme === 'dark';
   const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
 
@@ -432,7 +436,7 @@ function ThemeToggleButton() {
           !isDark && 'bg-background text-primary shadow-sm'
         )}
       >
-        <Sun className="size-4 stroke-[1.75]" />
+        <Sun className="size-4 stroke-[1.75]"/>
       </span>
       <span
         className={cn(
@@ -440,23 +444,23 @@ function ThemeToggleButton() {
           isDark && 'bg-accent text-foreground shadow-sm'
         )}
       >
-        <Moon className="size-4 stroke-[1.75]" />
+        <Moon className="size-4 stroke-[1.75]"/>
       </span>
     </button>
   );
 }
 
 function AssistantGlyph({
-  label,
-  icon,
-  className = 'size-5',
-}: {
+                          label,
+                          icon,
+                          className = 'size-5',
+                        }: {
   label: string;
   icon: 'bot' | 'sparkles' | 'initial';
   className?: string;
 }) {
   if (icon === 'sparkles') {
-    return <Sparkles className={cn(className, 'stroke-[1.75]')} aria-hidden="true" />;
+    return <Sparkles className={cn(className, 'stroke-[1.75]')} aria-hidden="true"/>;
   }
   if (icon === 'initial') {
     return (
@@ -465,15 +469,15 @@ function AssistantGlyph({
       </span>
     );
   }
-  return <BotMessageSquare className={cn(className, 'stroke-[1.75]')} aria-hidden="true" />;
+  return <BotMessageSquare className={cn(className, 'stroke-[1.75]')} aria-hidden="true"/>;
 }
 
 function AssistantLauncher({
-  label,
-  mode,
-  icon,
-  onOpen,
-}: {
+                             label,
+                             mode,
+                             icon,
+                             onOpen,
+                           }: {
   label: string;
   mode: 'floating' | 'dock' | 'hidden';
   icon: 'bot' | 'sparkles' | 'initial';
@@ -505,25 +509,26 @@ function AssistantLauncher({
         )}
       >
         <span className="transition-transform group-hover:scale-105 motion-reduce:transform-none">
-          <AssistantGlyph label={label} icon={icon} />
+          <AssistantGlyph label={label} icon={icon}/>
         </span>
       </span>
     </button>
   );
 }
 
-function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
+function CollapsedSidebar({onExpand}: { onExpand: () => void }) {
   const pathname = usePathname();
   const visibleNavSections = useVisibleNavSections();
 
   return (
     <div className="flex h-full flex-col items-center">
-      <div className="flex h-[72px] w-full items-center justify-center border-b border-(--agency-shell-border)">
-        <Logo compact />
+      <div
+        className="flex h-[72px] w-full items-center justify-center border-b border-(--agency-shell-border)">
+        <Logo compact/>
       </div>
       <div className="flex w-full justify-center py-3">
         <IconButton label="Expand sidebar" onClick={onExpand}>
-          <PanelLeftOpen className="size-4" />
+          <PanelLeftOpen className="size-4"/>
         </IconButton>
       </div>
       <nav className="flex w-full flex-1 flex-col items-center gap-1 overflow-y-auto px-2 pb-4">
@@ -545,7 +550,7 @@ function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
                         isActive && 'bg-(--agency-active-bg) text-primary'
                       )}
                     >
-                      <Icon className="size-[1.1rem] stroke-[1.75]" />
+                      <Icon className="size-[1.1rem] stroke-[1.75]"/>
                     </Link>
                   </TooltipTrigger>
                   <TooltipContent side="right">{item.name}</TooltipContent>
@@ -564,7 +569,7 @@ function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
                 aria-label="Customize Observatory"
                 className="agency-nav-item flex size-10 items-center justify-center rounded-lg text-(--agency-shell-muted) outline-none transition-colors hover:bg-(--agency-row-hover) hover:text-(--agency-shell-text) focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <SlidersHorizontal className="size-[1.1rem] stroke-[1.75]" />
+                <SlidersHorizontal className="size-[1.1rem] stroke-[1.75]"/>
               </Link>
             </TooltipTrigger>
             <TooltipContent side="right">Customize Observatory</TooltipContent>
@@ -575,7 +580,7 @@ function CollapsedSidebar({ onExpand }: { onExpand: () => void }) {
   );
 }
 
-function AppShellChrome({ children }: { children: React.ReactNode }) {
+function AppShellChrome({children}: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const getAssistantContextMetadata = useAssistantPageContextMetadata();
@@ -583,14 +588,14 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
   const [desktopCollapsed, setDesktopCollapsed] = useState(false);
   const [assistantOpen, setAssistantOpen] = useState(false);
   const {
-    preferences: { assistantLauncherMode, assistantLauncherIcon },
+    preferences: {assistantLauncherMode, assistantLauncherIcon},
   } = useAgencyUserPreferences();
   const visibleNavSections = useVisibleNavSections();
   const commandPaletteRoutes = useMemo(
     () => visibleNavSections.flatMap((section) => section.items),
     [visibleNavSections]
   );
-  const { data: session } = useSession();
+  const {data: session} = useSession();
   const user = session?.user;
   const assistantDialogOpen = assistantOpen && pathname !== '/assistant';
   const mainAgentQuery = useQuery({
@@ -644,13 +649,13 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
             Navigate between Open Agency workspace and account pages.
           </SheetDescription>
           <div className="relative h-full bg-(--agency-sidebar-bg) backdrop-blur-xl">
-            <SidebarContent onNavigate={() => setMobileOpen(false)} />
+            <SidebarContent onNavigate={() => setMobileOpen(false)}/>
             <IconButton
               label="Close navigation menu"
               className="absolute right-4 top-[18px]"
               onClick={() => setMobileOpen(false)}
             >
-              <X className="size-4" />
+              <X className="size-4"/>
             </IconButton>
           </div>
         </SheetContent>
@@ -664,37 +669,38 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
           )}
         >
           {desktopCollapsed ? (
-            <CollapsedSidebar onExpand={() => setDesktopCollapsed(false)} />
+            <CollapsedSidebar onExpand={() => setDesktopCollapsed(false)}/>
           ) : (
             <>
-              <SidebarContent />
+              <SidebarContent/>
               <IconButton
                 label="Collapse sidebar"
                 onClick={() => setDesktopCollapsed(true)}
                 className="absolute right-4 top-[18px]"
               >
-                <PanelLeftClose className="size-4" />
+                <PanelLeftClose className="size-4"/>
               </IconButton>
             </>
           )}
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
-          <header className="z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-(--agency-shell-border) bg-(--agency-shell-panel) px-4 backdrop-blur-xl sm:px-6 lg:px-8">
+          <header
+            className="z-30 flex h-[72px] shrink-0 items-center justify-between border-b border-(--agency-shell-border) bg-(--agency-shell-panel) px-4 backdrop-blur-xl sm:px-6 lg:px-8">
             <div className="flex items-center gap-3">
               <div className="lg:hidden">
                 <IconButton label="Open navigation menu" onClick={() => setMobileOpen(true)}>
-                  <Menu className="size-4" />
+                  <Menu className="size-4"/>
                 </IconButton>
               </div>
               <div className="lg:hidden">
-                <Logo />
+                <Logo/>
               </div>
             </div>
 
             <div className="flex items-center gap-2 sm:gap-3">
-              <CommandPalette routes={commandPaletteRoutes} />
-              <ThemeToggleButton />
+              <CommandPalette routes={commandPaletteRoutes}/>
+              <ThemeToggleButton/>
               {pathname !== '/assistant' && assistantLauncherMode !== 'hidden' ? (
                 <div className="sm:hidden">
                   <IconButton
@@ -710,19 +716,19 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
                 </div>
               ) : null}
               <div className="hidden sm:block">
-                <BackendHealthIndicator compact showRefresh={false} />
+                <BackendHealthIndicator compact showRefresh={false}/>
               </div>
-              <div className="hidden h-7 w-px bg-(--agency-shell-border) sm:block" />
+              <div className="hidden h-7 w-px bg-(--agency-shell-border) sm:block"/>
               <div className="hidden items-center gap-2 sm:flex">
                 <div className="max-w-36 text-right">
                   <p className="truncate text-sm font-medium text-(--agency-shell-text)">
                     {user?.name || 'Developer'}
                   </p>
                 </div>
-                <UserAvatar />
+                <UserAvatar/>
               </div>
               <div className="sm:hidden">
-                <UserAvatar />
+                <UserAvatar/>
               </div>
             </div>
           </header>
@@ -732,7 +738,12 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
             tabIndex={-1}
             className="agency-workspace-background min-h-0 min-w-0 flex-1 overflow-y-auto bg-(--agency-shell-bg) outline-none"
           >
-            <div className="mx-auto w-full max-w-[1520px] px-4 pb-28 pt-6 sm:px-6 sm:pb-12 sm:pt-8 xl:px-10">
+            <div
+              className={cn(
+                'mx-auto w-full max-w-[1600px] px-4 pb-28 pt-6 sm:px-6 sm:pb-12 sm:pt-4',
+                pathname === '/assistant' && 'pb-4 sm:pb-4'
+              )}
+            >
               {children}
             </div>
           </main>
@@ -746,7 +757,8 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
         onOpen={() => setAssistantOpen(true)}
       />
       <Dialog open={assistantDialogOpen} onOpenChange={setAssistantOpen}>
-        <DialogContent className="flex h-[min(85dvh,760px)] max-w-5xl flex-col overflow-hidden border-(--agency-shell-border) bg-(--agency-shell-panel-strong) p-0 text-(--agency-shell-text) shadow-2xl">
+        <DialogContent
+          className="flex h-[min(85dvh,760px)] max-w-5xl flex-col overflow-hidden border-(--agency-shell-border) bg-(--agency-shell-panel-strong) p-0 text-(--agency-shell-text) shadow-2xl">
           <DialogTitle className="sr-only">Ask {assistantLabel}</DialogTitle>
           <DialogDescription className="sr-only">
             Popup assistant conversation window.
@@ -765,7 +777,7 @@ function AppShellChrome({ children }: { children: React.ReactNode }) {
   );
 }
 
-export default function AppShell({ children }: { children: React.ReactNode }) {
+export default function AppShell({children}: { children: React.ReactNode }) {
   return (
     <AssistantPageContextProvider>
       <AppShellChrome>{children}</AppShellChrome>

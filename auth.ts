@@ -1,10 +1,9 @@
-import NextAuth, { NextAuthConfig, NextAuthResult } from 'next-auth';
-import CustomProvider, { getPrivateKey } from '@/lib/auth/customprovider';
+import NextAuth, {NextAuthConfig, NextAuthResult} from 'next-auth';
+import CustomProvider, {getPrivateKey} from '@/lib/auth/customprovider';
 import GoogleProvider from 'next-auth/providers/google';
-import { NextRequest } from 'next/server';
 import CredentialsProvider from 'next-auth/providers/credentials';
-import { loginWithDevCredentials } from '@/lib/auth/devAuthAdapter';
-import type { AuthMode } from '@/types/auth';
+import {loginWithDevCredentials} from '@/lib/auth/devAuthAdapter';
+import type {AuthMode} from '@/types/auth';
 
 const isLocalAppEnv = process.env.NEXT_PUBLIC_APP_ENV === 'local';
 const hasDevCredentialConfig = Boolean(process.env.DEV_AUTH_EMAIL && process.env.DEV_AUTH_PASSWORD);
@@ -19,7 +18,7 @@ const isDevAuthEnabled =
   process.env.NEXT_PUBLIC_AGENCY_DEV_AUTH_ENABLED === 'true' ||
   (isLocalAppEnv && hasDevCredentialConfig && !hasAzureAuthConfig);
 
-const nextAuth: NextAuthResult = NextAuth(async (req: NextRequest | undefined) => {
+const nextAuth: NextAuthResult = NextAuth(async () => {
   const providers: NonNullable<NextAuthConfig['providers']> = [];
 
   if (isDevAuthEnabled) {
@@ -27,13 +26,13 @@ const nextAuth: NextAuthResult = NextAuth(async (req: NextRequest | undefined) =
       CredentialsProvider({
         name: 'Development Email Login',
         credentials: {
-          email: { label: 'Email', type: 'email' },
-          password: { label: 'Password', type: 'password' },
+          email: {label: 'Email', type: 'email'},
+          password: {label: 'Password', type: 'password'},
         },
         async authorize(credentials) {
           const email = String(credentials?.email || '');
           const password = String(credentials?.password || '');
-          const result = await loginWithDevCredentials({ email, password });
+          const result = await loginWithDevCredentials({email, password});
 
           if (!result) {
             return null;
@@ -52,10 +51,7 @@ const nextAuth: NextAuthResult = NextAuth(async (req: NextRequest | undefined) =
     );
   } else if (hasAzureAuthConfig) {
     providers.push(
-      CustomProvider(
-        req as Request,
-        await getPrivateKey(process.env.AD_PRIVATE_KEY!, process.env.X5T!)
-      )
+      CustomProvider(await getPrivateKey(process.env.AD_PRIVATE_KEY!, process.env.X5T!))
     );
   } else {
     console.warn(
@@ -75,12 +71,12 @@ const nextAuth: NextAuthResult = NextAuth(async (req: NextRequest | undefined) =
   const config: NextAuthConfig = {
     providers,
     callbacks: {
-      async signIn({ user }) {
+      async signIn({user}) {
         // Log sign-in attempts
         console.log('User signing in:', user.email);
         return true;
       },
-      jwt({ token, user }) {
+      jwt({token, user}) {
         if (user) {
           token.sub = user.id;
           token.name = user.name;
@@ -93,7 +89,7 @@ const nextAuth: NextAuthResult = NextAuth(async (req: NextRequest | undefined) =
 
         return token;
       },
-      session({ session, token }) {
+      session({session, token}) {
         return {
           expires: session.expires,
           user: {
@@ -135,4 +131,4 @@ const signOut: NextAuthResult['signOut'] = nextAuth.signOut;
 const auth: NextAuthResult['auth'] = nextAuth.auth;
 const handlers = nextAuth.handlers;
 
-export { signIn, signOut, auth, handlers, checkSession };
+export {signIn, signOut, auth, handlers, checkSession};

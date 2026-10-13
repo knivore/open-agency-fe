@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import {NextRequest, NextResponse} from 'next/server';
 
 // `/setup` must remain reachable without a session: it is where a fresh install
 // creates its first local administrator, so there cannot be credentials yet.
@@ -28,7 +28,7 @@ function getSafeCallbackPath(rawValue: string | null) {
 }
 
 export default async function proxy(req: NextRequest) {
-  const { nextUrl } = req;
+  const {nextUrl} = req;
   const appOrigin = nextUrl.origin;
 
   const isPublicApiRoute = publicApiRoutes.some((route) => nextUrl.pathname.startsWith(route));
@@ -52,13 +52,18 @@ export default async function proxy(req: NextRequest) {
 
   if (!res.ok) {
     console.log(`Failed to fetch session: ${res.status} ${res.statusText}`);
-    return new NextResponse('Internal Server Error', { status: 500 });
+    return new NextResponse('Internal Server Error', {status: 500});
   }
 
   const session = await res.json();
   const isLoggedIn = Boolean(session?.user);
 
-  const isApiRoute = nextUrl.pathname.startsWith('/api');
+  // The same-origin backend rewrite is an API too. Redirecting a fetch to
+  // /login returns HTML that callers could mistake for a successful resource.
+  const isApiRoute =
+    nextUrl.pathname.startsWith('/api') ||
+    nextUrl.pathname === '/backend' ||
+    nextUrl.pathname.startsWith('/backend/');
   const isApiAuthRoute = nextUrl.pathname.startsWith('/api/auth');
   const isAuthRoute = authRoutes.includes(nextUrl.pathname);
 
@@ -72,7 +77,7 @@ export default async function proxy(req: NextRequest) {
     if (isLoggedIn || isApiAuthRoute) {
       return NextResponse.next();
     }
-    return new NextResponse('Unauthorized', { status: 401 });
+    return new NextResponse('Unauthorized', {status: 401});
   } else if (isAuthRoute) {
     const callbackPath = getSafeCallbackPath(nextUrl.searchParams.get('callbackUrl'));
     // This URL can survive in a browser tab from an older proxy build that

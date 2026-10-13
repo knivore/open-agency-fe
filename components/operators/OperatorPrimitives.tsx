@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import { AlertCircle, CheckCircle2, Clock3, LoaderCircle, RadioTower } from 'lucide-react';
+import { CheckCircle2, Clock3 } from 'lucide-react';
+import AppState from '@/components/app-shell/AppState';
 import { Badge } from '@/components/library/shadcn/badge';
 import { cn } from '@/lib/utils';
 import type { OperatorStatus } from '@/types/operators';
@@ -59,16 +60,8 @@ export function OperatorQueryState({
   description: string;
   action?: ReactNode;
 }) {
-  const Icon = kind === 'loading' ? LoaderCircle : kind === 'error' ? AlertCircle : RadioTower;
   return (
-    <div className="flex min-h-56 flex-col items-center justify-center border-y border-(--agency-shell-border) px-6 py-12 text-center">
-      <span className="flex size-11 items-center justify-center rounded-xl border border-(--agency-shell-border) bg-(--agency-surface-muted) text-(--agency-page-tone)">
-        <Icon className={cn('size-5', kind === 'loading' && 'animate-spin')} aria-hidden="true" />
-      </span>
-      <h2 className="mt-4 font-semibold text-(--agency-shell-text)">{title}</h2>
-      <p className="mt-1 max-w-md text-sm leading-6 text-(--agency-shell-muted)">{description}</p>
-      {action ? <div className="mt-4">{action}</div> : null}
-    </div>
+    <AppState variant={kind} title={title} description={description} secondaryAction={action} />
   );
 }
 

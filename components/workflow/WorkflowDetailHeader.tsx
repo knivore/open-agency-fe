@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
+import { Badge } from '@/components/library/shadcn/badge';
 import {
   Download,
   MoreHorizontal,
@@ -33,6 +35,8 @@ import { cn } from '@/lib/utils';
 
 interface WorkflowDetailHeaderProps {
   workflowId: string;
+  savedRevision?: number;
+  savedVersion?: string;
   workflowName: string;
   workflowDescription?: string | null;
   isEditing: boolean;
@@ -48,6 +52,8 @@ interface WorkflowDetailHeaderProps {
 export default function WorkflowDetailHeader({
   workflowId,
   workflowName,
+  savedRevision,
+  savedVersion,
   workflowDescription,
   isEditing,
   hasUnsavedChanges,
@@ -72,6 +78,12 @@ export default function WorkflowDetailHeader({
         icon={Workflow}
         tone="workflow"
         title={workflowName}
+        breadcrumbs={[{ label: 'Workflows', href: '/workflows' }, { label: workflowName }]}
+        meta={<>
+          {savedRevision !== undefined ? <Badge variant="outline">Saved revision {savedRevision}{savedVersion ? ` · v${savedVersion}` : ''}</Badge> : null}
+          <Badge variant={hasUnsavedChanges ? 'secondary' : 'outline'}>{hasUnsavedChanges ? 'Unsaved changes' : isEditing ? 'Editing saved definition' : 'Saved definition'}</Badge>
+          <Button asChild variant="ghost" size="sm"><Link href={`/runs?workflowId=${encodeURIComponent(workflowId)}`}>Run history</Link></Button>
+        </>}
         description={
           <div className="flex max-w-3xl flex-col items-start gap-1">
             <span className={cn(!isDescriptionExpanded && 'line-clamp-2')}>{description}</span>

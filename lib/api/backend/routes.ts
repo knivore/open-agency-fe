@@ -118,9 +118,6 @@ export const backendRoutes = {
     generatedPackagePublish: () => '/tools/generated/packages/publish',
     validate: () => '/tools/validate',
     test: (toolId: string) => `/tools/${encodePathSegment(toolId)}/test`,
-    contracts: () => '/tools/contracts',
-    contractByName: (toolName: string) => `/tools/contracts/${encodePathSegment(toolName)}`,
-    run: (toolName: string) => `/tools/${encodePathSegment(toolName)}/run`,
   },
   modelProviders: {
     list: () => '/model-providers',

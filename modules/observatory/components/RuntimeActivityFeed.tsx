@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import type { ObservatoryRuntimeLevel } from '@/modules/observatory/runtime/events';
 import type { ObservatoryRuntimeVisualState } from '@/modules/observatory/runtime/visualState';
 
@@ -50,7 +51,7 @@ export default function RuntimeActivityFeed({
           </div>
         </div>
         <div className={styles.controls}>
-          <select
+          <NativeSelect
             className={styles.select}
             value={levelFilter}
             onChange={(event) =>
@@ -63,7 +64,7 @@ export default function RuntimeActivityFeed({
                 {level}
               </option>
             ))}
-          </select>
+          </NativeSelect>
           {readOnly ? null : (
             <>
               <button

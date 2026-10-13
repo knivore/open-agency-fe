@@ -1,3 +1,4 @@
+import type { OfficeWalkthroughProgress } from '../rendering/officeWalkthrough';
 import type Phaser from 'phaser';
 
 import { getObservatoryFullModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
@@ -35,12 +36,14 @@ export interface ObservatoryOfficeSceneOptions {
   activeWallEditRoomId?: string | null;
   activeWallEditTool?: 'door' | 'floor' | 'opening' | 'paint' | 'tile';
   activeWallEditWallAssetId?: string | null;
+  placementActive?: boolean;
   allowPan?: boolean;
   allowZoom?: boolean;
   enableAmbientAutoplay?: boolean;
   initialCameraState?: ObservatoryCameraState | null;
   initialZoom?: number | null;
   onCameraStateChange?: (state: ObservatoryCameraState) => void;
+  onGridHover?: (point: ObservatoryCanvasGridClick) => void;
   onGridClick?: (point: ObservatoryCanvasGridClick) => void;
   onRoomResizeCommit?: (roomId: string, bounds: ObservatoryGridRect) => void;
   onSceneReady?: () => void;
@@ -69,6 +72,13 @@ export function createOfficeScene(
 
     constructor() {
       super(options.sceneKey ?? 'OfficeScene');
+    }
+
+    startOfficeWalkthrough(agentId: string, notify: (progress: OfficeWalkthroughProgress) => void) {
+      this.renderedMapHandle?.startOfficeWalkthrough(agentId, notify);
+    }
+    stopOfficeWalkthrough() {
+      this.renderedMapHandle?.stopOfficeWalkthrough();
     }
 
     getSelectionOverlayState(): ObservatoryCanvasOverlayState | null {
@@ -362,11 +372,13 @@ export function createOfficeScene(
       }
 
       setupObservatorySceneInteractions(this, {
+        placementActive: options.placementActive,
         allowPan: options.allowPan,
         allowZoom: options.allowZoom,
         grid,
         map,
         onCameraStateChange: emitCameraState,
+        onGridHover: options.onGridHover,
         onGridClick: options.onGridClick,
         onRoomResizeCommit: options.onRoomResizeCommit,
         onSelectionDrag: options.onSelectionDrag,

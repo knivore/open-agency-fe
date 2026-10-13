@@ -182,7 +182,7 @@ export default function SetupConfigurationGuide({
   return (
     <Card id="configuration-lifecycle">
       <CardHeader>
-        <CardTitle>
+        <CardTitle role="presentation" aria-level={undefined}>
           <h2 className="flex items-center gap-2">
             <Settings2 className="size-5 text-primary" aria-hidden="true" />
             What setup manages

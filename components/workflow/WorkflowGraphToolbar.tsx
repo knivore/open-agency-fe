@@ -127,7 +127,6 @@ export default function WorkflowGraphToolbar({ actions, onAction }: GraphToolbar
     workflowGraphActionIds.addMemory,
     workflowGraphActionIds.addArtifact,
     workflowGraphActionIds.save,
-    workflowGraphActionIds.run,
   ]);
   const historyActionIds = new Set<string>([
     graphBuiltInToolbarActionIds.undo,

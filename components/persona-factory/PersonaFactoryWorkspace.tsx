@@ -1,5 +1,11 @@
 'use client';
 
+import WorkspaceDirectory from '@/components/app-shell/WorkspaceDirectory';
+import InlineEditActions from '@/components/app-shell/InlineEditActions';
+import { FormSection } from '@/components/app-shell/FormSection';
+import { useDraftDiscardGuard } from '@/hooks/useUnsavedChangesGuard';
+
+import { NativeSelect } from '@/components/library/shadcn/select';
 import type { ReactNode, SetStateAction } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -558,35 +564,6 @@ function reviewRowClass(status: string, isSelected: boolean) {
   return '';
 }
 
-function personaCardTone(status: string) {
-  if (status === 'published' || status === 'approved') {
-    return {
-      accent: 'bg-success-500',
-      avatar: 'border-success-200 bg-success-50 text-success-800',
-      card: 'border-success-200 bg-success-50/35 hover:border-success-300',
-    };
-  }
-  if (status === 'draft' || status === 'in_review' || status === 'needs_review') {
-    return {
-      accent: 'bg-warning-400',
-      avatar: 'border-warning-200 bg-warning-50 text-warning-900',
-      card: 'border-warning-200 bg-warning-50/45 hover:border-warning-300',
-    };
-  }
-  if (status === 'rejected' || status === 'archived') {
-    return {
-      accent: 'bg-destructive-500',
-      avatar: 'border-destructive-200 bg-destructive-50 text-destructive-800',
-      card: 'border-destructive-200 bg-destructive-50/35 hover:border-destructive-300',
-    };
-  }
-  return {
-    accent: 'bg-primary-500',
-    avatar: 'border-primary-200 bg-primary-50 text-primary-800',
-    card: 'border-primary-200 bg-primary-50/35 hover:border-primary-300',
-  };
-}
-
 function governanceOptions(catalog: PersonaGovernanceCatalog | undefined, key: string) {
   const values = catalog?.allowed_values?.[key] ?? [];
   return key === 'visibility' ? values.filter((value) => value !== 'marketplace') : values;
@@ -633,6 +610,8 @@ export default function PersonaFactoryWorkspace({
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [selectedPersonaState, setSelectedPersona] = useState<PersonaDefinition | null>(null);
   const [activeTab, setActiveTab] = useState('review');
+  const [personaSearch, setPersonaSearch] = useState('');
+  const [detailEditing, setDetailEditing] = useState(false);
   const [personaName, setPersonaName] = useState('');
   const [personaDescription, setPersonaDescription] = useState('');
   const [detailDraftState, setDetailDraftState] = useState({
@@ -752,10 +731,10 @@ export default function PersonaFactoryWorkspace({
   );
   const createDraftDirty =
     JSON.stringify(currentCreateDraft) !== JSON.stringify(createDraftBaseline);
-  const openCreatePersonaDialog = () => {
+  const openCreatePersonaDialog = () => detailGuard.requestLeave(() => {
     setCreateDraftBaseline(currentCreateDraft);
     setIsCreateOpen(true);
-  };
+  });
   const resetCreatePersonaDraft = () => {
     setPersonaName(createDraftBaseline.name);
     setPersonaDescription(createDraftBaseline.description);
@@ -1161,6 +1140,8 @@ export default function PersonaFactoryWorkspace({
       setPersonaName(persona.name);
       setPersonaDescription(persona.description ?? '');
       void queryClient.invalidateQueries({ queryKey: queryKeys.backendPersonas() });
+      seedDetailDraftForPersona(persona);
+      setDetailEditing(false);
       toast.success('Persona updated.', { position: 'top-right' });
     },
   });
@@ -1184,6 +1165,13 @@ export default function PersonaFactoryWorkspace({
     },
   });
 
+  const detailDirty = detailEditing && (detailName !== defaultDetailDraft.name || detailDescription !== defaultDetailDraft.description);
+  const detailBusy = updatePersonaMutation.isPending || deletePersonaMutation.isPending;
+  const detailGuard = useDraftDiscardGuard({
+    dirty: detailDirty, busy: detailBusy,
+    onDiscard: () => { seedDetailDraftForPersona(selectedPersona); setDetailEditing(false); },
+    onNavigate: href => router.push(href),
+  });
   const loadRunMutation = useMutation({
     mutationFn: (runId: string) => personasApi.getRun(runId),
     onSuccess: (result) => {
@@ -1838,10 +1826,33 @@ export default function PersonaFactoryWorkspace({
             </Badge>
             <Badge variant="outline">@{selectedPersona.slug}</Badge>
           </div>
+          <div className="mt-3 flex justify-end">
+            <InlineEditActions
+              editing={detailEditing}
+              busy={detailBusy}
+              disabled={!detailName.trim()}
+              editLabel="Edit persona"
+              saveLabel="Save persona"
+              onEdit={() => {
+                seedDetailDraftForPersona(selectedPersona);
+                setDetailEditing(true);
+              }}
+              onSave={() => updatePersonaMutation.mutate()}
+              onCancel={() =>
+                detailGuard.requestLeave(() => {
+                  seedDetailDraftForPersona(selectedPersona);
+                  setDetailEditing(false);
+                })
+              }
+            />
+          </div>
+          {detailEditing ? (
           <div className="mt-4 grid gap-3 lg:grid-cols-2">
             <Field label="Name" htmlFor="persona-detail-name">
               <Input
                 id="persona-detail-name"
+                disabled={detailBusy}
+                autoFocus
                 value={detailName}
                 onChange={(event) => setDetailName(event.target.value)}
               />
@@ -1851,25 +1862,15 @@ export default function PersonaFactoryWorkspace({
                 <Textarea
                   id="persona-detail-description"
                   rows={4}
+                  disabled={detailBusy}
                   value={detailDescription}
                   onChange={(event) => setDetailDescription(event.target.value)}
                 />
               </Field>
             </div>
           </div>
+          ) : <div className="mt-3 flex flex-col gap-2"><h2 className="text-lg font-semibold">{selectedPersona.name}</h2><p className="text-sm leading-6 text-muted-foreground">{selectedPersona.description || 'No description yet.'}</p></div>}
           <div className="mt-4 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              disabled={
-                !detailName.trim() ||
-                updatePersonaMutation.isPending ||
-                deletePersonaMutation.isPending
-              }
-              onClick={() => updatePersonaMutation.mutate()}
-            >
-              <Save className="mr-2 h-4 w-4" />
-              Save persona
-            </Button>
             <ConfirmActionDialog
               trigger={
                 <Button
@@ -2052,6 +2053,7 @@ export default function PersonaFactoryWorkspace({
   return (
     <div className="min-h-screen">
       <div className="mx-auto flex max-w-375 flex-col gap-5">
+        <ConfirmActionDialog trigger={null} {...detailGuard} title="Discard persona changes?" description="Your unsaved identity changes will be discarded." confirmLabel="Discard changes" cancelLabel="Keep editing" pending={detailBusy}/>
         <PageHeader
           icon={UserRoundCog}
           tone="persona"
@@ -2064,7 +2066,7 @@ export default function PersonaFactoryWorkspace({
           actions={
             <>
               {isDetailPage ? (
-                <Button type="button" variant="outline" onClick={() => router.push('/persona')}>
+                <Button type="button" variant="outline" onClick={() => detailGuard.requestLeave(() => router.push('/persona'))}>
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Personas
                 </Button>
@@ -2074,7 +2076,7 @@ export default function PersonaFactoryWorkspace({
                   New Persona
                 </Button>
               )}
-              <Button type="button" variant="outline" onClick={() => void personasQuery.refetch()}>
+              <Button type="button" variant="outline" disabled={detailEditing || detailBusy} onClick={() => void personasQuery.refetch()}>
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
@@ -2084,11 +2086,8 @@ export default function PersonaFactoryWorkspace({
 
         {!isDetailPage ? (
           <section className="space-y-5">
-            <div>
-              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500 dark:text-slate-400">
-                Setup path
-              </p>
-              <div className="grid overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-primary/5 md:grid-cols-3 dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+            <FormSection title="Persona setup" description="Add an identity, attach sources, then review before publishing." advanced defaultOpen={personas.length === 0} contentClassName="p-0 sm:p-0">
+              <div className="grid md:grid-cols-3">
                 <FactoryStepCard
                   index={1}
                   title="Add identity"
@@ -2105,130 +2104,56 @@ export default function PersonaFactoryWorkspace({
                   description="Approve extracted items before use."
                 />
               </div>
-            </div>
+            </FormSection>
 
-            <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-primary/5 dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
-              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 px-5 py-4 dark:border-white/10">
-                <div>
-                  <h2 className="text-base font-semibold text-slate-950 dark:text-slate-100">
-                    Your personas
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    Draft and published identities available to your agents.
-                  </p>
-                </div>
-                <Badge variant="secondary">{personas.length} total</Badge>
-              </div>
-              <div
-                className={cn(
-                  'grid',
-                  personas.length > 0 && 'gap-3 p-5 md:grid-cols-2 xl:grid-cols-3'
-                )}
-              >
-                {personasQuery.isLoading ? (
-                  <div className="p-5">
-                    <LoadingCard title="Loading" description="Loading personas..." />
-                  </div>
-                ) : null}
-                {personasQuery.isError ? (
-                  <div className="p-5">
-                    <ErrorAlert title="Personas unavailable" message="Failed to load personas." />
-                  </div>
-                ) : null}
-                {personas.map((persona: PersonaDefinition) => {
-                  const tone = personaCardTone(persona.status);
-                  const isSelected = selectedPersona?.id === persona.id;
-
-                  return (
-                    <div
-                      key={persona.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-label={`Select ${persona.name}`}
-                      aria-pressed={isSelected}
-                      className={cn(
-                        'relative min-h-28 cursor-pointer overflow-hidden rounded-md border px-3 py-3 text-left transition hover:-translate-y-0.5 hover:bg-white hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-300 dark:hover:bg-white/10 dark:hover:shadow-none',
-                        tone.card,
-                        isSelected &&
-                          'border-primary-400 bg-primary-50 shadow-sm shadow-primary/10 dark:bg-cyan-400/10 dark:shadow-none'
-                      )}
-                      onClick={() => openPersonaWorkspace(persona)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          openPersonaWorkspace(persona);
-                        }
-                      }}
-                    >
-                      <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
-                      <div className="flex items-center justify-between gap-2 pt-1">
-                        <span className="flex min-w-0 items-center gap-2">
-                          <span
-                            className={cn(
-                              'flex h-7 w-7 shrink-0 items-center justify-center rounded-md border',
-                              tone.avatar
-                            )}
-                          >
-                            <UserRoundCog className="h-3.5 w-3.5" />
-                          </span>
-                          <span className="truncate text-sm font-semibold text-slate-950 dark:text-slate-100">
-                            {persona.name}
-                          </span>
-                        </span>
-                        <Badge
-                          variant={statusBadgeVariant(persona.status)}
-                          className={statusBadgeClass(persona.status)}
-                        >
-                          {persona.status}
-                        </Badge>
-                      </div>
-                      <p className="mt-2 truncate text-xs text-slate-500 dark:text-slate-400">
-                        @{persona.slug}
-                      </p>
-                      {persona.description ? (
-                        <p className="mt-3 line-clamp-2 text-xs leading-5 text-slate-600 dark:text-slate-300">
-                          {persona.description}
-                        </p>
-                      ) : null}
-                    </div>
-                  );
-                })}
-                {!personasQuery.isLoading && !personas.length ? (
-                  <div className="flex min-h-96 flex-col items-center justify-center px-6 py-12 text-center">
-                    <span className="flex size-14 items-center justify-center rounded-2xl border border-primary-200 bg-primary-50 text-primary-700 dark:border-violet-300/20 dark:bg-violet-400/10 dark:text-violet-200">
-                      <UserRoundCog className="size-6" aria-hidden="true" />
-                    </span>
-                    <h3 className="mt-5 text-xl font-semibold text-slate-950 dark:text-slate-100">
-                      No personas yet
-                    </h3>
-                    <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600 dark:text-slate-400">
-                      A persona is a reviewed identity built from source material. Start with a
-                      name, attach at least one source, then approve what it learns.
-                    </p>
-                    <Button type="button" className="mt-5" onClick={openCreatePersonaDialog}>
-                      <Plus className="mr-2 size-4" aria-hidden="true" />
-                      Create your first persona
-                    </Button>
-                    <div className="mt-8 grid w-full max-w-2xl gap-3 border-t border-slate-200 pt-6 text-left sm:grid-cols-3 dark:border-white/10">
-                      {[
-                        ['Identity', 'A clear name and short description.'],
-                        ['Source material', 'A file or saved memory to learn from.'],
-                        ['Review', 'Your approval before the persona is usable.'],
-                      ].map(([title, description]) => (
-                        <div key={title}>
-                          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
-                            {title}
-                          </p>
-                          <p className="mt-1 text-xs leading-5 text-slate-500 dark:text-slate-400">
-                            {description}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-            </section>
+            <WorkspaceDirectory
+              label="Persona directory"
+              title="Your personas"
+              selectionLabel="Select persona"
+              search={{
+                label: 'Search personas',
+                placeholder: 'Name, slug, description, or status',
+                value: personaSearch,
+                onChange: setPersonaSearch,
+              }}
+              summary={`${personas.length} personas`}
+              entries={personas
+                .filter((persona) =>
+                  [persona.name, persona.slug, persona.description, persona.status]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(personaSearch.trim().toLowerCase()),
+                )
+                .map((persona) => ({
+                  id: persona.id,
+                  label: persona.name,
+                  description: persona.description || '@' + persona.slug,
+                  group: persona.status === 'published' ? 'Published' : 'Drafts',
+                  actionLabel: `Select ${persona.name}`,
+                  optionLabel: `${persona.name} · ${persona.status}`,
+                  meta: <Badge variant={statusBadgeVariant(persona.status)}>{persona.status}</Badge>,
+                }))}
+              onSelect={(id) => {
+                const persona = personas.find((persona) => persona.id === id);
+                if (persona) openPersonaWorkspace(persona);
+              }}
+              emptyMessage={
+                personasQuery.isLoading
+                  ? 'Loading personas…'
+                  : personasQuery.isError
+                    ? 'Personas could not be loaded. Refresh to try again.'
+                    : personaSearch
+                      ? 'No personas match this search.'
+                      : 'Create a persona to begin reviewing source material.'
+              }
+              toolbar={
+                personaSearch ? (
+                  <Button variant="ghost" size="sm" onClick={() => setPersonaSearch('')}>
+                    Clear search
+                  </Button>
+                ) : undefined
+              }
+            />
           </section>
         ) : (
           renderPersonaDetailSections()
@@ -2526,7 +2451,7 @@ export default function PersonaFactoryWorkspace({
                         label={`Confidence >= ${minConfidence.toFixed(1)}`}
                         htmlFor="confidence-filter"
                       >
-                        <input
+                        <Input
                           id="confidence-filter"
                           type="range"
                           min="0"
@@ -3361,7 +3286,7 @@ export default function PersonaFactoryWorkspace({
                     </div>
                     <div className="mt-4 grid gap-3 md:grid-cols-2">
                       <Field label="Source type" htmlFor="source-classification">
-                        <select
+                        <NativeSelect
                           id="source-classification"
                           value={sourceClassificationDraft.classification}
                           onChange={(event) =>
@@ -3378,10 +3303,10 @@ export default function PersonaFactoryWorkspace({
                               {value}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </Field>
                       <Field label="Document kind" htmlFor="source-document-kind">
-                        <select
+                        <NativeSelect
                           id="source-document-kind"
                           value={sourceClassificationDraft.documentKind}
                           onChange={(event) =>
@@ -3398,7 +3323,7 @@ export default function PersonaFactoryWorkspace({
                               {value}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </Field>
                       <Field label="What the source contains" htmlFor="source-content-roles">
                         <Input
@@ -3627,7 +3552,7 @@ export default function PersonaFactoryWorkspace({
                 </div>
                 <div className="mt-4 grid gap-3 lg:grid-cols-3">
                   <Field label="Distillation mode" htmlFor="persona-distillation-mode">
-                    <select
+                    <NativeSelect
                       id="persona-distillation-mode"
                       value={distillationMode}
                       onChange={(event) =>
@@ -3640,10 +3565,10 @@ export default function PersonaFactoryWorkspace({
                           {mode === 'llm' ? 'LLM' : mode === 'hybrid' ? 'Hybrid' : 'Deterministic'}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                   <Field label="LLM source" htmlFor="persona-llm-model-source">
-                    <select
+                    <NativeSelect
                       id="persona-llm-model-source"
                       value={llmModelSource}
                       onChange={(event) =>
@@ -3657,7 +3582,7 @@ export default function PersonaFactoryWorkspace({
                           {source === 'main_agent' ? 'Main-agent default' : 'Model profile'}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                   <Field
                     label={
@@ -3667,7 +3592,7 @@ export default function PersonaFactoryWorkspace({
                     }
                     htmlFor="persona-model-profile"
                   >
-                    <select
+                    <NativeSelect
                       id="persona-model-profile"
                       value={modelProfileId}
                       onChange={(event) => setModelProfileId(event.target.value)}
@@ -3689,7 +3614,7 @@ export default function PersonaFactoryWorkspace({
                           {profile.name} · {profile.provider}/{profile.model}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                 </div>
               </section>
@@ -3748,7 +3673,7 @@ export default function PersonaFactoryWorkspace({
                       key={memory.id}
                       className="flex min-h-24 cursor-pointer gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-3 hover:border-primary-200 hover:bg-white dark:border-white/10 dark:bg-white/4 dark:hover:border-sky-300/20 dark:hover:bg-white/6"
                     >
-                      <input
+                      <Input
                         type="checkbox"
                         className="mt-1 h-4 w-4"
                         checked={selectedMemoryIds.includes(memory.id)}
@@ -4049,7 +3974,7 @@ function PersonaGraphContextPanel({
         </Button>
       </div>
       <div className="mt-3 grid gap-3 lg:grid-cols-[220px_minmax(0,1fr)_220px]">
-        <select
+        <NativeSelect
           aria-label="Connected knowledge view"
           value={preset}
           onChange={(event) => setPreset(event.target.value as PersonaGraphContextPreset)}
@@ -4060,7 +3985,7 @@ function PersonaGraphContextPanel({
               {option.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
         <Input
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -4574,13 +4499,13 @@ function FilterSelect({
   return (
     <label className="space-y-1.5">
       <span className="block text-xs font-medium capitalize text-slate-700">{label}</span>
-      <select
+      <NativeSelect
         value={value}
         onChange={(event) => onChange(event.target.value)}
         className="h-9 w-full rounded-md border border-slate-200 bg-white px-2 text-sm text-slate-900 shadow-sm focus:border-primary-400 focus:outline-none"
       >
         {children}
-      </select>
+      </NativeSelect>
     </label>
   );
 }

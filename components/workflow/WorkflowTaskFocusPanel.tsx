@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import type { AgentDefinition, BehaviorTuningProfile } from '@/types/agents';
 import { toolsRecommendedForWorkflowCapabilities } from '@/lib/workflows/capabilityTooling';
 import {
@@ -298,7 +299,7 @@ export default function WorkflowTaskFocusPanel({
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
                 <Label htmlFor={`selected-task-agent-${selectedTask.id}`}>Assigned agent</Label>
-                <select
+                <NativeSelect
                   id={`selected-task-agent-${selectedTask.id}`}
                   value={selectedTask.agent_id ?? ''}
                   className={editorFieldClassName}
@@ -310,7 +311,7 @@ export default function WorkflowTaskFocusPanel({
                       {agent.name}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               {showBuilderTaskFields ? (
                 <div className="space-y-1.5">
@@ -535,7 +536,7 @@ export default function WorkflowTaskFocusPanel({
                 <Label htmlFor={`selected-task-model-profile-${selectedTask.id}`}>
                   Model profile override
                 </Label>
-                <select
+                <NativeSelect
                   id={`selected-task-model-profile-${selectedTask.id}`}
                   value={taskRuntimeOverrides.model_profile_id ?? ''}
                   className={editorFieldClassName}
@@ -551,7 +552,7 @@ export default function WorkflowTaskFocusPanel({
                       {profile.name}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor={`selected-task-max-tokens-${selectedTask.id}`}>Max tokens</Label>
@@ -571,7 +572,7 @@ export default function WorkflowTaskFocusPanel({
                 <Label htmlFor={`selected-task-approval-policy-${selectedTask.id}`}>
                   Approval policy override
                 </Label>
-                <select
+                <NativeSelect
                   id={`selected-task-approval-policy-${selectedTask.id}`}
                   value={taskRuntimeOverrides.approval_policy ?? 'inherit'}
                   className={editorFieldClassName}
@@ -594,7 +595,7 @@ export default function WorkflowTaskFocusPanel({
                       {option.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
             </div>
           </div>
@@ -727,7 +728,7 @@ export default function WorkflowTaskFocusPanel({
                         <div className="mt-2 space-y-2">
                           <div className="space-y-1">
                             <Label className="text-xs">Edge Type</Label>
-                            <select
+                            <NativeSelect
                               value={edgeType}
                               onChange={(event) =>
                                 onDependencyEdgeTypeChange(task.id, event.target.value)
@@ -738,7 +739,7 @@ export default function WorkflowTaskFocusPanel({
                               <option value="conditional">conditional</option>
                               <option value="success">success</option>
                               <option value="failure">failure</option>
-                            </select>
+                            </NativeSelect>
                             <p className="text-xs text-neutral-500 dark:text-slate-400">
                               `conditional` requires a condition. `success` and `failure` are
                               descriptive labels only.
@@ -811,7 +812,7 @@ export default function WorkflowTaskFocusPanel({
                         <div className="mt-2 space-y-2">
                           <div className="space-y-1">
                             <Label className="text-xs">Edge Type</Label>
-                            <select
+                            <NativeSelect
                               value={edgeType}
                               onChange={(event) =>
                                 onDependentEdgeTypeChange(task.id, event.target.value)
@@ -822,7 +823,7 @@ export default function WorkflowTaskFocusPanel({
                               <option value="conditional">conditional</option>
                               <option value="success">success</option>
                               <option value="failure">failure</option>
-                            </select>
+                            </NativeSelect>
                             <p className="text-xs text-neutral-500 dark:text-slate-400">
                               `conditional` requires a condition. `success` and `failure` are
                               descriptive labels only.

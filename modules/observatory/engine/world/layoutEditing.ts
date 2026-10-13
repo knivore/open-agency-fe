@@ -47,6 +47,8 @@ export interface ObservatoryPlaceObjectInput {
   position: ObservatoryGridPoint;
   roomId?: string;
   size?: ObservatoryGridSize;
+  render?: ObservatoryObjectRenderOptions;
+  runtime?: ObservatoryObject['runtime'];
 }
 
 export interface ObservatoryCreateRoomInput {
@@ -77,7 +79,8 @@ export function cloneObservatoryLayout(
 }
 
 export function createBlankObservatoryLayout(
-  layout: ObservatoryLayoutDocument
+  layout: ObservatoryLayoutDocument,
+  mapId?: string
 ): ObservatoryLayoutDocument {
   const nextLayout = cloneObservatoryLayout(layout);
   const timestamp = new Date().toISOString();
@@ -89,12 +92,16 @@ export function createBlankObservatoryLayout(
     updatedAt: timestamp,
   };
 
-  nextLayout.world.maps = nextLayout.world.maps.map((map) => ({
-    ...map,
-    agents: [],
-    objects: [],
-    rooms: [],
-  }));
+  nextLayout.world.maps = nextLayout.world.maps.map((map) =>
+    mapId && map.id !== mapId
+      ? map
+      : {
+          ...map,
+          agents: [],
+          objects: [],
+          rooms: [],
+        }
+  );
 
   return nextLayout;
 }
@@ -173,6 +180,8 @@ export function placeObservatoryObject(
     position: { ...finalPosition },
     roomId,
     size,
+    render: normalizeObjectRender(input.render),
+    runtime: input.runtime,
   };
 
   map.objects.push(object);

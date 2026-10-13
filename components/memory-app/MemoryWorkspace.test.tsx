@@ -1,6 +1,6 @@
 import type { HTMLAttributes, ReactNode } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import MemoryWorkspace from '@/components/memory-app/MemoryWorkspace';
 import type { MemoryCatalogResponse, MemoryRecord } from '@/types/memory';
@@ -443,6 +443,29 @@ describe('MemoryWorkspace', () => {
         })
       );
     });
+  });
+
+  it('prevents competing memory writes and retains the draft after a failed save', async () => {
+    let failSave!: (error: Error) => void;
+    memoriesApi.createMemory.mockImplementationOnce(
+      () => new Promise((_, reject) => { failSave = reject; })
+    );
+    renderWorkspace();
+    await screen.findByRole('heading', { name: 'Agent Memory Ops' });
+    fireEvent.click(screen.getByRole('button', { name: 'Add decision' }));
+    fireEvent.change(screen.getByLabelText('Decision summary'), { target: { value: 'Keep evidence' } });
+    fireEvent.change(screen.getByLabelText('Decision details'), { target: { value: 'Retain provenance.' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save decision' }));
+
+    expect(screen.getByLabelText('Decision summary')).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Saving...' })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: 'Saving...' }));
+    expect(memoriesApi.createMemory).toHaveBeenCalledOnce();
+
+    await act(async () => failSave(new Error('Memory write failed')));
+    expect(await screen.findByText('Memory write failed')).toBeInTheDocument();
+    expect(screen.getByLabelText('Decision summary')).toHaveValue('Keep evidence');
+    expect(screen.getByRole('button', { name: 'Save decision' })).toBeEnabled();
   });
 
   it('shows document groups in the ingest tab', async () => {

@@ -1,21 +1,21 @@
 'use client';
 
-import { apiTokensApi } from '@/lib/api/backend/apiTokens';
-import { profileApi, type TunnelProvider } from '@/lib/api/backend/profile';
-import { getBackendUserProfilePreferences, usersApi } from '@/lib/api/backend/users';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import { useAgencyUserPreferences } from '@/lib/userPreferences';
-import { useMemo, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {apiTokensApi} from '@/lib/api/backend/apiTokens';
+import {profileApi, type TunnelProvider} from '@/lib/api/backend/profile';
+import {getBackendUserProfilePreferences, usersApi} from '@/lib/api/backend/users';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import {useAgencyUserPreferences} from '@/lib/userPreferences';
+import {useMemo, useState} from 'react';
+import {useSession} from 'next-auth/react';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import Image from 'next/image';
 import Link from 'next/link';
-import { Checkbox } from '@/components/library/shadcn/checkbox';
-import { Badge } from '@/components/library/shadcn/badge';
-import { Button } from '@/components/library/shadcn/button';
-import { Card, CardContent, CardHeader } from '@/components/library/shadcn/card';
-import { Input } from '@/components/library/shadcn/input';
-import { Label } from '@/components/library/shadcn/label';
+import {Checkbox} from '@/components/library/shadcn/checkbox';
+import {Badge} from '@/components/library/shadcn/badge';
+import {Button} from '@/components/library/shadcn/button';
+import {Card, CardContent, CardHeader} from '@/components/library/shadcn/card';
+import {Input} from '@/components/library/shadcn/input';
+import {Label} from '@/components/library/shadcn/label';
 import {
   Select,
   SelectContent,
@@ -41,8 +41,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/library/shadcn/table';
-import PageHeader from '@/components/app-shell/PageHeader';
-import { FieldFeedback, FormField, FormSection } from '@/components/app-shell/FormSection';
+import PageHeader, { WorkspaceSectionNav } from '@/components/app-shell/PageHeader';
+import {FieldFeedback, FormField, FormSection} from '@/components/app-shell/FormSection';
 import OpenVoiceSettingsCard from '@/components/profile/OpenVoiceSettingsCard';
 import LocalSignInSettingsCard from '@/components/profile/LocalSignInSettingsCard';
 import PersonalProfileSettingsCard from '@/components/profile/PersonalProfileSettingsCard';
@@ -61,8 +61,8 @@ import {
   SlidersHorizontal,
   Sparkles,
 } from 'lucide-react';
-import type { AuthUser } from '@/types/auth';
-import type { ApiTokenDefinition, ApiTokenScopeDefinition } from '@/types/apiTokens';
+import type {AuthUser} from '@/types/auth';
+import type {ApiTokenDefinition, ApiTokenScopeDefinition} from '@/types/apiTokens';
 
 const FALLBACK_TOKEN_SCOPES: ApiTokenScopeDefinition[] = [
   {
@@ -210,7 +210,7 @@ function isBackendManagedSessionToken(token: ApiTokenDefinition) {
 }
 
 export default function ProfilePage() {
-  const { data: session, status } = useSession();
+  const {data: session, status} = useSession();
   const queryClient = useQueryClient();
   const user = session?.user as AuthUser | undefined;
   const apiTokenCapability = profileApi.getApiTokenCapability();
@@ -224,7 +224,7 @@ export default function ProfilePage() {
   const [pendingTunnelProvider, setPendingTunnelProvider] = useState<TunnelProvider | null>(null);
   const [tunnelPreferenceError, setTunnelPreferenceError] = useState<string | null>(null);
   const {
-    preferences: { showDiagnostics, assistantLauncherMode, assistantLauncherIcon },
+    preferences: {showDiagnostics, assistantLauncherMode, assistantLauncherIcon},
     setShowDiagnostics,
     setAssistantLauncherMode,
     setAssistantLauncherIcon,
@@ -320,14 +320,14 @@ export default function ProfilePage() {
       if (selectedTokenScopes.length === 0) {
         throw new Error('Select at least one scope.');
       }
-      return apiTokensApi.createToken({ name, scopes: selectedTokenScopes });
+      return apiTokensApi.createToken({name, scopes: selectedTokenScopes});
     },
     onSuccess: async (token) => {
       setRevealedToken(token.token);
       setTokenName('');
       setTokenScopes(defaultTokenScopes(availableTokenScopes));
       setTokenNameTouched(false);
-      await queryClient.invalidateQueries({ queryKey: ['profileApiTokens'] });
+      await queryClient.invalidateQueries({queryKey: ['profileApiTokens']});
     },
     onError: (error) => {
       setTokenError(error instanceof Error ? error.message : 'Failed to create automation key.');
@@ -337,7 +337,7 @@ export default function ProfilePage() {
   const revokeTokenMutation = useMutation({
     mutationFn: (tokenId: string) => apiTokensApi.revokeToken(tokenId),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['profileApiTokens'] });
+      await queryClient.invalidateQueries({queryKey: ['profileApiTokens']});
     },
     onError: (error) => {
       setTokenError(error instanceof Error ? error.message : 'Failed to revoke automation key.');
@@ -345,7 +345,7 @@ export default function ProfilePage() {
   });
 
   const tunnelPreferenceMutation = useMutation({
-    mutationFn: ({ provider, applyNow }: { provider: TunnelProvider; applyNow: boolean }) =>
+    mutationFn: ({provider, applyNow}: { provider: TunnelProvider; applyNow: boolean }) =>
       profileApi.updatePublicEndpointPreference(
         provider,
         provider === 'cloudflare' || provider === 'ngrok'
@@ -377,7 +377,7 @@ export default function ProfilePage() {
       return;
     }
 
-    tunnelPreferenceMutation.mutate({ provider: pendingTunnelProvider, applyNow });
+    tunnelPreferenceMutation.mutate({provider: pendingTunnelProvider, applyNow});
   };
 
   const renderSupportChip = (supported: boolean, label: string) => (
@@ -400,7 +400,7 @@ export default function ProfilePage() {
   if (status === 'loading') {
     return (
       <div className="flex min-h-[calc(100vh-76px)] items-center justify-center">
-        <LoaderCircle className="size-7 animate-spin text-primary" aria-label="Loading profile" />
+        <LoaderCircle className="size-7 animate-spin text-primary" aria-label="Loading profile"/>
       </div>
     );
   }
@@ -409,7 +409,7 @@ export default function ProfilePage() {
   if (status === 'unauthenticated') {
     return (
       <div className="flex min-h-[calc(100vh-76px)] flex-col items-center justify-center p-4">
-        <AlertCircle className="h-16 w-16 text-red-500 mb-4" />
+        <AlertCircle className="h-16 w-16 text-red-500 mb-4"/>
         <h1 className="text-2xl font-bold text-center mb-2">Authentication Required</h1>
         <p className="text-gray-600 text-center mb-6">Please sign in to view your profile</p>
         <Button asChild>
@@ -420,7 +420,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6">
+    <div className="mx-auto min-w-0 w-full max-w-7xl">
       <PageHeader
         className="mb-8"
         icon={CircleUserRound}
@@ -439,12 +439,23 @@ export default function ProfilePage() {
         }
       />
 
+      <WorkspaceSectionNav label="Profile sections" sections={[
+        { id: 'personal-settings', label: 'Personal' },
+        ...(backendUser?.local_credentials_enabled ? [{ id: 'sign-in-settings', label: 'Security' }] : []),
+        { id: 'browser-preferences', label: 'Appearance' },
+        { id: 'integration-details', label: 'Connections' },
+        { id: 'voice-settings', label: 'Voice' },
+        { id: 'automation-keys', label: 'Automation' },
+      ]}/>
       <div className="grid gap-5">
-        <Card className="overflow-hidden border border-neutral-200 bg-white shadow-sm lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,2fr)] dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
-          <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 p-0 lg:border-r lg:border-b-0 dark:border-white/10 dark:bg-white/5">
+        <Card
+          className="overflow-hidden border border-neutral-200 bg-white shadow-sm lg:grid lg:grid-cols-[minmax(0,1.15fr)_minmax(0,2fr)] dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none">
+          <CardHeader
+            className="border-b border-neutral-200 bg-neutral-50/80 p-0 lg:border-r lg:border-b-0 dark:border-white/10 dark:bg-white/5">
             <div className="flex w-full items-center gap-4 px-5 py-5 text-left sm:px-6">
               {displayImage ? (
-                <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-4 ring-white dark:ring-white/10">
+                <div
+                  className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full ring-4 ring-white dark:ring-white/10">
                   <Image
                     src={displayImage}
                     alt={`${displayName}'s profile`}
@@ -454,8 +465,9 @@ export default function ProfilePage() {
                   />
                 </div>
               ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-900 dark:bg-primary-500/10 dark:text-primary-200">
-                  <CircleUserRound className="h-8 w-8" />
+                <div
+                  className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-primary-50 text-primary-900 dark:bg-primary-500/10 dark:text-primary-200">
+                  <CircleUserRound className="h-8 w-8"/>
                 </div>
               )}
               <div className="min-w-0">
@@ -472,17 +484,21 @@ export default function ProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="p-0">
-            <div className="divide-y divide-neutral-200 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-white/10">
+            <div
+              className="divide-y divide-neutral-200 sm:grid sm:grid-cols-3 sm:divide-x sm:divide-y-0 dark:divide-white/10">
               <div className="px-5 py-4 sm:px-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                   Backend User ID
                 </p>
-                <p className="mt-2 break-all text-sm font-medium text-neutral-900 dark:text-slate-100">
+                <p
+                  className="mt-2 break-all text-sm font-medium text-neutral-900 dark:text-slate-100">
                   {backendUser?.id || 'Pending sync'}
                 </p>
               </div>
               <div className="px-5 py-4 sm:px-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                   Status
                 </p>
                 <div className="mt-2">
@@ -492,7 +508,8 @@ export default function ProfilePage() {
                 </div>
               </div>
               <div className="px-5 py-4 sm:px-6">
-                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <p
+                  className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                   Session Source
                 </p>
                 <p className="mt-2 text-sm text-neutral-700 dark:text-slate-300">
@@ -505,7 +522,8 @@ export default function ProfilePage() {
               </div>
             </div>
             {backendUserQuery.isError ? (
-              <div className="border-t border-amber-200 bg-amber-50 px-6 py-4 text-sm text-amber-800">
+              <div
+                className="border-t border-amber-200 bg-amber-50 px-6 py-4 text-sm text-amber-800">
                 Backend user profile is not available yet. The frontend session is still active, but
                 automation-key ownership requires backend identity sync.
               </div>
@@ -513,19 +531,22 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {backendUser ? <PersonalProfileSettingsCard user={backendUser} /> : null}
+        {backendUser ? <div id="personal-settings" className="scroll-mt-28"><PersonalProfileSettingsCard user={backendUser}/></div> : null}
 
         {backendUser?.local_credentials_enabled ? (
-          <LocalSignInSettingsCard user={backendUser} />
+          <div id="sign-in-settings" className="scroll-mt-28"><LocalSignInSettingsCard user={backendUser}/></div>
         ) : null}
 
         <div className="flex flex-col gap-5">
-          <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-            <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
-              <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <Card id="integration-details"
+            className="scroll-mt-28 border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+            <CardHeader
+              className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+              <div
+                className="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <Globe2 className="h-5 w-5 text-primary" />
+                    <Globe2 className="h-5 w-5 text-primary"/>
                     <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
                       Integration Setup Details
                     </h2>
@@ -561,15 +582,18 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="flex flex-col gap-5 pt-5 sm:pt-6">
               {publicEndpointQuery.isError ? (
-                <div className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
+                <div
+                  className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-500/25 dark:bg-amber-500/10 dark:text-amber-100">
                   Could not load the current public endpoint. Reopen setup after the launcher has
                   started the tunnel.
                 </div>
               ) : null}
 
               <div className="grid gap-4 md:grid-cols-2">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <div
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                     Public Backend Base URL
                   </p>
                   {publicEndpointQuery.data?.current_public_url ? (
@@ -595,9 +619,9 @@ export default function ProfilePage() {
                         onClick={copyPublicUrl}
                       >
                         {publicUrlCopied ? (
-                          <Check className="size-4" aria-hidden="true" />
+                          <Check className="size-4" aria-hidden="true"/>
                         ) : (
-                          <Copy className="size-4" aria-hidden="true" />
+                          <Copy className="size-4" aria-hidden="true"/>
                         )}
                       </Button>
                     </div>
@@ -607,8 +631,10 @@ export default function ProfilePage() {
                     </p>
                   )}
                 </div>
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <div
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                     Tunnel Preference
                   </p>
                   <div className="mt-3 space-y-2">
@@ -624,7 +650,7 @@ export default function ProfilePage() {
                         id="profile-tunnel-provider"
                         aria-label="Public tunnel provider"
                       >
-                        <SelectValue placeholder="Loading" />
+                        <SelectValue placeholder="Loading"/>
                       </SelectTrigger>
                       <SelectContent>
                         {Object.entries(TUNNEL_PROVIDER_LABELS).map(([provider, label]) => (
@@ -667,12 +693,14 @@ export default function ProfilePage() {
               </div>
 
               {publicEndpointQuery.data?.current_public_url ? (
-                <div className="rounded-2xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/25 dark:bg-sky-500/10">
+                <div
+                  className="rounded-2xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/25 dark:bg-sky-500/10">
                   <p className="text-sm font-semibold text-sky-900 dark:text-sky-100">
                     Common integration URL format
                   </p>
                   <div className="mt-2 flex items-start gap-2">
-                    <code className="min-w-0 flex-1 break-all rounded bg-white px-3 py-2 text-xs text-sky-900 dark:bg-slate-950/80 dark:text-sky-100">
+                    <code
+                      className="min-w-0 flex-1 break-all rounded bg-white px-3 py-2 text-xs text-sky-900 dark:bg-slate-950/80 dark:text-sky-100">
                       {publicEndpointQuery.data.current_public_url}
                       /integrations/conversations/adapters/&lt;provider&gt;/webhook
                     </code>
@@ -689,9 +717,9 @@ export default function ProfilePage() {
                       onClick={copyCommonIntegrationUrl}
                     >
                       {commonIntegrationUrlCopied ? (
-                        <Check className="size-4" aria-hidden="true" />
+                        <Check className="size-4" aria-hidden="true"/>
                       ) : (
-                        <Copy className="size-4" aria-hidden="true" />
+                        <Copy className="size-4" aria-hidden="true"/>
                       )}
                     </Button>
                   </div>
@@ -745,14 +773,17 @@ export default function ProfilePage() {
             </AlertDialogContent>
           </AlertDialog>
 
-          <OpenVoiceSettingsCard id="openvoice" />
+          <div id="voice-settings" className="scroll-mt-28"><OpenVoiceSettingsCard id="openvoice"/></div>
 
-          <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-            <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
-              <div className="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <Card id="browser-preferences"
+            className="scroll-mt-28 border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+            <CardHeader
+              className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+              <div
+                className="flex w-full flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <SlidersHorizontal className="h-5 w-5 text-primary" />
+                    <SlidersHorizontal className="h-5 w-5 text-primary"/>
                     <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
                       Browser preferences
                     </h2>
@@ -773,7 +804,7 @@ export default function ProfilePage() {
               <FormSection
                 title="Main Agent launcher"
                 description="Choose where help appears and how the launcher identifies itself."
-                icon={<BotMessageSquare className="size-4" aria-hidden="true" />}
+                icon={<BotMessageSquare className="size-4" aria-hidden="true"/>}
                 contentClassName="flex flex-col gap-5"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -840,7 +871,7 @@ export default function ProfilePage() {
                               : 'border-neutral-200 bg-white text-neutral-800 hover:border-primary-200 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-200'
                           }`}
                         >
-                          <Icon className="size-4" aria-hidden="true" />
+                          <Icon className="size-4" aria-hidden="true"/>
                           <span className="mt-2 block text-sm font-semibold">{option.label}</span>
                           <span className="mt-1 block text-xs opacity-75">
                             {option.description}
@@ -851,7 +882,8 @@ export default function ProfilePage() {
                   </div>
                 </fieldset>
 
-                <fieldset className="flex flex-col gap-2 border-t border-neutral-200 pt-4 dark:border-white/10">
+                <fieldset
+                  className="flex flex-col gap-2 border-t border-neutral-200 pt-4 dark:border-white/10">
                   <legend className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                     Launcher identity
                   </legend>
@@ -862,9 +894,9 @@ export default function ProfilePage() {
                   >
                     {(
                       [
-                        { id: 'bot', label: 'Assistant', icon: BotMessageSquare },
-                        { id: 'sparkles', label: 'Spark', icon: Sparkles },
-                        { id: 'initial', label: 'Agent initial', icon: CircleUserRound },
+                        {id: 'bot', label: 'Assistant', icon: BotMessageSquare},
+                        {id: 'sparkles', label: 'Spark', icon: Sparkles},
+                        {id: 'initial', label: 'Agent initial', icon: CircleUserRound},
                       ] as const
                     ).map((option) => {
                       const Icon = option.icon;
@@ -882,7 +914,7 @@ export default function ProfilePage() {
                               : 'border-neutral-200 bg-white text-neutral-700 hover:border-primary-200 dark:border-white/10 dark:bg-slate-950/50 dark:text-slate-300'
                           }`}
                         >
-                          <Icon className="size-4" aria-hidden="true" />
+                          <Icon className="size-4" aria-hidden="true"/>
                           {option.label}
                         </button>
                       );
@@ -897,7 +929,8 @@ export default function ProfilePage() {
                 advanced
                 advancedLabel="Show diagnostics setting"
               >
-                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-(--agency-shell-border) bg-(--agency-row-hover) p-4 transition hover:border-primary-200">
+                <label
+                  className="flex cursor-pointer items-start gap-3 rounded-xl border border-(--agency-shell-border) bg-(--agency-row-hover) p-4 transition hover:border-primary-200">
                   <Checkbox
                     aria-label="Show diagnostics workspace"
                     checked={showDiagnostics}
@@ -930,11 +963,13 @@ export default function ProfilePage() {
 
           <details
             id="automation-keys"
-            className="group overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none"
+            className="scroll-mt-28 group overflow-hidden rounded-xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-slate-950/45 dark:shadow-none"
           >
-            <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 sm:px-6">
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-violet-300/15 dark:bg-violet-400/10 dark:text-violet-200">
-                <Key className="size-4" aria-hidden="true" />
+            <summary
+              className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400 sm:px-6">
+              <span
+                className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-violet-300/15 dark:bg-violet-400/10 dark:text-violet-200">
+                <Key className="size-4" aria-hidden="true"/>
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block text-lg font-semibold text-neutral-900 dark:text-slate-100">
@@ -947,23 +982,28 @@ export default function ProfilePage() {
               <Badge variant="secondary" className="hidden sm:inline-flex">
                 {automationKeyRows.length} automation key{automationKeyRows.length === 1 ? '' : 's'}
               </Badge>
-              <ChevronDown className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+              <ChevronDown
+                className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180"/>
             </summary>
-            <div className="flex flex-col gap-6 border-t border-neutral-200 p-5 sm:p-6 dark:border-white/10">
+            <div
+              className="flex flex-col gap-6 border-t border-neutral-200 p-5 sm:p-6 dark:border-white/10">
               <div className="flex flex-wrap gap-2">
                 {renderSupportChip(apiTokenCapability.readSupported, 'Read')}
                 {renderSupportChip(apiTokenCapability.writeSupported, 'Write')}
               </div>
 
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/25 dark:bg-emerald-500/10">
+              <div
+                className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-500/25 dark:bg-emerald-500/10">
                 <p className="text-sm text-emerald-800 dark:text-emerald-100">
                   {apiTokenCapability.message}
                 </p>
               </div>
 
               <div className="grid gap-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <div
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                     Routes
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -974,16 +1014,20 @@ export default function ProfilePage() {
                     ))}
                   </div>
                 </div>
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <div
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                     Active keys
                   </p>
                   <p className="mt-3 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
                     {automationKeyRows.filter((token) => !token.revoked_at).length}
                   </p>
                 </div>
-                <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                <div
+                  className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                  <p
+                    className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                     Scopes In Use
                   </p>
                   <p className="mt-3 text-2xl font-semibold text-neutral-900 dark:text-slate-100">
@@ -993,9 +1037,12 @@ export default function ProfilePage() {
               </div>
             </div>
 
-            <div className="grid gap-6 border-t border-(--agency-shell-border) p-5 sm:p-6 2xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
-              <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-                <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+            <div
+              className="grid gap-6 border-t border-(--agency-shell-border) p-5 sm:p-6 2xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)]">
+              <Card
+                className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+                <CardHeader
+                  className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
                   <div>
                     <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
                       Create automation key
@@ -1006,8 +1053,10 @@ export default function ProfilePage() {
                   </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-5 pt-5 sm:pt-6">
-                  <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                  <div
+                    className="rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/5">
+                    <p
+                      className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                       Recommended
                     </p>
                     <p className="mt-2 text-sm text-neutral-700 dark:text-slate-300">
@@ -1047,16 +1096,19 @@ export default function ProfilePage() {
                         {selectedTokenScopes.length} selected
                       </span>
                     </div>
-                    <div className="flex max-h-72 flex-col gap-3 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
+                    <div
+                      className="flex max-h-72 flex-col gap-3 overflow-y-auto rounded-2xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/60">
                       {tokenScopesQuery.isLoading ? (
-                        <div className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400">
-                          <LoaderCircle className="size-4 animate-spin text-primary" />
+                        <div
+                          className="flex items-center gap-2 text-sm text-neutral-500 dark:text-slate-400">
+                          <LoaderCircle className="size-4 animate-spin text-primary"/>
                           <span>Loading allowed scopes...</span>
                         </div>
                       ) : (
                         groupedTokenScopes.map((group) => (
                           <div key={group.category} className="flex flex-col gap-2">
-                            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+                            <p
+                              className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
                               {group.category}
                             </p>
                             <div className="flex flex-col gap-2">
@@ -1075,14 +1127,17 @@ export default function ProfilePage() {
                                   />
                                   <div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                                      <span
+                                        className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                                         {scope.label}
                                       </span>
-                                      <code className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700 dark:bg-white/10 dark:text-slate-300">
+                                      <code
+                                        className="rounded bg-neutral-100 px-2 py-0.5 text-xs text-neutral-700 dark:bg-white/10 dark:text-slate-300">
                                         {scope.id}
                                       </code>
                                     </div>
-                                    <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                                    <p
+                                      className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
                                       {scope.description}
                                     </p>
                                   </div>
@@ -1099,13 +1154,15 @@ export default function ProfilePage() {
                     </p>
                   </fieldset>
 
-                  <FieldFeedback error={tokenError} />
+                  <FieldFeedback error={tokenError}/>
                   {revealedToken ? (
-                    <div className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/25 dark:bg-amber-500/10">
+                    <div
+                      className="rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/25 dark:bg-amber-500/10">
                       <p className="mb-2 text-sm font-semibold text-amber-900 dark:text-amber-100">
                         Copy this automation key now. It will not be shown again.
                       </p>
-                      <code className="block break-all rounded bg-white px-3 py-2 text-xs text-amber-900 dark:bg-slate-950/80 dark:text-amber-100">
+                      <code
+                        className="block break-all rounded bg-white px-3 py-2 text-xs text-amber-900 dark:bg-slate-950/80 dark:text-amber-100">
                         {revealedToken}
                       </code>
                     </div>
@@ -1123,15 +1180,17 @@ export default function ProfilePage() {
                     }}
                   >
                     {createTokenMutation.isPending ? (
-                      <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                      <LoaderCircle data-icon="inline-start" className="animate-spin"/>
                     ) : null}
                     {createTokenMutation.isPending ? 'Creating...' : 'Create automation key'}
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-                <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+              <Card
+                className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+                <CardHeader
+                  className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
                   <div className="flex w-full items-center justify-between gap-3">
                     <div>
                       <h3 className="text-lg font-semibold text-neutral-900 dark:text-slate-100">
@@ -1152,11 +1211,13 @@ export default function ProfilePage() {
                 </CardHeader>
                 <CardContent className="pt-5 sm:pt-6">
                   {apiTokensQuery.isError ? (
-                    <div className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-100">
+                    <div
+                      className="rounded-md border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-500/25 dark:bg-red-500/10 dark:text-red-100">
                       Failed to load automation keys.
                     </div>
                   ) : automationKeyRows.length === 0 ? (
-                    <div className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center text-sm text-neutral-500 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-400">
+                    <div
+                      className="rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 p-10 text-center text-sm text-neutral-500 dark:border-white/10 dark:bg-slate-950/60 dark:text-slate-400">
                       No automation keys have been created yet.
                     </div>
                   ) : (
@@ -1191,7 +1252,8 @@ export default function ProfilePage() {
                               {formatDateTime(token.last_used_at, profilePreferences.timezone)}
                             </TableCell>
                             <TableCell>
-                              <code className="rounded bg-default-100 px-2 py-1 text-xs dark:bg-white/10 dark:text-slate-200">
+                              <code
+                                className="rounded bg-default-100 px-2 py-1 text-xs dark:bg-white/10 dark:text-slate-200">
                                 ...{token.last4}
                               </code>
                             </TableCell>
@@ -1213,7 +1275,7 @@ export default function ProfilePage() {
                               >
                                 {revokeTokenMutation.isPending &&
                                 revokeTokenMutation.variables === token.id ? (
-                                  <LoaderCircle data-icon="inline-start" className="animate-spin" />
+                                  <LoaderCircle data-icon="inline-start" className="animate-spin"/>
                                 ) : null}
                                 {revokeTokenMutation.isPending &&
                                 revokeTokenMutation.variables === token.id

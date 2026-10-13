@@ -168,6 +168,22 @@ describe('Goal supervision workspaces', () => {
     expect(screen.getByRole('link', { name: /Inspect/ })).toHaveAttribute('href', '/goals/goal-1');
   });
 
+  it('separates historical blockers from current attention without taking an action', async () => {
+    mocks.goalsApi.getOperatorView.mockResolvedValue({
+      items: [summary, { ...summary, blocked: true, goal: { ...goal, id: 'old-goal', objective: 'Historical cancelled work', status: 'cancelled' } }, { ...summary, blocked: true, goal: { ...goal, id: 'blocked-goal', objective: 'Current blocked work' } }],
+      count: 3, summary: { blocked_count: 2 },
+    });
+    renderWithQuery(<GoalsWorkspace/>);
+    await screen.findByText('Current blocked work');
+    expect(screen.queryByText('Historical cancelled work')).not.toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('tab', {name: 'Needs attention'}));
+    expect(screen.getByText('Current blocked work')).toBeInTheDocument();
+    expect(screen.queryByText(goal.objective)).not.toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('tab', {name: 'History'}));
+    expect(screen.getByText('Historical cancelled work')).toBeInTheDocument();
+    expect(mocks.goalsApi.applyOperatorAction).not.toHaveBeenCalled();
+  });
+
   it('resolves linked-run input and approvals from the goal view', async () => {
     renderWithQuery(<GoalDetailWorkspace goalId="goal-1" />);
 

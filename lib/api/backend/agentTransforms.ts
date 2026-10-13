@@ -16,7 +16,7 @@ function stringArray(value: unknown): string[] {
     : [];
 }
 
-export function toAgentConfig(definition: AgentDefinition): AgentConfig {
+function toAgentConfig(definition: AgentDefinition): AgentConfig {
   const maybeCamelDefinition = definition as AgentDefinition & {
     toolIds?: unknown;
     handoffAgentIds?: unknown;
@@ -88,7 +88,7 @@ export function toBehaviorTuningProfile(profile: {
   };
 }
 
-export function toRunContainerInfo(record: {
+function toRunContainerInfo(record: {
   container_id?: string | null;
   container_name?: string | null;
   container_image?: string | null;

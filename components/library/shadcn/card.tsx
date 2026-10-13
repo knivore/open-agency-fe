@@ -27,6 +27,8 @@ const CardTitle = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivE
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
+      role="heading"
+      aria-level={2}
       className={cn('text-xl font-semibold leading-none tracking-[-0.02em]', className)}
       {...props}
     />

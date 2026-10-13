@@ -6,7 +6,7 @@ import type {
   ReactNode,
 } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 
@@ -47,9 +47,14 @@ vi.mock('@/components/library/shadcn/button', () => ({
   },
 }));
 
-vi.mock('@/components/library/shadcn/input', () => ({
-  Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
-}));
+vi.mock('@/components/library/shadcn/input', async () => {
+  const { forwardRef } = await import('react');
+  const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(
+    (props, ref) => <input ref={ref} {...props} />
+  );
+  Input.displayName = 'MockInput';
+  return { Input };
+});
 
 vi.mock('@/components/library/shadcn/label', () => ({
   Label: ({ children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
@@ -116,6 +121,24 @@ describe('DocumentIngestionControl', () => {
 
     expect(optionLabels).toEqual(['User', 'Workspace', 'Conversation', 'Workflow']);
     expect(optionLabels).not.toContain('Global');
+  });
+
+  it('keeps ingestion locked while the owner refreshes its records', async () => {
+    let finishRefresh!: () => void;
+    const onIngested = vi.fn(
+      () => new Promise<void>((resolve) => { finishRefresh = resolve; })
+    );
+    const { container } = renderControl(<DocumentIngestionControl onIngested={onIngested} />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(['policy'], 'policy.md', { type: 'text/markdown' })] },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: 'Upload' }));
+    await waitFor(() => expect(onIngested).toHaveBeenCalledOnce());
+    expect(screen.getByRole('button', { name: 'Change file' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Uploading...' })).toBeDisabled();
+    await act(async () => finishRefresh());
+    expect(screen.getByRole('button', { name: 'Choose file' })).toBeEnabled();
+    expect(documentsApi.ingestDocument).toHaveBeenCalledOnce();
   });
 
   it('posts locked workflow and agent context through the shared documents api', async () => {

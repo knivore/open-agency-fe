@@ -1,5 +1,8 @@
 'use client';
 
+import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
+
+import { NativeSelect } from '@/components/library/shadcn/select';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useMemo, useRef, useState } from 'react';
@@ -37,7 +40,6 @@ import {
   ListChecks,
   Plus,
   RefreshCw,
-  Search,
   Upload,
   Workflow,
   Wrench,
@@ -407,7 +409,7 @@ function CreateWorkflowDialog({
               description="Choose Native unless this workflow requires another execution adapter."
               optional
             >
-              <select
+              <NativeSelect
                 id="new-workflow-runtime"
                 value={form.runtimeAdapterId}
                 onChange={(event) =>
@@ -423,7 +425,7 @@ function CreateWorkflowDialog({
                     {adapter.name} ({adapter.id})
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </FormField>
           </FormSection>
           {createMutation.isError ? (
@@ -698,7 +700,7 @@ function ImportWorkflowDialog({
       >
         <div className="flex flex-col gap-4">
           <div className="rounded-md border border-dashed border-border bg-muted/30 p-4">
-            <input
+            <Input
               ref={fileInputRef}
               type="file"
               accept=".json,application/json"
@@ -804,7 +806,7 @@ function ImportWorkflowDialog({
                               Available locally
                             </Badge>
                           ) : (
-                            <select
+                            <NativeSelect
                               aria-label={`Map model profile ${profile.id}`}
                               value={mappedProfileId}
                               onChange={(event) =>
@@ -824,7 +826,7 @@ function ImportWorkflowDialog({
                                   {localProfileOption.name}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                           )}
                         </div>
                       ))}
@@ -876,7 +878,7 @@ function ImportWorkflowDialog({
                                 Custom tool will import
                               </Badge>
                             ) : (
-                              <select
+                              <NativeSelect
                                 aria-label={`Map tool ${tool.id}`}
                                 value={mappedToolId}
                                 onChange={(event) =>
@@ -898,7 +900,7 @@ function ImportWorkflowDialog({
                                       localToolOption.id}
                                   </option>
                                 ))}
-                              </select>
+                              </NativeSelect>
                             )}
                           </div>
                         )
@@ -1181,63 +1183,23 @@ export default function WorkflowListWorkspace() {
       ) : null}
 
       {workflows.length > 0 ? (
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative block w-full max-w-2xl lg:flex-1">
-            <span className="sr-only">Search workflows</span>
-            <Search
-              className="pointer-events-none absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)"
-              aria-hidden="true"
-            />
-            <Input
-              type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search workflows"
-              className="h-11 rounded-lg border-(--agency-control-border) bg-(--agency-control-bg) pl-10 shadow-(--agency-outline-shadow)"
-            />
-          </label>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor="workflow-status-filter">
-              Filter by status
-            </label>
-            <select
-              id="workflow-status-filter"
-              value={statusFilter}
-              onChange={(event) =>
-                setStatusFilter(event.target.value as 'all' | 'ready' | 'needs-attention')
-              }
-              className="h-11 rounded-lg border border-(--agency-control-border) bg-(--agency-control-bg) px-3 text-sm font-medium text-(--agency-control-text) shadow-(--agency-outline-shadow)"
-            >
-              <option value="all">Status: All</option>
-              <option value="ready">Status: Ready</option>
-              <option value="needs-attention">Status: Needs attention</option>
-            </select>
-            <label className="sr-only" htmlFor="workflow-schedule-filter">
-              Filter by schedule
-            </label>
-            <select
-              id="workflow-schedule-filter"
-              value={scheduleFilter}
-              onChange={(event) =>
-                setScheduleFilter(event.target.value as 'all' | 'scheduled' | 'unscheduled')
-              }
-              className="h-11 rounded-lg border border-(--agency-control-border) bg-(--agency-control-bg) px-3 text-sm font-medium text-(--agency-control-text) shadow-(--agency-outline-shadow)"
-            >
-              <option value="all">Schedule: All</option>
-              <option value="scheduled">Schedule: Active</option>
-              <option value="unscheduled">Schedule: None</option>
-            </select>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-11 px-3 text-(--agency-shell-muted)"
-              onClick={clearFilters}
-              disabled={!filtersActive}
-            >
-              Clear
-            </Button>
-          </div>
-        </div>
+        <WorkspaceToolbar
+          label="Filter workflows"
+          search={{ label: 'Search workflows', value: searchQuery, onChange: setSearchQuery }}
+          summary={`Showing ${visibleWorkflows.length} of ${workflows.length} workflows`}
+          onReset={filtersActive ? clearFilters : undefined}
+        >
+          <NativeSelect aria-label="Filter by status" value={statusFilter}
+            onChange={(event) => setStatusFilter(event.target.value as 'all' | 'ready' | 'needs-attention')}
+            className="w-full sm:w-48">
+            <option value="all">Status: All</option><option value="ready">Status: Ready</option><option value="needs-attention">Status: Needs attention</option>
+          </NativeSelect>
+          <NativeSelect aria-label="Filter by schedule" value={scheduleFilter}
+            onChange={(event) => setScheduleFilter(event.target.value as 'all' | 'scheduled' | 'unscheduled')}
+            className="w-full sm:w-48">
+            <option value="all">Schedule: All</option><option value="scheduled">Schedule: Active</option><option value="unscheduled">Schedule: None</option>
+          </NativeSelect>
+        </WorkspaceToolbar>
       ) : null}
 
       {workflows.length > 0 && visibleWorkflows.length === 0 ? (
@@ -1390,13 +1352,6 @@ export default function WorkflowListWorkspace() {
             })}
           </div>
         </section>
-      ) : null}
-
-      {visibleWorkflows.length > 0 ? (
-        <p className="text-sm text-(--agency-shell-muted)">
-          Showing {visibleWorkflows.length} of {workflows.length}{' '}
-          {workflows.length === 1 ? 'workflow' : 'workflows'}
-        </p>
       ) : null}
 
       <div className="flex flex-wrap items-center justify-center gap-2 py-2 text-sm text-(--agency-shell-muted)">

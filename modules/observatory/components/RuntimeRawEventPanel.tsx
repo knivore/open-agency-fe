@@ -1,5 +1,6 @@
 'use client';
 
+import { Textarea } from '@/components/library/shadcn/textarea';
 import { useState } from 'react';
 
 import type {
@@ -50,7 +51,7 @@ export default function RuntimeRawEventPanel({
         </div>
         <span className={styles.badge}>json</span>
       </div>
-      <textarea
+      <Textarea
         className={styles.textarea}
         value={draft}
         onChange={(event) => setDraft(event.target.value)}

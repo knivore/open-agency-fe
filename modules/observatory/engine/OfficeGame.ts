@@ -1,3 +1,4 @@
+import type { OfficeWalkthroughProgress } from './rendering/officeWalkthrough';
 import type Phaser from 'phaser';
 
 import { createBootScene } from '@/modules/observatory/engine/scenes/BootScene';
@@ -22,6 +23,7 @@ export interface ObservatoryGameOptions {
   activeWallEditRoomId?: string | null;
   activeWallEditTool?: 'door' | 'floor' | 'opening' | 'paint' | 'tile';
   activeWallEditWallAssetId?: string | null;
+  placementActive?: boolean;
   allowPan?: boolean;
   allowZoom?: boolean;
   enableAmbientAutoplay?: boolean;
@@ -29,6 +31,7 @@ export interface ObservatoryGameOptions {
   initialZoom?: number | null;
   layout?: ObservatoryLayoutDocument;
   onCameraStateChange?: (state: ObservatoryCameraState) => void;
+  onGridHover?: (point: ObservatoryCanvasGridClick) => void;
   onGridClick?: (point: ObservatoryCanvasGridClick) => void;
   onRoomResizeCommit?: (roomId: string, bounds: ObservatoryGridRect) => void;
   onSelectionDrag?: (payload: {
@@ -49,6 +52,11 @@ export interface ObservatoryGameOptions {
 }
 
 export interface ObservatoryGameHandle {
+  startOfficeWalkthrough(
+    agentId: string,
+    notify: (progress: OfficeWalkthroughProgress) => void
+  ): void;
+  stopOfficeWalkthrough(): void;
   game: Phaser.Game;
   destroy(): void;
   getSelectionOverlayState(): ObservatoryCanvasOverlayState | null;
@@ -70,6 +78,7 @@ export async function createObservatoryGame({
   activeWallEditRoomId,
   activeWallEditTool,
   activeWallEditWallAssetId,
+  placementActive = false,
   allowPan = true,
   allowZoom = true,
   enableAmbientAutoplay = false,
@@ -78,6 +87,7 @@ export async function createObservatoryGame({
   layout = sampleLayout as ObservatoryLayoutDocument,
   onCameraStateChange,
   onGridClick,
+  onGridHover,
   onRoomResizeCommit,
   onSelectionDrag,
   onSelectionChange,
@@ -137,11 +147,13 @@ export async function createObservatoryGame({
       | 'activeWallEditRoomId'
       | 'activeWallEditTool'
       | 'activeWallEditWallAssetId'
+      | 'placementActive'
       | 'allowPan'
       | 'allowZoom'
       | 'enableAmbientAutoplay'
       | 'initialZoom'
       | 'onCameraStateChange'
+      | 'onGridHover'
       | 'onGridClick'
       | 'onRoomResizeCommit'
       | 'onSelectionDrag'
@@ -166,11 +178,13 @@ export async function createObservatoryGame({
     activeWallEditRoomId: nextOptions.activeWallEditRoomId,
     activeWallEditTool: nextOptions.activeWallEditTool,
     activeWallEditWallAssetId: nextOptions.activeWallEditWallAssetId,
+    placementActive: nextOptions.placementActive,
     allowPan: nextOptions.allowPan,
     allowZoom: nextOptions.allowZoom,
     enableAmbientAutoplay: nextOptions.enableAmbientAutoplay,
     initialZoom: nextOptions.initialZoom,
     onCameraStateChange: nextOptions.onCameraStateChange,
+    onGridHover: nextOptions.onGridHover,
     onGridClick: nextOptions.onGridClick,
     onRoomResizeCommit: nextOptions.onRoomResizeCommit,
     onSelectionDrag: nextOptions.onSelectionDrag,
@@ -185,12 +199,14 @@ export async function createObservatoryGame({
     activeWallEditRoomId,
     activeWallEditTool,
     activeWallEditWallAssetId,
+    placementActive,
     allowPan,
     allowZoom,
     enableAmbientAutoplay,
     initialZoom,
     onCameraStateChange,
     onGridClick,
+    onGridHover,
     onRoomResizeCommit,
     onSelectionDrag,
     onSelectionChange,
@@ -284,6 +300,18 @@ export async function createObservatoryGame({
   });
 
   return {
+    startOfficeWalkthrough(agentId, notify) {
+      const scene = game.scene.getScene(sceneKeys.office) as {
+        startOfficeWalkthrough?: (id: string, callback: typeof notify) => void;
+      } | null;
+      scene?.startOfficeWalkthrough?.(agentId, notify);
+    },
+    stopOfficeWalkthrough() {
+      const scene = game.scene.getScene(sceneKeys.office) as {
+        stopOfficeWalkthrough?: () => void;
+      } | null;
+      scene?.stopOfficeWalkthrough?.();
+    },
     game,
     destroy() {
       game.destroy(true);

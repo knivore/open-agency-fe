@@ -1,9 +1,9 @@
-import type { AgentDefinition } from '@/types/agents';
-import type { JsonObject, JsonValue } from '@/types/api';
-import type { ApprovalRequest } from '@/types/conversations';
-import type { ExecutionEventRecord } from '@/types/runtime';
-import type { ToolDefinition, ToolParameterMetadata } from '@/types/tools';
-import { z } from 'zod';
+import type {AgentDefinition} from '@/types/agents';
+import type {JsonObject, JsonValue} from '@/types/api';
+import type {ApprovalRequest} from '@/types/conversations';
+import type {ExecutionEventRecord} from '@/types/runtime';
+import type {ToolDefinition, ToolParameterMetadata} from '@/types/tools';
+import {z} from 'zod';
 
 export type WorkflowCapabilityTag = 'home-control' | 'vision' | 'voice';
 
@@ -535,15 +535,6 @@ export interface WorkflowExecutionStartPayload {
   runtimeAdapterId?: string | null;
   executionHost?: ExecutionHost | null;
   agentConfigs?: Record<string, WorkflowAgentRuntimeConfig>;
-}
-
-export interface WorkflowRunStatus {
-  status: string;
-  result?: string;
-}
-
-export interface WorkflowRunInputs {
-  [key: string]: string;
 }
 
 export interface WorkflowAgentToolConfig {

@@ -9,22 +9,29 @@ import {
   removeSavedRunView,
   saveRunView,
   useSavedRunViews,
+  type SavedRunView,
 } from '@/lib/runs/savedViews';
 
 export default function RunsSavedViews({
   search,
   status,
+  workflowId = 'all',
+  dateRange = 'all',
+  workflowLabel,
   onApply,
 }: {
   search: string;
   status: RunsStatusFilter;
-  onApply: (view: { search: string; status: RunsStatusFilter }) => void;
+  workflowId?: string;
+  dateRange?: string;
+  workflowLabel?: string;
+  onApply: (view: SavedRunView) => void;
 }) {
   const savedViews = useSavedRunViews();
-  const hasActiveFilter = search.trim().length > 0 || status !== 'all';
+  const hasActiveFilter = search.trim().length > 0 || status !== 'all' || workflowId !== 'all' || dateRange !== 'all';
 
   const handleSave = () => {
-    const created = createSavedRunView(search, status);
+    const created = createSavedRunView(search, status, { workflowId, dateRange, workflowLabel });
     const saved = saveRunView(created);
     toast.success(saved.id === created.id ? 'Run view saved.' : 'This run view is already saved.', {
       position: 'top-right',

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type {ReactNode} from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -8,8 +8,8 @@ import {
   ShieldAlert,
   WifiOff,
 } from 'lucide-react';
-import { Button } from '@/components/library/shadcn/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/library/shadcn/card';
+import {Button} from '@/components/library/shadcn/button';
+import {Card, CardContent, CardHeader, CardTitle} from '@/components/library/shadcn/card';
 
 export type AppStateVariant =
   | 'empty'
@@ -53,9 +53,8 @@ const statePresentation = {
   },
   loading: {
     icon: LoaderCircle,
-    iconClass: 'animate-spin text-(--activity-foreground) dark:text-(--activity)',
-    surfaceClass:
-      'border-(--activity-foreground) bg-(--activity-subtle) dark:border-(--activity) dark:bg-(--activity-subtle)',
+    iconClass: 'animate-spin text-primary',
+    surfaceClass: 'border-border bg-card',
   },
   offline: {
     icon: WifiOff,
@@ -89,15 +88,15 @@ function defaultActionLabel(variant: AppStateVariant) {
 }
 
 export default function AppState({
-  variant,
-  title,
-  description,
-  actionLabel,
-  onAction,
-  secondaryAction,
-  children,
-  compact = false,
-}: AppStateProps) {
+                                   variant,
+                                   title,
+                                   description,
+                                   actionLabel,
+                                   onAction,
+                                   secondaryAction,
+                                   children,
+                                   compact = false,
+                                 }: AppStateProps) {
   const presentation = statePresentation[variant];
   const StateIcon = presentation.icon;
   const resolvedActionLabel = actionLabel ?? defaultActionLabel(variant);
@@ -112,8 +111,9 @@ export default function AppState({
     >
       <CardHeader className={compact ? 'pb-2' : undefined}>
         <div className="flex items-start gap-3">
-          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-current/10 bg-white/70 dark:bg-slate-950/50">
-            <StateIcon className={`size-4.5 ${presentation.iconClass}`} aria-hidden="true" />
+          <span
+            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-current/10 bg-white/70 dark:bg-slate-950/50">
+            <StateIcon className={`size-4.5 ${presentation.iconClass}`} aria-hidden="true"/>
           </span>
           <div className="min-w-0">
             <CardTitle className={compact ? 'text-base' : 'text-lg'}>{title}</CardTitle>
@@ -129,7 +129,7 @@ export default function AppState({
           <div className="flex shrink-0 flex-wrap gap-2">
             {resolvedActionLabel && onAction ? (
               <Button type="button" variant="outline" onClick={onAction}>
-                <RefreshCw className="mr-2 size-4" aria-hidden="true" />
+                <RefreshCw className="mr-2 size-4" aria-hidden="true"/>
                 {resolvedActionLabel}
               </Button>
             ) : null}
@@ -142,13 +142,13 @@ export default function AppState({
 }
 
 export function AppInlineState({
-  variant,
-  title,
-  description,
-  actionLabel,
-  onAction,
-  className = '',
-}: AppInlineStateProps) {
+                                 variant,
+                                 title,
+                                 description,
+                                 actionLabel,
+                                 onAction,
+                                 className = '',
+                               }: AppInlineStateProps) {
   const presentation = statePresentation[variant];
   const StateIcon = presentation.icon;
   const resolvedActionLabel = actionLabel ?? defaultActionLabel(variant);
@@ -161,8 +161,9 @@ export function AppInlineState({
       role={liveRole}
       aria-live={variant === 'loading' ? 'polite' : undefined}
     >
-      <span className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-current/10 bg-white/70 dark:bg-slate-950/50">
-        <StateIcon className={`size-4 ${presentation.iconClass}`} aria-hidden="true" />
+      <span
+        className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-current/10 bg-white/70 dark:bg-slate-950/50">
+        <StateIcon className={`size-4 ${presentation.iconClass}`} aria-hidden="true"/>
       </span>
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-(--agency-shell-text)">{title}</p>
@@ -172,7 +173,7 @@ export function AppInlineState({
       </div>
       {resolvedActionLabel && onAction ? (
         <Button type="button" variant="outline" size="sm" onClick={onAction}>
-          <RefreshCw className="mr-2 size-3.5" aria-hidden="true" />
+          <RefreshCw className="mr-2 size-3.5" aria-hidden="true"/>
           {resolvedActionLabel}
         </Button>
       ) : null}

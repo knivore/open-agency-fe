@@ -1,6 +1,11 @@
 import type { JsonObject } from '@/types/api';
 import type { ExecutionEventRecord } from '@/types/runtime';
 
+// Shared by goal pickers and chat without importing a complete form into chat.
+export function goalMentionHandle(summary: Pick<GoalOperatorSummary, 'goal'>) {
+  return summary.goal.id.replace(/[^a-zA-Z0-9_-]/g, '-');
+}
+
 export type GoalStatus =
   | 'created'
   | 'planning'

@@ -1,43 +1,60 @@
-import { ComponentPropsWithoutRef } from 'react';
-import {
+'use client';
+import { useId, type ComponentPropsWithoutRef } from 'react';
+import type {
   UseFormRegister,
   FieldError,
   FieldPath,
   FieldValues,
   RegisterOptions,
 } from 'react-hook-form';
-
 import { Textarea } from '../library/shadcn/textarea';
-import { Label } from '../library/shadcn/label';
-import { cn } from '@/lib/utils';
+import { FormField } from '../app-shell/FormSection';
 
-type TextAreaProps<TFieldValues extends FieldValues> = {
-  name: FieldPath<TFieldValues>;
+type TextAreaProps<T extends FieldValues> = {
+  name: FieldPath<T>;
   label: string;
-  register: UseFormRegister<TFieldValues>;
+  register: UseFormRegister<T>;
   error?: FieldError;
-  validation?: RegisterOptions<TFieldValues, FieldPath<TFieldValues>>;
+  validation?: RegisterOptions<T, FieldPath<T>>;
+  description?: string;
 } & Omit<ComponentPropsWithoutRef<typeof Textarea>, 'name'>;
 
-export default function TextArea<TFieldValues extends FieldValues>({
+export default function TextArea<T extends FieldValues>({
   name,
   label,
   register,
   error,
   validation,
-  className = '',
+  description,
+  id,
+  onChange,
+  onBlur,
   ...props
-}: TextAreaProps<TFieldValues>) {
+}: TextAreaProps<T>) {
+  const generatedId = useId();
+  const controlId = id ?? generatedId;
+  const field = register(name, validation);
   return (
-    <div className="flex flex-col gap-2" data-invalid={error ? true : undefined}>
-      <Label className="text-sm font-medium text-(--agency-shell-text)">{label}</Label>
+    <FormField
+      label={label}
+      htmlFor={controlId}
+      error={error?.message}
+      description={description}
+      disabled={props.disabled}
+    >
       <Textarea
-        aria-invalid={error ? true : undefined}
-        className={cn(error && 'border-destructive ring-destructive/20', className)}
-        {...register(name, validation)}
+        {...field}
         {...props}
+        id={controlId}
+        onChange={(event) => {
+          void field.onChange(event);
+          onChange?.(event);
+        }}
+        onBlur={(event) => {
+          void field.onBlur(event);
+          onBlur?.(event);
+        }}
       />
-      {error ? <p className="text-sm text-(--agency-danger-text)">{error.message}</p> : null}
-    </div>
+    </FormField>
   );
 }

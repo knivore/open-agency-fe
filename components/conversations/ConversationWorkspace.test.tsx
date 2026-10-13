@@ -1,10 +1,10 @@
-import React, { ButtonHTMLAttributes, ComponentProps } from 'react';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { formatAssistantMarkdownText } from '@/components/conversations/AssistantMarkdown';
+import React, {ButtonHTMLAttributes, ComponentProps} from 'react';
+import {act, fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {formatAssistantMarkdownText} from '@/components/conversations/AssistantMarkdown';
 import ConversationWorkspace from '@/components/conversations/ConversationWorkspace';
-import { ApiError } from '@/lib/api/errors';
+import {ApiError} from '@/lib/api/errors';
 
 const {
   conversationsApi,
@@ -30,6 +30,7 @@ const {
     listCompactPacks: vi.fn(),
     listApprovalRequests: vi.fn(),
     postMessage: vi.fn(),
+    stopTurn: vi.fn(),
     approveApprovalRequest: vi.fn(),
     rejectApprovalRequest: vi.fn(),
     getStreamUrl: vi.fn(),
@@ -131,7 +132,7 @@ vi.mock('@/lib/api/backend/workflows', () => ({
 }));
 
 vi.mock('@/components/conversations/TextMessage', () => ({
-  default: ({ content }: { content: string }) => <div>{content}</div>,
+  default: ({content}: { content: string }) => <div>{content}</div>,
 }));
 
 vi.mock('@/components/library/shadcn/button', async () => {
@@ -139,11 +140,11 @@ vi.mock('@/components/library/shadcn/button', async () => {
   const Button = ReactModule.forwardRef<
     HTMLButtonElement,
     ButtonHTMLAttributes<HTMLButtonElement> & {
-      asChild?: boolean;
-      variant?: string;
-      size?: string;
-    }
-  >(({ children, asChild, variant, size, ...props }, ref) => {
+    asChild?: boolean;
+    variant?: string;
+    size?: string;
+  }
+  >(({children, asChild, variant, size, ...props}, ref) => {
     void asChild;
     void variant;
     void size;
@@ -155,14 +156,14 @@ vi.mock('@/components/library/shadcn/button', async () => {
   });
   Button.displayName = 'MockButton';
 
-  return { Button, buttonVariants: () => '' };
+  return {Button, buttonVariants: () => ''};
 });
 
 vi.mock('@/components/library/shadcn/tooltip', () => ({
-  TooltipProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  Tooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  TooltipProvider: ({children}: { children: React.ReactNode }) => <>{children}</>,
+  Tooltip: ({children}: { children: React.ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({children}: { children: React.ReactNode }) => <>{children}</>,
+  TooltipContent: ({children}: { children: React.ReactNode }) => <>{children}</>,
 }));
 
 type MockMessageEvent = { data: string };
@@ -194,7 +195,7 @@ class MockEventSource {
   }
 
   emit(type: string, payload: unknown) {
-    const event = { data: JSON.stringify(payload) };
+    const event = {data: JSON.stringify(payload)};
     if (type === 'message') {
       this.onmessage?.(event);
     }
@@ -271,7 +272,7 @@ describe('ConversationWorkspace', () => {
       channel_thread_id: 'discord-channel-1',
       channel_user_id: 'discord-user-1',
       channel_display_name: 'Discord Operator',
-      metadata: { guild_id: 'guild-1' },
+      metadata: {guild_id: 'guild-1'},
       created_at: '2026-05-06T00:00:00.000Z',
       updated_at: '2026-05-06T00:01:00.000Z',
     });
@@ -303,7 +304,7 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Initial user message',
-          content: { text: 'Initial user message' },
+          content: {text: 'Initial user message'},
           created_at: '2026-05-06T00:00:00.000Z',
         },
         {
@@ -312,14 +313,14 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'Initial assistant reply',
-          content: { text: 'Initial assistant reply' },
+          content: {text: 'Initial assistant reply'},
           created_at: '2026-05-06T00:00:01.000Z',
         },
       ],
     });
-    conversationsApi.listCompactPacks.mockResolvedValue({ items: [] });
-    personasApi.listPersonas.mockResolvedValue({ items: [] });
-    goalsApi.getOperatorView.mockResolvedValue({ items: [] });
+    conversationsApi.listCompactPacks.mockResolvedValue({items: []});
+    personasApi.listPersonas.mockResolvedValue({items: []});
+    goalsApi.getOperatorView.mockResolvedValue({items: []});
     conversationsApi.compactConversation.mockResolvedValue({
       status: 'preview',
       memory_id: null,
@@ -341,7 +342,7 @@ describe('ConversationWorkspace', () => {
         events: [],
       },
     });
-    conversationsApi.listApprovalRequests.mockResolvedValue({ items: [] });
+    conversationsApi.listApprovalRequests.mockResolvedValue({items: []});
     documentsApi.ingestDocument.mockResolvedValue({
       filename: 'brief.pdf',
       chunks_created: 2,
@@ -349,7 +350,7 @@ describe('ConversationWorkspace', () => {
       upload_mode: 'vector',
       context_attachment_id: null,
     });
-    memoriesApi.listMemories.mockResolvedValue({ items: [] });
+    memoriesApi.listMemories.mockResolvedValue({items: []});
     conversationsApi.approveApprovalRequest.mockResolvedValue({
       approval_request: {
         id: 'approval-1',
@@ -407,7 +408,7 @@ describe('ConversationWorkspace', () => {
       default_runtime_adapter_id: 'crewai',
       allowed_runtime_adapter_ids: ['native', 'crewai'],
     });
-    workflowsApi.listWorkflows.mockResolvedValue({ items: [] });
+    workflowsApi.listWorkflows.mockResolvedValue({items: []});
     workflowsApi.createWorkflow.mockResolvedValue({
       id: 'workflow-from-pack',
       name: 'Workflow from compact pack',
@@ -438,7 +439,7 @@ describe('ConversationWorkspace', () => {
       expect(conversationsApi.getConversation).toHaveBeenCalledWith('conversation-1');
     });
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Main Chat' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', {name: 'Main Chat'})).toBeInTheDocument();
     });
     await waitFor(() => {
       expect(screen.getByText('Chat with Main.')).toBeInTheDocument();
@@ -451,9 +452,9 @@ describe('ConversationWorkspace', () => {
       expect(screen.getByText('Initial assistant reply')).toBeInTheDocument();
     });
     expect(screen.getByText('Conversation files')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Files' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Start speech input' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Attach document' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Files'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Start speech input'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Attach document'})).toBeInTheDocument();
     await waitFor(() => {
       expect(MockEventSource.instances).toHaveLength(1);
     });
@@ -490,7 +491,7 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Post-restart reconnect smoke test.',
-          content: { text: 'Post-restart reconnect smoke test.' },
+          content: {text: 'Post-restart reconnect smoke test.'},
           created_at: '2026-05-06T00:00:02.000Z',
         },
       });
@@ -505,7 +506,7 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'I received your message: Post-restart reconnect smoke test.',
-          content: { text: 'I received your message: Post-restart reconnect smoke test.' },
+          content: {text: 'I received your message: Post-restart reconnect smoke test.'},
           created_at: '2026-05-06T00:00:03.000Z',
         },
       });
@@ -579,7 +580,7 @@ describe('ConversationWorkspace', () => {
       role: 'user' as const,
       message_type: 'user_text' as const,
       plain_text: 'Hi',
-      content: { text: 'Hi' },
+      content: {text: 'Hi'},
       created_at: '2026-05-06T00:00:02.000Z',
     };
     const assistantMessage = {
@@ -588,7 +589,7 @@ describe('ConversationWorkspace', () => {
       role: 'assistant' as const,
       message_type: 'assistant_text' as const,
       plain_text: 'Hello!',
-      content: { text: 'Hello!' },
+      content: {text: 'Hello!'},
       created_at: '2026-05-06T00:00:03.000Z',
     };
 
@@ -605,7 +606,7 @@ describe('ConversationWorkspace', () => {
             role: 'user',
             message_type: 'user_text',
             plain_text: 'Initial user message',
-            content: { text: 'Initial user message' },
+            content: {text: 'Initial user message'},
             created_at: '2026-05-06T00:00:00.000Z',
           },
           {
@@ -614,7 +615,7 @@ describe('ConversationWorkspace', () => {
             role: 'assistant',
             message_type: 'assistant_text',
             plain_text: 'Initial assistant reply',
-            content: { text: 'Initial assistant reply' },
+            content: {text: 'Initial assistant reply'},
             created_at: '2026-05-06T00:00:01.000Z',
           },
         ],
@@ -633,13 +634,13 @@ describe('ConversationWorkspace', () => {
 
     await act(async () => {
       fireEvent.change(screen.getByLabelText('Message Main'), {
-        target: { value: 'Hi' },
+        target: {value: 'Hi'},
       });
-      fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+      fireEvent.click(screen.getByRole('button', {name: /Send/i}));
       await Promise.resolve();
       await Promise.resolve();
     });
-    expect(screen.getByText('Main is working')).toBeInTheDocument();
+    expect(screen.getByText('Waiting for Main')).toBeInTheDocument();
 
     await act(async () => {
       vi.advanceTimersByTime(1999);
@@ -654,7 +655,7 @@ describe('ConversationWorkspace', () => {
     });
 
     expect(screen.getByText('Hello!')).toBeInTheDocument();
-    expect(screen.queryByText('Main is working')).not.toBeInTheDocument();
+    expect(screen.queryByText('Waiting for Main')).not.toBeInTheDocument();
   });
 
   it('renders a submitted user message before the async request resolves', async () => {
@@ -673,9 +674,9 @@ describe('ConversationWorkspace', () => {
     });
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Show this immediately.' },
+      target: {value: 'Show this immediately.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     expect(await screen.findByText('Show this immediately.')).toBeInTheDocument();
     expect(conversationsApi.postMessage).toHaveBeenCalledTimes(1);
@@ -688,7 +689,7 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Show this immediately.',
-          content: { text: 'Show this immediately.' },
+          content: {text: 'Show this immediately.'},
           created_at: '2026-05-06T00:00:02.000Z',
         },
       });
@@ -700,7 +701,7 @@ describe('ConversationWorkspace', () => {
   });
 
   it('updates the pending-turn elapsed time every second', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers({shouldAdvanceTime: true});
     vi.setSystemTime(new Date('2026-05-06T00:00:10.000Z'));
 
     conversationsApi.postMessage.mockResolvedValue({
@@ -710,7 +711,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Keep working.',
-        content: { text: 'Keep working.' },
+        content: {text: 'Keep working.'},
         created_at: '2026-05-06T00:00:02.000Z',
       },
       stream_url: '/conversations/conversation-1/stream?after=message-timer-user',
@@ -723,9 +724,9 @@ describe('ConversationWorkspace', () => {
     });
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Keep working.' },
+      target: {value: 'Keep working.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
       expect(screen.getByText('0s')).toBeInTheDocument();
@@ -749,7 +750,7 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Send this workflow result to Discord.',
-          content: { text: 'Send this workflow result to Discord.' },
+          content: {text: 'Send this workflow result to Discord.'},
           created_at: '2026-05-06T00:00:00.000Z',
         },
         {
@@ -758,8 +759,8 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'I need the Discord channel target before I update the integration.',
-          content: { text: 'I need the Discord channel target before I update the integration.' },
-          metadata: { channel_target_prompt: true },
+          content: {text: 'I need the Discord channel target before I update the integration.'},
+          metadata: {channel_target_prompt: true},
           created_at: '2026-05-06T00:00:01.000Z',
         },
       ],
@@ -767,23 +768,23 @@ describe('ConversationWorkspace', () => {
 
     renderConversationWorkspace();
 
-    const dialog = await screen.findByRole('dialog', { name: 'Channel Target' });
+    const dialog = await screen.findByRole('dialog', {name: 'Channel Target'});
     const scoped = within(dialog);
 
-    expect(scoped.getByRole('button', { name: 'Discord' })).toBeInTheDocument();
-    expect(scoped.queryByRole('button', { name: 'Telegram' })).not.toBeInTheDocument();
-    expect(scoped.queryByRole('button', { name: 'WhatsApp' })).not.toBeInTheDocument();
+    expect(scoped.getByRole('button', {name: 'Discord'})).toBeInTheDocument();
+    expect(scoped.queryByRole('button', {name: 'Telegram'})).not.toBeInTheDocument();
+    expect(scoped.queryByRole('button', {name: 'WhatsApp'})).not.toBeInTheDocument();
     fireEvent.change(scoped.getByLabelText('Discord channel ID'), {
-      target: { value: 'discord-channel-1' },
+      target: {value: 'discord-channel-1'},
     });
     fireEvent.change(scoped.getByLabelText('Discord user ID'), {
-      target: { value: 'discord-user-1' },
+      target: {value: 'discord-user-1'},
     });
-    fireEvent.change(scoped.getByLabelText('Guild ID'), { target: { value: 'guild-1' } });
+    fireEvent.change(scoped.getByLabelText('Guild ID'), {target: {value: 'guild-1'}});
     fireEvent.change(scoped.getByLabelText('Display name'), {
-      target: { value: 'Discord Operator' },
+      target: {value: 'Discord Operator'},
     });
-    fireEvent.click(scoped.getByRole('button', { name: 'Save target' }));
+    fireEvent.click(scoped.getByRole('button', {name: 'Save target'}));
 
     await waitFor(() => {
       expect(conversationsApi.updateConversation).toHaveBeenCalledWith(
@@ -793,7 +794,7 @@ describe('ConversationWorkspace', () => {
           channel_thread_id: 'discord-channel-1',
           channel_user_id: 'discord-user-1',
           channel_display_name: 'Discord Operator',
-          metadata: expect.objectContaining({ guild_id: 'guild-1' }),
+          metadata: expect.objectContaining({guild_id: 'guild-1'}),
         })
       );
     });
@@ -823,7 +824,7 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Send this workflow result to Discord.',
-          content: { text: 'Send this workflow result to Discord.' },
+          content: {text: 'Send this workflow result to Discord.'},
           created_at: '2026-05-06T00:00:00.000Z',
         },
         {
@@ -832,8 +833,8 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'I need the Discord channel target before I update the integration.',
-          content: { text: 'I need the Discord channel target before I update the integration.' },
-          metadata: { channel_target_prompt: true },
+          content: {text: 'I need the Discord channel target before I update the integration.'},
+          metadata: {channel_target_prompt: true},
           created_at: '2026-05-06T00:00:01.000Z',
         },
       ],
@@ -844,7 +845,7 @@ describe('ConversationWorkspace', () => {
     expect(
       await screen.findByText('I need the Discord channel target before I update the integration.')
     ).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Channel Target' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', {name: 'Channel Target'})).not.toBeInTheDocument();
   });
 
   it('keeps the channel target editor hidden until the agent asks for delivery setup', async () => {
@@ -858,7 +859,7 @@ describe('ConversationWorkspace', () => {
     renderConversationWorkspace();
 
     expect(await screen.findByText('Initial assistant reply')).toBeInTheDocument();
-    expect(screen.queryByRole('dialog', { name: 'Channel Target' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('dialog', {name: 'Channel Target'})).not.toBeInTheDocument();
     await waitFor(() => {
       expect(MockEventSource.instances).toHaveLength(1);
     });
@@ -873,16 +874,16 @@ describe('ConversationWorkspace', () => {
         title: 'Discord channel target required',
         detail: 'I need the Discord channel target before I update the integration.',
         metadata: {
-          channel_target: { provider: 'discord', required: true },
+          channel_target: {provider: 'discord', required: true},
         },
       });
     });
 
-    const dialog = await screen.findByRole('dialog', { name: 'Channel Target' });
+    const dialog = await screen.findByRole('dialog', {name: 'Channel Target'});
     const scoped = within(dialog);
-    expect(scoped.getByRole('button', { name: 'Discord' })).toBeInTheDocument();
-    expect(scoped.queryByRole('button', { name: 'Telegram' })).not.toBeInTheDocument();
-    expect(scoped.queryByRole('button', { name: 'WhatsApp' })).not.toBeInTheDocument();
+    expect(scoped.getByRole('button', {name: 'Discord'})).toBeInTheDocument();
+    expect(scoped.queryByRole('button', {name: 'Telegram'})).not.toBeInTheDocument();
+    expect(scoped.queryByRole('button', {name: 'WhatsApp'})).not.toBeInTheDocument();
   });
 
   it('expands long chat replies without a nested vertical scrollbar', async () => {
@@ -944,7 +945,7 @@ describe('ConversationWorkspace', () => {
 
     const body = await screen.findByTestId('message-body');
     expect(body).toHaveClass('whitespace-pre-wrap');
-    expect(body).toHaveStyle({ tabSize: '8' });
+    expect(body).toHaveStyle({tabSize: '8'});
     expect(formatAssistantMarkdownText('First\tline\n\n\nSecond')).toBe(
       'First\u00A0\u00A0\u00A0\u00A0line\n\nSecond'
     );
@@ -972,8 +973,8 @@ describe('ConversationWorkspace', () => {
             page_context: {
               surface: 'workflow.detail',
               title: 'Workflow One',
-              entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-              selection: { workflowId: 'workflow-1' },
+              entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+              selection: {workflowId: 'workflow-1'},
             },
           },
         },
@@ -991,8 +992,8 @@ describe('ConversationWorkspace', () => {
         page_context: {
           surface: 'workflow.detail',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
         },
       },
     });
@@ -1004,8 +1005,8 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'I need the Discord channel target before I update the integration.',
-          content: { text: 'I need the Discord channel target before I update the integration.' },
-          metadata: { channel_target_prompt: true },
+          content: {text: 'I need the Discord channel target before I update the integration.'},
+          metadata: {channel_target_prompt: true},
           created_at: '2026-05-06T00:00:01.000Z',
         },
       ],
@@ -1019,9 +1020,9 @@ describe('ConversationWorkspace', () => {
           route: '/workflows/workflow-1',
           pathname: '/workflows/workflow-1',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
-          summary: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
+          summary: {workflowId: 'workflow-1'},
           updatedAt: '2026-05-27T00:00:00.000Z',
         },
       }),
@@ -1029,7 +1030,7 @@ describe('ConversationWorkspace', () => {
 
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText(/channel target/i)).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Discord' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', {name: 'Discord'})).toBeInTheDocument();
   });
 
   it('renders live turn activity and collapses it under the final assistant message', async () => {
@@ -1040,7 +1041,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Plan my next workflow.',
-        content: { text: 'Plan my next workflow.' },
+        content: {text: 'Plan my next workflow.'},
         created_at: '2026-05-06T00:00:02.000Z',
       },
       stream_url: '/conversations/conversation-1/stream',
@@ -1053,19 +1054,19 @@ describe('ConversationWorkspace', () => {
     });
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Plan my next workflow.' },
+      target: {value: 'Plan my next workflow.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
-      expect(screen.getByText('Main is working')).toBeInTheDocument();
+      expect(screen.getByText('Waiting for Main')).toBeInTheDocument();
     });
 
     act(() => {
       MockEventSource.instances[0].emit('turn.started', {
         id: 'activity-1',
         conversation_id: 'conversation-1',
-        turn_id: 'turn-activity-1',
+        turn_id: 'turn:message-activity-user',
         event_type: 'turn.started',
         occurred_at: '2026-05-06T00:00:03.000Z',
         title: 'Started assistant turn',
@@ -1073,7 +1074,7 @@ describe('ConversationWorkspace', () => {
       MockEventSource.instances[0].emit('memory.searching', {
         id: 'activity-2',
         conversation_id: 'conversation-1',
-        turn_id: 'turn-activity-1',
+        turn_id: 'turn:message-activity-user',
         event_type: 'memory.searching',
         occurred_at: '2026-05-06T00:00:04.000Z',
         title: 'Searching memory',
@@ -1082,15 +1083,15 @@ describe('ConversationWorkspace', () => {
       MockEventSource.instances[0].emit('tool_call.started', {
         id: 'activity-tool-1',
         conversation_id: 'conversation-1',
-        turn_id: 'turn-activity-1',
+        turn_id: 'turn:message-activity-user',
         event_type: 'tool_call.started',
         occurred_at: '2026-05-06T00:00:04.500Z',
-        metadata: { tool_name: 'agency.connector.credentials' },
+        metadata: {tool_name: 'agency.connector.credentials'},
       });
       MockEventSource.instances[0].emit('assistant.draft_delta', {
         id: 'activity-3',
         conversation_id: 'conversation-1',
-        turn_id: 'turn-activity-1',
+        turn_id: 'turn:message-activity-user',
         event_type: 'assistant.draft_delta',
         occurred_at: '2026-05-06T00:00:05.000Z',
         text_delta: 'I am drafting a workflow plan.',
@@ -1107,7 +1108,7 @@ describe('ConversationWorkspace', () => {
       MockEventSource.instances[0].emit('turn.completed', {
         id: 'activity-4',
         conversation_id: 'conversation-1',
-        turn_id: 'turn-activity-1',
+        turn_id: 'turn:message-activity-user',
         event_type: 'turn.completed',
         occurred_at: '2026-05-06T00:00:06.000Z',
         title: 'Finished assistant turn',
@@ -1123,7 +1124,7 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'Here is the workflow plan.',
-          content: { text: 'Here is the workflow plan.' },
+          content: {text: 'Here is the workflow plan.'},
           created_at: '2026-05-06T00:00:07.000Z',
         },
       });
@@ -1137,7 +1138,7 @@ describe('ConversationWorkspace', () => {
       screen
         .getByText('Activity')
         .compareDocumentPosition(screen.getByText('Here is the workflow plan.')) &
-        Node.DOCUMENT_POSITION_FOLLOWING
+      Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
   }, 10000);
 
@@ -1149,7 +1150,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Propose a workflow update.',
-        content: { text: 'Propose a workflow update.' },
+        content: {text: 'Propose a workflow update.'},
         created_at: '2026-05-06T00:00:02.000Z',
       },
       stream_url: '/conversations/conversation-1/stream?after=message-approval-user',
@@ -1162,13 +1163,63 @@ describe('ConversationWorkspace', () => {
     });
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Propose a workflow update.' },
+      target: {value: 'Propose a workflow update.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
-      expect(screen.getByText('Main is working')).toBeInTheDocument();
+      expect(screen.getByText('Waiting for Main')).toBeInTheDocument();
     });
+
+    act(() => {
+      MockEventSource.instances[0].emit('message.created', {
+        id: 'late-old-reply-event',
+        conversation_id: 'conversation-1',
+        event_type: 'message.created',
+        occurred_at: '2026-05-06T00:00:09.000Z',
+        message: {
+          id: 'late-old-reply',
+          conversation_id: 'conversation-1',
+          role: 'assistant',
+          message_type: 'assistant_text',
+          plain_text: 'Older turn finished.',
+          content: {text: 'Older turn finished.'},
+          metadata: {turn_id: 'turn:older-origin'},
+          created_at: '2026-05-06T00:00:09.000Z',
+        },
+      });
+      MockEventSource.instances[0].emit('approval.requested', {
+        id: 'late-old-approval-event',
+        conversation_id: 'conversation-1',
+        event_type: 'approval.requested',
+        occurred_at: '2026-05-06T00:00:09.500Z',
+        approval: {
+          id: 'late-old-approval',
+          approval_type: 'tool_execute',
+          status: 'pending',
+          target_type: 'tool',
+          requested_by_agent_id: 'agent-main-1',
+          conversation_id: 'conversation-1',
+          origin_message_id: 'older-tool',
+          summary: 'Older review',
+          metadata: {turn_id: 'turn:older-origin'},
+          created_at: '2026-05-06T00:00:09.500Z',
+          updated_at: '2026-05-06T00:00:09.500Z',
+        },
+      });
+    });
+    expect(screen.getByText('Waiting for Main')).toBeInTheDocument();
+    act(() => {
+      MockEventSource.instances[0].emit('memory.searching', {
+        id: 'older-activity',
+        conversation_id: 'conversation-1',
+        turn_id: 'turn:older-origin',
+        event_type: 'memory.searching',
+        occurred_at: '2026-05-06T00:00:09.700Z',
+        title: 'Only the older turn is searching',
+      });
+    });
+    expect(screen.queryByText('Only the older turn is searching')).not.toBeInTheDocument();
 
     act(() => {
       MockEventSource.instances[0].emit('approval.requested', {
@@ -1178,6 +1229,7 @@ describe('ConversationWorkspace', () => {
         occurred_at: '2026-05-06T00:00:10.000Z',
         approval: {
           id: 'approval-streamed',
+          metadata: {turn_id: 'turn:message-approval-user'},
           approval_type: 'workflow_update',
           status: 'pending',
           target_type: 'workflow',
@@ -1200,8 +1252,8 @@ describe('ConversationWorkspace', () => {
       });
     });
 
-    expect(screen.queryByText('Main is working')).not.toBeInTheDocument();
-    const panel = await screen.findByRole('region', { name: 'Pending approvals' });
+    expect(screen.queryByText('Waiting for Main')).not.toBeInTheDocument();
+    const panel = await screen.findByRole('region', {name: 'Pending approvals'});
     expect(within(panel).getByText('Review proposed workflow update')).toBeInTheDocument();
   });
 
@@ -1213,7 +1265,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Update this workflow.',
-        content: { text: 'Update this workflow.' },
+        content: {text: 'Update this workflow.'},
         created_at: '2026-05-06T00:00:02.000Z',
       },
       stream_url: '/conversations/conversation-1/stream?after=message-stale-user',
@@ -1237,16 +1289,16 @@ describe('ConversationWorkspace', () => {
       expect(screen.getByText('Initial assistant reply')).toBeInTheDocument();
     });
 
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers({shouldAdvanceTime: true});
     vi.setSystemTime(new Date('2026-05-06T00:00:10.000Z'));
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Update this workflow.' },
+      target: {value: 'Update this workflow.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
-      expect(screen.getByText('Main is working')).toBeInTheDocument();
+      expect(screen.getByText('Waiting for Main')).toBeInTheDocument();
     });
     expect(screen.getByText(/Using Workflow provider/)).toBeInTheDocument();
 
@@ -1257,7 +1309,7 @@ describe('ConversationWorkspace', () => {
   }, 10000);
 
   it('keeps a restored tool-only turn pending when no assistant response was saved', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers({shouldAdvanceTime: true});
     vi.setSystemTime(new Date('2026-05-06T00:03:00.000Z'));
     conversationsApi.listMessages.mockResolvedValue({
       items: [
@@ -1267,10 +1319,10 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Propose a workflow update.',
-          content: { text: 'Propose a workflow update.' },
+          content: {text: 'Propose a workflow update.'},
           metadata: {
             assistant_providers: {
-              providers: [{ id: 'workflow.provider', label: 'Workflow provider' }],
+              providers: [{id: 'workflow.provider', label: 'Workflow provider'}],
             },
           },
           created_at: '2026-05-06T00:00:00.000Z',
@@ -1284,29 +1336,38 @@ describe('ConversationWorkspace', () => {
           content: {
             tool_id: 'agency.workflow.propose-update',
             tool_name: 'propose_workflow_update',
-            arguments: { workflow_id: 'workflow-1' },
+            arguments: {workflow_id: 'workflow-1'},
           },
           created_at: '2026-05-06T00:00:10.000Z',
         },
       ],
     });
 
+    conversationsApi.stopTurn.mockResolvedValue({status: 'stop_requested'});
     renderConversationWorkspace();
 
-    expect(await screen.findByText('Main is working')).toBeInTheDocument();
+    expect(await screen.findByText('Waiting for Main')).toBeInTheDocument();
     expect(screen.getByText('No result')).toBeInTheDocument();
     expect(screen.getByText(/Using Workflow provider/)).toBeInTheDocument();
     expect(screen.getByText(/taking longer than expected/)).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'End turn' }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByRole('button', { name: /Check now/i }).at(-1)!);
+    expect(screen.getAllByRole('button', {name: 'Stop turn'}).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole('button', {name: /Check now/i}).at(-1)!);
 
     expect(await screen.findByText(/No completed response was found/)).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: /Check again/i }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getAllByRole('button', { name: 'End turn' }).at(-1)!);
+    expect(screen.getByText('Main response unverified')).toBeInTheDocument();
+    expect(screen.getByText(/This does not confirm the work has stopped/)).toBeInTheDocument();
+    expect(screen.queryByText(/send the request again to continue/)).not.toBeInTheDocument();
+    expect(screen.getAllByRole('button', {name: /Check again/i}).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getAllByRole('button', {name: 'Stop turn'}).at(-1)!);
 
     await waitFor(() => {
       expect(screen.queryByText(/No completed response was found/)).not.toBeInTheDocument();
     });
+
+    expect(conversationsApi.stopTurn).toHaveBeenCalledWith(
+      'conversation-1',
+      'message-user-tool-only'
+    );
 
     conversationsApi.postMessage.mockResolvedValue({
       message: {
@@ -1315,15 +1376,15 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Please continue by creating the approval request again.',
-        content: { text: 'Please continue by creating the approval request again.' },
+        content: {text: 'Please continue by creating the approval request again.'},
         created_at: '2026-05-06T00:03:05.000Z',
       },
     });
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Please continue by creating the approval request again.' },
+      target: {value: 'Please continue by creating the approval request again.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
       expect(conversationsApi.postMessage).toHaveBeenCalledWith(
@@ -1338,7 +1399,7 @@ describe('ConversationWorkspace', () => {
   });
 
   it('does not mark a restored workflow approval as a still-running turn', async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers({shouldAdvanceTime: true});
     vi.setSystemTime(new Date('2026-05-06T00:03:00.000Z'));
     conversationsApi.listMessages.mockResolvedValue({
       items: [
@@ -1348,10 +1409,10 @@ describe('ConversationWorkspace', () => {
           role: 'user',
           message_type: 'user_text',
           plain_text: 'Propose a workflow update.',
-          content: { text: 'Propose a workflow update.' },
+          content: {text: 'Propose a workflow update.'},
           metadata: {
             assistant_providers: {
-              providers: [{ id: 'workflow.provider', label: 'Workflow provider' }],
+              providers: [{id: 'workflow.provider', label: 'Workflow provider'}],
             },
           },
           created_at: '2026-05-06T00:00:00.000Z',
@@ -1365,7 +1426,7 @@ describe('ConversationWorkspace', () => {
           content: {
             tool_id: 'agency.workflow.propose-update',
             tool_name: 'propose_workflow_update',
-            arguments: { workflow_id: 'workflow-1' },
+            arguments: {workflow_id: 'workflow-1'},
           },
           created_at: '2026-05-06T00:00:10.000Z',
         },
@@ -1399,10 +1460,10 @@ describe('ConversationWorkspace', () => {
 
     renderConversationWorkspace();
 
-    const panel = await screen.findByRole('region', { name: 'Pending approvals' });
+    const panel = await screen.findByRole('region', {name: 'Pending approvals'});
     expect(within(panel).getByText('Review restored workflow update')).toBeInTheDocument();
     expect(screen.getByText('Approval requested')).toBeInTheDocument();
-    expect(screen.queryByText('Main is working')).not.toBeInTheDocument();
+    expect(screen.queryByText('Waiting for Main')).not.toBeInTheDocument();
     expect(screen.queryByText('Executing')).not.toBeInTheDocument();
     expect(screen.queryByText(/taking longer than expected/)).not.toBeInTheDocument();
   });
@@ -1422,8 +1483,8 @@ describe('ConversationWorkspace', () => {
             page_context: {
               surface: 'agent.list',
               title: 'Agents',
-              entities: [{ type: 'agent', id: 'agent-main-1', name: 'Research Agent' }],
-              selection: { agentId: 'agent-main-1' },
+              entities: [{type: 'agent', id: 'agent-main-1', name: 'Research Agent'}],
+              selection: {agentId: 'agent-main-1'},
             },
           },
         },
@@ -1441,8 +1502,8 @@ describe('ConversationWorkspace', () => {
         page_context: {
           surface: 'agent.list',
           title: 'Agents',
-          entities: [{ type: 'agent', id: 'agent-main-1', name: 'Research Agent' }],
-          selection: { agentId: 'agent-main-1' },
+          entities: [{type: 'agent', id: 'agent-main-1', name: 'Research Agent'}],
+          selection: {agentId: 'agent-main-1'},
         },
       },
     });
@@ -1453,7 +1514,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Update the selected agent.',
-        content: { text: 'Update the selected agent.' },
+        content: {text: 'Update the selected agent.'},
         created_at: '2026-05-06T00:00:02.000Z',
       },
       stream_url: '/conversations/conversation-1/stream?after=message-popup-user',
@@ -1467,8 +1528,8 @@ describe('ConversationWorkspace', () => {
           route: '/agents',
           pathname: '/agents',
           title: 'Agents',
-          entities: [{ type: 'agent', id: 'agent-main-1', name: 'Research Agent' }],
-          selection: { agentId: 'agent-main-1' },
+          entities: [{type: 'agent', id: 'agent-main-1', name: 'Research Agent'}],
+          selection: {agentId: 'agent-main-1'},
           updatedAt: '2026-05-27T00:00:00.000Z',
         },
         assistant_providers: {
@@ -1490,9 +1551,9 @@ describe('ConversationWorkspace', () => {
     expect(screen.getByText('Context: Agent: Research Agent')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Update the selected agent.' },
+      target: {value: 'Update the selected agent.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
       expect(conversationsApi.postMessage).toHaveBeenCalledWith(
@@ -1502,7 +1563,7 @@ describe('ConversationWorkspace', () => {
             metadata: expect.objectContaining({
               page_context: expect.objectContaining({
                 surface: 'agent.list',
-                selection: expect.objectContaining({ agentId: 'agent-main-1' }),
+                selection: expect.objectContaining({agentId: 'agent-main-1'}),
               }),
               assistant_providers: expect.objectContaining({
                 providers: expect.arrayContaining([
@@ -1529,8 +1590,8 @@ describe('ConversationWorkspace', () => {
           route: '/runs/run-failed',
           pathname: '/runs/run-failed',
           title: 'Failed run',
-          entities: [{ type: 'run', id: 'run-failed', name: 'Failed run' }],
-          selection: { runId: 'run-failed' },
+          entities: [{type: 'run', id: 'run-failed', name: 'Failed run'}],
+          selection: {runId: 'run-failed'},
           suggestedPrompts: [
             {
               id: 'explain-failure',
@@ -1546,7 +1607,7 @@ describe('ConversationWorkspace', () => {
     });
 
     await screen.findByText('Initial assistant reply');
-    fireEvent.click(screen.getByRole('button', { name: 'Use suggestion: Explain the failure' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Use suggestion: Explain the failure'}));
 
     expect(screen.getByLabelText('Message Main')).toHaveValue(
       'Explain why this run failed using the first actionable error.'
@@ -1578,16 +1639,16 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: '@audit-manager Review this workflow.',
-        content: { text: '@audit-manager Review this workflow.' },
+        content: {text: '@audit-manager Review this workflow.'},
         created_at: '2026-05-06T00:00:02.000Z',
       },
     });
 
     renderConversationWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Mention goal or persona' }));
-    const personasTab = await screen.findByRole('tab', { name: /Personas/i });
-    fireEvent.keyDown(personasTab, { key: 'Enter', code: 'Enter' });
+    fireEvent.click(await screen.findByRole('button', {name: 'Mention goal or persona'}));
+    const personasTab = await screen.findByRole('tab', {name: /Personas/i});
+    fireEvent.keyDown(personasTab, {key: 'Enter', code: 'Enter'});
     fireEvent.click(personasTab);
     const personaButton = (await screen.findByText('Audit Manager')).closest('button');
     if (!personaButton) {
@@ -1598,9 +1659,9 @@ describe('ConversationWorkspace', () => {
     const input = screen.getByLabelText('Message Main') as HTMLInputElement;
     expect(input.value).toBe('@audit-manager ');
     fireEvent.change(input, {
-      target: { value: `${input.value}Review this workflow.` },
+      target: {value: `${input.value}Review this workflow.`},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
       expect(conversationsApi.postMessage).toHaveBeenCalledWith(
@@ -1644,7 +1705,7 @@ describe('ConversationWorkspace', () => {
     renderConversationWorkspace();
 
     expect(
-      await screen.findByRole('button', { name: 'Mention goal or persona' })
+      await screen.findByRole('button', {name: 'Mention goal or persona'})
     ).toBeInTheDocument();
     expect(screen.queryByText('No published personas available.')).not.toBeInTheDocument();
   });
@@ -1669,8 +1730,8 @@ describe('ConversationWorkspace', () => {
     renderConversationWorkspace();
 
     const input = await screen.findByLabelText('Message Main');
-    fireEvent.change(input, { target: { value: '@au' } });
-    fireEvent.click(await screen.findByRole('button', { name: 'Use @audit-manager' }));
+    fireEvent.change(input, {target: {value: '@au'}});
+    fireEvent.click(await screen.findByRole('button', {name: 'Use @audit-manager'}));
 
     expect((input as HTMLInputElement).value).toBe('@audit-manager ');
   });
@@ -1684,7 +1745,7 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'I reviewed this as the audit manager.',
-          content: { text: 'I reviewed this as the audit manager.' },
+          content: {text: 'I reviewed this as the audit manager.'},
           metadata: {
             delivery: 'persona',
             persona_slug: 'audit-manager',
@@ -1709,7 +1770,7 @@ describe('ConversationWorkspace', () => {
           channel_type: 'web',
           created_at: '2026-05-06T00:00:00.000Z',
           updated_at: '2026-05-06T00:30:00.000Z',
-          metadata: { surface: 'assistant' },
+          metadata: {surface: 'assistant'},
         },
         {
           id: 'workflow-chat-1',
@@ -1723,8 +1784,8 @@ describe('ConversationWorkspace', () => {
             page_context: {
               surface: 'workflow.detail',
               title: 'Workflow One',
-              entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-              selection: { workflowId: 'workflow-1' },
+              entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+              selection: {workflowId: 'workflow-1'},
             },
           },
         },
@@ -1738,15 +1799,15 @@ describe('ConversationWorkspace', () => {
       metadata:
         conversationId === 'workflow-chat-1'
           ? {
-              workflow_id: 'workflow-1',
-              page_context: {
-                surface: 'workflow.detail',
-                title: 'Workflow One',
-                entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-                selection: { workflowId: 'workflow-1' },
-              },
-            }
-          : { surface: 'assistant' },
+            workflow_id: 'workflow-1',
+            page_context: {
+              surface: 'workflow.detail',
+              title: 'Workflow One',
+              entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+              selection: {workflowId: 'workflow-1'},
+            },
+          }
+          : {surface: 'assistant'},
       created_at: '2026-05-06T00:00:00.000Z',
       updated_at: '2026-05-06T00:20:00.000Z',
     }));
@@ -1754,27 +1815,27 @@ describe('ConversationWorkspace', () => {
       items:
         conversationId === 'workflow-chat-1'
           ? [
-              {
-                id: 'workflow-message-1',
-                conversation_id: 'workflow-chat-1',
-                role: 'assistant',
-                message_type: 'assistant_text',
-                plain_text: 'Workflow related reply',
-                content: { text: 'Workflow related reply' },
-                created_at: '2026-05-06T00:10:00.000Z',
-              },
-            ]
+            {
+              id: 'workflow-message-1',
+              conversation_id: 'workflow-chat-1',
+              role: 'assistant',
+              message_type: 'assistant_text',
+              plain_text: 'Workflow related reply',
+              content: {text: 'Workflow related reply'},
+              created_at: '2026-05-06T00:10:00.000Z',
+            },
+          ]
           : [
-              {
-                id: 'global-message-1',
-                conversation_id: 'conversation-1',
-                role: 'assistant',
-                message_type: 'assistant_text',
-                plain_text: 'Global active reply',
-                content: { text: 'Global active reply' },
-                created_at: '2026-05-06T00:00:00.000Z',
-              },
-            ],
+            {
+              id: 'global-message-1',
+              conversation_id: 'conversation-1',
+              role: 'assistant',
+              message_type: 'assistant_text',
+              plain_text: 'Global active reply',
+              content: {text: 'Global active reply'},
+              created_at: '2026-05-06T00:00:00.000Z',
+            },
+          ],
     }));
 
     renderConversationWorkspace({
@@ -1785,9 +1846,9 @@ describe('ConversationWorkspace', () => {
           route: '/workflows/workflow-1',
           pathname: '/workflows/workflow-1',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
-          summary: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
+          summary: {workflowId: 'workflow-1'},
           updatedAt: '2026-05-27T00:00:00.000Z',
         },
       }),
@@ -1811,7 +1872,7 @@ describe('ConversationWorkspace', () => {
           channel_type: 'web',
           created_at: '2026-05-06T00:00:00.000Z',
           updated_at: '2026-05-06T00:30:00.000Z',
-          metadata: { surface: 'assistant' },
+          metadata: {surface: 'assistant'},
         },
       ],
     });
@@ -1820,7 +1881,7 @@ describe('ConversationWorkspace', () => {
       title: 'Assistant approval chat',
       status: 'open',
       channel_type: 'web',
-      metadata: { surface: 'assistant' },
+      metadata: {surface: 'assistant'},
       created_at: '2026-05-06T00:00:00.000Z',
       updated_at: '2026-05-06T00:30:00.000Z',
     });
@@ -1833,7 +1894,7 @@ describe('ConversationWorkspace', () => {
           message_type: 'approval_request',
           approval_request_id: 'approval-workflow-1',
           plain_text: 'Approval requested for Workflow One.',
-          content: { text: 'Approval requested for Workflow One.' },
+          content: {text: 'Approval requested for Workflow One.'},
           created_at: '2026-05-06T00:20:00.000Z',
         },
       ],
@@ -1842,26 +1903,26 @@ describe('ConversationWorkspace', () => {
       items:
         conversationId === 'conversation-1'
           ? [
-              {
-                id: 'approval-workflow-1',
-                approval_type: 'workflow_update',
-                status: 'pending',
-                target_type: 'workflow',
-                target_id: 'workflow-1',
-                requested_by_agent_id: 'agent-main-1',
-                conversation_id: 'conversation-1',
-                origin_message_id: 'message-approval',
-                summary: 'Update Workflow One',
-                proposed_payload: {
-                  workflow: {
-                    id: 'workflow-1',
-                    name: 'Workflow One',
-                  },
+            {
+              id: 'approval-workflow-1',
+              approval_type: 'workflow_update',
+              status: 'pending',
+              target_type: 'workflow',
+              target_id: 'workflow-1',
+              requested_by_agent_id: 'agent-main-1',
+              conversation_id: 'conversation-1',
+              origin_message_id: 'message-approval',
+              summary: 'Update Workflow One',
+              proposed_payload: {
+                workflow: {
+                  id: 'workflow-1',
+                  name: 'Workflow One',
                 },
-                created_at: '2026-05-06T00:20:00.000Z',
-                updated_at: '2026-05-06T00:20:00.000Z',
               },
-            ]
+              created_at: '2026-05-06T00:20:00.000Z',
+              updated_at: '2026-05-06T00:20:00.000Z',
+            },
+          ]
           : [],
     }));
 
@@ -1873,15 +1934,15 @@ describe('ConversationWorkspace', () => {
           route: '/workflows/workflow-1',
           pathname: '/workflows/workflow-1',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
-          summary: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
+          summary: {workflowId: 'workflow-1'},
           updatedAt: '2026-05-27T00:00:00.000Z',
         },
       }),
     });
 
-    const panel = await screen.findByRole('region', { name: 'Pending approvals' });
+    const panel = await screen.findByRole('region', {name: 'Pending approvals'});
     expect(within(panel).getByText('Update Workflow One')).toBeInTheDocument();
     expect(screen.getByText('Approval requested for Workflow One.')).toBeInTheDocument();
     expect(conversationsApi.getConversation).toHaveBeenCalledWith('conversation-1');
@@ -1902,8 +1963,8 @@ describe('ConversationWorkspace', () => {
             page_context: {
               surface: 'workflow.detail',
               title: 'Workflow One',
-              entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-              selection: { workflowId: 'workflow-1' },
+              entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+              selection: {workflowId: 'workflow-1'},
             },
           },
         },
@@ -1919,8 +1980,8 @@ describe('ConversationWorkspace', () => {
         page_context: {
           surface: 'workflow.detail',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
         },
       },
       created_at: '2026-05-06T00:10:00.000Z',
@@ -1934,7 +1995,7 @@ describe('ConversationWorkspace', () => {
           role: 'assistant',
           message_type: 'assistant_text',
           plain_text: 'Workflow related reply',
-          content: { text: 'Workflow related reply' },
+          content: {text: 'Workflow related reply'},
           created_at: '2026-05-06T00:10:00.000Z',
         },
       ],
@@ -1944,7 +2005,7 @@ describe('ConversationWorkspace', () => {
       title: null,
       status: 'open',
       channel_type: 'web',
-      metadata: { workflow_id: 'workflow-1' },
+      metadata: {workflow_id: 'workflow-1'},
       created_at: '2026-05-06T00:15:00.000Z',
       updated_at: '2026-05-06T00:15:00.000Z',
     });
@@ -1955,7 +2016,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Start a fresh workflow discussion.',
-        content: { text: 'Start a fresh workflow discussion.' },
+        content: {text: 'Start a fresh workflow discussion.'},
         created_at: '2026-05-06T00:15:01.000Z',
       },
     });
@@ -1968,9 +2029,9 @@ describe('ConversationWorkspace', () => {
           route: '/workflows/workflow-1',
           pathname: '/workflows/workflow-1',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
-          summary: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
+          summary: {workflowId: 'workflow-1'},
           updatedAt: '2026-05-27T00:00:00.000Z',
         },
       }),
@@ -1980,16 +2041,16 @@ describe('ConversationWorkspace', () => {
       expect(screen.getByText('Workflow related reply')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
+    fireEvent.click(screen.getByRole('button', {name: 'New conversation'}));
 
     await waitFor(() => {
       expect(screen.queryByText('Workflow related reply')).not.toBeInTheDocument();
     });
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Start a fresh workflow discussion.' },
+      target: {value: 'Start a fresh workflow discussion.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
       expect(conversationsApi.createConversation).toHaveBeenCalledWith(
@@ -2025,7 +2086,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Help with this workflow.',
-        content: { text: 'Help with this workflow.' },
+        content: {text: 'Help with this workflow.'},
         created_at: '2026-05-06T00:15:01.000Z',
       },
     });
@@ -2038,23 +2099,23 @@ describe('ConversationWorkspace', () => {
           route: '/workflows/workflow-1',
           pathname: '/workflows/workflow-1',
           title: 'Workflow One',
-          entities: [{ type: 'workflow', id: 'workflow-1', name: 'Workflow One' }],
-          selection: { workflowId: 'workflow-1' },
-          summary: { workflowId: 'workflow-1' },
+          entities: [{type: 'workflow', id: 'workflow-1', name: 'Workflow One'}],
+          selection: {workflowId: 'workflow-1'},
+          summary: {workflowId: 'workflow-1'},
           updatedAt: '2026-05-27T00:00:00.000Z',
         },
       }),
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'New conversation'})).toBeInTheDocument();
     });
     expect(conversationsApi.getConversation).not.toHaveBeenCalledWith('conversation-1');
 
     fireEvent.change(screen.getByLabelText('Message Main'), {
-      target: { value: 'Help with this workflow.' },
+      target: {value: 'Help with this workflow.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Send/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Send/i}));
 
     await waitFor(() => {
       expect(conversationsApi.createConversation).toHaveBeenCalledWith(
@@ -2063,7 +2124,7 @@ describe('ConversationWorkspace', () => {
             workflow_id: 'workflow-1',
             page_context: expect.objectContaining({
               surface: 'workflow.detail',
-              selection: expect.objectContaining({ workflowId: 'workflow-1' }),
+              selection: expect.objectContaining({workflowId: 'workflow-1'}),
             }),
           }),
         })
@@ -2075,7 +2136,7 @@ describe('ConversationWorkspace', () => {
         message: expect.objectContaining({
           metadata: expect.objectContaining({
             page_context: expect.objectContaining({
-              summary: expect.objectContaining({ workflowId: 'workflow-1' }),
+              summary: expect.objectContaining({workflowId: 'workflow-1'}),
             }),
           }),
         }),
@@ -2091,7 +2152,7 @@ describe('ConversationWorkspace', () => {
         role: 'user',
         message_type: 'user_text',
         plain_text: 'Uploaded document "brief.pdf" into memory as 2 chunks (document-1).',
-        content: { text: 'Uploaded document "brief.pdf" into memory as 2 chunks (document-1).' },
+        content: {text: 'Uploaded document "brief.pdf" into memory as 2 chunks (document-1).'},
         created_at: '2026-05-06T00:00:03.000Z',
       },
     });
@@ -2103,10 +2164,10 @@ describe('ConversationWorkspace', () => {
     });
 
     const fileInput = view.container.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File(['hello'], 'brief.pdf', { type: 'application/pdf' });
-    fireEvent.change(fileInput, { target: { files: [file] } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save for retrieval' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Send' }));
+    const file = new File(['hello'], 'brief.pdf', {type: 'application/pdf'});
+    fireEvent.change(fileInput, {target: {files: [file]}});
+    fireEvent.click(screen.getByRole('button', {name: 'Save for retrieval'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Send'}));
 
     await waitFor(() => {
       expect(documentsApi.ingestDocument).toHaveBeenCalledWith(
@@ -2161,7 +2222,7 @@ describe('ConversationWorkspace', () => {
               role: 'assistant',
               message_type: 'assistant_text',
               plain_text: 'Previous conversation restored',
-              content: { text: 'Previous conversation restored' },
+              content: {text: 'Previous conversation restored'},
               created_at: '2026-05-05T00:10:00.000Z',
             },
           ],
@@ -2176,7 +2237,7 @@ describe('ConversationWorkspace', () => {
             role: 'user',
             message_type: 'user_text',
             plain_text: 'Initial user message',
-            content: { text: 'Initial user message' },
+            content: {text: 'Initial user message'},
             created_at: '2026-05-06T00:00:00.000Z',
           },
           {
@@ -2185,7 +2246,7 @@ describe('ConversationWorkspace', () => {
             role: 'assistant',
             message_type: 'assistant_text',
             plain_text: 'Initial assistant reply',
-            content: { text: 'Initial assistant reply' },
+            content: {text: 'Initial assistant reply'},
             created_at: '2026-05-06T00:00:01.000Z',
           },
         ],
@@ -2195,10 +2256,10 @@ describe('ConversationWorkspace', () => {
     renderConversationWorkspace();
 
     expect(await screen.findByText('Conversation history')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'New conversation' })).toBeInTheDocument();
-    expect(await screen.findByRole('button', { name: 'Earlier Conversation' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'New conversation'})).toBeInTheDocument();
+    expect(await screen.findByRole('button', {name: 'Earlier Conversation'})).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Earlier Conversation' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Earlier Conversation'}));
 
     await waitFor(() => {
       expect(conversationsApi.getConversation).toHaveBeenCalledWith('conversation-2');
@@ -2211,7 +2272,7 @@ describe('ConversationWorkspace', () => {
 
     expect(await screen.findByText('Initial assistant reply')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
+    fireEvent.click(screen.getByRole('button', {name: 'New conversation'}));
 
     await waitFor(() => {
       expect(screen.getByText('Conversation will be created on first message')).toBeInTheDocument();
@@ -2221,9 +2282,10 @@ describe('ConversationWorkspace', () => {
   });
 
   it('silently clears a stale active conversation after the backend removes it', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {
+    });
     conversationsApi.getConversation.mockRejectedValueOnce(
-      new ApiError({ status: 404, message: 'Conversation not found' })
+      new ApiError({status: 404, message: 'Conversation not found'})
     );
 
     renderConversationWorkspace();
@@ -2253,7 +2315,7 @@ describe('ConversationWorkspace', () => {
           conversation_id: 'conversation-1',
           memory_type: 'context_pack',
           status: 'active',
-          metadata: { mode: 'handoff' },
+          metadata: {mode: 'handoff'},
         },
       ],
     });
@@ -2273,7 +2335,7 @@ describe('ConversationWorkspace', () => {
         estimated_compact_tokens: 80,
         sensitive: false,
         warnings: [],
-        progress: { completed_steps: 6, failed_steps: 0, events: [] },
+        progress: {completed_steps: 6, failed_steps: 0, events: []},
       })
       .mockResolvedValueOnce({
         status: 'created',
@@ -2290,18 +2352,18 @@ describe('ConversationWorkspace', () => {
         estimated_compact_tokens: 80,
         sensitive: false,
         warnings: [],
-        progress: { completed_steps: 7, failed_steps: 0, events: [] },
+        progress: {completed_steps: 7, failed_steps: 0, events: []},
       });
 
     renderConversationWorkspace();
 
     expect(await screen.findByText('Initial assistant reply')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Compact' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Compact'}));
 
     expect(await screen.findByText('Compact conversation')).toBeInTheDocument();
     expect(await screen.findByText('Saved handoff pack')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Create workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Create workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.createWorkflow).toHaveBeenCalledWith(
@@ -2320,7 +2382,7 @@ describe('ConversationWorkspace', () => {
     });
     expect(pushMock).toHaveBeenCalledWith('/workflows/workflow-from-pack');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Preview' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Preview'}));
 
     await waitFor(() => {
       expect(conversationsApi.compactConversation).toHaveBeenCalledWith(
@@ -2336,7 +2398,7 @@ describe('ConversationWorkspace', () => {
     expect(await screen.findByText('Preview context pack')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Save to memory'));
-    fireEvent.click(screen.getByRole('button', { name: 'Save pack' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save pack'}));
 
     await waitFor(() => {
       expect(conversationsApi.compactConversation).toHaveBeenLastCalledWith(
@@ -2372,7 +2434,7 @@ describe('ConversationWorkspace', () => {
 
     renderConversationWorkspace();
 
-    const runButtons = await screen.findAllByRole('button', { name: 'Run workflow (native)' });
+    const runButtons = await screen.findAllByRole('button', {name: 'Run workflow (native)'});
     fireEvent.click(runButtons[0]);
 
     await waitFor(() => {
@@ -2424,10 +2486,11 @@ describe('ConversationWorkspace', () => {
               id: 'workflow-1',
               name: 'Workflow One',
               description: 'New description',
+              metadata: {main_agent_monitoring: {enabled: false}},
               entrypoint: 'task-1',
               default_runtime_adapter_id: 'native',
               agent_definitions: [],
-              task_definitions: [{ id: 'task-1', name: 'Task One' }],
+              task_definitions: [{id: 'task-1', name: 'Task One'}],
               tool_definitions: [],
             },
           },
@@ -2444,6 +2507,9 @@ describe('ConversationWorkspace', () => {
       id: 'workflow-1',
       name: 'Workflow One',
       description: 'Old description',
+      metadata: {main_agent_monitoring: {enabled: true}},
+      monitoring: {status: 'healthy', pending_reviews: 9},
+      runtime_governance: {controls: {require_approval: true}},
       entrypoint: 'task-1',
       default_runtime_adapter_id: 'crewai',
       agent_definitions: [],
@@ -2461,12 +2527,15 @@ describe('ConversationWorkspace', () => {
       .closest('div.space-y-1\\.5');
     expect(proposalSection).not.toBeNull();
     fireEvent.click(
-      within(proposalSection as HTMLElement).getByRole('button', { name: 'Show details' })
+      within(proposalSection as HTMLElement).getByRole('button', {name: 'Show details'})
     );
     expect(await screen.findByText('Detailed Generated Diff')).toBeInTheDocument();
     expect(screen.getAllByText('Full Proposed Payload').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Approval Metadata').length).toBeGreaterThan(0);
     expect(screen.getByText('description')).toBeInTheDocument();
+    expect(screen.queryByText('monitoring', {exact: true})).not.toBeInTheDocument();
+    expect(screen.queryByText('runtime_governance', {exact: true})).not.toBeInTheDocument();
+    expect(screen.getByText('metadata.main_agent_monitoring.enabled')).toBeInTheDocument();
     expect(screen.getAllByText(/Old description -> New description/).length).toBeGreaterThan(0);
     expect(screen.getByText('default_runtime_adapter_id')).toBeInTheDocument();
     expect(screen.getAllByText(/crewai -> native/).length).toBeGreaterThan(0);
@@ -2551,7 +2620,7 @@ describe('ConversationWorkspace', () => {
 
     renderConversationWorkspace();
 
-    const panel = await screen.findByRole('region', { name: 'Pending approvals' });
+    const panel = await screen.findByRole('region', {name: 'Pending approvals'});
     expect(within(panel).getByText('Create Research Brief Workflow')).toBeInTheDocument();
     expect(
       within(panel).getByText('Creates a workflow that drafts a research brief from a topic.')
@@ -2561,18 +2630,18 @@ describe('ConversationWorkspace', () => {
     expect(within(panel).queryByText('Approved old action')).not.toBeInTheDocument();
     expect(within(panel).getByTestId('pending-approvals-list')).toHaveClass('overflow-y-auto');
 
-    fireEvent.click(within(panel).getByRole('button', { name: 'Collapse approvals' }));
+    fireEvent.click(within(panel).getByRole('button', {name: 'Collapse approvals'}));
 
     expect(
       within(panel).getByText('1 pending approval hidden. Expand to review and act on them.')
     ).toBeInTheDocument();
     expect(within(panel).queryByText('Create Research Brief Workflow')).not.toBeInTheDocument();
-    expect(within(panel).queryByRole('button', { name: 'Expand approvals' })).toBeInTheDocument();
+    expect(within(panel).queryByRole('button', {name: 'Expand approvals'})).toBeInTheDocument();
 
-    fireEvent.click(within(panel).getByRole('button', { name: 'Expand approvals' }));
+    fireEvent.click(within(panel).getByRole('button', {name: 'Expand approvals'}));
 
     expect(within(panel).getByText('Create Research Brief Workflow')).toBeInTheDocument();
-    fireEvent.click(within(panel).getByRole('button', { name: 'Approve' }));
+    fireEvent.click(within(panel).getByRole('button', {name: 'Approve'}));
 
     await waitFor(() => {
       expect(conversationsApi.approveApprovalRequest).toHaveBeenCalledWith('approval-pending', {
@@ -2616,8 +2685,8 @@ describe('ConversationWorkspace', () => {
               surface: 'agent.list',
               route: '/agents',
               title: 'Agents',
-              selection: { agentId: 'agent-main-1' },
-              entities: [{ type: 'agent', id: 'agent-main-1', label: 'Research Agent' }],
+              selection: {agentId: 'agent-main-1'},
+              entities: [{type: 'agent', id: 'agent-main-1', label: 'Research Agent'}],
             },
             source_provider_ids: ['agent.provider'],
           },
@@ -2646,14 +2715,14 @@ describe('ConversationWorkspace', () => {
 
     renderConversationWorkspace();
 
-    const panel = await screen.findByRole('region', { name: 'Pending approvals' });
+    const panel = await screen.findByRole('region', {name: 'Pending approvals'});
     expect(within(panel).getByText('Update Research Agent')).toBeInTheDocument();
     expect(within(panel).getByText('Source: Agent: Research Agent')).toBeInTheDocument();
     expect(within(panel).getByText('agent.provider')).toBeInTheDocument();
     fireEvent.click(within(panel).getByText('Full Proposed Payload'));
     expect(within(panel).getByText('instructions')).toBeInTheDocument();
 
-    fireEvent.click(within(panel).getByRole('button', { name: 'Reject' }));
+    fireEvent.click(within(panel).getByRole('button', {name: 'Reject'}));
 
     await waitFor(() => {
       expect(conversationsApi.rejectApprovalRequest).toHaveBeenCalledWith('approval-pending', {
@@ -2722,7 +2791,7 @@ describe('ConversationWorkspace', () => {
     const executionContainer = executionCard.closest('div.mr-auto');
     expect(executionContainer).not.toBeNull();
     fireEvent.click(
-      within(executionContainer as HTMLElement).getByRole('button', { name: 'Show details' })
+      within(executionContainer as HTMLElement).getByRole('button', {name: 'Show details'})
     );
     expect(await screen.findByText('Execution timeline')).toBeInTheDocument();
     expect(screen.getByText('2 events')).toBeInTheDocument();
@@ -2775,6 +2844,9 @@ describe('ConversationWorkspace', () => {
                   password: 'plain-password',
                 },
                 safe_value: 'public result',
+                input_token_estimate: 959,
+                total_token_limit_verified: false,
+                completion_tokens: 'secret-metric-string',
               },
             },
           },
@@ -2793,18 +2865,21 @@ describe('ConversationWorkspace', () => {
     expect(screen.getByText('Completed')).toBeInTheDocument();
     expect(screen.queryByText('Executing')).not.toBeInTheDocument();
     fireEvent.click(
-      within(toolCallSection as HTMLElement).getByRole('button', { name: 'Show details' })
+      within(toolCallSection as HTMLElement).getByRole('button', {name: 'Show details'})
     );
     expect(screen.getByText('Arguments (Redacted)')).toBeInTheDocument();
     expect(screen.queryByText('Result (Redacted)')).not.toBeInTheDocument();
     fireEvent.click(
-      within(toolResultSection as HTMLElement).getByRole('button', { name: 'Show details' })
+      within(toolResultSection as HTMLElement).getByRole('button', {name: 'Show details'})
     );
     expect(screen.getByText('Result (Redacted)')).toBeInTheDocument();
     expect(screen.getAllByText(/\[REDACTED\]/).length).toBeGreaterThanOrEqual(2);
     expect(screen.getByText(/max_tokens/)).toBeInTheDocument();
     expect(screen.getByText(/2000/)).toBeInTheDocument();
     expect(screen.getByText(/public result/)).toBeInTheDocument();
+    expect(screen.getByText(/959/)).toBeInTheDocument();
+    expect(screen.getByText(/\"total_token_limit_verified\": false/)).toBeInTheDocument();
+    expect(screen.queryByText(/secret-metric-string/)).not.toBeInTheDocument();
     expect(screen.queryByText(/super-secret-token/)).not.toBeInTheDocument();
     expect(screen.queryByText(/sk-testsecret123456/)).not.toBeInTheDocument();
     expect(screen.queryByText(/ghp_supersecret123456/)).not.toBeInTheDocument();
@@ -2813,19 +2888,20 @@ describe('ConversationWorkspace', () => {
 
   it('shows a degraded simplified chat shell when main agent details are unavailable', async () => {
     window.localStorage.clear();
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {
+    });
     conversationsApi.getMainAgent.mockRejectedValue(new Error('main agent missing'));
 
     renderConversationWorkspace();
 
-    expect(await screen.findByRole('heading', { name: 'Main Agent Chat' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', {name: 'Main Agent Chat'})).toBeInTheDocument();
     expect(screen.getByText('Chat with Main Agent.')).toBeInTheDocument();
     expect(
       screen.getByText('Active main-agent details are temporarily unavailable.')
     ).toBeInTheDocument();
     expect(screen.getByText('Conversation will be created on first message')).toBeInTheDocument();
     expect(
-      screen.queryByRole('heading', { name: 'Main agent setup required' })
+      screen.queryByRole('heading', {name: 'Main agent setup required'})
     ).not.toBeInTheDocument();
     expect(screen.queryByText('Assistant bootstrap')).not.toBeInTheDocument();
     expect(conversationsApi.getConversation).not.toHaveBeenCalled();

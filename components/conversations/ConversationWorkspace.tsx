@@ -1,8 +1,17 @@
 'use client';
 
+import WorkspaceSearch from '@/components/app-shell/WorkspaceSearch';
+import { Textarea } from '@/components/library/shadcn/textarea';
+import { NativeSelect } from '@/components/library/shadcn/select';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
+  hasApprovalAfterCursor,
+  hasTerminalAssistantTurnMessageAfterCursor,
+  sortMessages,
+} from '@/lib/conversationTurnState';
+import {useRouter} from 'next/navigation';
+import {
+  type ReactNode,
   useCallback,
   useEffect,
   useId,
@@ -10,18 +19,17 @@ import {
   useRef,
   useState,
   useTransition,
-  type ReactNode,
 } from 'react';
-import { useSession } from 'next-auth/react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {useSession} from 'next-auth/react';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
-  Archive,
   AlertTriangle,
+  Archive,
   Bot,
   Braces,
   Cable,
-  ChevronLeft,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   ChevronUp,
   Clipboard,
@@ -32,27 +40,28 @@ import {
   Globe2,
   Hash,
   LoaderCircle,
+  type LucideIcon,
   MessageSquareText,
   Mic,
   Paperclip,
   RefreshCw,
   SendHorizontal,
-  Sparkles,
   Smartphone,
+  Sparkles,
   X,
-  type LucideIcon,
 } from 'lucide-react';
 import {
   AssistantMarkdown,
   formatAssistantMarkdownText,
 } from '@/components/conversations/AssistantMarkdown';
 import AssistantContextMenu from '@/components/conversations/AssistantContextMenu';
-import { Badge } from '@/components/library/shadcn/badge';
-import { Button } from '@/components/library/shadcn/button';
-import { Input } from '@/components/library/shadcn/input';
-import { DialogClose } from '@/components/library/shadcn/dialog';
-import { AppDialog } from '@/components/app-shell/AppOverlay';
-import { FormField, FormFieldGroup, FormSection } from '@/components/app-shell/FormSection';
+import RunBrowserPanel from '@/components/runs/components/RunBrowserPanel';
+import {Badge} from '@/components/library/shadcn/badge';
+import {Button} from '@/components/library/shadcn/button';
+import {Input} from '@/components/library/shadcn/input';
+import {DialogClose} from '@/components/library/shadcn/dialog';
+import {AppDialog} from '@/components/app-shell/AppOverlay';
+import {FormField, FormFieldGroup, FormSection} from '@/components/app-shell/FormSection';
 import {
   Tooltip,
   TooltipContent,
@@ -60,15 +69,15 @@ import {
   TooltipTrigger,
 } from '@/components/library/shadcn/tooltip';
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
-import { goalMentionHandle } from '@/components/goals/GoalSelector';
-import { conversationsApi } from '@/lib/api/backend/conversations';
-import { isApiError } from '@/lib/api/errors';
-import { documentsApi } from '@/lib/api/backend/documents';
-import { logsApi } from '@/lib/api/backend/logs';
-import { personasApi } from '@/lib/api/backend/personas';
-import { runsApi } from '@/lib/api/backend/runs';
-import { workflowsApi } from '@/lib/api/backend/workflows';
-import { queryKeys } from '@/lib/react-query/queryKeys';
+import {goalMentionHandle} from '@/types/goals';
+import {conversationsApi} from '@/lib/api/backend/conversations';
+import {isApiError} from '@/lib/api/errors';
+import {documentsApi} from '@/lib/api/backend/documents';
+import {logsApi} from '@/lib/api/backend/logs';
+import {personasApi} from '@/lib/api/backend/personas';
+import {runsApi} from '@/lib/api/backend/runs';
+import {workflowsApi} from '@/lib/api/backend/workflows';
+import {queryKeys} from '@/lib/react-query/queryKeys';
 import type {
   ApprovalRequest,
   Conversation,
@@ -82,26 +91,26 @@ import type {
   ConversationMessage,
   ConversationStreamEvent,
 } from '@/types/conversations';
-import type { ExecutionEventRecord } from '@/types/runtime';
-import type { WorkflowDefinition } from '@/types/workflows';
-import type { AuthUser } from '@/types/auth';
-import type { JsonObject } from '@/types/api';
-import type { DocumentIngestionResult, DocumentUploadMode } from '@/types/documents';
-import type { MemoryRecord } from '@/types/memory';
-import type { PersonaDefinition } from '@/types/personas';
-import type { GoalOperatorSummary } from '@/types/goals';
+import type {ExecutionEventRecord} from '@/types/runtime';
+import type {WorkflowDefinition} from '@/types/workflows';
+import type {AuthUser} from '@/types/auth';
+import type {JsonObject} from '@/types/api';
+import type {DocumentIngestionResult, DocumentUploadMode} from '@/types/documents';
+import type {MemoryRecord} from '@/types/memory';
+import type {PersonaDefinition} from '@/types/personas';
+import type {GoalOperatorSummary} from '@/types/goals';
 import WorkflowRunActionButton from '@/components/workflow/WorkflowRunActionButton';
-import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
-import { toast } from 'sonner';
+import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
+import {toast} from 'sonner';
 
 const ACTIVE_CONVERSATION_STORAGE_KEY = 'agency.active_conversation_id';
 const DRAFT_INPUT_STORAGE_KEY = 'agency.conversation_draft_input';
 const TERMINAL_RUN_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 const DOCUMENT_UPLOAD_ACCEPT = '.txt,.md,.markdown,.csv,.json,.log,.html,.htm,.pdf,.docx';
 const conversationUploadModes: Array<{ value: DocumentUploadMode; label: string }> = [
-  { value: 'context', label: 'Use in this chat' },
-  { value: 'vector', label: 'Save for retrieval' },
-  { value: 'both', label: 'Use now and save' },
+  {value: 'context', label: 'Use in this chat'},
+  {value: 'vector', label: 'Save for retrieval'},
+  {value: 'both', label: 'Use now and save'},
 ];
 const ASYNC_TURN_SLOW_MS = 30_000;
 const ASYNC_TURN_STALE_MS = 120_000;
@@ -180,13 +189,13 @@ type GeneratedConversationFile = {
 };
 
 const compactModeOptions: Array<{ value: ConversationCompactMode; label: string }> = [
-  { value: 'brief', label: 'Brief' },
-  { value: 'handoff', label: 'Handoff' },
-  { value: 'memory', label: 'Memory' },
-  { value: 'workflow', label: 'Workflow' },
-  { value: 'technical', label: 'Technical' },
-  { value: 'archive', label: 'Archive' },
-  { value: 'custom', label: 'Custom' },
+  {value: 'brief', label: 'Brief'},
+  {value: 'handoff', label: 'Handoff'},
+  {value: 'memory', label: 'Memory'},
+  {value: 'workflow', label: 'Workflow'},
+  {value: 'technical', label: 'Technical'},
+  {value: 'archive', label: 'Archive'},
+  {value: 'custom', label: 'Custom'},
 ];
 
 const compactTokenBudgetOptions: Array<{
@@ -194,17 +203,17 @@ const compactTokenBudgetOptions: Array<{
   label: string;
   tokens: number;
 }> = [
-  { value: 'small', label: 'Small', tokens: 600 },
-  { value: 'medium', label: 'Medium', tokens: 1200 },
-  { value: 'large', label: 'Large', tokens: 2400 },
-  { value: 'custom', label: 'Custom', tokens: 1200 },
+  {value: 'small', label: 'Small', tokens: 600},
+  {value: 'medium', label: 'Medium', tokens: 1200},
+  {value: 'large', label: 'Large', tokens: 2400},
+  {value: 'custom', label: 'Custom', tokens: 1200},
 ];
 
 const compactSourceRangeOptions: Array<{ value: ConversationCompactSourceRange; label: string }> = [
-  { value: 'full', label: 'Full conversation' },
-  { value: 'since_last_compact', label: 'Since last compact' },
-  { value: 'selected', label: 'Selected range' },
-  { value: 'older_than_recent', label: 'Older than recent' },
+  {value: 'full', label: 'Full conversation'},
+  {value: 'since_last_compact', label: 'Since last compact'},
+  {value: 'selected', label: 'Selected range'},
+  {value: 'older_than_recent', label: 'Older than recent'},
 ];
 
 const defaultAssistantPromptSuggestions: AssistantPromptSuggestion[] = [
@@ -362,17 +371,6 @@ function contextUsageTone(usage: ConversationContextUsage | null | undefined) {
   }
 }
 
-function sortMessages(messages: ConversationMessage[]) {
-  return [...messages].sort((left, right) => {
-    const leftTime = new Date(left.created_at).getTime();
-    const rightTime = new Date(right.created_at).getTime();
-    if (leftTime !== rightTime) {
-      return leftTime - rightTime;
-    }
-    return left.id.localeCompare(right.id);
-  });
-}
-
 function mergeMessage(current: ConversationMessage[], next: ConversationMessage) {
   const existing = current.find((item) => item.id === next.id);
   if (existing) {
@@ -392,68 +390,6 @@ function replaceOptimisticMessage(
     current.filter((message) => message.id !== optimisticMessageId),
     persistedMessage
   );
-}
-
-function isTerminalAssistantTurnMessage(message: ConversationMessage) {
-  return (
-    message.role === 'assistant' ||
-    message.message_type === 'approval_request' ||
-    message.message_type === 'approval_result' ||
-    message.message_type === 'execution_completed'
-  );
-}
-
-function hasTerminalAssistantTurnMessageAfterCursor(
-  messages: ConversationMessage[],
-  cursorMessageId: string
-) {
-  let seenCursor = false;
-  for (const message of sortMessages(messages)) {
-    if (seenCursor && isTerminalAssistantTurnMessage(message)) {
-      return true;
-    }
-    if (message.id === cursorMessageId) {
-      seenCursor = true;
-    }
-  }
-  return false;
-}
-
-function hasApprovalAfterCursor(
-  messages: ConversationMessage[],
-  approvals: ApprovalRequest[],
-  cursorMessageId: string
-) {
-  const sortedMessages = sortMessages(messages);
-  const cursor = sortedMessages.find((message) => message.id === cursorMessageId);
-  if (!cursor) {
-    return false;
-  }
-
-  let seenCursor = false;
-  const messageIdsAfterCursor = new Set<string>();
-  for (const message of sortedMessages) {
-    if (seenCursor) {
-      messageIdsAfterCursor.add(message.id);
-    }
-    if (message.id === cursorMessageId) {
-      seenCursor = true;
-    }
-  }
-
-  const cursorTime = new Date(cursor.created_at).getTime();
-  return approvals.some((approval) => {
-    if (approval.conversation_id !== cursor.conversation_id) {
-      return false;
-    }
-    if (approval.origin_message_id && messageIdsAfterCursor.has(approval.origin_message_id)) {
-      return true;
-    }
-    const approvalTime = new Date(approval.created_at).getTime();
-    return (
-      Number.isFinite(cursorTime) && Number.isFinite(approvalTime) && approvalTime > cursorTime
-    );
-  });
 }
 
 function hasAssistantTurnCompletionAfterCursor(
@@ -554,7 +490,7 @@ function selectedEntityFromPageContext(pageContext: JsonObject) {
 
   const selectedPairs = Object.entries(selection)
     .filter(([key, value]) => key.toLowerCase().endsWith('id') && typeof value === 'string')
-    .map(([key, value]) => ({ key, value: String(value) }));
+    .map(([key, value]) => ({key, value: String(value)}));
   const selectedIds = selectedPairs.map((item) => item.value);
   if (selectedIds.length === 0) {
     return entities.length === 1 ? entities[0] : null;
@@ -593,13 +529,13 @@ function pageTargetFromContext(pageContext: JsonObject | undefined, providers: s
     }
   }
   if (title) {
-    return { label: title, detail: route ?? surface, providers };
+    return {label: title, detail: route ?? surface, providers};
   }
   if (surface) {
-    return { label: readableKey(surface), detail: route, providers };
+    return {label: readableKey(surface), detail: route, providers};
   }
   if (route) {
-    return { label: route, providers };
+    return {label: route, providers};
   }
   return null;
 }
@@ -697,7 +633,8 @@ function workflowIdsFromAssistantMetadata(metadata: JsonObject) {
 }
 
 function workflowIdFromAssistantMetadata(metadata: JsonObject) {
-  return Array.from(workflowIdsFromAssistantMetadata(metadata))[0] ?? null;
+  const first = Array.from(workflowIdsFromAssistantMetadata(metadata))[0];
+  return typeof first === 'string' ? first : null;
 }
 
 function workflowIdsFromConversation(conversation: Conversation | null | undefined) {
@@ -978,7 +915,7 @@ function channelTargetPromptForConversation(
     const provider = latestUserMessage
       ? channelProviderFromText(messagePlainText(latestUserMessage))
       : undefined;
-    return prompt && provider ? { ...prompt, provider } : prompt;
+    return prompt && provider ? {...prompt, provider} : prompt;
   }
 
   return prompt;
@@ -991,8 +928,8 @@ function approvalSourceContext(approval: ApprovalRequest): AssistantPageTarget |
   }
   const providerIds = Array.isArray(metadata.source_provider_ids)
     ? metadata.source_provider_ids.filter(
-        (item): item is string => typeof item === 'string' && Boolean(item)
-      )
+      (item): item is string => typeof item === 'string' && Boolean(item)
+    )
     : [];
   const pageContext = isRecord(metadata.source_page_context)
     ? metadata.source_page_context
@@ -1008,7 +945,7 @@ function approvalSourceLabel(approval: ApprovalRequest) {
   return source.detail ? `${source.label} (${source.detail})` : source.label;
 }
 
-function ApprovalSourceBadge({ approval }: { approval: ApprovalRequest }) {
+function ApprovalSourceBadge({approval}: { approval: ApprovalRequest }) {
   const source = approvalSourceContext(approval);
   if (!source) {
     return null;
@@ -1033,7 +970,7 @@ function ApprovalSourceBadge({ approval }: { approval: ApprovalRequest }) {
 }
 
 function mergeApproval(current: Record<string, ApprovalRequest>, next: ApprovalRequest) {
-  return { ...current, [next.id]: next };
+  return {...current, [next.id]: next};
 }
 
 const activityEventTypes = new Set<string>([
@@ -1263,11 +1200,12 @@ function activityForMessage(
 
 function latestRunningActivity(
   conversationId: string,
-  activities: Record<string, ConversationTurnActivity>
+  activities: Record<string, ConversationTurnActivity>,
+  turnId: string
 ) {
   return (
     Object.values(activities)
-      .filter((turn) => turn.conversationId === conversationId)
+      .filter((turn) => turn.conversationId === conversationId && turn.turnId === turnId)
       .filter((turn) => turn.status === 'running' || !turn.finalMessageId)
       .sort((left, right) => {
         const leftTime = new Date(
@@ -1466,7 +1404,7 @@ function messageShellClasses(message: ConversationMessage) {
     if (message.message_type === 'approval_result') {
       return 'border border-emerald-200 bg-emerald-50 text-emerald-950 shadow-sm dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100 dark:shadow-none';
     }
-    return 'border border-slate-200 bg-linear-to-br from-white via-white to-sky-50/70 text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.07)] dark:border-white/10 dark:bg-[linear-gradient(180deg,rgba(15,23,42,0.92)_0%,rgba(10,18,32,0.96)_100%)] dark:text-slate-100 dark:shadow-none';
+    return 'border border-border bg-card text-card-foreground';
   }
   if (message.message_type === 'execution_completed') {
     return 'mx-auto border border-emerald-200 bg-emerald-50 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-100';
@@ -1546,8 +1484,38 @@ function redactSensitiveString(value: string) {
   });
 }
 
+const TOKEN_ACCOUNTING_KEYS = new Set([
+  'prompt_tokens',
+  'completion_tokens',
+  'total_tokens',
+  'input_tokens',
+  'output_tokens',
+  'input_token_estimate',
+  'total_token_allowance',
+  'requested_output_token_limit',
+  'estimated_prompt_tokens',
+  'remaining_context_tokens',
+  'reserved_completion_tokens',
+  'estimated_total_context_tokens',
+]);
+
 function sanitizeForDisplay(value: unknown, key = ''): unknown {
-  if (key && isSensitiveKey(key)) {
+  // Preserve typed accounting metrics, never credential strings or server-redacted values.
+  const metricKey = key.toLowerCase();
+  const isCount =
+    TOKEN_ACCOUNTING_KEYS.has(metricKey) &&
+    typeof value === 'number' &&
+    Number.isSafeInteger(value) &&
+    value >= 0;
+  const isFlag = metricKey === 'total_token_limit_verified' && typeof value === 'boolean';
+  if (
+    key &&
+    (isSensitiveKey(key) ||
+      TOKEN_ACCOUNTING_KEYS.has(metricKey) ||
+      metricKey === 'total_token_limit_verified') &&
+    !isCount &&
+    !isFlag
+  ) {
     return REDACTED_VALUE;
   }
   if (typeof value === 'string') {
@@ -1702,7 +1670,7 @@ function buildObjectDiffRows(
     return rows;
   }
 
-  rows.push({ path: path || 'root', current, proposed });
+  rows.push({path: path || 'root', current, proposed});
   return rows;
 }
 
@@ -1920,7 +1888,7 @@ function approvalPayloadHighlights(approval: ApprovalRequest) {
   const addRow = (label: string, value: unknown) => {
     const formatted = compactPayloadValue(value);
     if (formatted) {
-      rows.push({ label, value: formatted });
+      rows.push({label, value: formatted});
     }
   };
 
@@ -1943,12 +1911,12 @@ function approvalPayloadHighlights(approval: ApprovalRequest) {
 }
 
 function PendingApprovalsPanel({
-  approvals,
-  mainAgentName,
-  isPending,
-  isPopup,
-  onDecision,
-}: {
+                                 approvals,
+                                 mainAgentName,
+                                 isPending,
+                                 isPopup,
+                                 onDecision,
+                               }: {
   approvals: ApprovalRequest[];
   mainAgentName: string;
   isPending: boolean;
@@ -1998,12 +1966,12 @@ function PendingApprovalsPanel({
             >
               {isExpanded ? (
                 <>
-                  <ChevronUp className="mr-2 h-4 w-4" />
+                  <ChevronUp className="mr-2 h-4 w-4"/>
                   Collapse approvals
                 </>
               ) : (
                 <>
-                  <ChevronDown className="mr-2 h-4 w-4" />
+                  <ChevronDown className="mr-2 h-4 w-4"/>
                   Expand approvals
                 </>
               )}
@@ -2041,19 +2009,21 @@ function PendingApprovalsPanel({
                         {approvalLabel(approval)}
                       </Badge>
                     </div>
-                    <ApprovalSourceBadge approval={approval} />
+                    <ApprovalSourceBadge approval={approval}/>
 
                     {approval.diff_summary ? (
                       <div className="mt-3">
-                        <DataBlock title="Proposed Change Summary" value={approval.diff_summary} />
+                        <DataBlock title="Proposed Change Summary" value={approval.diff_summary}/>
                       </div>
                     ) : null}
-                    <ApprovalDiffTable approval={approval} />
+                    <ApprovalDiffTable approval={approval}/>
                     {highlights.length > 0 ? (
-                      <dl className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs sm:grid-cols-2">
+                      <dl
+                        className="mt-3 grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs sm:grid-cols-2">
                         {highlights.map((item) => (
                           <div key={`${approval.id}-${item.label}`}>
-                            <dt className="font-semibold uppercase tracking-[0.12em] text-slate-500">
+                            <dt
+                              className="font-semibold uppercase tracking-[0.12em] text-slate-500">
                               {item.label}
                             </dt>
                             <dd className="mt-1 wrap-break-word text-slate-800">{item.value}</dd>
@@ -2062,7 +2032,7 @@ function PendingApprovalsPanel({
                       </dl>
                     ) : null}
 
-                    <ApprovalInspectionPanel approval={approval} />
+                    <ApprovalInspectionPanel approval={approval}/>
                     <ApprovalActions
                       approval={approval}
                       isPending={isPending}
@@ -2085,10 +2055,10 @@ function PendingApprovalsPanel({
 }
 
 function WorkflowReviewDiff({
-  currentWorkflow,
-  proposedWorkflow,
-  isUpdate,
-}: {
+                              currentWorkflow,
+                              proposedWorkflow,
+                              isUpdate,
+                            }: {
   currentWorkflow: Record<string, unknown> | null;
   proposedWorkflow: Record<string, unknown> | null;
   isUpdate: boolean;
@@ -2136,30 +2106,33 @@ function WorkflowReviewDiff({
   ].filter((row) => !isUpdate || String(row.current) !== String(row.proposed));
 
   return (
-    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-violet-400/20 dark:bg-[linear-gradient(180deg,rgba(30,24,56,0.52)_0%,rgba(18,23,40,0.92)_100%)]">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-violet-100">
+    <div
+      className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-violet-400/20 dark:bg-[linear-gradient(180deg,rgba(30,24,56,0.52)_0%,rgba(18,23,40,0.92)_100%)]">
+      <p
+        className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-violet-100">
         {isUpdate ? 'Changed workflow fields' : 'Proposed workflow contents'}
       </p>
       {rows.length > 0 ? (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full min-w-130 text-left text-xs">
             <thead className="text-slate-500 dark:text-violet-100/85">
-              <tr>
-                <th className="w-32 py-2 font-medium">{isUpdate ? 'Where' : 'Field'}</th>
-                <th className="py-2 font-medium">{isUpdate ? 'Change' : 'Proposed'}</th>
-              </tr>
+            <tr>
+              <th className="w-32 py-2 font-medium">{isUpdate ? 'Where' : 'Field'}</th>
+              <th className="py-2 font-medium">{isUpdate ? 'Change' : 'Proposed'}</th>
+            </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 text-slate-700 dark:divide-white/10 dark:text-slate-100">
-              {rows.map((row) => (
-                <tr key={row.label}>
-                  <td className="py-2 pr-3 font-medium text-slate-600 dark:text-violet-100/90">
-                    {row.label}
-                  </td>
-                  <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">
-                    {isUpdate ? diffChangeSummary(row.current, row.proposed) : row.proposed}
-                  </td>
-                </tr>
-              ))}
+            <tbody
+              className="divide-y divide-slate-100 text-slate-700 dark:divide-white/10 dark:text-slate-100">
+            {rows.map((row) => (
+              <tr key={row.label}>
+                <td className="py-2 pr-3 font-medium text-slate-600 dark:text-violet-100/90">
+                  {row.label}
+                </td>
+                <td className="py-2 pr-3 text-slate-900 dark:text-slate-100">
+                  {isUpdate ? diffChangeSummary(row.current, row.proposed) : row.proposed}
+                </td>
+              </tr>
+            ))}
             </tbody>
           </table>
         </div>
@@ -2172,11 +2145,21 @@ function WorkflowReviewDiff({
   );
 }
 
+function workflowDefinitionForDiff(workflow: Record<string, unknown>) {
+  // Workflow GET enriches the definition with read-only operator views. They are
+  // absent from saved proposals; comparing them would falsely imply removal.
+  // Persisted policy settings under metadata must remain part of the review.
+  const definition = {...workflow};
+  delete definition.monitoring;
+  delete definition.runtime_governance;
+  return definition;
+}
+
 function WorkflowDetailedDiff({
-  currentWorkflow,
-  proposedWorkflow,
-  isUpdate,
-}: {
+                                currentWorkflow,
+                                proposedWorkflow,
+                                isUpdate,
+                              }: {
   currentWorkflow: Record<string, unknown> | null;
   proposedWorkflow: Record<string, unknown> | null;
   isUpdate: boolean;
@@ -2186,36 +2169,47 @@ function WorkflowDetailedDiff({
   }
 
   const rows =
-    isUpdate && currentWorkflow ? buildObjectDiffRows(currentWorkflow, proposedWorkflow) : [];
+    isUpdate && currentWorkflow
+      ? buildObjectDiffRows(
+        workflowDefinitionForDiff(currentWorkflow),
+        workflowDefinitionForDiff(proposedWorkflow)
+      )
+      : [];
 
   return (
-    <details className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-violet-400/20 dark:bg-[linear-gradient(180deg,rgba(24,22,46,0.6)_0%,rgba(13,18,33,0.96)_100%)]">
-      <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-violet-100">
+    <details
+      className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-violet-400/20 dark:bg-[linear-gradient(180deg,rgba(24,22,46,0.6)_0%,rgba(13,18,33,0.96)_100%)]">
+      <summary
+        className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-600 dark:text-violet-100">
         Detailed Generated Diff
       </summary>
       {isUpdate ? (
         rows.length > 0 ? (
-          <div className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-100 dark:border-white/10">
+          <div
+            className="mt-3 max-h-80 overflow-auto rounded-lg border border-slate-100 dark:border-white/10">
             <table className="w-full min-w-160 text-left text-xs">
               <thead className="bg-slate-50 text-slate-500 dark:bg-white/5 dark:text-violet-100/85">
-                <tr>
-                  <th className="w-56 px-3 py-2 font-medium">Path</th>
-                  <th className="px-3 py-2 font-medium">Change</th>
-                </tr>
+              <tr>
+                <th className="w-56 px-3 py-2 font-medium">Path</th>
+                <th className="px-3 py-2 font-medium">Change</th>
+              </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100 text-slate-700 dark:divide-white/10 dark:text-slate-100">
-                {rows.map((row) => (
-                  <tr key={row.path}>
-                    <td className="px-3 py-2 font-mono text-[11px] text-slate-600 dark:text-violet-100/90">
-                      {row.path}
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <pre className="max-w-xl whitespace-pre-wrap wrap-break-word font-medium text-slate-900 dark:text-slate-100">
+              <tbody
+                className="divide-y divide-slate-100 text-slate-700 dark:divide-white/10 dark:text-slate-100">
+              {rows.map((row) => (
+                <tr key={row.path}>
+                  <td
+                    className="px-3 py-2 font-mono text-[11px] text-slate-600 dark:text-violet-100/90">
+                    {row.path}
+                  </td>
+                  <td className="px-3 py-2 align-top">
+                      <pre
+                        className="max-w-xl whitespace-pre-wrap wrap-break-word font-medium text-slate-900 dark:text-slate-100">
                         {diffChangeSummary(row.current, row.proposed)}
                       </pre>
-                    </td>
-                  </tr>
-                ))}
+                  </td>
+                </tr>
+              ))}
               </tbody>
             </table>
           </div>
@@ -2343,13 +2337,13 @@ function approvalMatchesToolCall(message: ConversationMessage, approval: Approva
 }
 
 function toolCallDisplayState({
-  message,
-  messages,
-  approvals,
-  pendingMainAgentTurn,
-  pendingIsStale,
-  pendingTurnInterrupted,
-}: {
+                                message,
+                                messages,
+                                approvals,
+                                pendingMainAgentTurn,
+                                pendingIsStale,
+                                pendingTurnInterrupted,
+                              }: {
   message: ConversationMessage;
   messages: ConversationMessage[];
   approvals: ApprovalRequest[];
@@ -2458,30 +2452,36 @@ function approvalTargetSummary(approval: ApprovalRequest) {
   };
 }
 
-function DataBlock({ title, value }: { title: string; value: unknown }) {
+function DataBlock({title, value}: { title: string; value: unknown }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-200">
+    <div
+      className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+      <p
+        className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-200">
         {title}
       </p>
-      <pre className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap wrap-break-word text-xs text-slate-700 dark:text-slate-50">
+      <pre
+        className="mt-2 max-h-60 overflow-auto whitespace-pre-wrap wrap-break-word text-xs text-slate-700 dark:text-slate-50">
         {formatValue(value)}
       </pre>
     </div>
   );
 }
 
-function DetailDataBlock({ title, value }: { title: string; value: unknown }) {
+function DetailDataBlock({title, value}: { title: string; value: unknown }) {
   if (value == null) {
     return null;
   }
 
   return (
-    <details className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
-      <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-200">
+    <details
+      className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+      <summary
+        className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-200">
         {title}
       </summary>
-      <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap wrap-break-word text-xs text-slate-700 dark:text-slate-50">
+      <pre
+        className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap wrap-break-word text-xs text-slate-700 dark:text-slate-50">
         {formatValue(value)}
       </pre>
     </details>
@@ -2505,15 +2505,17 @@ function approvalDiffRows(approval: ApprovalRequest): ApprovalDiffRow[] {
   );
 }
 
-function ApprovalDiffTable({ approval }: { approval: ApprovalRequest }) {
+function ApprovalDiffTable({approval}: { approval: ApprovalRequest }) {
   const rows = approvalDiffRows(approval).slice(0, 12);
   if (rows.length === 0) {
     return null;
   }
 
   return (
-    <div className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/70">
-      <div className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+    <div
+      className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/70">
+      <div
+        className="border-b border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
         Proposed diff
       </div>
       <div className="divide-y divide-slate-100 dark:divide-white/10">
@@ -2523,7 +2525,8 @@ function ApprovalDiffTable({ approval }: { approval: ApprovalRequest }) {
             className="grid gap-2 px-3 py-2 text-xs md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)]"
           >
             <div className="font-medium text-slate-700 dark:text-slate-200">{row.path}</div>
-            <pre className="min-w-0 whitespace-pre-wrap wrap-break-word text-slate-900 dark:text-slate-50">
+            <pre
+              className="min-w-0 whitespace-pre-wrap wrap-break-word text-slate-900 dark:text-slate-50">
               {diffChangeSummary(row.current, row.proposed)}
             </pre>
           </div>
@@ -2533,7 +2536,7 @@ function ApprovalDiffTable({ approval }: { approval: ApprovalRequest }) {
   );
 }
 
-function ApprovalInspectionPanel({ approval }: { approval: ApprovalRequest }) {
+function ApprovalInspectionPanel({approval}: { approval: ApprovalRequest }) {
   const hasMetadata = approval.metadata && Object.keys(approval.metadata).length > 0;
   const hasPayload = approval.proposed_payload && Object.keys(approval.proposed_payload).length > 0;
 
@@ -2543,17 +2546,17 @@ function ApprovalInspectionPanel({ approval }: { approval: ApprovalRequest }) {
 
   return (
     <div className="mt-3 space-y-3">
-      <DetailDataBlock title="Full Proposed Payload" value={approval.proposed_payload} />
-      <DetailDataBlock title="Approval Metadata" value={approval.metadata} />
+      <DetailDataBlock title="Full Proposed Payload" value={approval.proposed_payload}/>
+      <DetailDataBlock title="Approval Metadata" value={approval.metadata}/>
     </div>
   );
 }
 
 function ApprovalInnerWorkings({
-  title,
-  description,
-  children,
-}: {
+                                 title,
+                                 description,
+                                 children,
+                               }: {
   title: string;
   description: string;
   children: ReactNode;
@@ -2562,10 +2565,13 @@ function ApprovalInnerWorkings({
   const contentId = useId();
 
   return (
-    <section className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/70">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+    <section
+      className="mt-3 overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/70">
+      <div
+        className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-200">
+          <p
+            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-200">
             {title}
           </p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-100/75">{description}</p>
@@ -2580,12 +2586,12 @@ function ApprovalInnerWorkings({
         >
           {isOpen ? (
             <>
-              <ChevronUp className="mr-2 h-4 w-4" />
+              <ChevronUp className="mr-2 h-4 w-4"/>
               Hide details
             </>
           ) : (
             <>
-              <ChevronDown className="mr-2 h-4 w-4" />
+              <ChevronDown className="mr-2 h-4 w-4"/>
               Show details
             </>
           )}
@@ -2605,9 +2611,9 @@ function ApprovalInnerWorkings({
 }
 
 function ExecutionTimelinePreview({
-  executionId,
-  status,
-}: {
+                                    executionId,
+                                    status,
+                                  }: {
   executionId: string;
   status?: string | null;
 }) {
@@ -2621,7 +2627,8 @@ function ExecutionTimelinePreview({
 
   if (timelineQuery.isLoading) {
     return (
-      <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
+      <div
+        className="mt-3 rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
         Loading execution timeline...
       </div>
     );
@@ -2629,7 +2636,8 @@ function ExecutionTimelinePreview({
 
   if (timelineQuery.isError) {
     return (
-      <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+      <div
+        className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
         Execution timeline could not be loaded right now.
       </div>
     );
@@ -2639,9 +2647,11 @@ function ExecutionTimelinePreview({
   const visibleEvents = events.slice(-6);
 
   return (
-    <div className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+    <div
+      className="mt-3 rounded-xl border border-slate-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
+        <p
+          className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-slate-400">
           Execution timeline
         </p>
         <div className="flex flex-wrap gap-2">
@@ -2662,7 +2672,8 @@ function ExecutionTimelinePreview({
             const summary = timelineEventSummary(event);
             return (
               <li key={event.id} className="flex gap-3 text-xs">
-                <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500" />
+                <span
+                  className="mt-1 h-2 w-2 shrink-0 rounded-full bg-slate-400 dark:bg-slate-500"/>
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-medium text-slate-900 dark:text-slate-100">
@@ -2697,10 +2708,10 @@ function ExecutionTimelinePreview({
 }
 
 function RunLifecycleActions({
-  runId,
-  workflowId,
-  status,
-}: {
+                               runId,
+                               workflowId,
+                               status,
+                             }: {
   runId: string;
   workflowId?: string | null;
   status?: string | null;
@@ -2715,12 +2726,12 @@ function RunLifecycleActions({
 
   const refreshQueries = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.backendRun(runId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.backendRunEvents(runId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.backendRunTimeline(runId) }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.backendAgentRuns() }),
+      queryClient.invalidateQueries({queryKey: queryKeys.backendRun(runId)}),
+      queryClient.invalidateQueries({queryKey: queryKeys.backendRunEvents(runId)}),
+      queryClient.invalidateQueries({queryKey: queryKeys.backendRunTimeline(runId)}),
+      queryClient.invalidateQueries({queryKey: queryKeys.backendAgentRuns()}),
       workflowId
-        ? queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowRuns(workflowId) })
+        ? queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowRuns(workflowId)})
         : Promise.resolve(),
     ]);
   };
@@ -2799,10 +2810,10 @@ function RunLifecycleActions({
 }
 
 function ApprovalActions({
-  approval,
-  isPending,
-  onDecision,
-}: {
+                           approval,
+                           isPending,
+                           onDecision,
+                         }: {
   approval: ApprovalRequest;
   isPending: boolean;
   onDecision: (approvalRequestId: string, action: 'approve' | 'reject') => Promise<void> | void;
@@ -2838,11 +2849,11 @@ function ApprovalActions({
 }
 
 function WorkflowProposalCard({
-  message,
-  approval,
-  isPending,
-  onDecision,
-}: {
+                                message,
+                                approval,
+                                isPending,
+                                onDecision,
+                              }: {
   message: ConversationMessage;
   approval?: ApprovalRequest;
   isPending: boolean;
@@ -2868,7 +2879,8 @@ function WorkflowProposalCard({
     : null;
 
   return (
-    <div className="mr-auto ml-0 max-w-3xl rounded-2xl border border-primary-100 bg-primary-50/70 p-4 text-sm shadow-sm shadow-primary/5 dark:border-primary-400/20 dark:bg-[linear-gradient(180deg,rgba(24,24,44,0.96)_0%,rgba(18,24,42,0.98)_100%)] dark:text-slate-100 dark:shadow-none">
+    <div
+      className="mr-auto ml-0 max-w-3xl rounded-2xl border border-primary-100 bg-primary-50/70 p-4 text-sm shadow-sm shadow-primary/5 dark:border-primary-400/20 dark:bg-[linear-gradient(180deg,rgba(24,24,44,0.96)_0%,rgba(18,24,42,0.98)_100%)] dark:text-slate-100 dark:shadow-none">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -2882,11 +2894,13 @@ function WorkflowProposalCard({
           <Badge variant={approvalBadgeVariant(approval)}>{approvalLabel(approval)}</Badge>
         ) : null}
       </div>
-      {approval ? <ApprovalSourceBadge approval={approval} /> : null}
+      {approval ? <ApprovalSourceBadge approval={approval}/> : null}
 
-      <div className="mt-3 grid gap-3 rounded-xl border border-primary-100 bg-white/90 p-4 dark:border-primary-400/15 dark:bg-white/4 sm:grid-cols-2">
+      <div
+        className="mt-3 grid gap-3 rounded-xl border border-primary-100 bg-white/90 p-4 dark:border-primary-400/15 dark:bg-white/4 sm:grid-cols-2">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-violet-100/80">
+          <p
+            className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500 dark:text-violet-100/80">
             Workflow
           </p>
           <p className="mt-1 font-medium text-slate-900 dark:text-slate-100">{workflow.name}</p>
@@ -2906,20 +2920,22 @@ function WorkflowProposalCard({
       </div>
 
       {approval?.diff_summary ? (
-        <DataBlock title="Diff Summary" value={approval.diff_summary} />
+        <DataBlock title="Diff Summary" value={approval.diff_summary}/>
       ) : null}
       <ApprovalInnerWorkings
         title="Inner workings"
         description="Expanded review includes the diff, raw payload, and workflow comparison."
       >
-        {approval ? <ApprovalDiffTable approval={approval} /> : null}
+        {approval ? <ApprovalDiffTable approval={approval}/> : null}
         {isUpdate && currentWorkflowQuery.isLoading ? (
-          <div className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
+          <div
+            className="rounded-xl border border-slate-200 bg-white p-4 text-xs text-slate-500 dark:border-white/10 dark:bg-slate-950/70 dark:text-slate-300">
             Loading current workflow for review...
           </div>
         ) : null}
         {isUpdate && currentWorkflowQuery.isError ? (
-          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <div
+            className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-xs text-amber-800 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
             Current workflow could not be loaded. Review the proposed payload before approving.
           </div>
         ) : null}
@@ -2933,7 +2949,7 @@ function WorkflowProposalCard({
           proposedWorkflow={proposedWorkflow}
           isUpdate={isUpdate}
         />
-        {approval ? <ApprovalInspectionPanel approval={approval} /> : null}
+        {approval ? <ApprovalInspectionPanel approval={approval}/> : null}
       </ApprovalInnerWorkings>
 
       <div className="mt-3 flex flex-wrap gap-2">
@@ -2943,23 +2959,23 @@ function WorkflowProposalCard({
           </Button>
         ) : null}
         {workflow.id ? (
-          <WorkflowRunActionButton workflowId={workflow.id} label="Run workflow" />
+          <WorkflowRunActionButton workflowId={workflow.id} label="Run workflow"/>
         ) : null}
       </div>
 
       {approval ? (
-        <ApprovalActions approval={approval} isPending={isPending} onDecision={onDecision} />
+        <ApprovalActions approval={approval} isPending={isPending} onDecision={onDecision}/>
       ) : null}
     </div>
   );
 }
 
 function GenericApprovalCard({
-  approval,
-  alignRight,
-  isPending,
-  onDecision,
-}: {
+                               approval,
+                               alignRight,
+                               isPending,
+                               onDecision,
+                             }: {
   approval: ApprovalRequest;
   alignRight: boolean;
   isPending: boolean;
@@ -2996,7 +3012,7 @@ function GenericApprovalCard({
           </>
         ) : null}
       </div>
-      <ApprovalSourceBadge approval={approval} />
+      <ApprovalSourceBadge approval={approval}/>
       <div className="mt-3 flex flex-wrap gap-2">
         {workflowTarget ? (
           <Button asChild variant="outline" size="sm">
@@ -3009,7 +3025,7 @@ function GenericApprovalCard({
           </Button>
         ) : null}
         {approval.target_type === 'workflow' && approval.target_id ? (
-          <WorkflowRunActionButton workflowId={approval.target_id} label="Run workflow" />
+          <WorkflowRunActionButton workflowId={approval.target_id} label="Run workflow"/>
         ) : null}
       </div>
       {targetSummary.toolName ||
@@ -3017,13 +3033,13 @@ function GenericApprovalCard({
       targetSummary.redactedArguments ? (
         <div className="mt-3 space-y-3">
           {targetSummary.toolName ? (
-            <DataBlock title="Tool" value={targetSummary.toolName} />
+            <DataBlock title="Tool" value={targetSummary.toolName}/>
           ) : null}
           {targetSummary.runtimeAdapterId ? (
-            <DataBlock title="Runtime Adapter" value={targetSummary.runtimeAdapterId} />
+            <DataBlock title="Runtime Adapter" value={targetSummary.runtimeAdapterId}/>
           ) : null}
           {targetSummary.redactedArguments ? (
-            <DataBlock title="Arguments" value={targetSummary.redactedArguments} />
+            <DataBlock title="Arguments" value={targetSummary.redactedArguments}/>
           ) : null}
         </div>
       ) : null}
@@ -3031,15 +3047,15 @@ function GenericApprovalCard({
         title="Inner workings"
         description="Expanded review includes the raw diff, payload, and metadata."
       >
-        <ApprovalDiffTable approval={approval} />
-        <ApprovalInspectionPanel approval={approval} />
+        <ApprovalDiffTable approval={approval}/>
+        <ApprovalInspectionPanel approval={approval}/>
       </ApprovalInnerWorkings>
-      <ApprovalActions approval={approval} isPending={isPending} onDecision={onDecision} />
+      <ApprovalActions approval={approval} isPending={isPending} onDecision={onDecision}/>
     </div>
   );
 }
 
-function ExecutionStatusCard({ message }: { message: ConversationMessage }) {
+function ExecutionStatusCard({message}: { message: ConversationMessage }) {
   const execution = executionPayloadFromMessage(message);
   if (!execution?.executionId) {
     return null;
@@ -3048,7 +3064,8 @@ function ExecutionStatusCard({ message }: { message: ConversationMessage }) {
   const isCompleted = message.message_type === 'execution_completed';
 
   return (
-    <div className="mr-auto ml-0 max-w-3xl rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm shadow-sm dark:border-cyan-400/24 dark:bg-[linear-gradient(180deg,rgba(16,42,70,0.42)_0%,rgba(12,18,32,0.98)_100%)] dark:text-slate-100 dark:shadow-none">
+    <div
+      className="mr-auto ml-0 max-w-3xl rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm shadow-sm dark:border-cyan-400/24 dark:bg-[linear-gradient(180deg,rgba(16,42,70,0.42)_0%,rgba(12,18,32,0.98)_100%)] dark:text-slate-100 dark:shadow-none">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-medium text-slate-900 dark:text-slate-100">
@@ -3072,22 +3089,23 @@ function ExecutionStatusCard({ message }: { message: ConversationMessage }) {
         >
           <div className="space-y-3">
             {execution.workflowName || execution.workflowId ? (
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-cyan-100/85">
+              <div
+                className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs text-slate-600 dark:border-white/10 dark:bg-white/5 dark:text-cyan-100/85">
                 Workflow:{' '}
                 <span className="font-medium text-slate-900 dark:text-slate-100">
                   {execution.workflowName || execution.workflowId}
                 </span>
               </div>
             ) : null}
-            {execution.summary ? <DataBlock title="Summary" value={execution.summary} /> : null}
+            {execution.summary ? <DataBlock title="Summary" value={execution.summary}/> : null}
             {execution.finalOutput ? (
-              <DataBlock title="Final Output" value={execution.finalOutput} />
+              <DataBlock title="Final Output" value={execution.finalOutput}/>
             ) : null}
           </div>
-          <ExecutionTimelinePreview executionId={execution.executionId} status={execution.status} />
+          <ExecutionTimelinePreview executionId={execution.executionId} status={execution.status}/>
         </ApprovalInnerWorkings>
       ) : (
-        <ExecutionTimelinePreview executionId={execution.executionId} status={execution.status} />
+        <ExecutionTimelinePreview executionId={execution.executionId} status={execution.status}/>
       )}
       <div className="mt-3">
         <div className="flex flex-wrap gap-2">
@@ -3095,7 +3113,7 @@ function ExecutionStatusCard({ message }: { message: ConversationMessage }) {
             <Link href={`/runs/${execution.executionId}`}>Open run</Link>
           </Button>
           {execution.workflowId ? (
-            <WorkflowRunActionButton workflowId={execution.workflowId} label="Run again" />
+            <WorkflowRunActionButton workflowId={execution.workflowId} label="Run again"/>
           ) : null}
           <RunLifecycleActions
             runId={execution.executionId}
@@ -3108,17 +3126,33 @@ function ExecutionStatusCard({ message }: { message: ConversationMessage }) {
   );
 }
 
+// Approval messages always form their own group and remain outside collapsed tool activity.
+function groupTranscriptMessages(messages: readonly ConversationMessage[]) {
+  const groups: {
+    id: string;
+    tools: boolean;
+    rows: { message: ConversationMessage; index: number }[];
+  }[] = [];
+  messages.forEach((message, index) => {
+    const tools = message.message_type === 'tool_call' || message.message_type === 'tool_result';
+    const last = groups[groups.length - 1];
+    if (tools && last?.tools) last.rows.push({ message, index });
+    else groups.push({ id: message.id, tools, rows: [{ message, index }] });
+  });
+  return groups;
+}
+
 function ToolCallCard({
-  message,
-  messages,
-  approvals,
-  pendingMainAgentTurn,
-  pendingIsStale,
-  pendingTurnInterrupted,
-  checkingPendingTurn,
-  onCheckPendingTurn,
-  onEndPendingTurn,
-}: {
+                        message,
+                        messages,
+                        approvals,
+                        pendingMainAgentTurn,
+                        pendingIsStale,
+                        pendingTurnInterrupted,
+                        checkingPendingTurn,
+                        onCheckPendingTurn,
+                        onEndPendingTurn,
+                      }: {
   message: ConversationMessage;
   messages: ConversationMessage[];
   approvals: ApprovalRequest[];
@@ -3145,15 +3179,15 @@ function ToolCallCard({
   return (
     <div
       className={[
-        'mr-auto ml-0 max-w-3xl rounded-2xl p-4 text-sm shadow-sm',
+        'mr-auto ml-0 max-w-3xl rounded-xl p-4 text-sm',
         displayState.label === 'No result'
           ? 'border border-amber-200 bg-amber-50 dark:border-amber-400/30 dark:bg-[linear-gradient(180deg,rgba(66,40,10,0.55)_0%,rgba(34,24,14,0.96)_100%)] dark:text-amber-50 dark:shadow-none'
-          : 'border border-sky-200 bg-sky-50 dark:border-sky-400/30 dark:bg-[linear-gradient(180deg,rgba(12,48,74,0.52)_0%,rgba(14,24,42,0.96)_100%)] dark:text-sky-50 dark:shadow-none',
+          : 'border border-border bg-card text-card-foreground',
       ].join(' ')}
     >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium text-slate-900 dark:text-slate-100">Tool call</p>
+          <p className="font-medium text-slate-900 dark:text-slate-100">Tool call <span className="ml-2 text-xs font-normal text-muted-foreground">{formatTimestamp(message.created_at)}</span></p>
           <p className="mt-1 text-xs text-slate-500 dark:text-sky-100/95">{tool.toolName}</p>
         </div>
         <Badge variant={displayState.variant}>{displayState.label}</Badge>
@@ -3174,9 +3208,9 @@ function ToolCallCard({
         description="Open to inspect the tool id and redacted arguments."
       >
         <div className="space-y-3">
-          {tool.toolId ? <DataBlock title="Tool Id" value={tool.toolId} /> : null}
+          {tool.toolId ? <DataBlock title="Tool Id" value={tool.toolId}/> : null}
           {tool.argumentsPayload ? (
-            <DataBlock title="Arguments (Redacted)" value={tool.argumentsPayload} />
+            <DataBlock title="Arguments (Redacted)" value={tool.argumentsPayload}/>
           ) : null}
         </div>
       </ApprovalInnerWorkings>
@@ -3190,7 +3224,7 @@ function ToolCallCard({
             disabled={checkingPendingTurn}
             onClick={onCheckPendingTurn}
           >
-            <RefreshCw className={`h-3.5 w-3.5 ${checkingPendingTurn ? 'animate-spin' : ''}`} />
+            <RefreshCw className={`h-3.5 w-3.5 ${checkingPendingTurn ? 'animate-spin' : ''}`}/>
             {checkingPendingTurn ? 'Checking...' : 'Check now'}
           </Button>
           <Button
@@ -3200,7 +3234,7 @@ function ToolCallCard({
             className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100 dark:hover:bg-amber-500/20"
             onClick={onEndPendingTurn}
           >
-            End turn
+            Stop turn
           </Button>
         </div>
       ) : null}
@@ -3208,7 +3242,7 @@ function ToolCallCard({
   );
 }
 
-function ToolResultCard({ message }: { message: ConversationMessage }) {
+function ToolResultCard({message}: { message: ConversationMessage }) {
   const tool = toolPayloadFromMessage(message);
   if (!tool) {
     return null;
@@ -3232,10 +3266,11 @@ function ToolResultCard({ message }: { message: ConversationMessage }) {
       : null;
 
   return (
-    <div className="mr-auto ml-0 max-w-3xl rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm shadow-sm dark:border-emerald-400/30 dark:bg-[linear-gradient(180deg,rgba(8,60,48,0.46)_0%,rgba(11,28,30,0.98)_100%)] dark:text-emerald-50 dark:shadow-none">
+    <div
+      className="mr-auto ml-0 max-w-3xl rounded-xl border border-border bg-card p-4 text-sm text-card-foreground">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-medium text-slate-900 dark:text-slate-100">Tool result</p>
+          <p className="font-medium text-slate-900 dark:text-slate-100">Tool result <span className="ml-2 text-xs font-normal text-muted-foreground">{formatTimestamp(message.created_at)}</span></p>
           <p className="mt-1 text-xs text-slate-500 dark:text-emerald-100/95">{tool.toolName}</p>
         </div>
         <Badge variant={resultStatus === 'error' ? 'failed' : 'successful'}>
@@ -3247,9 +3282,9 @@ function ToolResultCard({ message }: { message: ConversationMessage }) {
         description="Open to inspect the tool id and redacted result payload."
       >
         <div className="space-y-3">
-          {tool.toolId ? <DataBlock title="Tool Id" value={tool.toolId} /> : null}
+          {tool.toolId ? <DataBlock title="Tool Id" value={tool.toolId}/> : null}
           {tool.resultPayload !== null ? (
-            <DataBlock title="Result (Redacted)" value={tool.resultPayload} />
+            <DataBlock title="Result (Redacted)" value={tool.resultPayload}/>
           ) : null}
         </div>
       </ApprovalInnerWorkings>
@@ -3260,7 +3295,7 @@ function ToolResultCard({ message }: { message: ConversationMessage }) {
               <Button asChild variant="outline" size="sm">
                 <Link href={`/workflows/${linkedWorkflowId}`}>Open workflow</Link>
               </Button>
-              <WorkflowRunActionButton workflowId={linkedWorkflowId} label="Run workflow" />
+              <WorkflowRunActionButton workflowId={linkedWorkflowId} label="Run workflow"/>
             </>
           ) : null}
           {linkedRunId ? (
@@ -3282,10 +3317,10 @@ function ToolResultCard({ message }: { message: ConversationMessage }) {
 }
 
 function ConversationContextUsageMeter({
-  usage,
-  loading,
-  onCompact,
-}: {
+                                         usage,
+                                         loading,
+                                         onCompact,
+                                       }: {
   usage: ConversationContextUsage | null | undefined;
   loading: boolean;
   onCompact: () => void;
@@ -3304,8 +3339,8 @@ function ConversationContextUsageMeter({
   const shouldPrompt = Boolean(usage?.compact_recommended);
   const tooltipMessage = hasWindow
     ? `${tone.label} for ${modelLabel}. ${formatTokenCount(usage?.estimated_context_tokens)} of ${formatTokenCount(
-        contextWindow
-      )} context tokens are currently estimated in the next prompt.`
+      contextWindow
+    )} context tokens are currently estimated in the next prompt.`
     : `Set a context window on ${modelLabel} to enable threshold alerts.`;
 
   return (
@@ -3330,9 +3365,9 @@ function ConversationContextUsageMeter({
           >
             <div className="flex min-w-0 items-center gap-2">
               {shouldPrompt ? (
-                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <AlertTriangle className="h-4 w-4 shrink-0"/>
               ) : (
-                <Gauge className="h-4 w-4 shrink-0" />
+                <Gauge className="h-4 w-4 shrink-0"/>
               )}
               <span className="min-w-0 truncate font-medium">
                 {loading && !usage
@@ -3343,10 +3378,11 @@ function ConversationContextUsageMeter({
             {hasWindow ? (
               <span className="shrink-0 font-medium">{usagePercent?.toFixed(0)}%</span>
             ) : null}
-            <div className="absolute inset-x-3 bottom-1 h-1 overflow-hidden rounded-full bg-white/80">
+            <div
+              className="absolute inset-x-3 bottom-1 h-1 overflow-hidden rounded-full bg-white/80">
               <div
                 className={`h-full rounded-full ${tone.bar}`}
-                style={{ width: `${hasWindow ? Math.max(clampedPercent, 2) : 0}%` }}
+                style={{width: `${hasWindow ? Math.max(clampedPercent, 2) : 0}%`}}
               />
             </div>
           </div>
@@ -3374,23 +3410,26 @@ function ConversationContextUsageMeter({
 }
 
 function AssistantEmptyState({
-  mainAgentName,
-  contextLabel,
-  suggestions,
-  onSelectPrompt,
-}: {
+                               mainAgentName,
+                               contextLabel,
+                               suggestions,
+                               onSelectPrompt,
+                             }: {
   mainAgentName: string;
   contextLabel?: string;
   suggestions: AssistantPromptSuggestion[];
   onSelectPrompt: (prompt: string) => void;
 }) {
   return (
-    <div className="mx-auto flex h-full max-w-3xl flex-col items-center justify-start px-4 py-8 text-center md:justify-center md:py-10">
+    <div
+      className="mx-auto flex h-full max-w-3xl flex-col items-center justify-start px-4 py-8 text-center md:justify-center md:py-10">
       <div className="relative">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-md shadow-primary/20">
-          <Bot className="h-7 w-7" />
+        <div
+          className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-md shadow-primary/20">
+          <Bot className="h-7 w-7"/>
         </div>
-        <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400" />
+        <span
+          className="absolute -right-1 -top-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-400"/>
       </div>
       <h2 className="mt-5 text-2xl font-semibold text-slate-950 dark:text-slate-100">
         {contextLabel ? `What should we do with ${contextLabel}?` : 'What should we work on?'}
@@ -3409,15 +3448,17 @@ function AssistantEmptyState({
             onClick={() => onSelectPrompt(suggestion.prompt)}
             aria-label={`Use suggestion: ${suggestion.label}`}
           >
-            <span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700 dark:bg-violet-400/10 dark:text-violet-200">
-              <Sparkles className="size-4" aria-hidden="true" />
+            <span
+              className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700 dark:bg-violet-400/10 dark:text-violet-200">
+              <Sparkles className="size-4" aria-hidden="true"/>
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-semibold text-slate-900 dark:text-slate-100">
                 {suggestion.label}
               </span>
               {suggestion.prompt !== suggestion.label ? (
-                <span className="mt-0.5 block text-xs font-normal leading-5 text-slate-500 dark:text-slate-400">
+                <span
+                  className="mt-0.5 block text-xs font-normal leading-5 text-slate-500 dark:text-slate-400">
                   {suggestion.prompt}
                 </span>
               ) : null}
@@ -3434,25 +3475,25 @@ function AssistantEmptyState({
 }
 
 function ConversationCompactPanel({
-  conversation,
-  messages,
-  compactPacks,
-  compactPacksLoading,
-  form,
-  compactResult,
-  compactError,
-  compactWorking,
-  onFormChange,
-  onPreview,
-  onSave,
-  onCopyContent,
-  onUseContentInNewChat,
-  onCopyPack,
-  onUsePackInNewChat,
-  onCreateWorkflowFromPack,
-  onRefreshPacks,
-  onClose,
-}: {
+                                    conversation,
+                                    messages,
+                                    compactPacks,
+                                    compactPacksLoading,
+                                    form,
+                                    compactResult,
+                                    compactError,
+                                    compactWorking,
+                                    onFormChange,
+                                    onPreview,
+                                    onSave,
+                                    onCopyContent,
+                                    onUseContentInNewChat,
+                                    onCopyPack,
+                                    onUsePackInNewChat,
+                                    onCreateWorkflowFromPack,
+                                    onRefreshPacks,
+                                    onClose,
+                                  }: {
   conversation: Conversation | null;
   messages: ConversationMessage[];
   compactPacks: MemoryRecord[];
@@ -3479,13 +3520,15 @@ function ConversationCompactPanel({
   const tokenBudget = compactTokenBudget(form);
 
   return (
-    <section className="border-t border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-[#07111f]">
+    <section
+      className="border-t border-slate-200 bg-slate-50 px-4 py-4 dark:border-white/10 dark:bg-[#07111f]">
       <div className="mx-auto grid max-w-6xl gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-cyan-500/15 dark:bg-[#08101d] dark:shadow-[0_18px_40px_rgba(2,8,23,0.42)]">
+        <div
+          className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-cyan-500/15 dark:bg-[#08101d] dark:shadow-[0_18px_40px_rgba(2,8,23,0.42)]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <Sparkles className="h-4 w-4 text-primary-600 dark:text-cyan-300" />
+                <Sparkles className="h-4 w-4 text-primary-600 dark:text-cyan-300"/>
                 <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                   Compact conversation
                 </h2>
@@ -3502,11 +3545,11 @@ function ConversationCompactPanel({
           <div className="mt-4 grid gap-4 lg:grid-cols-3">
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Mode</span>
-              <select
+              <NativeSelect
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                 value={form.mode}
                 onChange={(event) =>
-                  onFormChange({ mode: event.target.value as ConversationCompactMode })
+                  onFormChange({mode: event.target.value as ConversationCompactMode})
                 }
               >
                 {compactModeOptions.map((option) => (
@@ -3514,12 +3557,12 @@ function ConversationCompactPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
 
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Token budget</span>
-              <select
+              <NativeSelect
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                 value={form.tokenBudgetPreset}
                 onChange={(event) =>
@@ -3534,7 +3577,7 @@ function ConversationCompactPanel({
                     {option.value === 'custom' ? '' : ` (${option.tokens})`}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
 
             {form.tokenBudgetPreset === 'custom' ? (
@@ -3542,15 +3585,16 @@ function ConversationCompactPanel({
                 <span className="font-medium text-slate-700 dark:text-slate-200">
                   Custom tokens
                 </span>
-                <input
+                <Input
                   className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                   inputMode="numeric"
                   value={form.customTokenBudget}
-                  onChange={(event) => onFormChange({ customTokenBudget: event.target.value })}
+                  onChange={(event) => onFormChange({customTokenBudget: event.target.value})}
                 />
               </label>
             ) : (
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-cyan-500/15 dark:bg-[#0d1a2a]">
+              <div
+                className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-cyan-500/15 dark:bg-[#0d1a2a]">
                 <span className="block font-medium text-slate-700 dark:text-slate-100">
                   Resolved budget
                 </span>
@@ -3560,7 +3604,7 @@ function ConversationCompactPanel({
 
             <label className="space-y-1 text-sm">
               <span className="font-medium text-slate-700 dark:text-slate-200">Source range</span>
-              <select
+              <NativeSelect
                 className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                 value={form.sourceRange}
                 onChange={(event) =>
@@ -3574,7 +3618,7 @@ function ConversationCompactPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
 
             {form.sourceRange === 'selected' ? (
@@ -3583,10 +3627,10 @@ function ConversationCompactPanel({
                   <span className="font-medium text-slate-700 dark:text-slate-200">
                     Start message
                   </span>
-                  <select
+                  <NativeSelect
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                     value={form.sourceMessageStartId}
-                    onChange={(event) => onFormChange({ sourceMessageStartId: event.target.value })}
+                    onChange={(event) => onFormChange({sourceMessageStartId: event.target.value})}
                   >
                     <option value="">Select start</option>
                     {messages.map((message) => (
@@ -3594,16 +3638,16 @@ function ConversationCompactPanel({
                         {message.role} · {formatTimestamp(message.created_at)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </label>
                 <label className="space-y-1 text-sm">
                   <span className="font-medium text-slate-700 dark:text-slate-200">
                     End message
                   </span>
-                  <select
+                  <NativeSelect
                     className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                     value={form.sourceMessageEndId}
-                    onChange={(event) => onFormChange({ sourceMessageEndId: event.target.value })}
+                    onChange={(event) => onFormChange({sourceMessageEndId: event.target.value})}
                   >
                     <option value="">Select end</option>
                     {messages.map((message) => (
@@ -3611,7 +3655,7 @@ function ConversationCompactPanel({
                         {message.role} · {formatTimestamp(message.created_at)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </label>
               </>
             ) : null}
@@ -3621,11 +3665,11 @@ function ConversationCompactPanel({
                 <span className="font-medium text-slate-700 dark:text-slate-200">
                   Recent raw turns
                 </span>
-                <input
+                <Input
                   className="h-10 w-full rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                   inputMode="numeric"
                   value={form.recentMessageLimit}
-                  onChange={(event) => onFormChange({ recentMessageLimit: event.target.value })}
+                  onChange={(event) => onFormChange({recentMessageLimit: event.target.value})}
                 />
               </label>
             ) : null}
@@ -3635,18 +3679,18 @@ function ConversationCompactPanel({
             <div className="mt-4 grid gap-3 lg:grid-cols-2">
               <label className="space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-200">Keep</span>
-                <textarea
+                <Textarea
                   className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                   value={form.customKeep}
-                  onChange={(event) => onFormChange({ customKeep: event.target.value })}
+                  onChange={(event) => onFormChange({customKeep: event.target.value})}
                 />
               </label>
               <label className="space-y-1 text-sm">
                 <span className="font-medium text-slate-700 dark:text-slate-200">Drop</span>
-                <textarea
+                <Textarea
                   className="min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100"
                   value={form.customDrop}
-                  onChange={(event) => onFormChange({ customDrop: event.target.value })}
+                  onChange={(event) => onFormChange({customDrop: event.target.value})}
                 />
               </label>
             </div>
@@ -3654,18 +3698,18 @@ function ConversationCompactPanel({
 
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-              <input
+              <Input
                 type="checkbox"
                 checked={form.persist}
-                onChange={(event) => onFormChange({ persist: event.target.checked })}
+                onChange={(event) => onFormChange({persist: event.target.checked})}
               />
               Save to memory
             </label>
             <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
-              <input
+              <Input
                 type="checkbox"
                 checked={form.confirmed}
-                onChange={(event) => onFormChange({ confirmed: event.target.checked })}
+                onChange={(event) => onFormChange({confirmed: event.target.checked})}
               />
               Confirm sensitive save
             </label>
@@ -3695,7 +3739,8 @@ function ConversationCompactPanel({
           ) : null}
 
           {compactResult ? (
-            <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-cyan-500/15 dark:bg-[#0b1523]">
+            <div
+              className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-cyan-500/15 dark:bg-[#0b1523]">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge variant="outline">{compactResult.status}</Badge>
@@ -3712,7 +3757,7 @@ function ConversationCompactPanel({
                     size="sm"
                     onClick={() => onCopyContent(compactResult.content)}
                   >
-                    <Copy className="mr-2 h-4 w-4" />
+                    <Copy className="mr-2 h-4 w-4"/>
                     Copy
                   </Button>
                   <Button
@@ -3731,17 +3776,19 @@ function ConversationCompactPanel({
                   {compactResult.progress.failed_steps} failed
                 </p>
               ) : null}
-              <pre className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-sm leading-6 text-slate-800 dark:border dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100">
+              <pre
+                className="mt-3 max-h-72 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-sm leading-6 text-slate-800 dark:border dark:border-white/10 dark:bg-[#0f172a] dark:text-slate-100">
                 {compactResult.content}
               </pre>
             </div>
           ) : null}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-cyan-500/15 dark:bg-[#0c1624] dark:shadow-[0_18px_40px_rgba(2,8,23,0.42)]">
+        <div
+          className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm dark:border-cyan-500/15 dark:bg-[#0c1624] dark:shadow-[0_18px_40px_rgba(2,8,23,0.42)]">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
-              <Archive className="h-4 w-4 text-slate-500 dark:text-cyan-300" />
+              <Archive className="h-4 w-4 text-slate-500 dark:text-cyan-300"/>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
                 Compact packs
               </h3>
@@ -3769,7 +3816,8 @@ function ConversationCompactPanel({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <p className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+                      <p
+                        className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-slate-100">
                         {compactPackTitle(pack)}
                       </p>
                       <p className="mt-1 text-xs text-slate-500 dark:text-slate-300">
@@ -3778,7 +3826,8 @@ function ConversationCompactPanel({
                     </div>
                     {pack.sensitive ? <Badge variant="destructive">Sensitive</Badge> : null}
                   </div>
-                  <p className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
+                  <p
+                    className="mt-2 line-clamp-3 text-xs leading-5 text-slate-600 dark:text-slate-300">
                     {pack.content}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-2">
@@ -3788,7 +3837,7 @@ function ConversationCompactPanel({
                       size="sm"
                       onClick={() => onCopyPack(pack)}
                     >
-                      <Clipboard className="mr-2 h-4 w-4" />
+                      <Clipboard className="mr-2 h-4 w-4"/>
                       Copy
                     </Button>
                     <Button
@@ -3820,17 +3869,18 @@ function ConversationCompactPanel({
 }
 
 function ConversationDocumentsDrawer({
-  conversation,
-  generatedFiles,
-  onClose,
-}: {
+                                       conversation,
+                                       generatedFiles,
+                                       onClose,
+                                     }: {
   conversation: Conversation | null;
   generatedFiles: GeneratedConversationFile[];
   onClose: () => void;
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-white dark:bg-[#08101d]">
-      <div className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 dark:border-white/10">
+      <div
+        className="flex items-start justify-between gap-3 border-b border-slate-200 px-4 py-4 dark:border-white/10">
         <div>
           <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
             Conversation files
@@ -3851,7 +3901,7 @@ function ConversationDocumentsDrawer({
                 aria-label="Close conversation files"
                 title="Close conversation files"
               >
-                <X className="h-4 w-4" />
+                <X className="h-4 w-4"/>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Close conversation files</TooltipContent>
@@ -3870,7 +3920,8 @@ function ConversationDocumentsDrawer({
             emptyMessage="No files have been attached to this conversation yet."
           />
         ) : (
-          <section className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#0c1624]">
+          <section
+            className="rounded-lg border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-[#0c1624]">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">Uploaded</h3>
             <p className="mt-1 text-sm text-slate-500 dark:text-slate-300">
               Start or open a conversation to see attached files.
@@ -3878,7 +3929,8 @@ function ConversationDocumentsDrawer({
           </section>
         )}
 
-        <section className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-cyan-500/15 dark:bg-[#0c1624]">
+        <section
+          className="space-y-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-cyan-500/15 dark:bg-[#0c1624]">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-100">
@@ -3901,9 +3953,11 @@ function ConversationDocumentsDrawer({
                   className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 dark:border-white/10 dark:bg-[#0f172a]"
                 >
                   <div className="flex min-w-0 items-start gap-2">
-                    <FileOutput className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 dark:text-cyan-300" />
+                    <FileOutput
+                      className="mt-0.5 h-4 w-4 shrink-0 text-slate-500 dark:text-cyan-300"/>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+                      <p
+                        className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
                         {file.title}
                       </p>
                       <p className="text-xs text-slate-500 dark:text-slate-300">
@@ -3930,10 +3984,10 @@ function ConversationDocumentsDrawer({
 }
 
 function ConversationActivityPanel({
-  activity,
-  mainAgentName,
-  live = false,
-}: {
+                                     activity,
+                                     mainAgentName,
+                                     live = false,
+                                   }: {
   activity: ConversationTurnActivity;
   mainAgentName: string;
   live?: boolean;
@@ -4023,7 +4077,7 @@ function ConversationActivityPanel({
             </div>
             <div
               className="max-w-none wrap-break-word whitespace-pre-wrap text-sky-950"
-              style={{ tabSize: 8 }}
+              style={{tabSize: 8}}
             >
               <AssistantMarkdown>{activity.draftText}</AssistantMarkdown>
             </div>
@@ -4041,13 +4095,13 @@ interface ConversationWorkspaceProps {
 }
 
 function ConversationPageContextRegistrar({
-  conversation,
-  messages,
-  approvals,
-  mainAgentId,
-  mainAgentName,
-  mainAgentLookupError,
-}: {
+                                            conversation,
+                                            messages,
+                                            approvals,
+                                            mainAgentId,
+                                            mainAgentName,
+                                            mainAgentLookupError,
+                                          }: {
   conversation: Conversation | null;
   messages: ConversationMessage[];
   approvals: ApprovalRequest[];
@@ -4071,17 +4125,17 @@ function ConversationPageContextRegistrar({
     const entities = [
       conversation
         ? {
-            type: 'conversation',
-            id: conversation.id,
-            name: conversation.title || 'Assistant conversation',
-          }
+          type: 'conversation',
+          id: conversation.id,
+          name: conversation.title || 'Assistant conversation',
+        }
         : null,
       mainAgentId
         ? {
-            type: 'agent',
-            id: mainAgentId,
-            name: mainAgentName,
-          }
+          type: 'agent',
+          id: mainAgentId,
+          name: mainAgentName,
+        }
         : null,
       ...Array.from(workflowIds).map((workflowId) => ({
         type: 'workflow',
@@ -4162,12 +4216,12 @@ const channelProviderOptions: Array<{
   label: string;
   Icon: LucideIcon;
 }> = [
-  { value: 'web', label: 'Web', Icon: Globe2 },
-  { value: 'api', label: 'API', Icon: Braces },
-  { value: 'telegram', label: 'Telegram', Icon: SendHorizontal },
-  { value: 'discord', label: 'Discord', Icon: Hash },
-  { value: 'whatsapp', label: 'WhatsApp', Icon: Smartphone },
-  { value: 'other', label: 'Other', Icon: Cable },
+  {value: 'web', label: 'Web', Icon: Globe2},
+  {value: 'api', label: 'API', Icon: Braces},
+  {value: 'telegram', label: 'Telegram', Icon: SendHorizontal},
+  {value: 'discord', label: 'Discord', Icon: Hash},
+  {value: 'whatsapp', label: 'WhatsApp', Icon: Smartphone},
+  {value: 'other', label: 'Other', Icon: Cable},
 ];
 
 function providerTargetComplete(
@@ -4187,13 +4241,13 @@ function providerTargetComplete(
 }
 
 function ChannelTargetDialog({
-  conversation,
-  isSaving,
-  promptReason,
-  requestedProvider,
-  onDismiss,
-  onSave,
-}: {
+                               conversation,
+                               isSaving,
+                               promptReason,
+                               requestedProvider,
+                               onDismiss,
+                               onSave,
+                             }: {
   conversation: Conversation | null;
   isSaving: boolean;
   promptReason: string;
@@ -4223,8 +4277,8 @@ function ChannelTargetDialog({
   const availableProviders = requestedProvider
     ? channelProviderOptions.filter((option) => option.value === requestedProvider)
     : channelProviderOptions.filter((option) =>
-        ['telegram', 'discord', 'whatsapp'].includes(option.value)
-      );
+      ['telegram', 'discord', 'whatsapp'].includes(option.value)
+    );
   const threadRequired = provider === 'telegram' || provider === 'discord';
   const userRequired = provider === 'whatsapp';
   const selectedProvider =
@@ -4248,7 +4302,7 @@ function ChannelTargetDialog({
       : null;
 
   function handleSave() {
-    const nextMetadata = { ...metadata };
+    const nextMetadata = {...metadata};
     // Discord guild routing is provider-specific metadata; clear it when it no longer applies.
     if (provider === 'discord' && guildId.trim()) {
       nextMetadata.guild_id = guildId.trim();
@@ -4272,7 +4326,7 @@ function ChannelTargetDialog({
       dirty={targetChanged}
       busy={isSaving}
       size="md"
-      icon={<SelectedProviderIcon className="size-4" aria-hidden="true" />}
+      icon={<SelectedProviderIcon className="size-4" aria-hidden="true"/>}
       title="Channel Target"
       description={promptReason}
       bodyClassName="flex flex-col gap-4"
@@ -4285,7 +4339,7 @@ function ChannelTargetDialog({
           </DialogClose>
           <Button type="button" disabled={targetSaveDisabled} onClick={handleSave}>
             {isSaving ? (
-              <LoaderCircle data-icon="inline-start" className="animate-spin" aria-hidden="true" />
+              <LoaderCircle data-icon="inline-start" className="animate-spin" aria-hidden="true"/>
             ) : null}
             Save target
           </Button>
@@ -4295,10 +4349,10 @@ function ChannelTargetDialog({
       <FormSection
         title="Delivery provider"
         description="Choose the channel that owns this conversation target."
-        icon={<SelectedProviderIcon className="size-4" aria-hidden="true" />}
+        icon={<SelectedProviderIcon className="size-4" aria-hidden="true"/>}
         contentClassName="flex flex-wrap items-center gap-2"
       >
-        {availableProviders.map(({ value, label, Icon }) => {
+        {availableProviders.map(({value, label, Icon}) => {
           const isSelected = value === provider;
           return (
             <button
@@ -4314,7 +4368,7 @@ function ChannelTargetDialog({
                   : 'border-slate-200 bg-white text-slate-600 hover:border-primary-200 hover:bg-slate-50 hover:text-slate-950',
               ].join(' ')}
             >
-              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true"/>
               <span>{label}</span>
             </button>
           );
@@ -4398,11 +4452,11 @@ function ChannelTargetDialog({
 }
 
 export default function ConversationWorkspace({
-  mode = 'page',
-  contextMetadata,
-  onOpenFullPage,
-}: ConversationWorkspaceProps) {
-  const { data: session } = useSession();
+                                                mode = 'page',
+                                                contextMetadata,
+                                                onOpenFullPage,
+                                              }: ConversationWorkspaceProps) {
+  const {data: session} = useSession();
   const router = useRouter();
   const queryClient = useQueryClient();
   const user = session?.user as AuthUser | undefined;
@@ -4430,9 +4484,11 @@ export default function ConversationWorkspace({
     {}
   );
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [historySearch, setHistorySearch] = useState('');
   const [desktopHistoryOpen, setDesktopHistoryOpen] = useState(true);
   const [documentsDrawerOpen, setDocumentsDrawerOpen] = useState(false);
   const [compactPanelOpen, setCompactPanelOpen] = useState(false);
+  const [browserPanelOpen, setBrowserPanelOpen] = useState(false);
   const [compactForm, setCompactForm] = useState<CompactFormState>(defaultCompactForm);
   const [compactResult, setCompactResult] = useState<ConversationCompactResponse | null>(null);
   const [compactError, setCompactError] = useState<string | null>(null);
@@ -4442,6 +4498,7 @@ export default function ConversationWorkspace({
   >(null);
   const [isListening, setIsListening] = useState(false);
   const [checkingPendingTurn, setCheckingPendingTurn] = useState(false);
+  const [stoppingPendingTurn, setStoppingPendingTurn] = useState(false);
   const [isPending, startTransition] = useTransition();
   const streamRef = useRef<EventSource | null>(null);
   const speechRecognitionRef = useRef<SpeechRecognitionLike | null>(null);
@@ -4476,7 +4533,11 @@ export default function ConversationWorkspace({
       : null;
   const pendingActivity =
     pendingMainAgentTurn && conversation
-      ? latestRunningActivity(conversation.id, turnActivities)
+      ? latestRunningActivity(
+        conversation.id,
+        turnActivities,
+        `turn:${pendingMainAgentTurn.originMessageId}`
+      )
       : null;
   const pendingElapsedMs = pendingMainAgentTurn
     ? Math.max(0, pendingTurnNow - pendingMainAgentTurn.startedAt)
@@ -4496,8 +4557,8 @@ export default function ConversationWorkspace({
     queryKey: ['conversationCompactPacks', conversation?.id],
     queryFn: () =>
       conversation
-        ? conversationsApi.listCompactPacks(conversation.id, { limit: 20 })
-        : Promise.resolve({ items: [] }),
+        ? conversationsApi.listCompactPacks(conversation.id, {limit: 20})
+        : Promise.resolve({items: []}),
     enabled: Boolean(conversation?.id),
   });
   const contextUsageQuery = useQuery({
@@ -4512,6 +4573,7 @@ export default function ConversationWorkspace({
     staleTime: 60 * 1000,
     retry: 1,
   });
+
   function currentContextMetadata(): JsonObject {
     return contextMetadata?.() ?? {};
   }
@@ -4523,7 +4585,8 @@ export default function ConversationWorkspace({
     contextualPromptSuggestions.length > 0
       ? contextualPromptSuggestions
       : defaultAssistantPromptSuggestions;
-  const currentWorkflowContextId = workflowIdFromAssistantMetadata(currentContext);
+  // Normalize to a primitive before using this ID in mutable context-suppression sets.
+  const currentWorkflowContextId = String(workflowIdFromAssistantMetadata(currentContext) || '') || null;
   const conversationItems = useMemo(
     () =>
       [...(conversationsQuery.data?.items ?? [])].sort(
@@ -4531,6 +4594,9 @@ export default function ConversationWorkspace({
       ),
     [conversationsQuery.data?.items]
   );
+  const visibleConversationItems = conversationItems.filter(item =>
+    (conversationDisplayTitle(item) + ' ' + item.id + ' ' + item.channel_type).toLowerCase().includes(historySearch.trim().toLowerCase()));
+  const transcriptGroups = useMemo(() => groupTranscriptMessages(messages), [messages]);
   const channelTargetPrompt = useMemo(
     () => channelTargetPromptForConversation(conversation?.id, messages, turnActivities),
     [conversation?.id, messages, turnActivities]
@@ -4564,7 +4630,7 @@ export default function ConversationWorkspace({
           items: (current?.items ?? []).map((item) => (item.id === updated.id ? updated : item)),
         })
       );
-      toast.success('Conversation channel target saved.', { position: 'top-right' });
+      toast.success('Conversation channel target saved.', {position: 'top-right'});
       if (channelTargetPrompt) {
         setDismissedChannelTargetPromptKey(channelTargetPrompt.key);
       }
@@ -4597,15 +4663,15 @@ export default function ConversationWorkspace({
   } | null>(null);
   const workflowMetadataConversation = currentWorkflowContextId
     ? (conversationItems.find((item) =>
-        workflowIdsFromConversation(item).has(currentWorkflowContextId)
-      ) ?? null)
+      workflowIdsFromConversation(item).has(currentWorkflowContextId)
+    ) ?? null)
     : null;
   const workflowApprovalConversation =
     currentWorkflowContextId &&
     workflowApprovalConversationRef?.workflowId === currentWorkflowContextId
       ? (conversationItems.find(
-          (item) => item.id === workflowApprovalConversationRef.conversationId
-        ) ?? null)
+        (item) => item.id === workflowApprovalConversationRef.conversationId
+      ) ?? null)
       : null;
   const workflowRelatedConversation = workflowMetadataConversation ?? workflowApprovalConversation;
 
@@ -4640,7 +4706,7 @@ export default function ConversationWorkspace({
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    bottomRef.current?.scrollIntoView({behavior: 'smooth'});
   }, [messages, pendingMainAgentTurn, turnActivities]);
 
   useEffect(() => {
@@ -4738,7 +4804,7 @@ export default function ConversationWorkspace({
       conversationsApi.listApprovalRequests(conversationId),
     ]);
     if (activeConversationIdRef.current !== conversationId) {
-      return { messages: storedMessages.items, approvals: storedApprovals.items };
+      return {messages: storedMessages.items, approvals: storedApprovals.items};
     }
     const sortedMessages = sortMessages(storedMessages.items);
     const nextPendingTurn = pendingAsyncTurnFromMessages(sortedMessages, storedApprovals.items);
@@ -4748,7 +4814,7 @@ export default function ConversationWorkspace({
     if (!nextPendingTurn) {
       setInterruptedPendingTurnKey(null);
     }
-    return { messages: storedMessages.items, approvals: storedApprovals.items };
+    return {messages: storedMessages.items, approvals: storedApprovals.items};
   }
 
   async function backfillAsyncConversationMessages(
@@ -4795,8 +4861,8 @@ export default function ConversationWorkspace({
           pendingMainAgentTurn.originMessageId
         )
       ) {
-        // A dev backend reload can interrupt a tool turn after the tool_call row is saved. A manual
-        // check should surface that there is no completed response to recover, not keep spinning.
+        // Missing completion is an unknown outcome, not proof that the worker
+        // stopped. Keep Stop available and never recommend automatic replay.
         setInterruptedPendingTurnKey(
           `${pendingMainAgentTurn.conversationId}:${pendingMainAgentTurn.originMessageId}`
         );
@@ -4813,16 +4879,28 @@ export default function ConversationWorkspace({
     }
   }
 
-  function handleEndPendingTurn() {
-    if (!pendingMainAgentTurn) {
-      return;
+  async function handleEndPendingTurn() {
+    if (!pendingMainAgentTurn || stoppingPendingTurn) return;
+    const turn = pendingMainAgentTurn;
+    setStoppingPendingTurn(true);
+    try {
+      // Keep the waiting state until the server persists the specific turn's
+      // Stop fence. A failed request must not silently hide running work.
+      await conversationsApi.stopTurn(turn.conversationId, turn.originMessageId);
+      setPendingAsyncTurn((current) =>
+        current?.conversationId === turn.conversationId &&
+        current.originMessageId === turn.originMessageId
+          ? null
+          : current
+      );
+      setInterruptedPendingTurnKey(null);
+      toast.success('Stop requested. Completed actions are retained.');
+      messageInputRef.current?.focus();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not stop this turn.');
+    } finally {
+      setStoppingPendingTurn(false);
     }
-    // This does not mutate backend state; it only stops treating an orphaned local turn as active
-    // so the operator can steer the conversation after a backend interruption or long-running tool.
-    setPendingAsyncTurn(null);
-    setInterruptedPendingTurnKey(null);
-    setCheckingPendingTurn(false);
-    window.setTimeout(() => messageInputRef.current?.focus(), 0);
   }
 
   useEffect(() => {
@@ -5048,7 +5126,7 @@ export default function ConversationWorkspace({
         const reconnectDelay =
           STREAM_RECONNECT_DELAYS_MS[
             Math.min(reconnectAttemptRef.current, STREAM_RECONNECT_DELAYS_MS.length - 1)
-          ];
+            ];
         reconnectAttemptRef.current += 1;
         reconnectTimeoutRef.current = setTimeout(() => {
           connectStream();
@@ -5078,7 +5156,7 @@ export default function ConversationWorkspace({
       metadata: {
         surface: 'assistant',
         ...currentContext,
-        ...(currentWorkflowContextId ? { workflow_id: currentWorkflowContextId } : {}),
+        ...(currentWorkflowContextId ? {workflow_id: currentWorkflowContextId} : {}),
       },
     });
     if (currentWorkflowContextId) {
@@ -5167,7 +5245,7 @@ export default function ConversationWorkspace({
   }
 
   function updateCompactForm(patch: Partial<CompactFormState>) {
-    setCompactForm((current) => ({ ...current, ...patch }));
+    setCompactForm((current) => ({...current, ...patch}));
     setCompactError(null);
   }
 
@@ -5227,7 +5305,7 @@ export default function ConversationWorkspace({
       if (result.status === 'created' || result.status === 'existing') {
         await compactPacksQuery.refetch();
         await contextUsageQuery.refetch();
-        await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
+        await queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()});
       }
       toast.success(result.status === 'created' ? 'Compact pack saved.' : 'Compact preview ready.');
     } catch (compactRunError) {
@@ -5274,7 +5352,7 @@ export default function ConversationWorkspace({
       if (!workflow?.id) {
         throw new Error('Workflow create response did not include an ID.');
       }
-      await queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() });
+      await queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()});
       toast.success('Workflow draft created from compact pack.');
       router.push(`/workflows/${workflow.id}`);
     } catch (workflowError) {
@@ -5428,7 +5506,7 @@ export default function ConversationWorkspace({
               uploadMode: documentUploadMode,
             });
             if (documentUploadMode !== 'context') {
-              await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
+              await queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()});
               setDocumentsDrawerOpen(true);
             }
             if (ingestion.context_attachment_id) {
@@ -5452,7 +5530,7 @@ export default function ConversationWorkspace({
             role: 'user',
             message_type: 'user_text',
             plain_text: messageTextToSend,
-            content: { text: messageTextToSend },
+            content: {text: messageTextToSend},
             metadata: messageMetadata,
             created_at: new Date().toISOString(),
           };
@@ -5463,7 +5541,7 @@ export default function ConversationWorkspace({
               role: 'user',
               message_type: 'user_text',
               plain_text: messageTextToSend,
-              content: { text: messageTextToSend },
+              content: {text: messageTextToSend},
               metadata: messageMetadata,
             },
             response_mode: 'async',
@@ -5525,11 +5603,11 @@ export default function ConversationWorkspace({
           const response =
             action === 'approve'
               ? await conversationsApi.approveApprovalRequest(approvalRequestId, {
-                  user_id: actorUserId,
-                })
+                user_id: actorUserId,
+              })
               : await conversationsApi.rejectApprovalRequest(approvalRequestId, {
-                  user_id: actorUserId,
-                });
+                user_id: actorUserId,
+              });
 
           if (response.message) {
             setMessages((current) => mergeMessage(current, response.message));
@@ -5556,9 +5634,9 @@ export default function ConversationWorkspace({
           }
           if (relatedWorkflowIds.size > 0) {
             await Promise.all([
-              queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+              queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
               ...Array.from(relatedWorkflowIds).flatMap((workflowId) => [
-                queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
+                queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
                 queryClient.invalidateQueries({
                   queryKey: queryKeys.backendWorkflowMonitoringEvents(workflowId),
                 }),
@@ -5573,10 +5651,10 @@ export default function ConversationWorkspace({
           }
           if (relatedAgentIds.size > 0) {
             await Promise.all([
-              queryClient.invalidateQueries({ queryKey: queryKeys.backendAgents() }),
-              queryClient.invalidateQueries({ queryKey: queryKeys.backendAgentDefinitions() }),
-              queryClient.invalidateQueries({ queryKey: queryKeys.backendAgentCatalog() }),
-              queryClient.invalidateQueries({ queryKey: queryKeys.backendMainAgent() }),
+              queryClient.invalidateQueries({queryKey: queryKeys.backendAgents()}),
+              queryClient.invalidateQueries({queryKey: queryKeys.backendAgentDefinitions()}),
+              queryClient.invalidateQueries({queryKey: queryKeys.backendAgentCatalog()}),
+              queryClient.invalidateQueries({queryKey: queryKeys.backendMainAgent()}),
               ...Array.from(relatedAgentIds).map((agentId) =>
                 queryClient.invalidateQueries({
                   queryKey: queryKeys.backendAgentObservabilityMetrics(agentId),
@@ -5614,7 +5692,7 @@ export default function ConversationWorkspace({
               aria-label="Minimize history sidebar"
               title="Minimize history sidebar"
             >
-              <ChevronLeft className="h-4 w-4" />
+              <ChevronLeft className="h-4 w-4"/>
             </button>
           </TooltipTrigger>
           <TooltipContent>Minimize history sidebar</TooltipContent>
@@ -5641,19 +5719,21 @@ export default function ConversationWorkspace({
             New Chat
           </Button>
         </div>
+        <WorkspaceSearch label="Search conversation history" placeholder="Search conversations" value={historySearch} onChange={setHistorySearch} className="mt-3"/>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
         {conversationsQuery.isLoading ? (
           <p className="px-2 text-sm text-slate-500 dark:text-slate-400">Loading history...</p>
         ) : conversationsQuery.isError ? (
           <p className="px-2 text-sm text-red-600">Conversation history could not be loaded.</p>
-        ) : conversationItems.length === 0 ? (
+        ) : visibleConversationItems.length === 0 ? (
           <p className="px-2 text-sm text-slate-500 dark:text-slate-400">
-            No saved conversations yet.
+            {historySearch ? 'No conversations match this search.' : 'No saved conversations yet.'}
           </p>
         ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/30">
-            {conversationItems.map((item) => {
+          <div
+            className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-950/30">
+            {visibleConversationItems.map((item) => {
               const isActive = item.id === conversation?.id;
               return (
                 <button
@@ -5668,7 +5748,8 @@ export default function ConversationWorkspace({
                   onClick={() => void handleOpenConversation(item.id)}
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <p className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-slate-100">
+                    <p
+                      className="line-clamp-2 text-sm font-medium text-slate-900 dark:text-slate-100">
                       {conversationDisplayTitle(item)}
                     </p>
                     {isActive ? (
@@ -5703,9 +5784,11 @@ export default function ConversationWorkspace({
       >
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-md shadow-primary/20">
-              <Bot className="h-6 w-6" />
-              <span className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400" />
+            <div
+              className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary-600 text-white shadow-md shadow-primary/20">
+              <Bot className="h-6 w-6"/>
+              <span
+                className="absolute -right-0.5 -top-0.5 h-3.5 w-3.5 rounded-full border-2 border-white bg-emerald-400"/>
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
@@ -5720,7 +5803,8 @@ export default function ConversationWorkspace({
                 </Badge>
               </div>
               <p className="sr-only">Chat with {mainAgentName}.</p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+              <div
+                className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
                 <span className="max-w-xs truncate">
                   {mainAgentRole || 'Conversational orchestrator'}
                 </span>
@@ -5771,7 +5855,7 @@ export default function ConversationWorkspace({
                     onClick={() => setCompactPanelOpen((current) => !current)}
                     aria-expanded={compactPanelOpen}
                   >
-                    <Sparkles className="mr-2 h-4 w-4" />
+                    <Sparkles className="mr-2 h-4 w-4"/>
                     Compact
                   </Button>
                   <Button
@@ -5782,7 +5866,7 @@ export default function ConversationWorkspace({
                     aria-expanded={documentsDrawerOpen}
                     aria-controls="conversation-files-drawer"
                   >
-                    <FileText className="mr-2 h-4 w-4" />
+                    <FileText className="mr-2 h-4 w-4"/>
                     Files
                   </Button>
                 </>
@@ -5846,6 +5930,24 @@ export default function ConversationWorkspace({
         />
       ) : null}
 
+      {conversation?.id && !isPopup ? (
+        <section aria-label="Conversation browser" className="shrink-0 border-b px-4 py-2">
+          <Button
+            variant="outline"
+            aria-expanded={browserPanelOpen}
+            onClick={() => setBrowserPanelOpen((open) => !open)}
+          >
+            {browserPanelOpen ? 'Hide browser' : 'View browser'}
+          </Button>
+          {browserPanelOpen ? (
+            <div className="mt-3 max-h-[55vh] overflow-y-auto">
+              {/* Remount on conversation changes so private snapshots cannot carry over. */}
+              <RunBrowserPanel key={conversation.id} conversationId={conversation.id}/>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
       <PendingApprovalsPanel
         approvals={approvalItems}
         mainAgentName={mainAgentName}
@@ -5870,7 +5972,8 @@ export default function ConversationWorkspace({
           />
         ) : (
           <div className="mx-auto max-w-4xl space-y-3">
-            {messages.map((message, index) => {
+            {transcriptGroups.map(group => {
+              const rows = group.rows.map(({ message, index }) => {
               const approval = message.approval_request_id
                 ? approvals[message.approval_request_id]
                 : undefined;
@@ -5884,7 +5987,7 @@ export default function ConversationWorkspace({
                       mainAgentName={mainAgentName}
                     />
                   ) : null}
-                  <div
+                  {!group.tools ? <div
                     className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                   >
                     <div
@@ -5927,12 +6030,12 @@ export default function ConversationWorkspace({
                           'max-w-none wrap-break-word whitespace-pre-wrap',
                           messageBodyToneClasses(message),
                         ].join(' ')}
-                        style={{ tabSize: 8 }}
+                        style={{tabSize: 8}}
                       >
                         <AssistantMarkdown>{messageText(message)}</AssistantMarkdown>
                       </div>
                     </div>
-                  </div>
+                  </div> : null}
                   {message.message_type === 'workflow_proposal' ||
                   message.message_type === 'workflow_update_proposal' ? (
                     <WorkflowProposalCard
@@ -5954,7 +6057,7 @@ export default function ConversationWorkspace({
                   ) : null}
                   {message.message_type === 'execution_started' ||
                   message.message_type === 'execution_completed' ? (
-                    <ExecutionStatusCard message={message} />
+                    <ExecutionStatusCard message={message}/>
                   ) : null}
                   {message.message_type === 'tool_call' ? (
                     <ToolCallCard
@@ -5970,10 +6073,46 @@ export default function ConversationWorkspace({
                     />
                   ) : null}
                   {message.message_type === 'tool_result' ? (
-                    <ToolResultCard message={message} />
+                    <ToolResultCard message={message}/>
                   ) : null}
                 </div>
               );
+              });
+              if (!group.tools) return <div key={group.id}>{rows}</div>;
+              const calls = group.rows.filter(row => row.message.message_type === 'tool_call');
+              const recoverable = calls.some(({message}) => toolCallDisplayState({ message, messages, approvals: approvalItems, pendingMainAgentTurn, pendingIsStale, pendingTurnInterrupted }).recoverable);
+              const live = Boolean(pendingMainAgentTurn && group.rows.at(-1)?.index === messages.length - 1);
+              const names = [...new Set(calls.map(({message}) => toolPayloadFromMessage(message)?.toolName).filter(Boolean))];
+              return <details
+                key={group.id}
+                open={live || recoverable}
+                className="group/tool-activity rounded-xl border bg-card"
+              >
+                <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <span className="min-w-0">
+                    <span className="font-medium">Tool activity</span>
+                    <span className="ml-2 text-xs text-muted-foreground">
+                      {calls.length} calls · {group.rows.length - calls.length} results
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-muted-foreground">
+                      {names.slice(0, 2).join(' · ')}
+                      {names.length > 2 ? ` · +${names.length - 2} more` : ''}
+                    </span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    {live ? (
+                      <Badge variant="outline">In progress</Badge>
+                    ) : recoverable ? (
+                      <Badge variant="outline">Needs attention</Badge>
+                    ) : null}
+                    <ChevronDown
+                      className="size-4 transition-transform group-open/tool-activity:rotate-180"
+                      aria-hidden="true"
+                    />
+                  </span>
+                </summary>
+                <div className="flex flex-col gap-3 border-t p-3">{rows}</div>
+              </details>;
             })}
             {pendingMainAgentTurn ? (
               <div className="flex justify-start">
@@ -5987,13 +6126,17 @@ export default function ConversationWorkspace({
                 >
                   <div className="flex items-start gap-3">
                     {pendingTurnInterrupted || pendingIsStale ? (
-                      <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600" />
+                      <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-600"/>
                     ) : (
-                      <LoaderCircle className="mt-0.5 h-4 w-4 animate-spin text-sky-600" />
+                      <LoaderCircle className="mt-0.5 h-4 w-4 animate-spin text-sky-600"/>
                     )}
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="font-medium">{mainAgentName} is working</span>
+                        <span className="font-medium">
+                          {pendingTurnInterrupted
+                            ? `${mainAgentName} response unverified`
+                            : `Waiting for ${mainAgentName}`}
+                        </span>
                         <Badge variant="outline">{formatElapsedDuration(pendingElapsedMs)}</Badge>
                       </div>
                       <div
@@ -6008,7 +6151,7 @@ export default function ConversationWorkspace({
                           <span>Using {pendingMainAgentTurn.providerLabel}. </span>
                         ) : null}
                         {pendingTurnInterrupted
-                          ? 'No completed response was found after checking the backend. The turn was likely interrupted during a backend restart; send the request again to continue.'
+                          ? 'No completed response was found. This does not confirm the work has stopped. Check again or use Stop turn before sending a new request; completed actions are retained.'
                           : pendingIsStale
                             ? 'This turn is taking longer than expected. The app is still checking for the result in the background.'
                             : pendingIsSlow
@@ -6041,7 +6184,7 @@ export default function ConversationWorkspace({
                             className="relative z-10 border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
                             onClick={handleEndPendingTurn}
                           >
-                            End turn
+                            Stop turn
                           </Button>
                         </div>
                       ) : null}
@@ -6057,7 +6200,7 @@ export default function ConversationWorkspace({
                 live
               />
             ) : null}
-            <div ref={bottomRef} />
+            <div ref={bottomRef}/>
           </div>
         )}
       </div>
@@ -6076,8 +6219,9 @@ export default function ConversationWorkspace({
               className="mb-3 flex flex-col gap-2 rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2.5 dark:border-cyan-400/15 dark:bg-cyan-400/5 sm:flex-row sm:items-center"
               aria-label="Context suggestions"
             >
-              <div className="flex shrink-0 items-center gap-2 text-xs font-semibold text-sky-800 dark:text-cyan-200">
-                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+              <div
+                className="flex shrink-0 items-center gap-2 text-xs font-semibold text-sky-800 dark:text-cyan-200">
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true"/>
                 Suggested here
               </div>
               <div className="flex min-w-0 flex-wrap gap-1.5">
@@ -6098,7 +6242,8 @@ export default function ConversationWorkspace({
           ) : null}
           {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
           {pendingIsStale ? (
-            <div className="mb-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
+            <div
+              className="mb-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 sm:flex-row sm:items-center sm:justify-between">
               <span>
                 {pendingTurnInterrupted
                   ? 'No completed assistant response was found for the last turn.'
@@ -6129,13 +6274,14 @@ export default function ConversationWorkspace({
                   className="border-amber-300 bg-white text-amber-900 hover:bg-amber-100"
                   onClick={handleEndPendingTurn}
                 >
-                  End turn
+                  Stop turn
                 </Button>
               </div>
             </div>
           ) : null}
           {selectedGoalSummary ? (
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
+            <div
+              className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">
               <Badge variant="outline" className="border-emerald-300 bg-white/80 text-emerald-700">
                 Goal
               </Badge>
@@ -6158,7 +6304,7 @@ export default function ConversationWorkspace({
                       aria-label="Clear selected goal"
                       title="Clear selected goal"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4"/>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>Clear selected goal</TooltipContent>
@@ -6167,8 +6313,10 @@ export default function ConversationWorkspace({
             </div>
           ) : null}
           {personaAutocompleteOptions.length > 0 ? (
-            <div className="mb-3 rounded-xl border border-primary-100 bg-white p-2 shadow-sm shadow-primary/5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-              <div className="mb-1 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+            <div
+              className="mb-3 rounded-xl border border-primary-100 bg-white p-2 shadow-sm shadow-primary/5 dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+              <div
+                className="mb-1 px-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
                 Match persona
               </div>
               <div className="flex flex-wrap gap-2">
@@ -6186,8 +6334,9 @@ export default function ConversationWorkspace({
             </div>
           ) : null}
           {selectedDocument ? (
-            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-              <FileText className="h-4 w-4 shrink-0 text-slate-500" />
+            <div
+              className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+              <FileText className="h-4 w-4 shrink-0 text-slate-500"/>
               <span className="min-w-0 truncate font-medium text-slate-900">
                 {selectedDocument.name}
               </span>
@@ -6222,7 +6371,7 @@ export default function ConversationWorkspace({
                       aria-label="Remove selected document"
                       title="Remove document"
                     >
-                      <X className="h-4 w-4" />
+                      <X className="h-4 w-4"/>
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>Remove document</TooltipContent>
@@ -6230,8 +6379,23 @@ export default function ConversationWorkspace({
               </TooltipProvider>
             </div>
           ) : null}
-          <div className="flex items-center gap-2 rounded-2xl border border-primary-100 bg-white px-2 py-2 shadow-sm shadow-primary/5 focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary/10 dark:border-white/10 dark:bg-slate-950 dark:shadow-none dark:focus-within:border-cyan-400/24">
-            <input
+          {pendingMainAgentTurn ? (
+            <div className="mb-2 flex justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleEndPendingTurn}
+                disabled={stoppingPendingTurn}
+                aria-label="Stop assistant turn"
+              >
+                {stoppingPendingTurn ? 'Requesting Stop…' : 'Stop assistant turn'}
+              </Button>
+            </div>
+          ) : null}
+          <div
+            className="flex items-center gap-2 rounded-2xl border border-primary-100 bg-white px-2 py-2 shadow-sm shadow-primary/5 focus-within:border-primary-300 focus-within:ring-2 focus-within:ring-primary/10 dark:border-white/10 dark:bg-slate-950 dark:shadow-none dark:focus-within:border-cyan-400/24">
+            <Input
               ref={documentInputRef}
               type="file"
               accept={DOCUMENT_UPLOAD_ACCEPT}
@@ -6260,7 +6424,7 @@ export default function ConversationWorkspace({
                     aria-label={isListening ? 'Stop speech input' : 'Start speech input'}
                     title={isListening ? 'Stop speech input' : 'Start speech input'}
                   >
-                    <Mic className={`h-4 w-4 ${isListening ? 'text-primary-600' : ''}`} />
+                    <Mic className={`h-4 w-4 ${isListening ? 'text-primary-600' : ''}`}/>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -6278,14 +6442,15 @@ export default function ConversationWorkspace({
                     aria-label="Attach document"
                     title="Attach document"
                   >
-                    <Paperclip className="h-4 w-4" />
+                    <Paperclip className="h-4 w-4"/>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Attach document</TooltipContent>
               </Tooltip>
             </TooltipProvider>
             <div className="flex min-w-0 flex-1 items-center gap-2 px-1">
-              <MessageSquareText className="hidden h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500 sm:block" />
+              <MessageSquareText
+                className="hidden h-4 w-4 shrink-0 text-slate-400 dark:text-slate-500 sm:block"/>
               <div className="relative min-w-0 flex-1">
                 <div
                   aria-hidden="true"
@@ -6293,7 +6458,7 @@ export default function ConversationWorkspace({
                 >
                   {renderMentionHighlights(input, invokablePersonas, selectedGoalSummary)}
                 </div>
-                <input
+                <Input
                   ref={messageInputRef}
                   className="relative z-10 min-w-0 w-full border-0 bg-transparent px-1 py-2 text-sm text-transparent caret-slate-900 outline-none placeholder:text-slate-400 selection:bg-primary/20 dark:caret-slate-100 dark:placeholder:text-slate-500"
                   value={input}
@@ -6305,10 +6470,11 @@ export default function ConversationWorkspace({
             </div>
             <Button
               type="submit"
+              aria-label={isPending ? (selectedDocument ? 'Uploading' : 'Sending') : 'Send'}
               className="h-10 shrink-0 rounded-xl px-3 text-white sm:px-4"
               disabled={isPending || (input.trim().length === 0 && !selectedDocument)}
             >
-              <SendHorizontal className="h-4 w-4 sm:mr-2" />
+              <SendHorizontal className="h-4 w-4 sm:mr-2"/>
               <span className="hidden sm:inline">
                 {isPending ? (selectedDocument ? 'Uploading' : 'Sending') : 'Send'}
               </span>
@@ -6337,9 +6503,10 @@ export default function ConversationWorkspace({
         mainAgentName={mainAgentName}
         mainAgentLookupError={mainAgentLookupError}
       />
-      <div className="flex h-[calc(100dvh-72px)] min-h-0 bg-transparent md:h-[calc(100vh-134px)]">
+      <div
+        className="flex h-[calc(100dvh-7.5rem)] min-h-0 overflow-hidden rounded-xl border border-border bg-card md:h-[calc(100dvh-8.5rem)]">
         <aside
-          className={`relative hidden shrink-0 overflow-visible border-r border-primary-100 bg-primary-50/60 transition-[width,border-color] duration-300 ease-out md:block ${
+          className={`relative hidden shrink-0 overflow-visible border-r border-border bg-card transition-[width,border-color] duration-300 ease-out md:block ${
             desktopHistoryOpen ? 'w-80' : 'w-0 border-r-transparent'
           }`}
           aria-hidden={!desktopHistoryOpen}
@@ -6366,7 +6533,7 @@ export default function ConversationWorkspace({
                 aria-label="Open history sidebar"
                 title="Open history sidebar"
               >
-                <ChevronRight className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4"/>
               </button>
             </TooltipTrigger>
             <TooltipContent>Open history sidebar</TooltipContent>
@@ -6375,7 +6542,7 @@ export default function ConversationWorkspace({
         <div className="flex min-w-0 flex-1 flex-col">{conversationShell}</div>
         <aside
           id="conversation-files-drawer"
-          className={`relative hidden shrink-0 overflow-hidden border-l border-primary-100 bg-white transition-[width,border-color] duration-300 ease-out md:block ${
+          className={`relative hidden shrink-0 overflow-hidden border-l border-border bg-card transition-[width,border-color] duration-300 ease-out md:block ${
             documentsDrawerOpen ? 'w-96' : 'w-0 border-l-transparent'
           }`}
           aria-hidden={!documentsDrawerOpen}

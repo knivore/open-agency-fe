@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { runtimeAdaptersApi } from '@/lib/api/backend';
@@ -111,7 +112,7 @@ function AdapterFields({
           <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
             Adapter Type
           </label>
-          <select
+          <NativeSelect
             value={form.adapterType}
             onChange={(event) =>
               setForm((current) => ({ ...current, adapterType: event.target.value }))
@@ -124,7 +125,7 @@ function AdapterFields({
                 {type}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
       <div className="space-y-1">

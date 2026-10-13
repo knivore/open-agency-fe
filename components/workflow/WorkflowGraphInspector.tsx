@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { type ReactNode, useMemo, useState } from 'react';
 import { createGraphEdgeId } from '@/modules/react-flow-graph/ids';
 import type {
@@ -276,7 +277,7 @@ function TaskInspector({
       </Field>
 
       <Field id={`${node.id}-agent`} label="Assigned agent">
-        <select
+        <NativeSelect
           id={`${node.id}-agent`}
           value={readDataString(node.data, 'agentId') || noAgentValue}
           disabled={readOnly}
@@ -297,7 +298,7 @@ function TaskInspector({
               {agent.label}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </Field>
 
       <div className="flex items-center gap-2">
@@ -557,7 +558,7 @@ function EdgeInspector({
       {editableEdge ? (
         <>
           <Field id={`${edge.id}-type`} label="Edge type">
-            <select
+            <NativeSelect
               id={`${edge.id}-type`}
               value={edge.type}
               disabled={readOnly}
@@ -579,7 +580,7 @@ function EdgeInspector({
               <option value={workflowGraphEdgeTypes.dependency}>Dependency</option>
               <option value={workflowGraphEdgeTypes.condition}>Condition</option>
               <option value={workflowGraphEdgeTypes.dataFlow}>Data flow</option>
-            </select>
+            </NativeSelect>
           </Field>
 
           <Field id={`${edge.id}-condition`} label="Condition">

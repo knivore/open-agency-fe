@@ -11,11 +11,13 @@ import type { ObservatoryMap } from '@/modules/observatory/engine/world/layoutTy
 import type { ObservatoryRenderedOfficeMap } from '@/modules/observatory/engine/rendering/officeMapRenderer';
 
 export interface ObservatorySceneInteractionOptions {
+  placementActive?: boolean;
   allowPan?: boolean;
   allowZoom?: boolean;
   grid: ObservatoryGridConfig;
   map: ObservatoryMap;
   onCameraStateChange?: (state: { scrollX: number; scrollY: number; zoom: number }) => void;
+  onGridHover?: (point: ObservatoryCanvasGridClick) => void;
   onGridClick?: (point: ObservatoryCanvasGridClick) => void;
   onRoomResizeCommit?: (roomId: string, bounds: ObservatoryGridRect) => void;
   onSelectionDrag?: (payload: {
@@ -36,12 +38,14 @@ export const OBSERVATORY_CAMERA_USER_ADJUSTED_EVENT = 'observatory:camera-user-a
 export function setupObservatorySceneInteractions(
   scene: Phaser.Scene,
   {
+    placementActive = false,
     allowPan = true,
     allowZoom = true,
     grid,
     map,
     onCameraStateChange,
     onGridClick,
+    onGridHover,
     onRoomResizeCommit,
     onSelectionDrag,
     renderedMap,
@@ -55,6 +59,7 @@ export function setupObservatorySceneInteractions(
   const fittedZoom = camera.zoom;
   const minCameraZoom = Math.max(0.25, Math.min(fittedZoom, 0.6));
   const maxCameraZoom = Math.max(2.2, fittedZoom * 4);
+  let lastHoverKey = '';
   let lastClickAt = 0;
   let didDrag = false;
   let dragStartGridPoint: ObservatoryCanvasGridClick | null = null;
@@ -84,6 +89,11 @@ export function setupObservatorySceneInteractions(
     pointer.updateWorldPoint(camera);
     const gridPoint = worldToGrid({ x: pointer.worldX, y: pointer.worldY }, grid);
     renderedMap.setWallEditHover(gridPoint);
+    const hoverKey = `${gridPoint.x}:${gridPoint.y}`;
+    if (hoverKey !== lastHoverKey) {
+      lastHoverKey = hoverKey;
+      onGridHover?.(gridPoint);
+    }
 
     if (roomResizeDrag) {
       roomResizePreview = computeRoomResizeBounds(
@@ -98,7 +108,7 @@ export function setupObservatorySceneInteractions(
 
     debugText?.setText(`grid: ${gridPoint.x}, ${gridPoint.y} | zoom: ${camera.zoom.toFixed(2)}`);
 
-    if (!pointer.primaryDown) {
+    if (placementActive || !pointer.primaryDown) {
       return;
     }
 
@@ -124,14 +134,25 @@ export function setupObservatorySceneInteractions(
         : false;
 
       if (movedGridCell && dragStartGridPoint) {
-        onSelectionDrag({
-          from: dragStartGridPoint,
-          id: dragTarget.id,
-          kind: dragTarget.kind,
-          to: gridPoint,
-        });
-        dragStartGridPoint = gridPoint;
-        refreshRoomResizeHandles();
+        const target =
+          dragTarget.kind === 'object'
+            ? map.objects.find((object) => object.id === dragTarget?.id)
+            : map.rooms.find((room) => room.id === dragTarget?.id);
+        const bounds =
+          target &&
+          ('position' in target
+            ? { ...target.position, ...(target.size ?? { width: 1, height: 1 }) }
+            : target.bounds);
+        resizePreviewOverlay.clear();
+        if (bounds) {
+          resizePreviewOverlay.lineStyle(2, 0x38bdf8, 0.9);
+          resizePreviewOverlay.strokeRect(
+            (bounds.x + gridPoint.x - dragStartGridPoint.x) * grid.tileSize,
+            (bounds.y + gridPoint.y - dragStartGridPoint.y) * grid.tileSize,
+            bounds.width * grid.tileSize,
+            bounds.height * grid.tileSize
+          );
+        }
       }
 
       return;
@@ -156,7 +177,7 @@ export function setupObservatorySceneInteractions(
     pointer.updateWorldPoint(camera);
     const gridPoint = worldToGrid({ x: pointer.worldX, y: pointer.worldY }, grid);
 
-    if (wallEditActive) {
+    if (wallEditActive || placementActive) {
       didDrag = false;
       dragStartGridPoint = null;
       dragTarget = null;
@@ -199,6 +220,7 @@ export function setupObservatorySceneInteractions(
 
   scene.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
     const now = pointer.upTime;
+    resizePreviewOverlay.clear();
 
     if (roomResizeDrag) {
       const nextBounds = roomResizePreview ?? roomResizeDrag.startBounds;
@@ -228,6 +250,15 @@ export function setupObservatorySceneInteractions(
       dragStartGridPoint = null;
       didDrag = false;
       refreshRoomResizeHandles();
+      return;
+    }
+
+    if (placementActive) {
+      onGridClick?.(gridPoint);
+      lastClickAt = now;
+      didDrag = false;
+      dragTarget = null;
+      dragStartGridPoint = null;
       return;
     }
 
@@ -381,6 +412,17 @@ export function setupObservatorySceneInteractions(
   }
 
   function resolveDragTarget(gridPoint: ObservatoryCanvasGridClick) {
+    const selectedObjectId = renderedMap.getSelectedObjectId();
+    const selectedObject = map.objects?.find((object) => object.id === selectedObjectId);
+    if (
+      selectedObject &&
+      pointInGridRect(gridPoint, {
+        ...selectedObject.position,
+        ...(selectedObject.size ?? { width: 1, height: 1 }),
+      })
+    ) {
+      return { id: selectedObject.id, kind: 'object' as const };
+    }
     const selectedRoomId = renderedMap.getSelectedRoomId();
     if (!selectedRoomId) {
       return null;

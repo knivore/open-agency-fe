@@ -554,7 +554,7 @@ export default function UploadedDocumentsList({
           </label>
           {showActions && selectableVisibleDocuments.length > 0 ? (
             <label className="inline-flex min-h-9 cursor-pointer items-center gap-2 rounded-md px-2 text-xs font-medium text-(--agency-shell-muted) hover:bg-(--agency-row-hover)">
-              <input
+              <Input
                 type="checkbox"
                 aria-label="Select all visible documents"
                 checked={allVisibleSelected}
@@ -648,7 +648,7 @@ export default function UploadedDocumentsList({
               <div className="grid min-w-0 gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
                 <div className="flex min-w-0 items-start gap-2.5">
                   {showActions && (document.hasUploadedDocument || document.chunkCount > 0) ? (
-                    <input
+                    <Input
                       type="checkbox"
                       aria-label={`Select ${document.filename}`}
                       checked={selectedDocumentIdSet.has(document.documentId)}

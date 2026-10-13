@@ -1,10 +1,10 @@
-import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
-import { ApiError } from '@/lib/api/errors';
-import type { IntegrationCategory, IntegrationProvider } from '@/types/integrations';
+import {act, fireEvent, screen, waitFor, within} from '@testing-library/react';
+import {describe, expect, it} from 'vitest';
+import {ApiError} from '@/lib/api/errors';
+import type {IntegrationCategory, IntegrationProvider} from '@/types/integrations';
 import {
-  connectorsApi,
   connectorHistoryPayload,
+  connectorsApi,
   credentialsApi,
   integrationsApi,
   mcpServersApi,
@@ -17,14 +17,14 @@ describe('IntegrationsWorkspace planned connectors', () => {
   setupIntegrationsWorkspaceTest();
 
   async function clickCardButton(card: HTMLElement, name: RegExp) {
-    if (!within(card).queryByRole('button', { name })) {
+    if (!within(card).queryByRole('button', {name})) {
       fireEvent.click(within(card).getByTestId(/planned-provider-toggle-/));
       await waitFor(() => {
-        expect(within(card).getByRole('button', { name })).toBeInTheDocument();
+        expect(within(card).getByRole('button', {name})).toBeInTheDocument();
       });
     }
     await act(async () => {
-      fireEvent.click(within(card).getByRole('button', { name }));
+      fireEvent.click(within(card).getByRole('button', {name}));
     });
   }
 
@@ -49,9 +49,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('No custom providers')).toBeInTheDocument();
+      expect(screen.getByText('No capabilities are available yet.')).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole('button', { name: /New MCP server/i }));
+    fireEvent.click(screen.getByRole('button', {name: /New MCP server/i}));
     return screen.getByRole('dialog');
   }
 
@@ -76,17 +76,17 @@ describe('IntegrationsWorkspace planned connectors', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('No custom providers')).toBeInTheDocument();
+      expect(screen.getByText('No capabilities are available yet.')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('tab', { name: /Models/i }));
+    fireEvent.click(screen.getByRole('tab', {name: /Models/i}));
     expect(window.location.search).toContain('integration-tab=llm-models');
   });
 
   it('offers a quick link to the OneCLI connections workspace', async () => {
     renderWorkspace();
 
-    const onecliLink = await screen.findByRole('link', { name: /Open OneCLI/i });
+    const onecliLink = await screen.findByRole('link', {name: /Open OneCLI/i});
     const onecliUrl = new URL(onecliLink.getAttribute('href') ?? '');
 
     expect(onecliUrl.hostname).toBe(window.location.hostname);
@@ -106,24 +106,24 @@ describe('IntegrationsWorkspace planned connectors', () => {
       env_refs: [],
       enabled: true,
       allowlisted_command: 'agency-ai-media-lab-mcp',
-      metadata: { family: 'ai_media_lab' },
+      metadata: {family: 'ai_media_lab'},
     });
-    mcpServersApi.discover.mockResolvedValue({ tools: [] });
+    mcpServersApi.discover.mockResolvedValue({tools: []});
 
     const dialog = await openMcpServerDialog();
     const textboxes = within(dialog).getAllByRole('textbox');
-    fireEvent.change(textboxes[0], { target: { value: 'AI Media Lab MCP' } });
+    fireEvent.change(textboxes[0], {target: {value: 'AI Media Lab MCP'}});
     fireEvent.change(textboxes[1], {
       target: {
         value: '/opt/open-agency/.venv/bin/agency-ai-media-lab-mcp',
       },
     });
-    fireEvent.click(within(dialog).getByRole('checkbox', { name: /Enabled/i }));
-    fireEvent.click(within(dialog).getByRole('button', { name: /Create MCP server/i }));
+    fireEvent.click(within(dialog).getByRole('checkbox', {name: /Enabled/i}));
+    fireEvent.click(within(dialog).getByRole('button', {name: /Create MCP server/i}));
 
     await waitFor(() => {
       expect(mcpServersApi.createMcpServer).toHaveBeenCalledWith(
-        expect.not.objectContaining({ allowlisted_command: expect.anything() })
+        expect.not.objectContaining({allowlisted_command: expect.anything()})
       );
       expect(mcpServersApi.discover).toHaveBeenCalledWith('agency-ai-media-lab');
     });
@@ -145,9 +145,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     const dialog = await openMcpServerDialog();
     const textboxes = within(dialog).getAllByRole('textbox');
-    fireEvent.change(textboxes[0], { target: { value: 'Disabled MCP' } });
-    fireEvent.change(textboxes[1], { target: { value: 'disabled-mcp' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: /Create MCP server/i }));
+    fireEvent.change(textboxes[0], {target: {value: 'Disabled MCP'}});
+    fireEvent.change(textboxes[1], {target: {value: 'disabled-mcp'}});
+    fireEvent.click(within(dialog).getByRole('button', {name: /Create MCP server/i}));
 
     await waitFor(() => {
       expect(mcpServersApi.createMcpServer).toHaveBeenCalled();
@@ -155,7 +155,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(mcpServersApi.discover).not.toHaveBeenCalled();
   });
 
-  it('shows custom tools as compact read-only capability cards', async () => {
+  it('opens the existing tool contract from the capability catalog', async () => {
     const customCategory: IntegrationCategory = {
       id: 'custom',
       name: 'Custom',
@@ -190,14 +190,14 @@ describe('IntegrationsWorkspace planned connectors', () => {
             input_schema: {
               type: 'object',
               properties: {
-                url: { type: 'string' },
-                method: { type: 'string' },
+                url: {type: 'string'},
+                method: {type: 'string'},
               },
             },
             output_schema: {
               type: 'object',
               properties: {
-                status_code: { type: 'integer' },
+                status_code: {type: 'integer'},
               },
             },
             implementation: {
@@ -220,18 +220,20 @@ describe('IntegrationsWorkspace planned connectors', () => {
     window.history.replaceState({}, '', '/integrations?integration-tab=custom');
     renderWorkspace();
 
+    fireEvent.click(await screen.findByRole('button', {name: 'All operations'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Send HTTP Request'}));
     expect(await screen.findByText('Tool capability')).toBeInTheDocument();
-    expect(screen.getByText('agency.http.request')).toBeInTheDocument();
+    expect(within(screen.getByRole('dialog')).getByText('agency.http.request')).toBeInTheDocument();
     expect(screen.getByText('2 fields')).toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /Open contracts/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', {name: /Open contracts/i})).not.toBeInTheDocument();
     expect(screen.queryByText('Tool definition')).not.toBeInTheDocument();
     expect(screen.queryByText('Input Schema')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Save Tool/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Save Tool/i})).not.toBeInTheDocument();
   });
 
-  it('groups custom integrations and keeps category search state paginated', async () => {
+  it('groups capabilities by namespace and retains search state across family browsing', async () => {
     const customProviders: IntegrationProvider[] = [
-      ...Array.from({ length: 24 }, (_, index) => ({
+      ...Array.from({length: 24}, (_, index) => ({
         id: `agency.tool.${index + 1}`,
         name: `Open Agency Tool ${index + 1}`,
         categoryId: 'custom',
@@ -254,12 +256,12 @@ describe('IntegrationsWorkspace planned connectors', () => {
         raw: {
           id: `agency.tool.${index + 1}`,
           name: `Open Agency Tool ${index + 1}`,
-          input_schema: { type: 'object', properties: {} },
-          output_schema: { type: 'object', properties: {} },
+          input_schema: {type: 'object', properties: {}},
+          output_schema: {type: 'object', properties: {}},
           tags: ['workflow'],
         },
       })),
-      ...Array.from({ length: 2 }, (_, index) => ({
+      ...Array.from({length: 2}, (_, index) => ({
         id: `agency.mcp.${index + 1}`,
         name: `Shared MCP ${index + 1}`,
         categoryId: 'custom',
@@ -304,20 +306,31 @@ describe('IntegrationsWorkspace planned connectors', () => {
     window.history.replaceState({}, '', '/integrations?integration-tab=custom');
     renderWorkspace();
 
-    expect(await screen.findByRole('heading', { name: 'Workflow' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Network \(2\)/i })).toBeInTheDocument();
-    expect(screen.getByText('Showing 1-24 of 26')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', {name: 'Browse Tool development'})
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', {name: 'Browse MCP servers & runtime'})
+    ).toBeInTheDocument();
+    expect(screen.getByText('26 unique capabilities · Showing 1–12')).toBeInTheDocument();
     expect(screen.queryByText('Shared MCP 2')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Network \(2\)/i }));
+    fireEvent.click(screen.getByRole('button', {name: 'Browse Tool development'}));
+    expect(screen.getByText('24 unique capabilities · Showing 1–12')).toBeInTheDocument();
+    expect(screen.getByText('Page 1 of 2')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /^Next$/}));
+    expect(screen.getByText('24 unique capabilities · Showing 13–24')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Filters'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Family overview'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Browse MCP servers & runtime'}));
 
     await waitFor(() => {
       expect(screen.getByText('Shared MCP 2')).toBeInTheDocument();
     });
-    expect(window.location.search).toContain('integration-page-custom=2');
+    expect(window.location.search).toContain('capability-family=infrastructure');
 
-    fireEvent.change(screen.getByPlaceholderText(/Search custom integrations/i), {
-      target: { value: 'Shared MCP 2' },
+    fireEvent.change(screen.getByLabelText('Search capabilities'), {
+      target: {value: 'Shared MCP 2'},
     });
 
     await waitFor(() => {
@@ -333,7 +346,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
       name: 'Communications',
       description: 'Comms connectors.',
       status: 'planned',
-      providers: Array.from({ length: 26 }, (_, index) => {
+      providers: Array.from({length: 26}, (_, index) => {
         const label = String(index + 1).padStart(2, '0');
         const backendKey = index < 11 ? 'telegram-bot' : index < 22 ? 'twilio-sms' : 'gmail-oauth';
 
@@ -389,7 +402,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(window.location.search).toContain('integration-page-communications=2');
 
     fireEvent.change(screen.getByPlaceholderText(/Search communications connectors/i), {
-      target: { value: 'Provider 13' },
+      target: {value: 'Provider 13'},
     });
 
     await waitFor(() => {
@@ -453,7 +466,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -482,7 +495,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -516,7 +529,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /Communications/i })).toHaveAttribute(
+      expect(screen.getByRole('tab', {name: /Communications/i})).toHaveAttribute(
         'aria-selected',
         'true'
       );
@@ -618,7 +631,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByRole('tab', { name: /Productivity/i })).toHaveAttribute(
+      expect(screen.getByRole('tab', {name: /Productivity/i})).toHaveAttribute(
         'aria-selected',
         'true'
       );
@@ -690,6 +703,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     renderWorkspace();
 
+    fireEvent.click(await screen.findByRole('tab', {name: 'Connections'}));
     await waitFor(() => {
       expect(
         screen.getByTestId('planned-provider-card-communications-telegram')
@@ -699,7 +713,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     fireEvent.click(screen.getByTestId('planned-provider-toggle-communications-telegram'));
     expect(window.location.search).toContain('integration-connector=communications-telegram');
 
-    fireEvent.click(screen.getByRole('tab', { name: /Custom/i }));
+    fireEvent.click(screen.getByRole('tab', {name: /Capabilities/i}));
     expect(window.location.search).toContain('integration-tab=custom');
     expect(window.location.search).not.toContain('integration-connector=');
   });
@@ -880,7 +894,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     ).toBeInTheDocument();
 
     await clickCardButton(connectorCard, /Set up connector/i);
-    expect(await screen.findByRole('heading', { name: /Set up Telegram/i })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', {name: /Set up Telegram/i})).toBeInTheDocument();
 
     expect(window.location.search).not.toContain('integration-connector=');
   });
@@ -943,9 +957,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
     });
 
     fireEvent.change(screen.getByLabelText('Display Name'), {
-      target: { value: 'Telegram Bot' },
+      target: {value: 'Telegram Bot'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     await waitFor(() => {
       expect(connectorsApi.createConnectorSetupSession).toHaveBeenCalledWith('telegram-bot', {
@@ -964,7 +978,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(screen.getByText('Secure OneCLI workspace')).toBeInTheDocument();
     expect(screen.queryByLabelText('OneCLI Credential Ref')).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Abandon setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Abandon setup/i}));
     await waitFor(() => {
       expect(connectorsApi.deleteConnectorInstallation).toHaveBeenCalledWith(
         'connector-installation-telegram'
@@ -992,7 +1006,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -1025,17 +1039,17 @@ describe('IntegrationsWorkspace planned connectors', () => {
     );
     fireEvent.click(within(connectorCard).getByTestId(/planned-provider-toggle-/));
 
-    expect(within(connectorCard).getByRole('button', { name: /Add another setup/i }));
-    expect(within(connectorCard).getByRole('button', { name: /Update credential/i }));
+    expect(within(connectorCard).getByRole('button', {name: /Add another setup/i}));
+    expect(within(connectorCard).getByRole('button', {name: /Update credential/i}));
 
     await clickCardButton(connectorCard, /Update credential/i);
-    expect(await screen.findByRole('heading', { name: /Update Telegram credential/i }));
+    expect(await screen.findByRole('heading', {name: /Update Telegram credential/i}));
     expect(credentialsApi.getCredential).toHaveBeenCalledWith('credential-telegram');
 
     fireEvent.change(screen.getByLabelText('Display Name'), {
-      target: { value: 'Telegram Bot Updated' },
+      target: {value: 'Telegram Bot Updated'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Update credential/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Update credential/i}));
 
     await waitFor(() => {
       expect(credentialsApi.updateConnectorCredential).toHaveBeenCalledWith('credential-telegram', {
@@ -1047,12 +1061,12 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(connectorsApi.createConnectorSetupSession).not.toHaveBeenCalled();
 
     await waitFor(() => {
-      expect(screen.queryByRole('heading', { name: /Update Telegram credential/i })).toBeNull();
+      expect(screen.queryByRole('heading', {name: /Update Telegram credential/i})).toBeNull();
     });
 
     await clickCardButton(connectorCard, /Add another setup/i);
-    expect(await screen.findByRole('heading', { name: /Set up Telegram/i })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    expect(await screen.findByRole('heading', {name: /Set up Telegram/i})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     await waitFor(() => {
       expect(connectorsApi.createConnectorSetupSession).toHaveBeenCalledWith('telegram-bot', {
@@ -1104,7 +1118,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -1147,7 +1161,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     );
 
     await clickCardButton(connectorCard, /Delete selected instance/i);
-    fireEvent.click(screen.getByRole('button', { name: /Delete instance/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Delete instance/i}));
 
     await waitFor(() => {
       expect(connectorsApi.deleteConnectorInstallation).toHaveBeenCalledWith(
@@ -1208,8 +1222,8 @@ describe('IntegrationsWorkspace planned connectors', () => {
             managedByBackend: true,
             writeSupported: true,
             refs: [
-              { name: 'Telegram Bot', source: 'telegram-bot' },
-              { name: 'Telegram Bot', source: 'telegram-bot' },
+              {name: 'Telegram Bot', source: 'telegram-bot'},
+              {name: 'Telegram Bot', source: 'telegram-bot'},
             ],
             message: '2 backend credentials mapped to this connector.',
           },
@@ -1256,7 +1270,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           raw: {
@@ -1292,13 +1306,13 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     expect(within(connectorCard).getByText(/Multiple instances detected/i)).toBeInTheDocument();
     fireEvent.change(within(connectorCard).getByLabelText(/Active instance/i), {
-      target: { value: 'credential-telegram-secondary' },
+      target: {value: 'credential-telegram-secondary'},
     });
     await clickCardButton(connectorCard, /Delete selected instance/i);
 
-    expect(screen.getByRole('button', { name: /Delete instance/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: /Delete instance/i})).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /Delete instance/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Delete instance/i}));
 
     await waitFor(() => {
       expect(connectorsApi.deleteConnectorInstallation).toHaveBeenCalledWith(
@@ -1344,7 +1358,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -1375,7 +1389,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId('planned-provider-card-communications-discord');
 
     await clickCardButton(connectorCard, /Update credential/i);
-    expect(await screen.findByRole('heading', { name: /Update Discord credential/i }));
+    expect(await screen.findByRole('heading', {name: /Update Discord credential/i}));
     expect(screen.getByLabelText('webhook_public_key')).toHaveValue('abcdef123456');
   });
 
@@ -1434,7 +1448,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     expect(screen.queryByLabelText('Secret Reference')).not.toBeInTheDocument();
     expect(screen.queryByText(/Manual secret ref/i)).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     await waitFor(() => {
       expect(connectorsApi.createConnectorSetupSession).toHaveBeenCalledWith('telegram-bot', {
@@ -1560,7 +1574,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
       'planned-provider-card-communications-telegram'
     );
     await clickCardButton(connectorCard, /Set up connector/i);
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     await waitFor(() => {
       expect(connectorsApi.createConnectorSetupSession).toHaveBeenCalledWith('telegram-bot', {
@@ -1683,7 +1697,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     const connectorCard = await screen.findByTestId('planned-provider-card-communications-discord');
     await clickCardButton(connectorCard, /Set up connector/i);
 
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
     expect(await screen.findByText('Copy into OneCLI')).toBeInTheDocument();
     expect(screen.getByText(/Connections, Custom, Generic Secret/i)).toBeInTheDocument();
     expect(screen.getByTestId('onecli-copy-row-custom_connection_key')).toHaveTextContent(
@@ -1716,7 +1730,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
       setup_session_id: 'connector-installation-discord',
       setup_started_at: '2099-01-01T00:00:00Z',
       setup_expires_at: '2099-01-01T00:30:00Z',
-      metadata: { webhook_public_key: 'discord-public-key' },
+      metadata: {webhook_public_key: 'discord-public-key'},
     };
     connectorsApi.listConnectorInstallations.mockResolvedValue({
       items: [pendingInstallation],
@@ -1790,24 +1804,24 @@ describe('IntegrationsWorkspace planned connectors', () => {
     );
     expect(screen.getByLabelText('webhook_public_key')).toHaveValue('discord-public-key');
     expect(screen.getByText(/Finish the prefilled OneCLI flow/i)).toBeInTheDocument();
-    const startSetupButton = screen.queryByRole('button', { name: /Start OneCLI setup/i });
+    const startSetupButton = screen.queryByRole('button', {name: /Start OneCLI setup/i});
     if (startSetupButton) {
       fireEvent.click(startSetupButton);
     }
     expect(screen.queryByLabelText('Runtime secret value')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Verify and activate/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Start OneCLI setup/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: /Verify and activate/i})).toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: /Start OneCLI setup/i})).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Verify and activate/i })).not.toBeDisabled();
+      expect(screen.getByRole('button', {name: /Verify and activate/i})).not.toBeDisabled();
     });
-    fireEvent.click(screen.getByRole('button', { name: /Verify and activate/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Verify and activate/i}));
 
     await waitFor(() => {
       expect(connectorsApi.completeConnectorInstallation).toHaveBeenCalledWith(
         'connector-installation-discord',
         {
-          metadata: { webhook_public_key: 'discord-public-key' },
+          metadata: {webhook_public_key: 'discord-public-key'},
         }
       );
     });
@@ -1866,11 +1880,11 @@ describe('IntegrationsWorkspace planned connectors', () => {
     );
 
     await clickCardButton(connectorCard, /Set up connector/i);
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     expect(await screen.findByText('Waiting for verification')).toBeInTheDocument();
     expect(screen.queryByLabelText('Runtime secret value')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Verify and activate/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Verify and activate/i}));
 
     await waitFor(() => {
       expect(connectorsApi.completeConnectorInstallation).toHaveBeenCalledWith(
@@ -1887,17 +1901,17 @@ describe('IntegrationsWorkspace planned connectors', () => {
     connectorsApi.listConnectorInstallations.mockImplementation(async () => ({
       items: setupCompleted
         ? [
-            {
-              id: 'connector-installation-telegram',
-              owner_user_id: 'user-integrations',
-              provider: 'telegram-bot',
-              name: 'Telegram',
-              onecli_credential_ref: 'onecli://users/user-integrations/secrets/verified-telegram',
-              status: 'active' as const,
-              setup_session_id: 'connector-installation-telegram',
-              metadata: {},
-            },
-          ]
+          {
+            id: 'connector-installation-telegram',
+            owner_user_id: 'user-integrations',
+            provider: 'telegram-bot',
+            name: 'Telegram',
+            onecli_credential_ref: 'onecli://users/user-integrations/secrets/verified-telegram',
+            status: 'active' as const,
+            setup_session_id: 'connector-installation-telegram',
+            metadata: {},
+          },
+        ]
         : [],
     }));
 
@@ -1952,11 +1966,11 @@ describe('IntegrationsWorkspace planned connectors', () => {
     );
 
     await clickCardButton(connectorCard, /Set up connector/i);
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     expect(await screen.findByText('Waiting for verification')).toBeInTheDocument();
     setupCompleted = true;
-    fireEvent.click(screen.getByRole('button', { name: /Refresh status/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Refresh status/i}));
 
     expect(await screen.findByText('Verified and active')).toBeInTheDocument();
     expect(screen.getByText('Status: Active')).toBeInTheDocument();
@@ -1964,7 +1978,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
   it('explains setup-session 404s instead of rendering raw Not Found text', async () => {
     connectorsApi.createConnectorSetupSession.mockRejectedValueOnce(
-      new ApiError({ status: 404, message: 'Not Found' })
+      new ApiError({status: 404, message: 'Not Found'})
     );
     const communicationsCategory: IntegrationCategory = {
       id: 'communications',
@@ -2016,7 +2030,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
       'planned-provider-card-communications-telegram'
     );
     await clickCardButton(connectorCard, /Set up connector/i);
-    fireEvent.click(await screen.findByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(await screen.findByRole('button', {name: /Start OneCLI setup/i}));
 
     expect(
       await screen.findByText(
@@ -2091,9 +2105,9 @@ describe('IntegrationsWorkspace planned connectors', () => {
     expect(screen.queryByText(/Not Found/i)).not.toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Display Name'), {
-      target: { value: 'Telegram Bot' },
+      target: {value: 'Telegram Bot'},
     });
-    fireEvent.click(screen.getByRole('button', { name: /Start OneCLI setup/i }));
+    fireEvent.click(screen.getByRole('button', {name: /Start OneCLI setup/i}));
 
     await waitFor(() => {
       expect(connectorsApi.createConnectorSetupSession).toHaveBeenCalledWith('telegram-bot', {
@@ -2233,7 +2247,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     await clickCardButton(connectorCard, /View setup guide/i);
 
     expect(await screen.findByText('Setup is guide-only')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Guide only' })).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Guide only'})).toBeDisabled();
     expect(connectorsApi.createConnectorSetupSession).not.toHaveBeenCalled();
   });
 
@@ -2278,7 +2292,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2316,10 +2330,10 @@ describe('IntegrationsWorkspace planned connectors', () => {
 
     await waitFor(() => {
       expect(
-        within(connectorCard).getByRole('button', { name: /Test connection/i })
+        within(connectorCard).getByRole('button', {name: /Test connection/i})
       ).toBeInTheDocument();
     });
-    fireEvent.click(within(connectorCard).getByRole('button', { name: /Test connection/i }));
+    fireEvent.click(within(connectorCard).getByRole('button', {name: /Test connection/i}));
 
     await waitFor(() => {
       expect(connectorsApi.testConnector).toHaveBeenCalledWith('credential-telegram');
@@ -2377,7 +2391,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2465,7 +2479,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2494,7 +2508,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2552,7 +2566,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(connectorsApi.getAggregateConnectorHistory).toHaveBeenCalledWith({ limit: 200 });
+      expect(connectorsApi.getAggregateConnectorHistory).toHaveBeenCalledWith({limit: 200});
     });
     await waitFor(() => {
       expect(screen.getByTestId('planned-filter-communications-healthy')).toHaveTextContent(
@@ -2613,7 +2627,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2642,7 +2656,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2762,7 +2776,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2791,7 +2805,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2820,7 +2834,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'WhatsApp Bot', source: 'whatsapp-cloud-api' }],
+            refs: [{name: 'WhatsApp Bot', source: 'whatsapp-cloud-api'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2940,7 +2954,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -2969,7 +2983,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -3062,7 +3076,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Telegram Bot', source: 'telegram-bot' }],
+            refs: [{name: 'Telegram Bot', source: 'telegram-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {
@@ -3091,7 +3105,7 @@ describe('IntegrationsWorkspace planned connectors', () => {
           credentialStatus: {
             managedByBackend: true,
             writeSupported: true,
-            refs: [{ name: 'Discord Bot', source: 'discord-bot' }],
+            refs: [{name: 'Discord Bot', source: 'discord-bot'}],
             message: '1 backend credential mapped to this connector.',
           },
           actions: {

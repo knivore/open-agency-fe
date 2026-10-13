@@ -446,7 +446,7 @@ function observedWallSheetPositions() {
 
 export const observatoryModuleAssetRegistry: ObservatoryAssetRegistry = {
   registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
-  assetPackVersion: 'observatory-office-pack-v1',
+  assetPackVersion: 'observatory-office-pack-v2',
   assets: buildRuntimeCuratedAssets([
     ...observatoryRuntimeFurnitureAssets,
     {
@@ -661,6 +661,48 @@ export const observatoryModuleAssetRegistry: ObservatoryAssetRegistry = {
       collision: { width: 1, height: 2 },
       semanticId: 'decor:server:runtime-rack',
       tags: ['open-agency', 'open-asset', 'runtime', 'server'],
+    },
+    {
+      id: 'decor:pantry-kitchenette',
+      category: 'decor',
+      label: 'Pantry Kitchenette · Coffee, Microwave & Sink',
+      source: { kind: 'image', uri: '/observatory-assets/pantry-kitchenette.svg' },
+      width: 144,
+      height: 96,
+      anchor: { x: 0, y: 0 },
+      collision: { width: 3, height: 1 },
+      semanticId: 'decor:kitchen:pantry-kitchenette',
+      tags: [
+        'open-agency',
+        'open-asset',
+        'kitchen',
+        'pantry',
+        'coffee',
+        'microwave',
+        'sink',
+        'counter',
+        'pantry-fixture',
+      ],
+    },
+    {
+      id: 'decor:pantry-fridge',
+      category: 'decor',
+      label: 'Pantry Refrigerator',
+      source: { kind: 'image', uri: '/observatory-assets/pantry-fridge.svg' },
+      width: 48,
+      height: 96,
+      anchor: { x: 0, y: 0 },
+      collision: { width: 1, height: 1 },
+      semanticId: 'decor:kitchen:pantry-fridge',
+      tags: [
+        'open-agency',
+        'open-asset',
+        'kitchen',
+        'pantry',
+        'fridge',
+        'refrigerator',
+        'pantry-fixture',
+      ],
     },
     {
       id: 'decor:coffee-loop',

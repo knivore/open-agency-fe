@@ -80,6 +80,13 @@ function loadAsset(scene: Phaser.Scene, asset: ObservatoryAssetDefinition) {
     return;
   }
 
+  if (/\.svg(?:[?#]|$)/i.test(asset.source.uri)) {
+    // Rasterize viewBox-only SVGs at their declared size before uploading to WebGL.
+    // Loading them as ordinary images can produce solid black textures in Phaser 4.
+    scene.load.svg(asset.id, asset.source.uri, { width: asset.width, height: asset.height });
+    return;
+  }
+
   scene.load.image(asset.id, asset.source.uri);
 }
 

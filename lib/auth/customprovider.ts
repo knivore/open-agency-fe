@@ -1,5 +1,5 @@
 import generateJWKS from '../pemtojwks';
-import { OAuthConfig } from 'next-auth/providers';
+import {OAuthConfig} from 'next-auth/providers';
 
 interface AzureAdProfile {
   email?: string;
@@ -11,6 +11,7 @@ interface AzureAdProfile {
 const tenant = process.env.AZURE_AD_TENANT_ID || '';
 const clientID = process.env.AZURE_AD_CLIENT_ID || '';
 const redirectUrl = process.env.REDIRECT_URL || '';
+
 export async function getPrivateKey(pk: string, x5t: string): Promise<CryptoKey> {
   const privateJwk = await generateJWKS(pk, x5t);
 
@@ -30,8 +31,9 @@ export async function getPrivateKey(pk: string, x5t: string): Promise<CryptoKey>
     throw new Error('Failed to import private key');
   }
 }
+
 // customer provider for next auth to use certificate instead of secret
-const CustomProvider = (req: Request, privateKey: CryptoKey): OAuthConfig<AzureAdProfile> => {
+const CustomProvider = (privateKey: CryptoKey): OAuthConfig<AzureAdProfile> => {
   return {
     id: 'azure-ad',
     name: 'Custom Azure AD Provider',

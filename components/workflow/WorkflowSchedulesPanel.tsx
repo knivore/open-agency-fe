@@ -1,5 +1,6 @@
 'use client';
 
+import { Input } from '@/components/library/shadcn/input';
 import {
   AccordionContent,
   AccordionItem,
@@ -316,7 +317,7 @@ export default function WorkflowSchedulesPanel({
           >
             Cron expression
           </label>
-          <input
+          <Input
             id={inputId}
             value={cron}
             onChange={(event) => onCronChange(event.target.value)}

@@ -1,30 +1,37 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
-import { agentsApi } from '@/lib/api/backend/agents';
-import { behaviorProfilesApi } from '@/lib/api/backend/behaviorProfiles';
-import { conversationsApi } from '@/lib/api/backend/conversations';
-import { personasApi } from '@/lib/api/backend/personas';
-import { toolsApi } from '@/lib/api/backend/tools';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import { toolDisplayName } from '@/lib/tools/displayName';
-import type { Agent, AgentConfig, BehaviorTuningProfile } from '@/types/agents';
-import type { ToolDefinition } from '@/types/tools';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '../library/shadcn/accordion';
-import { Badge } from '../library/shadcn/badge';
-import { Button } from '../library/shadcn/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
-import { DialogClose } from '../library/shadcn/dialog';
-import { Input } from '../library/shadcn/input';
-import { Label } from '../library/shadcn/label';
-import { Textarea } from '../library/shadcn/textarea';
+import { NativeSelect } from '@/components/library/shadcn/select';
+import {useCallback, useEffect, useMemo, useRef, useState, useTransition} from 'react';
+import {useRouter} from 'next/navigation';
+import ToolAssignmentControls from './ToolAssignmentControls';
+import {AgentIdentityFields, AgentInstructionsField} from './AgentDefinitionFields';
+import {useQuery} from '@tanstack/react-query';
+import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
+import {agentsApi} from '@/lib/api/backend/agents';
+import {behaviorProfilesApi} from '@/lib/api/backend/behaviorProfiles';
+import {conversationsApi} from '@/lib/api/backend/conversations';
+import {personasApi} from '@/lib/api/backend/personas';
+import {toolsApi} from '@/lib/api/backend/tools';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import {toolDisplayName} from '@/lib/tools/displayName';
+import type {
+  Agent,
+  AgentConfig,
+  AgentImportHandoffSuggestion,
+  AgentImportProposal,
+  AgentImportToolSuggestion,
+  BehaviorTuningProfile
+} from '@/types/agents';
+import type {ToolDefinition} from '@/types/tools';
+import {Badge} from '../library/shadcn/badge';
+import {Tabs, TabsList, TabsTrigger, TabsContent} from '../library/shadcn/tabs';
+import {Alert, AlertTitle, AlertDescription} from '../library/shadcn/alert';
+import {Button} from '../library/shadcn/button';
+import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '../library/shadcn/card';
+import {DialogClose} from '../library/shadcn/dialog';
+import {Input} from '../library/shadcn/input';
+import {Label} from '../library/shadcn/label';
+import {Textarea} from '../library/shadcn/textarea';
 import {
   AlertTriangle,
   Bot,
@@ -39,15 +46,10 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '../library/shadcn/tooltip';
-import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from '../library/shadcn/tooltip';
+import {EmptyCard, ErrorAlert, LoadingCard} from '@/components/agent-app/StatePanels';
 import AppState from '@/components/app-shell/AppState';
-import { AppDialog } from '@/components/app-shell/AppOverlay';
+import {AppDialog} from '@/components/app-shell/AppOverlay';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import {
   FieldFeedback,
@@ -56,96 +58,23 @@ import {
   FormSection,
 } from '@/components/app-shell/FormSection';
 import PageHeader from '@/components/app-shell/PageHeader';
+import WorkspaceDirectory, {type WorkspaceDirectoryEntry} from '@/components/app-shell/WorkspaceDirectory';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
-import { toast } from 'sonner';
-import { cn } from '@/lib/utils';
-import type {
-  AgentImportHandoffSuggestion,
-  AgentImportProposal,
-  AgentImportToolSuggestion,
-} from '@/types/agents';
-import type { PersonaDefinition } from '@/types/personas';
-
-interface ToolCategory {
-  id: string;
-  label: string;
-  description: string;
-  keywords: string[];
-}
-
-const toolCategories: ToolCategory[] = [
-  {
-    id: 'browser',
-    label: 'Browser and Screenshots',
-    description: 'Page control, visual inspection, screenshots, and browser extraction.',
-    keywords: ['browser', 'screenshot', 'page', 'click', 'visual', 'extract', 'web', 'url'],
-  },
-  {
-    id: 'system',
-    label: 'System and Command',
-    description: 'CLI commands, shell access, computer control, and runtime operations.',
-    keywords: ['cli', 'command', 'computer', 'runtime', 'shell', 'terminal'],
-  },
-  {
-    id: 'communication',
-    label: 'Communication and Human Input',
-    description: 'Human handoff, questions, notifications, and outbound messages.',
-    keywords: [
-      'ask human',
-      'clarification',
-      'email',
-      'human',
-      'message',
-      'notification',
-      'operator',
-      'question',
-      'slack',
-    ],
-  },
-  {
-    id: 'workflow',
-    label: 'Workflows and Runs',
-    description: 'Workflow definitions, executions, run state, and execution artifacts.',
-    keywords: ['execution', 'run', 'workflow', 'task', 'approval'],
-  },
-  {
-    id: 'memory',
-    label: 'Memory and Knowledge',
-    description: 'Memory storage, retrieval, search, embeddings, and knowledge lookup.',
-    keywords: ['embedding', 'knowledge', 'memory', 'retrieval', 'search', 'vector'],
-  },
-  {
-    id: 'files',
-    label: 'Files and Documents',
-    description: 'Document conversion, spreadsheets, uploads, and file artifacts.',
-    keywords: [
-      'artifact',
-      'csv',
-      'docx',
-      'document',
-      'excel',
-      'file',
-      'image',
-      'json',
-      'markdown',
-      'pdf',
-      'sheet',
-      'word',
-    ],
-  },
-  {
-    id: 'other',
-    label: 'Other Tools',
-    description: 'Tools that do not match the primary operational groups.',
-    keywords: [],
-  },
-];
+import {toast} from 'sonner';
+import {cn} from '@/lib/utils';
+import {useUnsavedChangesGuard} from '@/hooks/useUnsavedChangesGuard';
+import type {PersonaDefinition} from '@/types/personas';
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((item): item is string => typeof item === 'string')
     : [];
+}
+
+function agentRoleLabel(agent: Agent): string {
+  const role = agentConfigOrDefaults(agent).role;
+  return typeof role === 'string' && role.trim() ? role : 'Specialist agent';
 }
 
 function agentConfigOrDefaults(agent: Agent): AgentConfig {
@@ -182,47 +111,6 @@ function agentConfigOrDefaults(agent: Agent): AgentConfig {
         : stringArray(legacyAgent.handoffAgentIds)),
     metadata: config?.metadata,
   };
-}
-
-function toolSearchText(tool: ToolDefinition) {
-  return [
-    tool.id,
-    tool.name,
-    tool.display_name,
-    toolDisplayName(tool),
-    tool.description,
-    tool.tool_type,
-    ...(tool.tags ?? []),
-  ]
-    .filter(Boolean)
-    .join(' ')
-    .replace(/[_-]+/g, ' ')
-    .toLowerCase();
-}
-
-function categoryForTool(tool: ToolDefinition) {
-  const searchText = toolSearchText(tool);
-  const fallbackCategory = toolCategories[toolCategories.length - 1];
-  let bestCategory = fallbackCategory;
-  let bestScore = 0;
-
-  toolCategories.forEach((category) => {
-    if (category.id === fallbackCategory.id) {
-      return;
-    }
-
-    const score = category.keywords.reduce(
-      (total, keyword) => total + (searchText.includes(keyword) ? 1 : 0),
-      0
-    );
-
-    if (score > bestScore) {
-      bestCategory = category;
-      bestScore = score;
-    }
-  });
-
-  return bestCategory;
 }
 
 function personaSlugForAgent(agent: Agent) {
@@ -270,250 +158,48 @@ function agentCardTone(agent: Agent, isMainAgent: boolean) {
   };
 }
 
-function sortToolsByAssignmentAndName(toolIds: string[]) {
-  const selectedIds = new Set(toolIds);
-
-  return (left: ToolDefinition, right: ToolDefinition) => {
-    const leftSelected = selectedIds.has(left.id);
-    const rightSelected = selectedIds.has(right.id);
-
-    if (leftSelected !== rightSelected) {
-      return leftSelected ? -1 : 1;
-    }
-
-    return toolDisplayName(left).localeCompare(toolDisplayName(right));
-  };
-}
-
-function ToolAssignmentControls({
-  disabled,
-  onChange,
-  toolIds,
-  tools,
-}: {
-  disabled: boolean;
-  onChange: (toolIds: string[]) => void;
-  toolIds: string[];
-  tools: ToolDefinition[];
-}) {
-  const allToolIds = tools.map((tool) => tool.id);
-  const assignmentMode =
-    toolIds.length === 0 ? 'none' : toolIds.length === allToolIds.length ? 'all' : 'selected';
-  const selectedToolIds = new Set(toolIds);
-  const groupedTools = toolCategories
-    .map((category) => {
-      const categoryTools = tools
-        .filter((tool) => categoryForTool(tool).id === category.id)
-        .sort(sortToolsByAssignmentAndName(toolIds));
-
-      return {
-        ...category,
-        assignedCount: categoryTools.filter((tool) => selectedToolIds.has(tool.id)).length,
-        tools: categoryTools,
-      };
-    })
-    .filter((category) => category.tools.length > 0);
-  const toggleTool = (toolId: string, checked: boolean) => {
-    onChange(
-      checked
-        ? Array.from(new Set([...toolIds, toolId]))
-        : toolIds.filter((value) => value !== toolId)
-    );
-  };
-  const selectCategory = (categoryToolIds: string[]) => {
-    onChange(Array.from(new Set([...toolIds, ...categoryToolIds])));
-  };
-  const clearCategory = (categoryToolIds: string[]) => {
-    const categoryToolIdSet = new Set(categoryToolIds);
-    onChange(toolIds.filter((toolId) => !categoryToolIdSet.has(toolId)));
-  };
-
-  if (tools.length === 0) {
-    return <p className="text-xs text-neutral-500">No canonical tools available.</p>;
-  }
-
-  return (
-    <section className="rounded-lg border border-neutral-200 bg-neutral-50 dark:border-white/10 dark:bg-slate-950/72">
-      <Accordion type="single" collapsible>
-        <AccordionItem value="tool-assignment" className="border-0 px-4">
-          <AccordionTrigger className="gap-3 py-3 text-left hover:no-underline">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
-                  Tool assignment
-                </p>
-                <Badge variant="secondary">
-                  {toolIds.length} / {tools.length}
-                </Badge>
-              </div>
-              <p className="mt-1 text-xs font-normal leading-5 text-neutral-500 dark:text-slate-400">
-                Tools are optional. Open this section to choose individual tools or whole groups.
-              </p>
-            </div>
-          </AccordionTrigger>
-
-          <AccordionContent className="space-y-4 pb-4 pt-0">
-            <div className="grid gap-2 sm:grid-cols-3">
-              <Button
-                type="button"
-                variant={assignmentMode === 'none' ? 'default' : 'outline'}
-                disabled={disabled}
-                onClick={() => onChange([])}
-              >
-                No tools
-              </Button>
-              <Button
-                type="button"
-                variant={assignmentMode === 'selected' ? 'default' : 'outline'}
-                disabled={disabled}
-                onClick={() => onChange(toolIds)}
-              >
-                Selected tools
-              </Button>
-              <Button
-                type="button"
-                variant={assignmentMode === 'all' ? 'default' : 'outline'}
-                disabled={disabled}
-                onClick={() => onChange(allToolIds)}
-              >
-                All tools
-              </Button>
-            </div>
-
-            <Accordion type="multiple" className="space-y-3">
-              {groupedTools.map((category) => (
-                <AccordionItem
-                  key={category.id}
-                  value={category.id}
-                  className="rounded-lg border border-neutral-200 bg-white px-3 dark:border-white/10 dark:bg-slate-950/78"
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <AccordionTrigger className="min-w-64 flex-1 justify-start gap-2 py-3 text-left hover:no-underline">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
-                            {category.label}
-                          </p>
-                          <Badge variant="secondary">
-                            {category.assignedCount} / {category.tools.length}
-                          </Badge>
-                        </div>
-                        <p className="mt-1 text-xs font-normal leading-5 text-neutral-500 dark:text-slate-400">
-                          {category.description}
-                        </p>
-                      </div>
-                    </AccordionTrigger>
-                    <div className="flex flex-wrap gap-2 py-3">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={disabled || category.assignedCount === category.tools.length}
-                        onClick={() => selectCategory(category.tools.map((tool) => tool.id))}
-                      >
-                        Select group
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        disabled={disabled || category.assignedCount === 0}
-                        onClick={() => clearCategory(category.tools.map((tool) => tool.id))}
-                      >
-                        Clear group
-                      </Button>
-                    </div>
-                  </div>
-                  <AccordionContent className="pb-3 pt-0">
-                    <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                      {category.tools.map((tool) => (
-                        <label
-                          key={tool.id}
-                          className="flex min-w-0 items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-700 dark:border-white/10 dark:bg-white/4 dark:text-slate-300"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedToolIds.has(tool.id)}
-                            onChange={(event) => toggleTool(tool.id, event.target.checked)}
-                            disabled={disabled}
-                            className="mt-1"
-                          />
-                          <span className="min-w-0">
-                            <span className="block font-medium text-neutral-900 dark:text-slate-100">
-                              {toolDisplayName(tool)}
-                            </span>
-                            <span className="line-clamp-3 block text-xs leading-5 text-neutral-500 dark:text-slate-400">
-                              {tool.description}
-                            </span>
-                          </span>
-                        </label>
-                      ))}
-                    </div>
-                  </AccordionContent>
-                </AccordionItem>
-              ))}
-            </Accordion>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-    </section>
-  );
-}
-
 function AgentInstructionPreview({ instructions }: { instructions: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const normalizedInstructions = instructions.trim();
-  const displayInstructions = normalizedInstructions || 'No instructions configured.';
+  const displayInstructions =
+    normalizedInstructions || 'No instructions configured.';
   const lineCount = displayInstructions.split(/\r\n|\r|\n/).length;
   const isLongPrompt = displayInstructions.length > 360 || lineCount > 4;
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
-      <div className="flex items-center justify-between gap-3 border-b border-neutral-200 px-3 py-2 dark:border-white/10">
-        <div className="flex min-w-0 items-center gap-2">
-          <FileText className="h-4 w-4 shrink-0 text-primary-700" />
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-            Prompt
-          </p>
-        </div>
+    <div className="flex flex-col gap-3">
+      <p
+        className={cn(
+          'whitespace-pre-wrap wrap-break-word text-sm leading-6',
+          isLongPrompt && !isExpanded && 'max-h-36 overflow-hidden'
+        )}
+      >
+        {displayInstructions}
+      </p>
+      <div className="flex items-center justify-between gap-3">
+        {isLongPrompt ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded((current) => !current)}
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? (
+              <ChevronUp data-icon="inline-start" />
+            ) : (
+              <ChevronDown data-icon="inline-start" />
+            )}
+            {isExpanded ? 'Collapse prompt' : 'Show full prompt'}
+          </Button>
+        ) : null}
         <span
-          className="shrink-0 text-xs text-neutral-500 dark:text-slate-400"
+          className="ml-auto text-xs text-muted-foreground"
           title={`${displayInstructions.length.toLocaleString()} chars`}
         >
           {formatPromptLength(displayInstructions.length)}
         </span>
       </div>
-      <div className="relative">
-        <p
-          className={`whitespace-pre-wrap wrap-break-word px-3 py-3 text-sm leading-6 text-neutral-700 dark:text-slate-300 ${
-            isLongPrompt && !isExpanded ? 'max-h-28 overflow-hidden' : ''
-          }`}
-        >
-          {displayInstructions}
-        </p>
-        {isLongPrompt && !isExpanded ? (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-linear-to-t from-neutral-50 to-transparent dark:from-[#09111f]" />
-        ) : null}
-      </div>
-      {isLongPrompt ? (
-        <div className="border-t border-neutral-200 px-3 py-2 dark:border-white/10">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="h-auto px-0 py-0 text-xs font-semibold text-primary-700 hover:bg-transparent hover:text-primary-800"
-            onClick={() => setIsExpanded((current) => !current)}
-            aria-expanded={isExpanded}
-          >
-            {isExpanded ? (
-              <ChevronUp className="mr-1.5 h-3.5 w-3.5" />
-            ) : (
-              <ChevronDown className="mr-1.5 h-3.5 w-3.5" />
-            )}
-            {isExpanded ? 'Collapse prompt' : 'Show full prompt'}
-          </Button>
-        </div>
-      ) : null}
     </div>
   );
 }
@@ -524,45 +210,6 @@ function formatPromptLength(characterCount: number) {
   }
 
   return `${(characterCount / 1000).toFixed(1)}k chars`;
-}
-
-function AssignedToolsSummary({
-  assignedTools,
-  toolCount,
-  tools,
-}: {
-  assignedTools: Array<{ id: string; label: string }>;
-  toolCount: number;
-  tools: ToolDefinition[];
-}) {
-  return (
-    <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-white/5">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-          Assigned tools
-        </p>
-        <span className="text-xs text-neutral-500 dark:text-slate-400">
-          {toolCount} / {tools.length}
-        </span>
-      </div>
-      {assignedTools.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {assignedTools.map((tool) => (
-            <Badge key={tool.id} variant="outline" title={tool.id}>
-              {tool.label}
-            </Badge>
-          ))}
-        </div>
-      ) : (
-        <p className="text-xs text-neutral-500 dark:text-slate-400">No tools assigned.</p>
-      )}
-      {tools.length === 0 ? (
-        <p className="mt-2 text-xs text-amber-700 dark:text-amber-300">
-          No assignable tools loaded from the backend.
-        </p>
-      ) : null}
-    </div>
-  );
 }
 
 function suggestionToolLabel(suggestion: AgentImportToolSuggestion, tools: ToolDefinition[]) {
@@ -599,12 +246,14 @@ function proposalRequiresIndividualReview(proposal: AgentImportProposal) {
 }
 
 function ImportAgentCard({
-  agents,
-  onImported,
-  profiles,
-  tools,
-}: {
+                           agents,
+                           onRequestOpen = (open) => open(),
+                           onImported,
+                           profiles,
+                           tools,
+                         }: {
   agents: Agent[];
+  onRequestOpen?: (open: () => void) => void;
   onImported: () => Promise<void> | void;
   profiles: BehaviorTuningProfile[];
   tools: ToolDefinition[];
@@ -681,14 +330,14 @@ function ImportAgentCard({
             sourceMode === 'file'
               ? await agentsApi.previewAgentImportFiles(files)
               : {
-                  proposals: [
-                    await agentsApi.previewAgentImport({
-                      markdownText: sourceMode === 'paste' ? markdownText : undefined,
-                      sourceUrl: sourceMode === 'url' ? sourceUrl.trim() : undefined,
-                    }),
-                  ],
-                  errors: [],
-                };
+                proposals: [
+                  await agentsApi.previewAgentImport({
+                    markdownText: sourceMode === 'paste' ? markdownText : undefined,
+                    sourceUrl: sourceMode === 'url' ? sourceUrl.trim() : undefined,
+                  }),
+                ],
+                errors: [],
+              };
           setProposals(next.proposals);
           setBatchErrors(next.errors);
           setSelectedProposalIndex(0);
@@ -724,7 +373,7 @@ function ImportAgentCard({
             enabled,
           });
           await onImported();
-          toast.success(`Agent ${result.status}.`, { position: 'top-right' });
+          toast.success(`Agent ${result.status}.`, {position: 'top-right'});
           reset();
           setIsOpen(false);
         } catch (commitError) {
@@ -759,7 +408,7 @@ function ImportAgentCard({
           await onImported();
           toast.success(
             `Imported ${result.results.length} agent${result.results.length === 1 ? '' : 's'}.`,
-            { position: 'top-right' }
+            {position: 'top-right'}
           );
           if (result.errors.length > 0 || skippedRiskyImports.length > 0) {
             setBatchErrors([...skippedRiskyImports, ...result.errors]);
@@ -783,36 +432,18 @@ function ImportAgentCard({
     checked ? Array.from(new Set([...ids, id])) : ids.filter((value) => value !== id);
 
   return (
-    <Card className="min-w-0 overflow-hidden border-primary-100 bg-white dark:border-white/10 dark:bg-white/5">
-      <div className="h-1 bg-primary-400" />
-      <CardHeader className="p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-primary-200 bg-primary-50 text-primary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
-              <Upload className="h-5 w-5" />
-            </span>
-            <div>
-              <CardTitle className="text-base">Import Markdown agent</CardTitle>
-              <CardDescription className="hidden sm:block">
-                Preview agent Markdown before creating canonical definitions.
-              </CardDescription>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            aria-label="Import agent"
-            onClick={() => {
-              setError(null);
-              setIsOpen(true);
-            }}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            <span className="sm:hidden">Import</span>
-            <span className="hidden sm:inline">Import agent</span>
-          </Button>
-        </div>
-      </CardHeader>
+    <>
+      <Button
+        type="button"
+        variant="outline"
+        aria-label="Import agent"
+        onClick={() => onRequestOpen(() => {
+          setError(null);
+          setIsOpen(true);
+        })}
+      >
+        <Upload className="mr-2 size-4" aria-hidden="true"/> Import agent
+      </Button>
       <AppDialog
         open={isOpen}
         onOpenChange={(open) => {
@@ -825,7 +456,7 @@ function ImportAgentCard({
         busy={isPending}
         onDiscard={reset}
         size="xl"
-        icon={<Upload className="size-4" aria-hidden="true" />}
+        icon={<Upload className="size-4" aria-hidden="true"/>}
         title="Import Markdown agent"
         description="Review parsed instructions, conflicts, tools, and handoffs before committing the agent definition."
         bodyClassName="flex flex-col gap-5"
@@ -865,7 +496,7 @@ function ImportAgentCard({
           <FormSection
             title="Import source"
             description="Paste Markdown, upload one or more files, or load a trusted raw URL."
-            icon={<Upload className="size-4" aria-hidden="true" />}
+            icon={<Upload className="size-4" aria-hidden="true"/>}
             contentClassName="flex flex-col gap-4"
           >
             <div className="grid gap-2 sm:grid-cols-3">
@@ -962,13 +593,13 @@ function ImportAgentCard({
               </Button>
               {proposal ? (
                 <Button type="button" variant="brand" disabled={isPending} onClick={handleCommit}>
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="mr-2 h-4 w-4"/>
                   {isPending ? 'Importing...' : 'Import reviewed agent'}
                 </Button>
               ) : null}
             </div>
 
-            <FieldFeedback error={error} />
+            <FieldFeedback error={error}/>
             {batchErrors.length > 0 ? (
               <div className="space-y-1 rounded-md border border-red-200 bg-red-50 p-3">
                 {batchErrors.map((item) => (
@@ -998,7 +629,7 @@ function ImportAgentCard({
                     >
                       {item.agent.name}
                       {proposalRequiresIndividualReview(item) ? (
-                        <AlertTriangle className="ml-2 h-3.5 w-3.5" />
+                        <AlertTriangle className="ml-2 h-3.5 w-3.5"/>
                       ) : null}
                     </Button>
                   ))}
@@ -1017,7 +648,8 @@ function ImportAgentCard({
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                      <p
+                        className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
                         Preview
                       </p>
                       <h3 className="mt-1 text-lg font-semibold text-neutral-900">
@@ -1052,7 +684,7 @@ function ImportAgentCard({
                 {proposal.warnings.length > 0 || proposal.conflicts.length > 0 ? (
                   <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
                     <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-                      <AlertTriangle className="h-4 w-4" />
+                      <AlertTriangle className="h-4 w-4"/>
                       Review required
                     </div>
                     {[
@@ -1069,7 +701,7 @@ function ImportAgentCard({
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-1.5">
                     <Label htmlFor="agent-import-conflict-strategy">Commit mode</Label>
-                    <select
+                    <NativeSelect
                       id="agent-import-conflict-strategy"
                       value={conflictStrategy}
                       onChange={(event) =>
@@ -1086,11 +718,11 @@ function ImportAgentCard({
                       <option value="create_only">Create only</option>
                       <option value="update_existing">Update existing</option>
                       <option value="duplicate_as_new">Duplicate as new</option>
-                    </select>
+                    </NativeSelect>
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="agent-import-model-profile">Model profile</Label>
-                    <select
+                    <NativeSelect
                       id="agent-import-model-profile"
                       value={modelProfileId}
                       onChange={(event) => setModelProfileId(event.target.value)}
@@ -1103,12 +735,12 @@ function ImportAgentCard({
                           {profile.name}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </div>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-neutral-700">
-                  <input
+                  <Input
                     type="checkbox"
                     checked={enabled}
                     onChange={(event) => setEnabled(event.target.checked)}
@@ -1117,11 +749,12 @@ function ImportAgentCard({
                   Enable after import
                 </label>
 
-                <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''} />
+                <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''}/>
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                    <p
+                      className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
                       Suggested tools
                     </p>
                     <div className="mt-3 space-y-2">
@@ -1131,7 +764,7 @@ function ImportAgentCard({
                             key={suggestion.tool_id}
                             className="flex items-start gap-2 text-sm text-neutral-700"
                           >
-                            <input
+                            <Input
                               type="checkbox"
                               checked={approvedToolIds.includes(suggestion.tool_id)}
                               disabled={isPending || !suggestion.exists}
@@ -1159,7 +792,8 @@ function ImportAgentCard({
                   </div>
 
                   <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                    <p
+                      className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
                       Suggested handoffs
                     </p>
                     <div className="mt-3 space-y-2">
@@ -1171,7 +805,7 @@ function ImportAgentCard({
                               key={`${suggestion.agent_id}-${handoffId}`}
                               className="flex items-start gap-2 text-sm text-neutral-700"
                             >
-                              <input
+                              <Input
                                 type="checkbox"
                                 checked={approvedHandoffIds.includes(handoffId)}
                                 disabled={isPending || !suggestion.exists}
@@ -1201,23 +835,59 @@ function ImportAgentCard({
                 </div>
               </>
             ) : (
-              <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
+              <div
+                className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
                 Preview a Markdown agent to review its Open Agency mapping.
               </div>
             )}
           </div>
         </div>
       </AppDialog>
-    </Card>
+    </>
   );
 }
 
-function AgentCard({
+interface AgentDraft {
+  agentId: string;
+  name: string;
+  description: string;
+  instructions: string;
+  role: string;
+  modelProfileId: string;
+  personaId: string;
+  toolIds: string[];
+}
+
+type MainAgentIdentity = {
+  name?: string | null;
+  description?: string | null;
+  default_model_profile_id?: string | null;
+} | null;
+
+function agentDraft(agent: Agent, mainAgent: MainAgentIdentity): AgentDraft {
+  const config = agentConfigOrDefaults(agent);
+  return {
+    agentId: agent.id,
+    name: mainAgent?.name ?? agent.name,
+    description: agent.description ?? '',
+    instructions: config.instructions ?? '',
+    role: mainAgent?.description ?? agent.role ?? '',
+    modelProfileId: config.modelProfileId ?? '',
+    personaId: personaIdForAgent(agent),
+    toolIds: config.toolIds,
+  };
+}
+
+function AgentDetailPanel({
   agent,
   isMainAgent,
-  isSelected,
   mainAgent,
-  onSelect,
+  draft,
+  onDraftChange,
+  onCancel,
+  isPending,
+  dirty,
+  onPendingChange,
   onRefresh,
   personas,
   profiles,
@@ -1225,13 +895,13 @@ function AgentCard({
 }: {
   agent: Agent;
   isMainAgent: boolean;
-  isSelected: boolean;
-  mainAgent: {
-    name?: string | null;
-    description?: string | null;
-    default_model_profile_id?: string | null;
-  } | null;
-  onSelect: () => void;
+  mainAgent: MainAgentIdentity;
+  draft: AgentDraft | null;
+  onDraftChange: (draft: AgentDraft | null) => void;
+  onCancel: () => void;
+  isPending: boolean;
+  dirty: boolean;
+  onPendingChange: (pending: boolean) => void;
   onRefresh: () => void | Promise<void>;
   personas: PersonaDefinition[];
   profiles: BehaviorTuningProfile[];
@@ -1243,179 +913,185 @@ function AgentCard({
   const personaSlug = personaSlugForAgent(agent);
   const generatedPersonaAgent = isGeneratedPersonaAgent(agent);
   const instructionSummary = config.instructions ?? '';
-  const assignedTools = config.toolIds.map((toolId) => {
-    const tool = tools.find((candidate) => candidate.id === toolId);
-    return {
-      id: toolId,
-      label: tool ? toolDisplayName(tool) : toolId,
-    };
-  });
-  const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(mainAgent?.name ?? agent.name);
-  const [description, setDescription] = useState(agent.description ?? '');
-  const [instructions, setInstructions] = useState(config.instructions ?? '');
-  const [role, setRole] = useState(mainAgent?.description ?? agent.role ?? '');
-  const [modelProfileId, setModelProfileId] = useState(config.modelProfileId ?? '');
-  const [personaId, setPersonaId] = useState(personaIdForAgent(agent));
-  const [toolIds, setToolIds] = useState<string[]>(config.toolIds);
+  const isEditing = draft !== null;
+  const [section, setSection] = useState('overview');
+  const values = draft ?? agentDraft(agent, mainAgent);
+  const {
+    name,
+    description,
+    instructions,
+    role,
+    modelProfileId,
+    personaId,
+    toolIds,
+  } = values;
+  const updateField = <K extends keyof AgentDraft>(
+    field: K,
+    value: AgentDraft[K]
+  ) => onDraftChange({ ...values, [field]: value });
+  const nameRef = useRef<HTMLInputElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLButtonElement>(null);
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (isEditing) {
+      const control = nameRef.current?.closest('[data-state="active"]')
+        ? nameRef.current
+        : contentRef.current?.querySelector<HTMLElement>(
+            '[data-state="active"] input:not([type="hidden"]):not([type="file"]), [data-state="active"] button:not([disabled])'
+          );
+      control?.focus({ preventScroll: true });
+    } else if (wasEditing.current)
+      editRef.current?.focus({ preventScroll: true });
+    wasEditing.current = isEditing;
+  }, [isEditing]);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const editDirty =
-    name !== (mainAgent?.name ?? agent.name) ||
-    description !== (agent.description ?? '') ||
-    instructions !== (config.instructions ?? '') ||
-    role !== (mainAgent?.description ?? agent.role ?? '') ||
-    modelProfileId !== (config.modelProfileId ?? '') ||
-    personaId !== personaIdForAgent(agent) ||
-    JSON.stringify(toolIds) !== JSON.stringify(config.toolIds);
-  const displayName = isMainAgent
-    ? name.trim() || mainAgent?.name?.trim() || agent.name
-    : agent.name;
+  const displayName = mainAgent?.name?.trim() || agent.name;
   const tone = agentCardTone(agent, isMainAgent);
   const cardDescription = isMainAgent
-    ? role.trim() ||
-      mainAgent?.description?.trim() ||
+    ? mainAgent?.description?.trim() ||
       agent.role ||
       agent.description ||
       'No role or description configured.'
     : agent.role || agent.description || 'No role or description configured.';
 
-  const resetForm = () => {
-    setName(mainAgent?.name ?? agent.name);
-    setDescription(agent.description ?? '');
-    setInstructions(config.instructions ?? '');
-    setRole(mainAgent?.description ?? agent.role ?? '');
-    setModelProfileId(config.modelProfileId ?? '');
-    setPersonaId(personaIdForAgent(agent));
-    setToolIds(config.toolIds);
-    setError(null);
-  };
-
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (isPending) return;
     setError(null);
     const normalizedModelProfileId = modelProfileId.trim();
     if (isMainAgent && !normalizedModelProfileId) {
       setError('The active main agent must use an LLM model preset.');
       return;
     }
-    startTransition(() => {
-      void (async () => {
-        try {
-          const normalizedName = name.trim();
-          const normalizedRole = role.trim();
-          const selectedPersona = personas.find((persona) => persona.id === personaId);
-          const metadata = { ...(config.metadata ?? {}) } as Record<string, unknown>;
+    onPendingChange(true);
+    try {
+      const normalizedName = name.trim();
+      const normalizedRole = role.trim();
+      const selectedPersona = personas.find(
+        (persona) => persona.id === personaId
+      );
+      const metadata = { ...(config.metadata ?? {}) } as Record<
+        string,
+        unknown
+      >;
 
-          if (selectedPersona) {
-            metadata.persona_id = selectedPersona.id;
-            metadata.persona_slug = selectedPersona.slug;
-            metadata.persona_name = selectedPersona.name;
-            metadata.persona_status = selectedPersona.status;
-          } else if (!personaId) {
-            delete metadata.persona_id;
-            delete metadata.persona_slug;
-            delete metadata.persona_name;
-            delete metadata.persona_status;
-          }
+      if (selectedPersona) {
+        metadata.persona_id = selectedPersona.id;
+        metadata.persona_slug = selectedPersona.slug;
+        metadata.persona_name = selectedPersona.name;
+        metadata.persona_status = selectedPersona.status;
+      } else if (!personaId) {
+        delete metadata.persona_id;
+        delete metadata.persona_slug;
+        delete metadata.persona_name;
+        delete metadata.persona_status;
+      }
 
-          if (isMainAgent) {
-            const mainAgentPatch: Record<string, unknown> = {};
+      if (isMainAgent) {
+        const mainAgentPatch: Record<string, unknown> = {};
 
-            if (!normalizedName) {
-              setError('The active main agent must have an assistant display name.');
-              return;
-            }
-
-            if (normalizedName !== (mainAgent?.name?.trim() ?? '')) {
-              mainAgentPatch.name = normalizedName;
-            }
-            if (normalizedRole !== (mainAgent?.description?.trim() ?? '')) {
-              mainAgentPatch.description = normalizedRole || null;
-            }
-            if (
-              normalizedModelProfileId &&
-              normalizedModelProfileId !== (mainAgent?.default_model_profile_id ?? '')
-            ) {
-              mainAgentPatch.default_model_profile_id = normalizedModelProfileId;
-            }
-
-            if (Object.keys(mainAgentPatch).length > 0) {
-              await conversationsApi.updateMainAgent(mainAgentPatch);
-            }
-          }
-          await agentsApi.updateAgent(agent.id, {
-            name: normalizedName,
-            description: description.trim() || null,
-            instructions: instructions.trim(),
-            role: normalizedRole || null,
-            model_profile_id: normalizedModelProfileId || null,
-            tool_ids: toolIds,
-            metadata,
-          });
-          await onRefresh();
-          toast.success('Agent updated.', { position: 'top-right' });
-          setIsEditing(false);
-        } catch (saveError) {
-          setError(saveError instanceof Error ? saveError.message : 'Failed to update agent.');
+        if (!normalizedName) {
+          setError(
+            'The active main agent must have an assistant display name.'
+          );
+          return;
         }
-      })();
-    });
+
+        if (normalizedName !== (mainAgent?.name?.trim() ?? '')) {
+          mainAgentPatch.name = normalizedName;
+        }
+        if (normalizedRole !== (mainAgent?.description?.trim() ?? '')) {
+          mainAgentPatch.description = normalizedRole || null;
+        }
+        if (
+          normalizedModelProfileId &&
+          normalizedModelProfileId !==
+            (mainAgent?.default_model_profile_id ?? '')
+        ) {
+          mainAgentPatch.default_model_profile_id = normalizedModelProfileId;
+        }
+
+        if (Object.keys(mainAgentPatch).length > 0) {
+          await conversationsApi.updateMainAgent(mainAgentPatch);
+        }
+      }
+      await agentsApi.updateAgent(agent.id, {
+        name: normalizedName,
+        description: description.trim() || null,
+        instructions: instructions.trim(),
+        role: normalizedRole || null,
+        model_profile_id: normalizedModelProfileId || null,
+        tool_ids: toolIds,
+        metadata,
+      });
+      await onRefresh();
+      toast.success('Agent updated.', { position: 'top-right' });
+      onDraftChange(null);
+    } catch (saveError) {
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : 'Failed to update agent.'
+      );
+    } finally {
+      onPendingChange(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await agentsApi.deleteAgent(agent.id);
-          await onRefresh();
-          toast.success('Agent deleted.', { position: 'top-right' });
-        } catch (deleteError) {
-          setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete agent.');
-        }
-      })();
-    });
+    onPendingChange(true);
+    try {
+      await agentsApi.deleteAgent(agent.id);
+      onDraftChange(null);
+      await onRefresh();
+      toast.success('Agent deleted.', { position: 'top-right' });
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Failed to delete agent.'
+      );
+    } finally {
+      onPendingChange(false);
+    }
   };
 
   return (
-    <>
+    <Tabs value={section} onValueChange={setSection} activationMode="manual">
       <Card
         role="group"
         aria-label={`${displayName} agent`}
-        tabIndex={0}
-        onClick={onSelect}
-        onFocus={onSelect}
-        className={cn(
-          'group relative min-w-0 overflow-hidden border-neutral-200 bg-white outline-none transition hover:border-primary-200 hover:shadow-md hover:shadow-primary/10 focus:ring-2 focus:ring-primary/20 lg:grid lg:grid-cols-[minmax(17rem,0.75fr)_minmax(0,1.6fr)] dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/20 dark:hover:shadow-cyan-950/30',
-          isMainAgent &&
-            'border-success-300 bg-linear-to-br from-success-50 via-white to-primary-50 shadow-md shadow-success-200/50 hover:border-success-400 hover:shadow-lg hover:shadow-success-200/70 dark:border-emerald-400/20 dark:bg-linear-to-br dark:from-emerald-950/30 dark:via-slate-950 dark:to-cyan-950/30 dark:shadow-emerald-950/30',
-          isSelected && 'ring-2',
-          isSelected && tone.selected
-        )}
+        className="min-w-0 border-border bg-card"
       >
-        <span className={cn('absolute inset-x-0 top-0 h-1', tone.accent)} />
-        <CardHeader className="space-y-3 border-b border-neutral-200 lg:border-r lg:border-b-0 dark:border-white/10">
-          <div className="flex min-w-0 gap-3">
-            <span
-              className={cn(
-                'mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border shadow-sm',
-                tone.avatar
-              )}
-            >
-              {isMainAgent ? <Sparkles className="h-5 w-5" /> : <Bot className="h-5 w-5" />}
-            </span>
-            <div className="min-w-0 space-y-2">
-              <div>
+        <CardHeader className="sticky top-0 z-10 gap-0 rounded-t-xl border-b bg-card/95 p-0 backdrop-blur-md sm:p-0">
+          <div className="flex min-w-0 flex-col gap-4 p-5 sm:flex-row sm:items-start sm:justify-between sm:p-6">
+            <div className="flex min-w-0 items-start gap-3">
+              <span
+                className={cn(
+                  'flex size-11 shrink-0 items-center justify-center rounded-lg border',
+                  tone.avatar
+                )}
+              >
+                {isMainAgent ? (
+                  <Sparkles className="size-5" aria-hidden="true" />
+                ) : (
+                  <Bot className="size-5" aria-hidden="true" />
+                )}
+              </span>
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
-                  <CardTitle className="text-lg leading-6">{displayName}</CardTitle>
-                  {isMainAgent ? (
-                    <Badge
-                      variant="successful"
-                      className="border-success-300 bg-white/80 dark:border-emerald-400/20 dark:bg-slate-950/80"
-                    >
-                      Main orchestrator
-                    </Badge>
-                  ) : null}
+                  <CardTitle
+                    className="break-words text-xl leading-6"
+                    role="heading"
+                    aria-level={2}
+                  >
+                    {displayName}
+                  </CardTitle>
+                  <Badge variant={isMainAgent ? 'successful' : 'secondary'}>
+                    {isMainAgent ? 'Main orchestrator' : 'Specialist agent'}
+                  </Badge>
                   {personaSlug ? (
                     <Badge variant="outline" className={tone.badge}>
                       Persona @{personaSlug}
@@ -1425,33 +1101,92 @@ function AgentCard({
                     <Badge variant="secondary">Managed persona agent</Badge>
                   ) : null}
                 </div>
-                <CardDescription className="mt-1 line-clamp-2">{cardDescription}</CardDescription>
+                <CardDescription className="mt-1 leading-6">
+                  {cardDescription}
+                </CardDescription>
+                {isEditing ? (
+                  <p
+                    role="status"
+                    className={cn(
+                      'mt-2 text-xs',
+                      dirty
+                        ? 'text-amber-700 dark:text-amber-200'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    {dirty ? 'Unsaved changes' : 'Editing agent'} · Changes
+                    apply when you save.
+                  </p>
+                ) : null}
               </div>
-              <Badge
-                variant={config.modelProfileId ? 'secondary' : 'outline'}
-                className={cn(
-                  'max-w-full shrink-0 whitespace-normal text-left',
-                  !config.modelProfileId && 'border-warning-200 bg-warning-50 text-warning-900'
-                )}
-              >
-                {profiles.find((profile) => profile.id === config.modelProfileId)?.name ||
-                  config.modelProfileId ||
-                  'No profile'}
-              </Badge>
+            </div>
+            <div
+              className="flex shrink-0 flex-wrap items-center gap-2 self-end sm:self-auto"
+              aria-label="Agent actions"
+            >
+              {isEditing ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={onCancel}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="brand"
+                    disabled={isPending || !name.trim() || !instructions.trim()}
+                    onClick={() => void handleSave()}
+                  >
+                    <Save className="mr-2 size-4" aria-hidden="true" />
+                    {isPending ? 'Saving...' : 'Save agent'}
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  ref={editRef}
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setError(null);
+                    onDraftChange(agentDraft(agent, mainAgent));
+                  }}
+                >
+                  <Pencil className="mr-2 size-4" aria-hidden="true" />
+                  Edit agent
+                </Button>
+              )}
             </div>
           </div>
+          <TabsList
+            aria-label="Agent sections"
+            className="w-full border-b-0 px-2 sm:px-6"
+          >
+          <TabsTrigger value="overview" disabled={isPending} className="px-2 sm:px-3">
+              Overview
+            </TabsTrigger>
+          <TabsTrigger value="capabilities" disabled={isPending} className="px-2 sm:px-3">
+              Capabilities{' '}
+              <Badge variant="secondary" className="ml-2">
+                {isMainAgent ? tools.length : toolCount}
+              </Badge>
+            </TabsTrigger>
+          <TabsTrigger value="documents" disabled={isPending} className="px-2 sm:px-3">
+              Documents
+            </TabsTrigger>
+          </TabsList>
         </CardHeader>
-        <CardContent className="space-y-3 py-5 text-sm text-neutral-600 sm:pt-5 dark:text-slate-300">
-          <div className="flex flex-wrap gap-2">
-            <Badge
-              variant="outline"
-              className={
-                toolCount
-                  ? 'border-primary-200 bg-primary-50 text-primary-800'
-                  : 'border-neutral-200 bg-neutral-50 text-neutral-600'
-              }
-            >
-              {toolCount} assigned tool{toolCount === 1 ? '' : 's'}
+        <CardContent
+          ref={contentRef}
+          className="flex flex-col gap-5 pt-5 sm:pt-5"
+        >
+          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <Badge variant="outline">
+              {isMainAgent
+                ? `${tools.length} available operations`
+                : `${toolCount} assigned tool${toolCount === 1 ? '' : 's'}`}
             </Badge>
             <TooltipProvider delayDuration={150}>
               <Tooltip>
@@ -1459,281 +1194,323 @@ function AgentCard({
                   <span
                     tabIndex={0}
                     aria-label={`${handoffCount} configured agent handoff${handoffCount === 1 ? '' : 's'}`}
-                    className="inline-flex rounded-md focus:outline-none focus:ring-2 focus:ring-primary/25"
+                    className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   >
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        'gap-1.5',
-                        handoffCount
-                          ? 'border-secondary-200 bg-secondary-50 text-secondary-800'
-                          : 'border-neutral-200 bg-neutral-50 text-neutral-600'
-                      )}
-                    >
+                    <Badge variant="outline" className="gap-1.5">
                       {handoffCount} handoff{handoffCount === 1 ? '' : 's'}
-                      <HelpCircle className="h-3.5 w-3.5 text-neutral-400" aria-hidden="true" />
+                      <HelpCircle className="size-3.5" aria-hidden="true" />
                     </Badge>
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-72 text-xs leading-5">
-                  Handoffs are configured target agents this agent can delegate work to. This count
-                  is configuration, not runtime history.
+                  Handoffs are configured target agents this agent can delegate
+                  work to. This count is configuration, not runtime history.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+            {generatedPersonaAgent ? (
+              <p className="w-full leading-5">
+                Publish a new version in Persona Factory to update this agent’s
+                persona, then refresh the workflows that use it.
+              </p>
+            ) : null}
           </div>
-          {generatedPersonaAgent ? (
-            <div className="rounded-md border border-secondary-200 bg-secondary-50/80 p-3 text-xs leading-5 text-secondary-900">
-              Generated from Persona Factory. Publish a new persona version to change persona
-              behavior, then refresh workflow snapshots that should use the newer version.
-            </div>
-          ) : null}
-          <AgentInstructionPreview instructions={instructionSummary} />
-          <Accordion
-            type="single"
-            collapsible
-            className="rounded-lg border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/3"
-          >
-            <AccordionItem value="agent-details" className="border-0">
-              <AccordionTrigger className="min-h-11 px-3 py-2.5 text-sm font-medium hover:no-underline">
-                Tools, documents, and editing
-              </AccordionTrigger>
-              <AccordionContent
-                forceMount
-                contentClassName="data-[state=closed]:hidden"
-                className="space-y-3 border-t border-neutral-200 px-3 pt-3 dark:border-white/10"
-              >
-                <AssignedToolsSummary
-                  assignedTools={assignedTools}
-                  toolCount={toolCount}
-                  tools={tools}
-                />
-                <UploadedDocumentsList
-                  scope="user"
-                  agentId={agent.id}
-                  tagFilter={`agent:${agent.id}`}
-                  title="Agent documents"
-                  description="Files currently attached to this agent's retrieval context."
-                  emptyMessage="No documents attached."
-                  limit={3}
-                  showActions={false}
-                />
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              onSelect();
-              resetForm();
-              setIsEditing(true);
-            }}
-          >
-            <Pencil className="mr-2 h-4 w-4" />
-            Edit agent
-          </Button>
-        </CardContent>
-      </Card>
 
-      <AppDialog
-        open={isEditing}
-        onOpenChange={setIsEditing}
-        onDiscard={resetForm}
-        dirty={editDirty}
-        busy={isPending}
-        size="xl"
-        icon={<Pencil className="size-4" aria-hidden="true" />}
-        title={`Edit ${displayName}`}
-        description="Update the agent identity and instructions first. Tools and documents remain available as supporting context."
-        bodyClassName="space-y-4"
-        footer={
-          <>
-            {!isMainAgent ? (
-              <ConfirmActionDialog
-                trigger={
-                  <Button type="button" variant="outline" disabled={isPending}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete agent
-                  </Button>
-                }
-                title={`Delete ${displayName}?`}
-                description="This permanently removes the agent definition. Workflows that reference it may require another agent before they can run."
-                cancelLabel="Keep agent"
-                confirmLabel="Delete agent"
-                pendingLabel="Deleting..."
-                pending={isPending}
-                destructive
-                onConfirm={handleDelete}
-              />
-            ) : (
-              <span className="mr-auto text-xs text-(--agency-shell-muted)">
-                The main agent cannot be deleted here.
-              </span>
-            )}
-            <DialogClose asChild>
-              <Button type="button" variant="outline" disabled={isPending}>
-                Cancel
-              </Button>
-            </DialogClose>
-            <Button
-              type="button"
-              variant="brand"
-              disabled={isPending || !name.trim() || !instructions.trim()}
-              onClick={handleSave}
+          <FieldFeedback error={isEditing ? error : null} />
+          <Alert role="note">
+            <Sparkles className="size-4" aria-hidden="true" />
+            <AlertTitle>
+              {isMainAgent
+                ? 'All enabled capabilities'
+                : 'Explicit capability access'}
+            </AlertTitle>
+            <AlertDescription>
+              {isMainAgent
+                ? 'Harness managed. Approval and ownership rules apply to every operation.'
+                : 'This specialist uses explicitly assigned operations. Existing ownership checks and approval rules stay enforced.'}
+            </AlertDescription>
+          </Alert>
+          {/* Keep each section mounted so changing tabs preserves form and upload drafts. */}
+          <TabsContent
+            forceMount
+            value="overview"
+            hidden={section !== 'overview'}
+            className="mt-0 data-[state=inactive]:hidden"
+          >
+            <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_16rem]">
+              <div className="flex min-w-0 flex-col gap-5">
+                <FormSection
+                  title="Identity"
+                  description="Give this agent a clear purpose."
+                  icon={<Bot className="size-4" aria-hidden="true" />}
+                >
+                  {isEditing ? (
+                    <AgentIdentityFields
+                      idPrefix={agent.id}
+                      values={values}
+                      profiles={profiles}
+                      disabled={isPending}
+                      mainAgent={isMainAgent}
+                      nameRef={nameRef}
+                      onChange={(patch) =>
+                        onDraftChange({ ...values, ...patch })
+                      }
+                    >
+                      <FormField
+                        label="Persona"
+                        htmlFor={`${agent.id}-persona`}
+                        description={
+                          generatedPersonaAgent
+                            ? 'Managed in Persona. Refresh workflows after publishing a newer persona version.'
+                            : 'Binding a persona adds reusable identity and expertise.'
+                        }
+                        optional={!generatedPersonaAgent}
+                        disabled={generatedPersonaAgent}
+                      >
+                        <NativeSelect
+                          id={`${agent.id}-persona`}
+                          value={personaId}
+                          onChange={(event) =>
+                            updateField('personaId', event.target.value)
+                          }
+                          disabled={isPending || generatedPersonaAgent}
+                          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                        >
+                          {personaId &&
+                          !personas.some(
+                            (persona) => persona.id === personaId
+                          ) ? (
+                            <option value={personaId}>
+                              {personaSlug
+                                ? `Persona @${personaSlug}`
+                                : 'Linked persona'}
+                            </option>
+                          ) : null}
+                          {!generatedPersonaAgent ? (
+                            <option value="">No persona</option>
+                          ) : null}
+                          {personas.map((persona) => (
+                            <option key={persona.id} value={persona.id}>
+                              {persona.name} (@{persona.slug})
+                            </option>
+                          ))}
+                        </NativeSelect>
+                      </FormField>
+                    </AgentIdentityFields>
+                  ) : (
+                    <dl>
+                      <FormFieldGroup columns={2}>
+                        {[
+                          ['Name', displayName],
+                          [
+                            'Role',
+                            mainAgent?.description ||
+                              agent.role ||
+                              'Not configured',
+                          ],
+                          [
+                            'Description',
+                            agent.description || 'No description configured.',
+                          ],
+                        ].map(([label, value]) => (
+                          <div
+                            key={label}
+                            className={cn(
+                              'min-w-0',
+                              label === 'Description' && 'md:col-span-2'
+                            )}
+                          >
+                            <dt className="text-xs text-muted-foreground">
+                              {label}
+                            </dt>
+                            <dd className="mt-1 break-words text-sm leading-6">
+                              {value}
+                            </dd>
+                          </div>
+                        ))}
+                      </FormFieldGroup>
+                    </dl>
+                  )}
+                </FormSection>
+                <FormSection
+                  title="Instructions"
+                  description="Durable behavior for every conversation and workflow."
+                  icon={<FileText className="size-4" aria-hidden="true" />}
+                >
+                  {isEditing ? (
+                    <AgentInstructionsField
+                      idPrefix={agent.id}
+                      value={instructions}
+                      onChange={(value) => updateField('instructions', value)}
+                      disabled={isPending}
+                    />
+                  ) : (
+                    <AgentInstructionPreview
+                      instructions={instructionSummary}
+                    />
+                  )}
+                </FormSection>
+              </div>
+              <aside
+                className="flex min-w-0 flex-col gap-4"
+                aria-label="Agent context"
+              >
+                <FormSection
+                  title="Runtime"
+                  description="Reusable defaults for this agent."
+                >
+                  <dl className="flex flex-col gap-4">
+                    <div>
+                      <dt className="text-xs text-muted-foreground">
+                        Model profile
+                      </dt>
+                      <dd className="mt-1 break-words text-sm leading-5">
+                        {profiles.find(
+                          (profile) => profile.id === values.modelProfileId
+                        )?.name ||
+                          values.modelProfileId ||
+                          'No profile'}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-muted-foreground">Persona</dt>
+                      <dd className="mt-1 break-words text-sm leading-5">
+                        {personas.find(
+                          (persona) => persona.id === values.personaId
+                        )?.name ||
+                          ((values.personaId || !isEditing) && personaSlug
+                            ? '@' + personaSlug
+                            : values.personaId
+                              ? 'Linked persona'
+                              : 'No persona')}
+                      </dd>
+                    </div>
+                  </dl>
+                </FormSection>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm">
+                      Knowledge & context
+                    </CardTitle>
+                    <CardDescription>
+                      Reference files help this agent retrieve the right
+                      information.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setSection('documents')}
+                    >
+                      <FileText data-icon="inline-start" />
+                      View documents
+                    </Button>
+                  </CardContent>
+                </Card>
+                {isEditing && !isMainAgent ? (
+                  <div className="rounded-xl border p-4">
+                    <h3 className="text-sm font-semibold">Remove agent</h3>
+                    <p className="mt-2 text-xs leading-5 text-muted-foreground">
+                      Workflows that use this agent may need a replacement.
+                    </p>
+                    <ConfirmActionDialog
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-3"
+                          disabled={isPending}
+                        >
+                          <Trash2 className="mr-2 size-4" aria-hidden="true" />
+                          Delete agent
+                        </Button>
+                      }
+                      title={`Delete ${displayName}?`}
+                      description="This permanently removes the agent definition. Workflows that reference it may require another agent before they can run."
+                      cancelLabel="Keep agent"
+                      confirmLabel="Delete agent"
+                      pendingLabel="Deleting..."
+                      pending={isPending}
+                      destructive
+                      onConfirm={handleDelete}
+                    />
+                  </div>
+                ) : null}
+                {isEditing && isMainAgent ? (
+                  <p className="px-1 text-xs leading-5 text-muted-foreground">
+                    The main agent cannot be deleted here.
+                  </p>
+                ) : null}
+              </aside>
+            </div>
+          </TabsContent>
+          <TabsContent
+            forceMount
+            value="capabilities"
+            hidden={section !== 'capabilities'}
+            className="mt-0 data-[state=inactive]:hidden"
+          >
+            <ToolAssignmentControls
+              disabled={isPending}
+              readOnly={!isEditing}
+              isMainAgent={isMainAgent}
+              toolIds={toolIds}
+              tools={tools}
+              onChange={(ids) => updateField('toolIds', ids)}
+            />
+          </TabsContent>
+          <TabsContent
+            forceMount
+            value="documents"
+            hidden={section !== 'documents'}
+            className="mt-0 data-[state=inactive]:hidden"
+          >
+            <div
+              className={cn(
+                'grid min-w-0 gap-5',
+                isEditing && 'xl:grid-cols-2'
+              )}
             >
-              <Save className="mr-2 h-4 w-4" />
-              {isPending ? 'Saving...' : 'Save agent'}
-            </Button>
-          </>
-        }
-      >
-        <FormSection
-          title="Agent definition"
-          description="Give the agent a recognizable purpose and choose the model and persona it should use."
-          icon={<Bot className="size-4" aria-hidden="true" />}
-        >
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.9fr)]">
-            <div className="flex flex-col gap-4">
-              <FormField label="Name" htmlFor={`${agent.id}-name`} required>
-                <Input
-                  id={`${agent.id}-name`}
-                  required
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  disabled={isPending}
+              {isEditing ? (
+                <DocumentIngestionControl
+                  frame="inline"
+                  title="Upload document"
+                  description="Uploads are saved separately from agent edits."
+                  scope="user"
+                  lockedScope
+                  lockedAgent
+                  purpose="agent"
+                  agentId={agent.id}
+                  agents={[{ id: agent.id, label: displayName }]}
+                  defaultTags={['agent-rag', `agent:${agent.id}`]}
                 />
-              </FormField>
-              <FormField label="Description" htmlFor={`${agent.id}-description`} optional>
-                <Input
-                  id={`${agent.id}-description`}
-                  value={description}
-                  onChange={(event) => setDescription(event.target.value)}
-                  disabled={isPending}
-                />
-              </FormField>
-              <FormField label="Role" htmlFor={`${agent.id}-role`} optional>
-                <Input
-                  id={`${agent.id}-role`}
-                  value={role}
-                  onChange={(event) => setRole(event.target.value)}
-                  disabled={isPending}
-                />
-              </FormField>
-              <FormField label="Model profile" htmlFor={`${agent.id}-model-profile`} optional>
-                <select
-                  id={`${agent.id}-model-profile`}
-                  value={modelProfileId}
-                  onChange={(event) => setModelProfileId(event.target.value)}
-                  disabled={isPending}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {!isMainAgent ? <option value="">No profile</option> : null}
-                  {profiles.map((profile) => (
-                    <option key={profile.id} value={profile.id}>
-                      {profile.name}
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <FormField
-                label="Persona"
-                htmlFor={`${agent.id}-persona`}
-                description={
-                  generatedPersonaAgent
-                    ? 'Managed in Persona. Refresh workflows after publishing a newer persona version.'
-                    : 'Binding a persona adds reusable identity and expertise.'
-                }
-                optional={!generatedPersonaAgent}
-                disabled={generatedPersonaAgent}
-              >
-                <select
-                  id={`${agent.id}-persona`}
-                  value={personaId}
-                  onChange={(event) => setPersonaId(event.target.value)}
-                  disabled={isPending || generatedPersonaAgent}
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-                >
-                  {personaId && !personas.some((persona) => persona.id === personaId) ? (
-                    <option value={personaId}>
-                      {personaSlug ? `Persona @${personaSlug}` : 'Linked persona'}
-                    </option>
-                  ) : null}
-                  {!generatedPersonaAgent ? <option value="">No persona</option> : null}
-                  {personas.map((persona) => (
-                    <option key={persona.id} value={persona.id}>
-                      {persona.name} (@{persona.slug})
-                    </option>
-                  ))}
-                </select>
-              </FormField>
-              <FormField
-                label="Instructions"
-                htmlFor={`${agent.id}-instructions`}
-                description="Write the durable behavior this agent should follow in every workflow."
-                required
-              >
-                <Textarea
-                  id={`${agent.id}-instructions`}
-                  required
-                  value={instructions}
-                  onChange={(event) => setInstructions(event.target.value)}
-                  disabled={isPending}
-                  className="min-h-48"
-                />
-              </FormField>
-            </div>
-
-            <div className="space-y-3 rounded-xl border border-transparent dark:border-sky-300/12 dark:bg-[linear-gradient(180deg,rgba(15,29,44,0.92),rgba(9,21,35,0.94))] dark:p-3">
-              <DocumentIngestionControl
-                frame="inline"
-                title="Agent documents"
-                description="Upload retrieval material for this agent."
-                scope="user"
-                lockedScope
-                lockedAgent
-                purpose="agent"
-                agentId={agent.id}
-                agents={[{ id: agent.id, label: displayName }]}
-                defaultTags={['agent-rag', `agent:${agent.id}`]}
-              />
+              ) : null}
               <UploadedDocumentsList
                 scope="user"
                 agentId={agent.id}
                 tagFilter={`agent:${agent.id}`}
-                title="Attached documents"
-                description="Files currently attached to this agent's retrieval context."
+                title="Agent documents"
+                description="Retrieval context for this agent."
+                emptyMessage="No documents attached."
+                showActions={isEditing}
               />
             </div>
-          </div>
-        </FormSection>
-
-        <FormSection
-          title="Tool access"
-          description="Optional capabilities this agent may call while it works."
-          icon={<Sparkles className="size-4" aria-hidden="true" />}
-          advanced
-        >
-          <ToolAssignmentControls
-            disabled={isPending}
-            onChange={setToolIds}
-            toolIds={toolIds}
-            tools={tools}
-          />
-        </FormSection>
-
-        <FieldFeedback error={error} />
-      </AppDialog>
-    </>
+          </TabsContent>
+        </CardContent>
+      </Card>
+    </Tabs>
   );
 }
 
 function CreateAgentCard({
+  onRequestOpen = (open) => open(),
   onCreated,
   profiles,
   tools,
 }: {
   onCreated: () => Promise<void> | void;
+  onRequestOpen?: (open: () => void) => void;
   profiles: BehaviorTuningProfile[];
   tools: ToolDefinition[];
 }) {
@@ -1746,9 +1523,16 @@ function CreateAgentCard({
   const [toolIds, setToolIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [touched, setTouched] = useState<Set<'name' | 'instructions'>>(new Set());
+  const [touched, setTouched] = useState<Set<'name' | 'instructions'>>(
+    new Set()
+  );
   const createDirty = Boolean(
-    name || description || instructions || role || modelProfileId || toolIds.length
+    name ||
+    description ||
+    instructions ||
+    role ||
+    modelProfileId ||
+    toolIds.length
   );
 
   const reset = () => {
@@ -1761,7 +1545,8 @@ function CreateAgentCard({
     setError(null);
     setTouched(new Set());
   };
-  const nameError = touched.has('name') && !name.trim() ? 'Enter an agent name.' : null;
+  const nameError =
+    touched.has('name') && !name.trim() ? 'Enter an agent name.' : null;
   const instructionsError =
     touched.has('instructions') && !instructions.trim()
       ? 'Describe the durable behavior this agent should follow.'
@@ -1785,39 +1570,29 @@ function CreateAgentCard({
           reset();
           setIsOpen(false);
         } catch (createError) {
-          setError(createError instanceof Error ? createError.message : 'Failed to create agent.');
+          setError(
+            createError instanceof Error
+              ? createError.message
+              : 'Failed to create agent.'
+          );
         }
       })();
     });
   };
 
   return (
-    <Card className="min-w-0 overflow-hidden border-dashed border-secondary-300 bg-secondary-50/40 dark:border-cyan-400/20 dark:bg-cyan-400/6">
-      <div className="h-1 bg-secondary-400" />
-      <CardHeader className="p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex min-w-0 gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg border border-secondary-200 bg-white text-secondary-800 dark:border-cyan-400/20 dark:bg-white/10 dark:text-cyan-100">
-              <Bot className="h-5 w-5" />
-            </span>
-            <div>
-              <CardTitle className="text-base">Create agent</CardTitle>
-              <CardDescription className="hidden sm:block">
-                Create a standalone runtime role. Persona-backed agents stay managed in Persona.
-              </CardDescription>
-            </div>
-          </div>
-          <Button
-            type="button"
-            onClick={() => {
-              setError(null);
-              setIsOpen(true);
-            }}
-          >
-            New agent
-          </Button>
-        </div>
-      </CardHeader>
+    <>
+      <Button
+        type="button"
+        onClick={() =>
+          onRequestOpen(() => {
+            setError(null);
+            setIsOpen(true);
+          })
+        }
+      >
+        <Bot className="mr-2 size-4" aria-hidden="true" /> New agent
+      </Button>
       <AppDialog
         open={isOpen}
         onOpenChange={setIsOpen}
@@ -1852,90 +1627,40 @@ function CreateAgentCard({
           description="Use a name and role people can distinguish in workflows and handoffs."
           icon={<Bot className="size-4" aria-hidden="true" />}
         >
-          <FormFieldGroup columns={2}>
-            <FormField label="Name" htmlFor="create-agent-name" error={nameError} required>
-              <Input
-                id="create-agent-name"
-                required
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                onBlur={() => setTouched((current) => new Set(current).add('name'))}
-                disabled={isPending}
-                aria-invalid={Boolean(nameError)}
-                aria-describedby="create-agent-name-feedback"
-              />
-            </FormField>
-            <FormField
-              label="Description"
-              htmlFor="create-agent-description"
-              description="Short summary shown in the agent directory."
-              optional
-            >
-              <Input
-                id="create-agent-description"
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                disabled={isPending}
-                aria-describedby="create-agent-description-feedback"
-              />
-            </FormField>
-            <FormField
-              label="Instructions"
-              htmlFor="create-agent-instructions"
-              description="Describe the durable behavior this agent should follow whenever it runs."
-              error={instructionsError}
-              required
-              className="sm:col-span-2"
-            >
-              <Textarea
-                id="create-agent-instructions"
-                required
-                value={instructions}
-                onChange={(event) => setInstructions(event.target.value)}
-                onBlur={() => setTouched((current) => new Set(current).add('instructions'))}
-                disabled={isPending}
-                className="min-h-36"
-                aria-invalid={Boolean(instructionsError)}
-                aria-describedby="create-agent-instructions-feedback"
-              />
-            </FormField>
-            <FormField
-              label="Role"
-              htmlFor="create-agent-role"
-              description="Optional specialty used in workflow handoffs."
-              optional
-            >
-              <Input
-                id="create-agent-role"
-                value={role}
-                onChange={(event) => setRole(event.target.value)}
-                disabled={isPending}
-                aria-describedby="create-agent-role-feedback"
-              />
-            </FormField>
-            <FormField
-              label="Model profile"
-              htmlFor="create-agent-model-profile"
-              description="Can be assigned later from Models."
-              optional
-            >
-              <select
-                id="create-agent-model-profile"
-                value={modelProfileId}
-                onChange={(event) => setModelProfileId(event.target.value)}
-                disabled={isPending}
-                aria-describedby="create-agent-model-profile-feedback"
-                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              >
-                <option value="">No profile</option>
-                {profiles.map((profile) => (
-                  <option key={profile.id} value={profile.id}>
-                    {profile.name}
-                  </option>
-                ))}
-              </select>
-            </FormField>
-          </FormFieldGroup>
+          <AgentIdentityFields
+            idPrefix="create-agent"
+            values={{ name, description, role, modelProfileId }}
+            profiles={profiles}
+            disabled={isPending}
+            nameError={nameError}
+            onNameBlur={() =>
+              setTouched((current) => new Set(current).add('name'))
+            }
+            onChange={(patch) => {
+              if (patch.name !== undefined) setName(patch.name);
+              if (patch.description !== undefined)
+                setDescription(patch.description);
+              if (patch.role !== undefined) setRole(patch.role);
+              if (patch.modelProfileId !== undefined)
+                setModelProfileId(patch.modelProfileId);
+            }}
+          />
+        </FormSection>
+        <FormSection
+          title="Instructions"
+          description="The durable behavior this agent should follow."
+          icon={<FileText className="size-4" aria-hidden="true" />}
+        >
+          <AgentInstructionsField
+            idPrefix="create-agent"
+            value={instructions}
+            onChange={setInstructions}
+            disabled={isPending}
+            error={instructionsError}
+            onBlur={() =>
+              setTouched((current) => new Set(current).add('instructions'))
+            }
+          />
         </FormSection>
 
         <FormSection
@@ -1953,11 +1678,12 @@ function CreateAgentCard({
         </FormSection>
         <FieldFeedback error={error} />
       </AppDialog>
-    </Card>
+    </>
   );
 }
 
 export default function AgentsWorkspace() {
+  const router = useRouter();
   const agentsQuery = useQuery({
     queryKey: queryKeys.backendAgentCatalog(),
     queryFn: () => agentsApi.listAgentCatalog(),
@@ -1983,8 +1709,14 @@ export default function AgentsWorkspace() {
   });
 
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
-  const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
-  const personas = useMemo(() => personasQuery.data?.items ?? [], [personasQuery.data?.items]);
+  const profiles = useMemo(
+    () => profilesQuery.data ?? [],
+    [profilesQuery.data]
+  );
+  const personas = useMemo(
+    () => personasQuery.data?.items ?? [],
+    [personasQuery.data?.items]
+  );
   const tools = useMemo(() => toolsQuery.data ?? [], [toolsQuery.data]);
   const activeMainAgentId = mainAgentQuery.data?.agent_id ?? null;
   const activeMainAgent = mainAgentQuery.data ?? null;
@@ -2003,15 +1735,139 @@ export default function AgentsWorkspace() {
       return 0;
     });
   }, [activeMainAgentId, agents]);
+  const [search, setSearch] = useState('');
+  const [agentType, setAgentType] = useState<
+    'all' | 'specialists' | 'personas'
+  >('all');
+  const profileNames = useMemo(
+    () => new Map(profiles.map((profile) => [profile.id, profile.name])),
+    [profiles]
+  );
+  const filteredAgents = useMemo(() => {
+    const terms = search.toLowerCase().trim().split(/\s+/).filter(Boolean);
+    return displayedAgents.filter(
+      (agent) =>
+        (agentType !== 'specialists' || agent.id !== activeMainAgentId) &&
+        (agentType !== 'personas' ||
+          Boolean(personaIdForAgent(agent) || personaSlugForAgent(agent))) &&
+        terms.every((term) =>
+          [
+            agent.id,
+            agent.name,
+            agent.description,
+            agentConfigOrDefaults(agent).role,
+            profileNames.get(agentConfigOrDefaults(agent).modelProfileId ?? ''),
+            personaSlugForAgent(agent),
+            agent.id === activeMainAgentId ? activeMainAgent?.name : '',
+          ]
+            .join(' ')
+            .toLowerCase()
+            .includes(term)
+        )
+    );
+  }, [
+    displayedAgents,
+    search,
+    activeMainAgentId,
+    activeMainAgent?.name,
+    agentType,
+    profileNames,
+  ]);
+  const toDirectoryEntry = useCallback(
+    (entry: Agent): WorkspaceDirectoryEntry => {
+      const main = entry.id === activeMainAgentId;
+      const config = agentConfigOrDefaults(entry);
+      const linkedPersona = Boolean(
+        personaIdForAgent(entry) || personaSlugForAgent(entry)
+      );
+      const label = main ? (activeMainAgent?.name ?? entry.name) : entry.name;
+      return {
+        id: entry.id,
+        label,
+        actionLabel: 'Inspect ' + label,
+        optionLabel: main ? label + ' · Main agent' : label,
+        description: main
+          ? 'Main agent · Harness managed'
+          : agentRoleLabel(entry),
+        group: main
+          ? 'Main agent'
+          : linkedPersona
+            ? 'Persona-backed'
+            : 'Specialists',
+        icon: main ? Sparkles : Bot,
+        meta: (
+          <span className="flex flex-col">
+            <span className="truncate">
+              {profileNames.get(config.modelProfileId ?? '') ||
+                config.modelProfileId ||
+                'No model preset'}
+            </span>
+            <span>
+              {main
+                ? 'All capabilities'
+                : `${config.toolIds.length} assigned tools`}
+            </span>
+          </span>
+        ),
+      };
+    },
+    [activeMainAgentId, activeMainAgent?.name, profileNames]
+  );
+  const directoryEntries = useMemo(
+    () => filteredAgents.map(toDirectoryEntry),
+    [filteredAgents, toDirectoryEntry]
+  );
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<AgentDraft | null>(null);
+  const [editorPending, setEditorPending] = useState(false);
+  const [pendingNavigation, setPendingNavigation] = useState<
+    (() => void) | null
+  >(null);
+  const editingAgentId = draft?.agentId;
   const selectedAgent = useMemo(
     () =>
-      agents.find((agent) => agent.id === selectedAgentId) ??
-      agents.find((agent) => agent.id === activeMainAgentId) ??
-      agents[0] ??
+      displayedAgents.find((agent) => agent.id === editingAgentId) ??
+      filteredAgents.find((agent) => agent.id === selectedAgentId) ??
+      filteredAgents.find((agent) => agent.id === activeMainAgentId) ??
+      filteredAgents[0] ??
       null,
-    [activeMainAgentId, agents, selectedAgentId]
+    [
+      activeMainAgentId,
+      displayedAgents,
+      editingAgentId,
+      filteredAgents,
+      selectedAgentId,
+    ]
   );
+  const editorDirty = Boolean(
+    draft &&
+    selectedAgent &&
+    JSON.stringify(draft) !==
+      JSON.stringify(
+        agentDraft(
+          selectedAgent,
+          selectedAgent.id === activeMainAgentId ? activeMainAgent : null
+        )
+      )
+  );
+  const requestNavigation = useCallback(
+    (action: () => void) => {
+      if (editorPending) return;
+      if (editorDirty) setPendingNavigation(() => action);
+      else {
+        setDraft(null);
+        action();
+      }
+    },
+    [editorDirty, editorPending, setDraft, setPendingNavigation]
+  );
+  const guardLink = useCallback(
+    (href: string) => {
+      requestNavigation(() => router.push(href));
+    },
+    [requestNavigation, router]
+  );
+  useUnsavedChangesGuard(editorDirty || editorPending, guardLink);
   const mainAgentLookupMessage = mainAgentQuery.isError
     ? 'The active main-agent lookup is currently unavailable.'
     : null;
@@ -2064,12 +1920,20 @@ export default function AgentsWorkspace() {
   );
   useRegisterAssistantPageContext(assistantPageContext);
   const refreshAgents = async () => {
-    await agentsQuery.refetch();
-    await mainAgentQuery.refetch();
+    await Promise.all([agentsQuery.refetch(), mainAgentQuery.refetch()]);
   };
 
-  if (agentsQuery.isLoading || profilesQuery.isLoading) {
-    return <LoadingCard title="Agents" description="Loading backend agent definitions." />;
+  if (
+    agentsQuery.isLoading ||
+    profilesQuery.isLoading ||
+    mainAgentQuery.isLoading
+  ) {
+    return (
+      <LoadingCard
+        title="Agents"
+        description="Loading backend agent definitions."
+      />
+    );
   }
 
   if (agentsQuery.isError) {
@@ -2098,22 +1962,61 @@ export default function AgentsWorkspace() {
         icon={Bot}
         tone="agent"
         title="Agents"
-        description="Runtime actors used by chat and workflows. Persona-backed agents are generated from published personas."
+        description="Define how your agents work, the models they use, and the capabilities they can access."
+        compact
         meta={
-          mainAgentLookupMessage ? (
-            <p className="text-sm text-amber-700">{mainAgentLookupMessage}</p>
-          ) : null
+          <>
+            <Badge variant="outline">{agents.length} agents</Badge>
+            <Badge variant="outline">
+              {agents.filter((agent) => agent.id !== activeMainAgentId).length}{' '}
+              specialists
+            </Badge>
+            <Badge variant="outline">
+              {
+                agents.filter(
+                  (agent) =>
+                    personaIdForAgent(agent) || personaSlugForAgent(agent)
+                ).length
+              }{' '}
+              persona-backed
+            </Badge>
+            {mainAgentLookupMessage ? (
+              <p className="text-sm text-amber-700">{mainAgentLookupMessage}</p>
+            ) : null}
+          </>
         }
         actions={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => agentsQuery.refetch()}
-            disabled={agentsQuery.isFetching}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${agentsQuery.isFetching ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
+          <>
+            <CreateAgentCard
+              onRequestOpen={requestNavigation}
+              onCreated={async () => {
+                await refreshAgents();
+                toast.success('Agent created.', { position: 'top-right' });
+              }}
+              profiles={profiles}
+              tools={tools}
+            />
+            <ImportAgentCard
+              onRequestOpen={requestNavigation}
+              agents={agents}
+              onImported={refreshAgents}
+              profiles={profiles}
+              tools={tools}
+            />
+
+            <Button
+              type="button"
+              variant="outline"
+              aria-label="Refresh"
+              onClick={() => requestNavigation(() => void refreshAgents())}
+              disabled={agentsQuery.isFetching || editorPending}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${agentsQuery.isFetching ? 'animate-spin' : ''}`}
+              />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+          </>
         }
       />
 
@@ -2128,23 +2031,6 @@ export default function AgentsWorkspace() {
         />
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <CreateAgentCard
-          onCreated={async () => {
-            await refreshAgents();
-            toast.success('Agent created.', { position: 'top-right' });
-          }}
-          profiles={profiles}
-          tools={tools}
-        />
-        <ImportAgentCard
-          agents={agents}
-          onImported={refreshAgents}
-          profiles={profiles}
-          tools={tools}
-        />
-      </div>
-
       {agents.length === 0 ? (
         <EmptyCard
           title="No agents yet"
@@ -2153,23 +2039,103 @@ export default function AgentsWorkspace() {
           onAction={() => agentsQuery.refetch()}
         />
       ) : (
-        <div className="grid gap-4">
-          {displayedAgents.map((agent) => (
-            <AgentCard
-              key={agent.id}
-              agent={agent}
-              isMainAgent={agent.id === activeMainAgentId}
-              isSelected={selectedAgent?.id === agent.id}
-              mainAgent={agent.id === activeMainAgentId ? activeMainAgent : null}
-              onSelect={() => setSelectedAgentId(agent.id)}
-              onRefresh={refreshAgents}
-              personas={personas}
-              profiles={profiles}
-              tools={tools}
-            />
-          ))}
+        <div className="grid min-w-0 items-start gap-5 md:grid-cols-[16rem_minmax(0,1fr)]">
+          <WorkspaceDirectory
+            label="Agent directory"
+            title="Your agents"
+            entries={directoryEntries}
+            selected={
+              selectedAgent
+                ? (directoryEntries.find(
+                    (entry) => entry.id === selectedAgent.id
+                  ) ?? toDirectoryEntry(selectedAgent))
+                : null
+            }
+            onSelect={(id) => requestNavigation(() => setSelectedAgentId(id))}
+            search={{
+              label: 'Search agents',
+              placeholder: 'Name, role or model…',
+              value: search,
+              onChange: setSearch,
+            }}
+            summary={`${filteredAgents.length} of ${agents.length} agents`}
+            selectionLabel="Inspect agent"
+            emptyMessage="No matching agents. Adjust your search or agent type."
+            disabled={editorPending}
+            className="md:sticky md:top-5"
+            toolbar={
+              <NativeSelect
+                aria-label="Filter agents by type"
+                disabled={editorPending}
+                value={agentType}
+                onChange={(event) =>
+                  setAgentType(event.target.value as typeof agentType)
+                }
+                className="h-8 w-auto max-w-full py-1 text-xs"
+              >
+                <option value="all">All agents</option>
+                <option value="specialists">Specialists</option>
+                <option value="personas">Persona-backed</option>
+              </NativeSelect>
+            }
+          />
+          <div className="min-w-0">
+            {selectedAgent ? (
+              <AgentDetailPanel
+                key={selectedAgent.id}
+                agent={selectedAgent}
+                isMainAgent={selectedAgent.id === activeMainAgentId}
+                mainAgent={
+                  selectedAgent.id === activeMainAgentId
+                    ? activeMainAgent
+                    : null
+                }
+                draft={draft}
+                onDraftChange={(next) => {
+                  setSelectedAgentId(selectedAgent.id);
+                  setDraft(next);
+                }}
+                onCancel={() => requestNavigation(() => {})}
+                isPending={editorPending}
+                dirty={editorDirty}
+                onPendingChange={setEditorPending}
+                onRefresh={refreshAgents}
+                personas={personas}
+                profiles={profiles}
+                tools={tools}
+              />
+            ) : (
+              <EmptyCard
+                title="No matching agents"
+                description="Search by name, role, or agent ID."
+                actionLabel="Clear search"
+                onAction={() => {
+                  setSearch('');
+                  setAgentType('all');
+                }}
+              />
+            )}
+          </div>
         </div>
       )}
+      <ConfirmActionDialog
+        trigger={null}
+        open={pendingNavigation !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingNavigation(null);
+        }}
+        title="Discard unsaved changes?"
+        description="Your agent edits have not been saved. Discard them to continue, or keep editing."
+        cancelLabel="Continue editing"
+        confirmLabel="Discard changes"
+        destructive
+        onConfirm={() => {
+          const action = pendingNavigation;
+          setPendingNavigation(null);
+          setDraft(null);
+          action?.();
+        }}
+      />
     </div>
   );
 }

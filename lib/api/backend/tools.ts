@@ -12,11 +12,6 @@ import type {
   ToolTestPayload,
   ToolValidationPayload,
 } from '@/types/tools';
-import type {
-  ToolContract,
-  ToolContractListResponse,
-  ToolRunResponse,
-} from '@/types/toolContracts';
 
 export const toolsApi = {
   listTools() {
@@ -62,18 +57,5 @@ export const toolsApi = {
   },
   testTool(toolId: string, payload: ToolTestPayload) {
     return agencyApiClient.post<Record<string, unknown>>(backendRoutes.tools.test(toolId), payload);
-  },
-  listToolContracts() {
-    return agencyApiClient.get<ToolContractListResponse>(backendRoutes.tools.contracts(), {
-      cache: 'no-store',
-    });
-  },
-  getToolContract(toolName: string) {
-    return agencyApiClient.get<ToolContract>(backendRoutes.tools.contractByName(toolName), {
-      cache: 'no-store',
-    });
-  },
-  runTool(toolName: string, payload: unknown) {
-    return agencyApiClient.post<ToolRunResponse>(backendRoutes.tools.run(toolName), payload);
   },
 };

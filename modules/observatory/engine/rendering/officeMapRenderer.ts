@@ -1,3 +1,8 @@
+import {
+  createOfficeWalkthroughStops,
+  resolveOfficeWalkthroughStop,
+  type OfficeWalkthroughProgress,
+} from './officeWalkthrough';
 import type Phaser from 'phaser';
 
 import {
@@ -34,6 +39,8 @@ import {
   isObservatoryGridWalkable,
   pickObservatoryAgentBehaviorTargetPoint,
   resolveObservatoryGridPath,
+  resolveObservatoryObjectInteraction,
+  resolveObservatoryAgentBehaviorInteraction,
 } from '@/modules/observatory/engine/rendering/agentBehaviorTargets';
 import {
   resolveA4WallSolidFaceQuadrants,
@@ -66,6 +73,11 @@ export interface ObservatoryOfficeMapViewFilter {
 }
 
 export interface ObservatoryRenderedOfficeMap {
+  startOfficeWalkthrough(
+    agentId: string,
+    onProgress: (progress: OfficeWalkthroughProgress) => void
+  ): void;
+  stopOfficeWalkthrough(): void;
   applyAgentVisualStates(agentStates: ObservatoryAgentVisualState[]): void;
   applyRoomVisualStates(roomStates: ObservatoryRoomVisualState[]): void;
   getSelectedAgentId(): string | null;
@@ -96,6 +108,7 @@ export interface ObservatoryRenderedOfficeMap {
 }
 
 interface RenderedAgentHandle {
+  restOffsetPx?: { x: number; y: number };
   agent: ObservatoryAgent;
   asset?: ObservatoryAssetDefinition;
   attention?: ObservatoryAgentVisualState['attention'];
@@ -260,6 +273,26 @@ export function renderObservatoryOfficeMap(
         selectAgent(agent.id);
         options.onAgentSelected?.(agent);
       });
+      const workstation = map.objects.find(
+        (object) =>
+          object.id === agent.runtime?.targetObjectId && object.runtime?.role === 'workstation'
+      );
+      const interaction =
+        workstation &&
+        resolveObservatoryObjectInteraction(map, workstation, {
+          assetsById,
+          fromPoint: agent.position,
+          tileSize: grid.tileSize,
+        });
+      if (interaction && isSameGridPoint(agent.position, interaction.point)) {
+        agentHandle.restOffsetPx = interaction.offsetPx;
+        const center = gridToWorldCenter(interaction.point, grid);
+        placeAgentHandleAtCenter(agentHandle, {
+          x: center.x + interaction.offsetPx.x,
+          y: center.y + interaction.offsetPx.y,
+        });
+        playAgentAction(agentHandle, interaction.action, interaction.direction);
+      }
       agentHandles.set(agent.id, agentHandle);
     }
   }
@@ -352,7 +385,7 @@ export function renderObservatoryOfficeMap(
     );
     drawObjectCollisionTileGrid(objectSelectionOutline, bounds, grid);
     objectSelectionLabel
-      .setText(object.assetId)
+      .setText(assetsById.get(object.assetId)?.label ?? object.assetId)
       .setPosition(
         bounds.x + bounds.width / 2 - objectSelectionLabel.width / 2,
         Math.max(8, bounds.y - objectSelectionLabel.height - 10)
@@ -430,7 +463,7 @@ export function renderObservatoryOfficeMap(
     const bounds = objectCollisionBoundsToWorldRect(object, grid, assetsById.get(object.assetId));
     return {
       height: bounds.height,
-      label: object.assetId,
+      label: assetsById.get(object.assetId)?.label ?? object.assetId,
       width: bounds.width,
       x: bounds.x,
       y: bounds.y,
@@ -666,6 +699,142 @@ export function renderObservatoryOfficeMap(
     return null;
   }
 
+  let walkthrough: {
+    agentId: string;
+    timer?: Phaser.Time.TimerEvent;
+    progress: OfficeWalkthroughProgress;
+    notify: (progress: OfficeWalkthroughProgress) => void;
+  } | null = null;
+  function stopOfficeWalkthrough(notify = true) {
+    if (!walkthrough) return;
+    const current = walkthrough;
+    walkthrough = null;
+    current.timer?.remove(false);
+    const handle = agentHandles.get(current.agentId);
+    if (handle) {
+      handle.movementTween?.stop();
+      handle.movementTween = undefined;
+      handle.restOffsetPx = undefined;
+      placeAgentHandleAtCenter(handle, gridToWorldCenter(handle.agent.position, grid));
+      playAgentAction(handle, 'idle', handle.currentDirection);
+    }
+    if (notify) current.notify({ ...current.progress, status: 'stopped' });
+  }
+  function startOfficeWalkthrough(
+    agentId: string,
+    onProgress: (progress: OfficeWalkthroughProgress) => void
+  ) {
+    stopOfficeWalkthrough(false);
+    const handle = agentHandles.get(agentId);
+    const stops = createOfficeWalkthroughStops(map);
+    if (!handle || !stops.length) {
+      onProgress({
+        agentId,
+        status: 'blocked',
+        completed: 0,
+        total: stops.length,
+        label: 'Add an agent and rooms before testing movement.',
+      });
+      return;
+    }
+    const current = {
+      agentId,
+      progress: {
+        agentId,
+        status: 'walking' as OfficeWalkthroughProgress['status'],
+        completed: 0,
+        total: stops.length,
+        label: '',
+      } as OfficeWalkthroughProgress,
+      notify: onProgress,
+      timer: undefined as Phaser.Time.TimerEvent | undefined,
+    };
+    walkthrough = current;
+    const advance = (index: number) => {
+      if (walkthrough !== current || !isSceneWritable(scene)) return;
+      if (index >= stops.length) {
+        current.notify({
+          ...current.progress,
+          status: 'complete',
+          completed: stops.length,
+          label: 'All rooms and workstations visited.',
+        });
+        walkthrough = null;
+        return;
+      }
+      const stop = stops[index];
+      const occupied = [...agentHandles.values()]
+        .filter((other) => other !== handle)
+        .map((other) => other.agent.position);
+      const interaction = resolveOfficeWalkthroughStop(
+        map,
+        stop,
+        handle.agent.position,
+        assetsById,
+        grid.tileSize,
+        occupied,
+        [...agentHandles.values()].filter((other) => other !== handle).map(getAgentHandleCenter)
+      );
+      current.progress = {
+        agentId,
+        status: 'walking',
+        completed: index,
+        total: stops.length,
+        label: stop.label,
+        point: interaction?.point,
+      };
+      current.notify(current.progress);
+      if (!interaction) {
+        current.notify({
+          ...current.progress,
+          status: 'blocked',
+          label: `No reachable interaction point: ${stop.label}`,
+        });
+        walkthrough = null;
+        return;
+      }
+      const arrive = () => {
+        if (walkthrough !== current) return;
+        current.progress = { ...current.progress, status: 'interacting', completed: index + 1 };
+        current.notify(current.progress);
+        current.timer = scene.time.delayedCall(700, () => advance(index + 1));
+      };
+      if (isSameGridPoint(handle.agent.position, interaction.point)) {
+        handle.restOffsetPx = interaction.offsetPx;
+        const center = gridToWorldCenter(interaction.point, grid);
+        placeAgentHandleAtCenter(handle, {
+          x: center.x + interaction.offsetPx.x,
+          y: center.y + interaction.offsetPx.y,
+        });
+        playAgentAction(handle, interaction.action, interaction.direction);
+        arrive();
+      } else if (
+        !moveAgentHandleToGrid(
+          handle,
+          interaction.point,
+          true,
+          interaction.action,
+          interaction.direction,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          interaction.offsetPx,
+          arrive
+        )
+      ) {
+        current.notify({
+          ...current.progress,
+          status: 'blocked',
+          label: `Blocked path: ${stop.label}`,
+        });
+        walkthrough = null;
+      }
+    };
+    advance(0);
+  }
+  scene.events.once('shutdown', () => stopOfficeWalkthrough(false));
+
   function applyAgentVisualStates(agentStates: ObservatoryAgentVisualState[]) {
     if (!isSceneWritable(scene)) {
       return;
@@ -673,8 +842,70 @@ export function renderObservatoryOfficeMap(
 
     const speechGroupReadiness = createSpeechGroupReadiness(agentStates, agentHandles);
 
-    for (const agentState of agentStates) {
-      const handle = agentHandles.get(agentState.agentId);
+    for (const incomingState of agentStates) {
+      const handle = agentHandles.get(incomingState.agentId);
+      if (walkthrough?.agentId === incomingState.agentId) continue;
+      const targetObject = incomingState.targetObjectId
+        ? map.objects.find((object) => object.id === incomingState.targetObjectId)
+        : undefined;
+      const interactionOptions = handle
+        ? {
+            assetsById,
+            fromPoint: handle.agent.position,
+            tileSize: grid.tileSize,
+            occupiedPoints: [...agentHandles.values()]
+              .filter((other) => other !== handle)
+              .map((other) => other.agent.position),
+            occupiedFootPositions: [...agentHandles.values()]
+              .filter((other) => other !== handle)
+              .map(getAgentHandleCenter),
+          }
+        : null;
+      const interaction =
+        interactionOptions && targetObject
+          ? resolveObservatoryObjectInteraction(map, targetObject, interactionOptions)
+          : interactionOptions && incomingState.targetRoomId && !incomingState.targetPoint
+            ? resolveObservatoryAgentBehaviorInteraction(map, {
+                ...interactionOptions,
+                agentId: incomingState.agentId,
+                targetRoomId: incomingState.targetRoomId,
+                seed: incomingState.movementKey,
+              })
+            : null;
+      const agentState = interaction
+        ? {
+            ...incomingState,
+            targetPoint: interaction.point,
+            direction: interaction.direction,
+            action:
+              incomingState.status === 'working' ||
+              map.objects.find((object) => object.id === interaction.objectId)?.runtime?.role ===
+                'workstation'
+                ? interaction.action
+                : incomingState.action,
+          }
+        : targetObject || (incomingState.targetRoomId && !incomingState.targetPoint)
+          ? {
+              ...incomingState,
+              targetPoint: undefined,
+              targetRoomId: undefined,
+              movementKey: undefined,
+              action: 'idle' as const,
+            }
+          : incomingState;
+      if (
+        handle &&
+        interaction &&
+        !handle.movementTween &&
+        isSameGridPoint(handle.agent.position, interaction.point)
+      ) {
+        handle.restOffsetPx = interaction.offsetPx;
+        const center = gridToWorldCenter(interaction.point, grid);
+        placeAgentHandleAtCenter(handle, {
+          x: center.x + interaction.offsetPx.x,
+          y: center.y + interaction.offsetPx.y,
+        });
+      }
       let speechDeferredUntilMovementEnds = false;
       const speechKey = agentState.speechMessage
         ? (agentState.speechKey ??
@@ -758,7 +989,8 @@ export function renderObservatoryOfficeMap(
               speechGroupReady ? agentState.speechMessage : undefined,
               speechGroupReady ? speechKey : undefined,
               speechGroupReady ? agentState.speechDurationMs : undefined,
-              speechGroupReady ? agentState.speechTone : undefined
+              speechGroupReady ? agentState.speechTone : undefined,
+              interaction?.offsetPx
             );
             speechDeferredUntilMovementEnds = moved && Boolean(agentState.speechMessage);
             handle.movementKey = agentState.movementKey;
@@ -953,9 +1185,9 @@ export function renderObservatoryOfficeMap(
       return false;
     }
 
-    moveAgentHandleToGrid(handle, point, false);
+    const moved = moveAgentHandleToGrid(handle, point, true);
     selectAgent(selectedAgentId);
-    return true;
+    return moved;
   }
 
   function selectAtWorldPoint(point: { x: number; y: number }) {
@@ -1005,10 +1237,10 @@ export function renderObservatoryOfficeMap(
     pendingSpeechMessage?: string,
     pendingSpeechKey?: string,
     pendingSpeechDurationMs?: number,
-    pendingSpeechTone?: ObservatoryAgentVisualState['speechTone']
+    pendingSpeechTone?: ObservatoryAgentVisualState['speechTone'],
+    restOffsetPx = { x: 0, y: 0 },
+    onArrival?: () => void
   ) {
-    handle.movementTween?.stop();
-
     if (!animate) {
       const center = gridToWorldCenter(point, grid);
       handle.agent.position = { ...point };
@@ -1027,11 +1259,13 @@ export function renderObservatoryOfficeMap(
       return false;
     }
 
+    handle.movementTween?.stop();
+    handle.restOffsetPx = restOffsetPx;
     handle.pendingSpeechMessage = pendingSpeechMessage;
     handle.pendingSpeechKey = pendingSpeechKey;
     handle.pendingSpeechDurationMs = pendingSpeechDurationMs;
     handle.pendingSpeechTone = pendingSpeechTone;
-    moveAgentHandleAlongPath(handle, path, restAction, restDirection);
+    moveAgentHandleAlongPath(handle, path, restAction, restDirection, onArrival);
     return true;
   }
 
@@ -1039,11 +1273,13 @@ export function renderObservatoryOfficeMap(
     handle: RenderedAgentHandle,
     path: Array<{ x: number; y: number }>,
     restAction: ObservatoryCharacterActionName,
-    restDirection?: ObservatoryCharacterDirection
+    restDirection?: ObservatoryCharacterDirection,
+    onArrival?: () => void
   ) {
     const [nextPoint, ...remainingPath] = path;
 
     if (!nextPoint) {
+      onArrival?.();
       playAgentAction(handle, restAction, restDirection ?? handle.currentDirection ?? 'down');
       if (handle.pendingSpeechMessage) {
         showAgentSpeechBubble(
@@ -1069,6 +1305,10 @@ export function renderObservatoryOfficeMap(
     const previousPosition = { ...handle.agent.position };
     const startCenter = getAgentHandleCenter(handle);
     const targetCenter = gridToWorldCenter(nextPoint, grid);
+    if (remainingPath.length === 0 && handle.restOffsetPx) {
+      targetCenter.x += handle.restOffsetPx.x;
+      targetCenter.y += handle.restOffsetPx.y;
+    }
     const tweenPoint = { ...startCenter };
     const movementDirection = directionFromGridDelta(previousPosition, nextPoint);
     playAgentAction(handle, 'walk', movementDirection);
@@ -1087,12 +1327,14 @@ export function renderObservatoryOfficeMap(
         if (selectedAgentId === handle.agent.id) {
           selectAgent(selectedAgentId);
         }
-        moveAgentHandleAlongPath(handle, remainingPath, restAction, restDirection);
+        moveAgentHandleAlongPath(handle, remainingPath, restAction, restDirection, onArrival);
       },
     });
   }
 
   return {
+    startOfficeWalkthrough,
+    stopOfficeWalkthrough,
     applyAgentVisualStates,
     applyRoomVisualStates,
     getSelectedAgentId,
@@ -2495,8 +2737,10 @@ function showAgentStatusTransitionEffect(
 }
 
 function placeAgentHandleAtCenter(handle: RenderedAgentHandle, center: { x: number; y: number }) {
-  const footY = center.y + handle.sprite.displayHeight * 0.38;
-  handle.sprite.setPosition(center.x, footY);
+  // Navigation positions anchor the character's feet. Source-frame padding is
+  // above the head; shifting by sprite height made feet spill into the next tile.
+  const footY = center.y;
+  handle.sprite.setPosition(center.x, footY).setDepth(28 + footY / 100000);
   handle.badge.setPosition(center.x + 10, footY - handle.sprite.displayHeight + 12);
   handle.label.setPosition(center.x, footY + 4);
   handle.hitZone.setPosition(
@@ -2530,7 +2774,7 @@ function getAgentHitZoneBounds(handle: RenderedAgentHandle) {
 function getAgentHandleCenter(handle: RenderedAgentHandle) {
   return {
     x: handle.sprite.x,
-    y: handle.sprite.y - handle.sprite.displayHeight * 0.38,
+    y: handle.sprite.y,
   };
 }
 

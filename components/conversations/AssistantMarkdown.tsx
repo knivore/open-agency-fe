@@ -57,7 +57,7 @@ function preserveAssistantTabs() {
 }
 
 const assistantMarkdownComponents: Components = {
-  p: ({ children }) => <p className="my-0 leading-6 text-inherit">{children}</p>,
+  p: ({ children }) => <p className="my-0 whitespace-pre-wrap leading-6 text-inherit">{children}</p>,
   ul: ({ children }) => <ul className="my-1 list-disc space-y-0.5 pl-5 leading-6">{children}</ul>,
   ol: ({ children }) => (
     <ol className="my-1.5 flex list-decimal flex-col gap-1.5 pl-5 leading-6">{children}</ol>
@@ -112,7 +112,9 @@ const assistantMarkdownComponents: Components = {
 
 export function AssistantMarkdown({ children }: { children: string }) {
   return (
-    <div className="space-y-1 text-[15px] leading-6">
+    // Preserve authored whitespace in paragraphs and code, without expanding
+    // structural Markdown separators into extra blank lines between list items.
+    <div className="space-y-1 whitespace-normal text-[15px] leading-6">
       <ReactMarkdown
         remarkPlugins={[preserveAssistantTabs]}
         components={assistantMarkdownComponents}

@@ -1,20 +1,17 @@
 'use client';
 
+import AppState from '@/components/app-shell/AppState';
+
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import {
-  AlertTriangle,
-  ArrowRight,
-  CirclePause,
-  CirclePlay,
-  Plus,
-  Search,
-  Target,
-} from 'lucide-react';
+import { AlertTriangle, ArrowRight, CirclePause, CirclePlay, Plus, Target } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import PageHeader from '@/components/app-shell/PageHeader';
+import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
+import WorkspaceMetrics from '@/components/app-shell/WorkspaceMetrics';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/library/shadcn/tabs';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
@@ -34,10 +31,19 @@ function statusVariant(status: string) {
   return 'outline' as const;
 }
 
+function blockerLabel(reason: object): string {
+  const fields = reason as Record<string, unknown>;
+  for (const key of ['message', 'summary', 'reason', 'category', 'status']) {
+    if (typeof fields[key] === 'string') return String(fields[key]).replaceAll('_', ' ');
+  }
+  return 'Review supervision details';
+}
+
 export default function GoalsWorkspace() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [objective, setObjective] = useState('');
+  const [view, setView] = useState('active');
   const goalsQuery = useQuery({
     queryKey: queryKeys.backendGoalOperatorView({}),
     queryFn: () => goalsApi.getOperatorView(),
@@ -88,14 +94,24 @@ export default function GoalsWorkspace() {
   });
   const items = useMemo(() => {
     const query = search.trim().toLowerCase();
-    return (goalsQuery.data?.items ?? []).filter(
-      (item) =>
-        !query ||
-        [item.goal.objective, item.goal.id, item.goal.status, item.goal.owner_actor]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(query))
-    );
-  }, [goalsQuery.data?.items, search]);
+    return (goalsQuery.data?.items ?? []).filter((item) => {
+      const terminal = TERMINAL.has(item.goal.status);
+      const matchesView =
+        view === 'all' ||
+        (view === 'history'
+          ? terminal
+          : view === 'attention'
+            ? !terminal && (item.blocked || item.stale || (item.pending_approval_count ?? 0) > 0 || item.goal.status === 'waiting_for_input')
+            : !terminal);
+      return (
+        matchesView &&
+        (!query ||
+          [item.goal.objective, item.goal.id, item.goal.status, item.goal.owner_actor]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query)))
+      );
+    });
+  }, [goalsQuery.data?.items, search, view]);
   const summary = goalsQuery.data?.summary;
 
   return (
@@ -108,16 +124,28 @@ export default function GoalsWorkspace() {
         description="Durable objectives supervised across workflow attempts, waits, evidence, and approvals."
       />
 
-      <section className="grid divide-y border-y border-(--agency-shell-border) sm:grid-cols-5 sm:divide-x sm:divide-y-0">
-        <Metric label="Goals" value={goalsQuery.data?.count ?? '—'} />
-        <Metric label="Blocked" value={summary?.blocked_count ?? '—'} />
-        <Metric label="Stale" value={summary?.stale_count ?? '—'} />
-        <Metric label="Approvals" value={summary?.pending_approval_count ?? '—'} />
-        <Metric label="Automatic actions" value={summary?.automatic_action_count ?? '—'} />
-      </section>
+      <WorkspaceMetrics
+        items={[
+          {
+            label: 'Goals',
+            value: goalsQuery.data?.count ?? '—',
+            onSelect: () => setView('all'),
+            selected: view === 'all',
+          },
+          {
+            label: 'Active blockers',
+            value: goalsQuery.data ? goalsQuery.data.items.filter(item => !TERMINAL.has(item.goal.status) && item.blocked).length : '—',
+            onSelect: () => setView('attention'),
+            selected: view === 'attention',
+          },
+          { label: 'Active stale', value: goalsQuery.data ? goalsQuery.data.items.filter(item => !TERMINAL.has(item.goal.status) && item.stale).length : '—' },
+          { label: 'Approvals', value: summary?.pending_approval_count ?? '—' },
+          { label: 'Recorded actions', value: summary?.automatic_action_count ?? '—' },
+        ]}
+      />
 
       <form
-        className="grid gap-2 border-b border-(--agency-shell-border) pb-5 sm:grid-cols-[minmax(0,1fr)_auto]"
+        className="grid gap-2 rounded-xl border bg-card p-3 sm:grid-cols-[minmax(0,1fr)_auto]"
         onSubmit={(event) => {
           event.preventDefault();
           if (objective.trim().length > 3) createMutation.mutate();
@@ -134,135 +162,142 @@ export default function GoalsWorkspace() {
         </Button>
       </form>
 
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)" />
-        <Input
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          placeholder="Filter goals"
-          className="pl-9"
-          aria-label="Filter goals"
-        />
-      </div>
+      <Tabs value={view} onValueChange={setView} activationMode="manual">
+        <TabsList aria-label="Goal views" className="h-auto flex-wrap">
+          <TabsTrigger value="active">Active</TabsTrigger>
+          <TabsTrigger value="attention">Needs attention</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="all">All goals</TabsTrigger>
+        </TabsList>
+        <TabsContent value={view} className="flex flex-col gap-4 pt-3">
+          <WorkspaceToolbar
+            search={{ label: 'Filter goals', value: search, onChange: setSearch }}
+            summary={`${items.length} goals in this view`}
+            onReset={search ? () => setSearch('') : undefined}
+          />
 
-      {goalsQuery.isLoading ? (
-        <State title="Loading goals" detail="Reading durable goal and supervision state." />
-      ) : goalsQuery.isError ? (
-        <State
-          title="Goals could not be loaded"
-          detail={
-            goalsQuery.error instanceof Error
-              ? goalsQuery.error.message
-              : 'The goal service is unavailable.'
-          }
-        />
-      ) : items.length === 0 ? (
-        <State
-          title="No goals found"
-          detail={
-            search
-              ? 'Change the filter to inspect another objective.'
-              : 'Create a durable objective to begin supervised work.'
-          }
-        />
-      ) : (
-        <div className="divide-y border-y border-(--agency-shell-border)">
-          {items.map((item) => {
-            const goal = item.goal;
-            const pending =
-              actionMutation.isPending && actionMutation.variables?.summary.goal.id === goal.id;
-            return (
-              <article
-                key={goal.id}
-                className="grid gap-4 py-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
-              >
-                <div className="min-w-0">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant={statusVariant(goal.status)}>{item.status_label}</Badge>
-                    <Badge variant="outline">{goal.priority}</Badge>
-                    <Badge variant="outline">{item.autonomy}</Badge>
-                    {item.blocked ? <Badge variant="failed">Blocked</Badge> : null}
-                    {item.stale ? <Badge variant="failed">Stale</Badge> : null}
-                  </div>
-                  <h2 className="mt-3 text-lg font-semibold tracking-[-0.02em]">
-                    {goal.objective}
-                  </h2>
-                  <p className="mt-2 text-sm text-(--agency-shell-muted)">
-                    {item.active_execution_count} active /{' '}
-                    {item.linked_execution_count ?? goal.execution_ids.length} linked runs
-                    {' · '}deadline {formatDate(goal.deadline_at)}
-                  </p>
-                  {item.blocked_reason ? (
-                    <p className="mt-2 flex items-start gap-2 text-sm text-rose-700 dark:text-rose-200">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-                      {typeof item.blocked_reason === 'string'
-                        ? item.blocked_reason
-                        : JSON.stringify(item.blocked_reason)}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {goal.status === 'paused' ? (
-                    <Button
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => actionMutation.mutate({ summary: item, action: 'resume' })}
-                    >
-                      <CirclePlay className="size-4" /> Resume
-                    </Button>
-                  ) : !TERMINAL.has(goal.status) ? (
-                    <Button
-                      variant="outline"
-                      disabled={pending}
-                      onClick={() => actionMutation.mutate({ summary: item, action: 'pause' })}
-                    >
-                      <CirclePause className="size-4" /> Pause
-                    </Button>
-                  ) : null}
-                  {!TERMINAL.has(goal.status) ? (
-                    <ConfirmActionDialog
-                      trigger={
-                        <Button variant="outline" disabled={pending}>
-                          Cancel
+          {goalsQuery.isLoading ? (
+            <AppState
+              variant="loading"
+              title="Loading goals"
+              description="Reading durable goal and supervision state."
+            />
+          ) : goalsQuery.isError ? (
+            <AppState
+              variant="error"
+              title="Goals could not be loaded"
+              description={
+                goalsQuery.error instanceof Error
+                  ? goalsQuery.error.message
+                  : 'The goal service is unavailable.'
+              }
+            />
+          ) : items.length === 0 ? (
+            <AppState
+              variant="empty"
+              title="No goals found"
+              description={
+                search
+                  ? 'Change the filter to inspect another objective.'
+                  : 'Create a durable objective to begin supervised work.'
+              }
+            />
+          ) : (
+            <div className="divide-y overflow-hidden rounded-xl border bg-card">
+              {items.map((item) => {
+                const goal = item.goal;
+                const pending =
+                  actionMutation.isPending && actionMutation.variables?.summary.goal.id === goal.id;
+                return (
+                  <article
+                    key={goal.id}
+                    className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant={statusVariant(goal.status)}>{item.status_label.replaceAll('_', ' ')}</Badge>
+                        <Badge variant="outline">{goal.priority}</Badge>
+                        <Badge variant="outline">{item.autonomy}</Badge>
+                        {item.blocked ? <Badge variant="failed">{TERMINAL.has(goal.status) ? 'Previously blocked' : 'Blocked'}</Badge> : null}
+                        {item.stale ? <Badge variant="failed">Stale</Badge> : null}
+                      </div>
+                      <h2
+                        title={goal.objective}
+                        className="mt-3 line-clamp-2 text-base font-semibold leading-6 tracking-[-0.02em]"
+                      >
+                        {goal.objective}
+                      </h2>
+                      <p className="mt-2 text-sm text-(--agency-shell-muted)">
+                        {item.active_execution_count} active /{' '}
+                        {item.linked_execution_count ?? goal.execution_ids.length} linked runs
+                        {' · '}deadline {formatDate(goal.deadline_at)}
+                      </p>
+                      {item.blocked_reason ? (
+                        <div className="mt-2 flex min-w-0 items-start gap-2 text-sm text-rose-700 dark:text-rose-200">
+                          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+                          {typeof item.blocked_reason === 'string' ? (
+                            item.blocked_reason
+                          ) : (
+                            <details className="min-w-0">
+                              <summary className="cursor-pointer capitalize">
+                                {blockerLabel(item.blocked_reason)}
+                              </summary>
+                              <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap break-all rounded-lg border bg-background p-3 text-xs">
+                                {JSON.stringify(item.blocked_reason, null, 2)}
+                              </pre>
+                            </details>
+                          )}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {goal.status === 'paused' ? (
+                        <Button
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => actionMutation.mutate({ summary: item, action: 'resume' })}
+                        >
+                          <CirclePlay className="size-4" /> Resume
                         </Button>
-                      }
-                      title="Cancel this durable goal?"
-                      description="This stops future supervision and preserves linked runs, evidence, and audit history. Active runs remain separately controllable."
-                      confirmLabel="Cancel goal"
-                      destructive
-                      pending={pending}
-                      onConfirm={() => actionMutation.mutate({ summary: item, action: 'cancel' })}
-                    />
-                  ) : null}
-                  <Button asChild>
-                    <Link href={`/goals/${goal.id}`}>
-                      Inspect <ArrowRight className="size-4" />
-                    </Link>
-                  </Button>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+                      ) : !TERMINAL.has(goal.status) ? (
+                        <Button
+                          variant="outline"
+                          disabled={pending}
+                          onClick={() => actionMutation.mutate({ summary: item, action: 'pause' })}
+                        >
+                          <CirclePause className="size-4" /> Pause
+                        </Button>
+                      ) : null}
+                      {!TERMINAL.has(goal.status) ? (
+                        <ConfirmActionDialog
+                          trigger={
+                            <Button variant="outline" disabled={pending}>
+                              Cancel
+                            </Button>
+                          }
+                          title="Cancel this durable goal?"
+                          description="This stops future supervision and preserves linked runs, evidence, and audit history. Active runs remain separately controllable."
+                          confirmLabel="Cancel goal"
+                          destructive
+                          pending={pending}
+                          onConfirm={() =>
+                            actionMutation.mutate({ summary: item, action: 'cancel' })
+                          }
+                        />
+                      ) : null}
+                      <Button asChild variant="outline">
+                        <Link href={`/goals/${goal.id}`}>
+                          Inspect <ArrowRight className="size-4" />
+                        </Link>
+                      </Button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
-  );
-}
-
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="px-4 py-4">
-      <p className="text-xs uppercase tracking-[0.1em] text-(--agency-shell-muted)">{label}</p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function State({ title, detail }: { title: string; detail: string }) {
-  return (
-    <section className="border-y border-(--agency-shell-border) py-10 text-center">
-      <h2 className="font-semibold">{title}</h2>
-      <p className="mt-2 text-sm text-(--agency-shell-muted)">{detail}</p>
-    </section>
   );
 }

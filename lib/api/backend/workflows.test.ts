@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { backendWorkflowsApi, workflowsApi } from '@/lib/api/backend/workflows';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+import {backendWorkflowsApi, workflowsApi} from '@/lib/api/backend/workflows';
 
-const { agencyGetMock, appGetMock, postMock } = vi.hoisted(() => ({
+const {agencyGetMock, appGetMock, postMock} = vi.hoisted(() => ({
   agencyGetMock: vi.fn(),
   appGetMock: vi.fn(),
   postMock: vi.fn(),
@@ -10,6 +10,7 @@ const { agencyGetMock, appGetMock, postMock } = vi.hoisted(() => ({
 vi.mock('@/lib/api/clientInstances', () => ({
   agencyApiClient: {
     get: agencyGetMock,
+    post: postMock,
   },
   appApiClient: {
     get: appGetMock,
@@ -23,9 +24,9 @@ describe('workflowsApi persona version endpoints', () => {
   });
 
   it('uses workflow persona version notice and action routes', async () => {
-    agencyGetMock.mockResolvedValue({ items: [] });
-    appGetMock.mockResolvedValue({ items: [] });
-    postMock.mockResolvedValue({ workflow: { id: 'workflow-1' } });
+    agencyGetMock.mockResolvedValue({items: []});
+    appGetMock.mockResolvedValue({items: []});
+    postMock.mockResolvedValue({workflow: {id: 'workflow-1'}});
 
     await workflowsApi.listWorkflowPersonaVersionNotices('workflow-1');
     await workflowsApi.listWorkflowVersions('workflow-1');
@@ -40,7 +41,7 @@ describe('workflowsApi persona version endpoints', () => {
       recommendedAction: 'request_replan',
       reason: 'Selected from graph node.',
       targetTaskId: 'task-1',
-      operatorParameters: { instructions: 'Replan this task.' },
+      operatorParameters: {instructions: 'Replan this task.'},
     });
 
     expect(appGetMock).toHaveBeenCalledWith('/api/workflows/workflow-1/persona-version-notices');
@@ -62,12 +63,12 @@ describe('workflowsApi persona version endpoints', () => {
       recommendedAction: 'request_replan',
       reason: 'Selected from graph node.',
       targetTaskId: 'task-1',
-      operatorParameters: { instructions: 'Replan this task.' },
+      operatorParameters: {instructions: 'Replan this task.'},
     });
   });
 
   it('clones workflows through the authenticated frontend route', async () => {
-    postMock.mockResolvedValue({ data: { id: 'workflow-copy' } });
+    postMock.mockResolvedValue({data: {id: 'workflow-copy'}});
 
     await expect(workflowsApi.cloneWorkflow('workflow-1')).resolves.toEqual({
       id: 'workflow-copy',
@@ -76,7 +77,7 @@ describe('workflowsApi persona version endpoints', () => {
   });
 
   it('forwards BFF identity when reading a workflow for a server-side mutation', async () => {
-    agencyGetMock.mockResolvedValue({ id: 'workflow-1' });
+    agencyGetMock.mockResolvedValue({id: 'workflow-1'});
     const user = {
       id: 'user-1',
       name: 'Test User',
@@ -97,7 +98,7 @@ describe('workflowsApi persona version endpoints', () => {
   });
 
   it('forwards BFF identity when listing workflows from a server route', async () => {
-    agencyGetMock.mockResolvedValue({ items: [] });
+    agencyGetMock.mockResolvedValue({items: []});
     const user = {
       id: 'user-1',
       name: 'Test User',
@@ -115,5 +116,30 @@ describe('workflowsApi persona version endpoints', () => {
         'x-agency-internal-api-key': 'internal-key',
       }),
     });
+  });
+});
+
+describe('workflow publication identity', () => {
+  it('delegates the signed-in identity and encodes the workflow ID for both actions', async () => {
+    const user = {
+      id: 'owner',
+      name: 'Owner',
+      email: 'owner@example.com',
+      image: null,
+      accessToken: null,
+      authMode: 'dev' as const,
+    };
+    const payload = {version: '2.0'};
+    postMock.mockResolvedValue({id: 'workflow/one'});
+    await backendWorkflowsApi.publishWorkflow('workflow/one', payload, user, 'internal-key');
+    await backendWorkflowsApi.unpublishWorkflow('workflow/one', payload, user, 'internal-key');
+    for (const action of ['publish', 'unpublish']) {
+      expect(postMock).toHaveBeenCalledWith(`/workflows/workflow%2Fone/${action}`, payload, {
+        headers: expect.objectContaining({
+          'x-agency-user-id': 'owner',
+          'x-agency-internal-api-key': 'internal-key',
+        }),
+      });
+    }
   });
 });

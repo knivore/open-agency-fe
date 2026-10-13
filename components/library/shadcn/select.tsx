@@ -8,6 +8,24 @@ import { cn } from '@/lib/utils';
 
 const Select = SelectPrimitive.Root;
 
+// Keep native form semantics for existing workspace selectors while sharing the
+// same tokens, focus treatment and prop/ref contract as the rest of the controls.
+export const NativeSelect = React.forwardRef<
+  HTMLSelectElement,
+  React.SelectHTMLAttributes<HTMLSelectElement>
+>(({ className, style, ...props }, ref) => (
+  <select
+    ref={ref}
+    className={cn(
+      'h-10 w-full min-w-0 rounded-lg border border-input bg-(--agency-input-bg) px-3 py-2 text-sm text-foreground outline-none transition-colors hover:border-primary/70 focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-ring/25 disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-70 aria-invalid:border-destructive aria-invalid:ring-destructive/20',
+      className
+    )}
+    style={{ boxShadow: 'var(--agency-input-shadow)', ...style }}
+    {...props}
+  />
+));
+NativeSelect.displayName = 'NativeSelect';
+
 const SelectGroup = SelectPrimitive.Group;
 
 const SelectValue = SelectPrimitive.Value;

@@ -1,11 +1,11 @@
 import * as React from 'react';
-import { Slot } from '@radix-ui/react-slot';
-import { cva, type VariantProps } from 'class-variance-authority';
+import {Slot} from '@radix-ui/react-slot';
+import {cva, type VariantProps} from 'class-variance-authority';
 
-import { cn } from '@/lib/utils';
+import {cn} from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&>svg]:m-0 [&>svg]:shrink-0',
   {
     variants: {
       variant: {
@@ -40,7 +40,7 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, title, ...props }, ref) => {
+  ({className, variant, size, asChild = false, title, ...props}, ref) => {
     const Comp = asChild ? Slot : 'button';
     const inferredTitle =
       title ??
@@ -49,7 +49,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         : undefined);
     return (
       <Comp
-        className={cn(buttonVariants({ variant, size, className }))}
+        className={cn(buttonVariants({variant, size, className}))}
         ref={ref}
         title={inferredTitle}
         {...props}
@@ -59,4 +59,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = 'Button';
 
-export { Button, buttonVariants };
+export {Button, buttonVariants};

@@ -1,5 +1,8 @@
 'use client';
 
+import { Textarea } from '@/components/library/shadcn/textarea';
+import { Input } from '@/components/library/shadcn/input';
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { useState } from 'react';
 import {
   AlertTriangle,
@@ -271,7 +274,7 @@ function AdvisoryProposalCard({
               {editable && onSendToMainAgent ? (
                 <label className="block space-y-1 text-sm text-neutral-700 dark:text-slate-300">
                   <span className="font-medium">Operator note</span>
-                  <textarea
+                  <Textarea
                     value={operatorNote}
                     placeholder="Add constraints, revisions, or extra context for the main agent."
                     disabled={isMutating}
@@ -615,7 +618,7 @@ function SteeringApprovalCard({
                   className="space-y-1 text-sm text-neutral-700 dark:text-slate-300 md:col-span-2"
                 >
                   <span className="font-medium">{field.label ?? field.name}</span>
-                  <textarea
+                  <Textarea
                     value={String(parameters[field.name] ?? '')}
                     placeholder={field.placeholder}
                     disabled={isMutating}
@@ -632,7 +635,7 @@ function SteeringApprovalCard({
                   className="space-y-1 text-sm text-neutral-700 dark:text-slate-300"
                 >
                   <span className="font-medium">{field.label ?? field.name}</span>
-                  <input
+                  <Input
                     type="number"
                     min={field.min}
                     max={field.max}
@@ -666,7 +669,7 @@ function SteeringApprovalCard({
                         key={option.value}
                         className="flex cursor-pointer items-center gap-2 rounded-md border border-neutral-200 px-2 py-1 text-xs has-disabled:cursor-not-allowed dark:border-white/10 dark:bg-slate-950/72"
                       >
-                        <input
+                        <Input
                           type="checkbox"
                           checked={selected.includes(option.value)}
                           disabled={isMutating}
@@ -688,7 +691,7 @@ function SteeringApprovalCard({
                 className="space-y-1 text-sm text-neutral-700 dark:text-slate-300"
               >
                 <span className="font-medium">{field.label ?? field.name}</span>
-                <select
+                <NativeSelect
                   value={String(parameters[field.name] ?? '')}
                   disabled={isMutating}
                   onChange={(event) => setParameter(field.name, event.target.value)}
@@ -700,7 +703,7 @@ function SteeringApprovalCard({
                       {option.label ?? option.value}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </label>
             );
           })}

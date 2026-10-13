@@ -1,7 +1,6 @@
-import { describe, expect, it, vi } from 'vitest';
-import { config } from './proxy';
-import proxy from './proxy';
-import { NextRequest } from 'next/server';
+import {describe, expect, it, vi} from 'vitest';
+import proxy, {config} from './proxy';
+import {NextRequest} from 'next/server';
 
 describe('proxy matcher', () => {
   it('does not invoke auth proxy for first-run setup pages', () => {
@@ -43,9 +42,9 @@ describe('proxy auth redirects', () => {
   it('preserves the full protected target in the login callback url', async () => {
     const originalFetch = global.fetch;
     global.fetch = async () =>
-      new Response(JSON.stringify({ user: null }), {
+      new Response(JSON.stringify({user: null}), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: {'content-type': 'application/json'},
       });
 
     try {
@@ -64,9 +63,9 @@ describe('proxy auth redirects', () => {
   it('returns authenticated users on the login route to the requested callback url', async () => {
     const originalFetch = global.fetch;
     global.fetch = async () =>
-      new Response(JSON.stringify({ user: { id: 'dev-user' } }), {
+      new Response(JSON.stringify({user: {id: 'dev-user'}}), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: {'content-type': 'application/json'},
       });
 
     try {
@@ -87,9 +86,9 @@ describe('proxy auth redirects', () => {
   it('does not let a slash-backslash callback escape the application origin', async () => {
     const originalFetch = global.fetch;
     global.fetch = async () =>
-      new Response(JSON.stringify({ user: { id: 'dev-user' } }), {
+      new Response(JSON.stringify({user: {id: 'dev-user'}}), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: {'content-type': 'application/json'},
       });
 
     try {
@@ -108,9 +107,9 @@ describe('proxy auth redirects', () => {
   it('recovers a stale unauthorized setup callback back to public setup', async () => {
     const originalFetch = global.fetch;
     global.fetch = async () =>
-      new Response(JSON.stringify({ user: null }), {
+      new Response(JSON.stringify({user: null}), {
         status: 200,
-        headers: { 'content-type': 'application/json' },
+        headers: {'content-type': 'application/json'},
       });
 
     try {
@@ -121,6 +120,33 @@ describe('proxy auth redirects', () => {
 
       expect(response.status).toBe(307);
       expect(response.headers.get('location')).toBe('http://localhost:3000/setup');
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+});
+
+
+describe('same-origin backend authentication', () => {
+  it('returns an API error instead of redirecting a signed-out mutation to HTML', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async () => Response.json({user: null});
+    try {
+      const response = await proxy(new NextRequest('http://localhost:3000/backend/conversations', {method: 'POST'}));
+      expect(response.status).toBe(401);
+      expect(response.headers.get('location')).toBeNull();
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('retains the normal authenticated backend path', async () => {
+    const originalFetch = global.fetch;
+    global.fetch = async () => Response.json({user: {id: 'dev-user'}});
+    try {
+      const response = await proxy(new NextRequest('http://localhost:3000/backend/conversations', {method: 'POST'}));
+      expect(response.status).toBe(200);
+      expect(response.headers.get('location')).toBeNull();
     } finally {
       global.fetch = originalFetch;
     }

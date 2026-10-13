@@ -1,13 +1,13 @@
 'use client';
 
-import type { ExecutionHost } from '@/types/workflows';
-import type { WorkflowCapabilityTag } from '@/types/workflows';
-import type { JsonObject } from '@/types/api';
-import { FileText } from 'lucide-react';
-import { Button } from '../library/shadcn/button';
-import { Input } from '../library/shadcn/input';
-import { Label } from '../library/shadcn/label';
-import { Textarea } from '../library/shadcn/textarea';
+import { NativeSelect } from '@/components/library/shadcn/select';
+import type {ExecutionHost, WorkflowCapabilityTag} from '@/types/workflows';
+import type {JsonObject} from '@/types/api';
+import {FileText} from 'lucide-react';
+import {Button} from '../library/shadcn/button';
+import {Input} from '../library/shadcn/input';
+import {Label} from '../library/shadcn/label';
+import {Textarea} from '../library/shadcn/textarea';
 import WorkflowPersistentCycleEditor from '@/components/workflow/WorkflowPersistentCycleEditor';
 
 interface RuntimeAdapterOption {
@@ -46,31 +46,43 @@ interface WorkflowMetadataEditorProps {
 }
 
 export default function WorkflowMetadataEditor({
-  name,
-  description,
-  entrypoint,
-  defaultRuntimeAdapterId,
-  executionHost,
-  restartActiveExecutions,
-  workflowMetadata,
-  visibleTaskDefinitions,
-  runtimeAdapters,
-  workflowNameInvalid,
-  workflowDescriptionInvalid,
-  draftValidationIssues,
-  hasUnsavedChanges,
-  isSaving,
-  autoSaveStatus = 'idle',
-  lastAutoSavedAt,
-  onNameChange,
-  onDescriptionChange,
-  onEntrypointChange,
-  onDefaultRuntimeAdapterChange,
-  onExecutionHostChange,
-  onRestartActiveExecutionsChange,
-  onWorkflowMetadataChange,
-  onSave,
-}: WorkflowMetadataEditorProps) {
+                                                 name,
+                                                 description,
+                                                 entrypoint,
+                                                 defaultRuntimeAdapterId,
+                                                 executionHost,
+                                                 restartActiveExecutions,
+                                                 workflowMetadata,
+                                                 visibleTaskDefinitions,
+                                                 runtimeAdapters,
+                                                 workflowNameInvalid,
+                                                 workflowDescriptionInvalid,
+                                                 draftValidationIssues,
+                                                 hasUnsavedChanges,
+                                                 isSaving,
+                                                 autoSaveStatus = 'idle',
+                                                 lastAutoSavedAt,
+                                                 onNameChange,
+                                                 onDescriptionChange,
+                                                 onEntrypointChange,
+                                                 onDefaultRuntimeAdapterChange,
+                                                 onExecutionHostChange,
+                                                 onRestartActiveExecutionsChange,
+                                                 onWorkflowMetadataChange,
+                                                 onSave,
+                                               }: WorkflowMetadataEditorProps) {
+  // Match the backend's deny precedence; an editor convenience must not clear
+  // an explicit policy restriction or silently grant mutation permissions.
+  const mainAgentAccessDenied = [
+    'deny_main_agent',
+    'denied_to_main_agent',
+    'hidden_from_main_agent',
+    'hide_from_main_agent',
+    'main_agent_denied',
+  ].some((key) => workflowMetadata[key] === true);
+  const mainAgentVisible =
+    !mainAgentAccessDenied &&
+    (workflowMetadata.visible_to_main_agent === true || workflowMetadata.visible_to_agent === true);
   const activeRunsBehaviorDescription = restartActiveExecutions
     ? 'Running executions restart after this workflow is saved.'
     : 'Running executions continue unchanged. Future runs use the saved workflow.';
@@ -87,9 +99,9 @@ export default function WorkflowMetadataEditor({
     if (autoSaveStatus === 'saved') {
       return lastAutoSavedAt
         ? `Autosaved at ${lastAutoSavedAt.toLocaleTimeString([], {
-            hour: 'numeric',
-            minute: '2-digit',
-          })}`
+          hour: 'numeric',
+          minute: '2-digit',
+        })}`
         : 'All changes saved.';
     }
     return hasUnsavedChanges ? 'Autosave pending...' : 'All changes saved.';
@@ -97,10 +109,13 @@ export default function WorkflowMetadataEditor({
 
   return (
     <>
-      <section className="workflow-surface-metadata grid gap-4 rounded-xl border border-neutral-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-12">
-        <div className="flex items-start gap-3 border-b border-neutral-200 pb-4 dark:border-white/10 md:col-span-2 xl:col-span-12">
-          <span className="workflow-metadata-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
-            <FileText className="size-[1.05rem] stroke-[1.75]" />
+      <section
+        className="workflow-surface-metadata grid gap-4 rounded-xl border border-neutral-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-12">
+        <div
+          className="flex items-start gap-3 border-b border-neutral-200 pb-4 dark:border-white/10 md:col-span-2 xl:col-span-12">
+          <span
+            className="workflow-metadata-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
+            <FileText className="size-[1.05rem] stroke-[1.75]"/>
           </span>
           <div>
             <h2 className="font-semibold text-neutral-950 dark:text-slate-100">
@@ -126,7 +141,7 @@ export default function WorkflowMetadataEditor({
         </div>
         <div className="space-y-2 md:col-span-2 xl:col-span-6">
           <Label htmlFor="workflow-entrypoint">Entrypoint</Label>
-          <select
+          <NativeSelect
             id="workflow-entrypoint"
             value={entrypoint}
             onChange={(event) => onEntrypointChange(event.target.value)}
@@ -138,7 +153,7 @@ export default function WorkflowMetadataEditor({
                 {task.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className="space-y-2 md:col-span-2 xl:col-span-7">
           <Label htmlFor="workflow-description">Description</Label>
@@ -154,7 +169,7 @@ export default function WorkflowMetadataEditor({
         </div>
         <div className="space-y-2 xl:col-span-5">
           <Label htmlFor="workflow-default-runtime-adapter">Runtime adapter</Label>
-          <select
+          <NativeSelect
             id="workflow-default-runtime-adapter"
             value={defaultRuntimeAdapterId}
             onChange={(event) => onDefaultRuntimeAdapterChange(event.target.value)}
@@ -166,11 +181,11 @@ export default function WorkflowMetadataEditor({
                 {adapter.name} ({adapter.id})
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <div className="space-y-2 xl:col-span-4">
           <Label htmlFor="workflow-execution-host">Execution host</Label>
-          <select
+          <NativeSelect
             id="workflow-execution-host"
             value={executionHost}
             onChange={(event) => onExecutionHostChange(event.target.value as ExecutionHost)}
@@ -178,7 +193,7 @@ export default function WorkflowMetadataEditor({
           >
             <option value="local">Local backend process</option>
             <option value="docker">Docker container</option>
-          </select>
+          </NativeSelect>
           <p className="text-xs text-neutral-500 dark:text-slate-400">
             Docker starts an isolated container for each run when the backend Docker host is
             configured.
@@ -186,7 +201,7 @@ export default function WorkflowMetadataEditor({
         </div>
         <div className="space-y-2 xl:col-span-8">
           <Label htmlFor="workflow-active-run-behavior">Active run behavior</Label>
-          <select
+          <NativeSelect
             id="workflow-active-run-behavior"
             value={restartActiveExecutions ? 'restart' : 'keep'}
             onChange={(event) => onRestartActiveExecutionsChange(event.target.value === 'restart')}
@@ -194,16 +209,45 @@ export default function WorkflowMetadataEditor({
           >
             <option value="keep">Active runs stay current</option>
             <option value="restart">Active runs restart</option>
-          </select>
+          </NativeSelect>
           <p className="text-xs text-neutral-500 dark:text-slate-400">
             {activeRunsBehaviorDescription}
+          </p>
+        </div>
+        <div className="space-y-2 md:col-span-2 xl:col-span-12">
+          <Label htmlFor="workflow-main-agent-access">Main agent access</Label>
+          <NativeSelect
+            id="workflow-main-agent-access"
+            value={mainAgentVisible ? 'visible' : 'hidden'}
+            disabled={mainAgentAccessDenied || isSaving}
+            aria-describedby="workflow-main-agent-access-help"
+            onChange={(event) =>
+              onWorkflowMetadataChange({
+                ...workflowMetadata,
+                visible_to_main_agent: event.target.value === 'visible',
+                visible_to_agent: event.target.value === 'visible',
+              })
+            }
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm disabled:opacity-50 dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
+          >
+            <option value="hidden">Hidden from the main agent</option>
+            <option value="visible">Visible to the main agent</option>
+          </NativeSelect>
+          <p
+            id="workflow-main-agent-access-help"
+            className="text-xs text-neutral-500 dark:text-slate-400"
+          >
+            {mainAgentAccessDenied
+              ? 'Workflow policy blocks main agent access. This control cannot override that restriction.'
+              : 'Visibility lets the main agent inspect this workflow and use its existing execution and monitoring controls. Editing permission and execution approvals stay separate. Changes use workflow autosave.'}
           </p>
         </div>
         <WorkflowPersistentCycleEditor
           metadata={workflowMetadata}
           onMetadataChange={onWorkflowMetadataChange}
         />
-        <div className="flex flex-col gap-3 border-t border-neutral-200 pt-3 dark:border-white/10 md:col-span-2 xl:col-span-12 sm:flex-row sm:items-center sm:justify-between">
+        <div
+          className="flex flex-col gap-3 border-t border-neutral-200 pt-3 dark:border-white/10 md:col-span-2 xl:col-span-12 sm:flex-row sm:items-center sm:justify-between">
           <p
             className={`text-xs ${
               autoSaveStatus === 'error' || autoSaveStatus === 'blocked'

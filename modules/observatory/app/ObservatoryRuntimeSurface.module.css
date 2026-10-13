@@ -139,6 +139,7 @@
 
 .actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
@@ -213,6 +214,16 @@
   gap: 16px;
   align-items: start;
 }
+
+.canvasTuner.layoutChecks {
+  display: block;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.layoutChecks summary { cursor: pointer; font-weight: 700; }
+.layoutChecks p { margin-top: 8px; }
+.layoutChecks button { width: 100%; margin-top: 6px; text-align: left; }
 
 .viewerContent {
   display: grid;
@@ -1247,6 +1258,30 @@
 }
 
 @media (min-width: 1180px) {
+  .sidePanel {
+    min-width: 0;
+    grid-template-columns: minmax(0, 1fr);
+    position: sticky;
+    top: 12px;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
+  }
+
+  .canvasColumn {
+    position: sticky;
+    top: 12px;
+  }
+
+  .inspectorHost:empty {
+    display: none;
+  }
+  .inspectorHost {
+    margin-bottom: 12px;
+    min-width: 0;
+    width: 100%;
+  }
   .grid {
     grid-template-columns: minmax(0, 1.9fr) minmax(300px, 0.56fr);
   }

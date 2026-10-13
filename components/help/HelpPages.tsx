@@ -1,4 +1,10 @@
-import type { ComponentType } from 'react';
+'use client';
+
+import { useEffect, useState, type ComponentType } from 'react';
+import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
+import AppState from '@/components/app-shell/AppState';
+import { NativeSelect } from '@/components/library/shadcn/select';
+import { FormSection } from '@/components/app-shell/FormSection';
 import Link from 'next/link';
 import {
   Activity,
@@ -224,7 +230,47 @@ function QuickStartPath() {
   );
 }
 
+function questionId(question: string) {
+  return (
+    'faq-' +
+    question
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/-$/, '')
+  );
+}
+
 export function FaqPage() {
+  const [search, setSearch] = useState('');
+  const [topic, setTopic] = useState('all');
+  const [openQuestion, setOpenQuestion] = useState('');
+  useEffect(() => {
+    const readHash = () => {
+      const item = faqGroups
+        .flatMap((group) => group.items)
+        .find((item) => '#' + questionId(item.question) === window.location.hash);
+      if (item) {
+        setSearch('');
+        setTopic('all');
+        setOpenQuestion(item.question);
+      }
+    };
+    const timer = window.setTimeout(readHash, 0);
+    window.addEventListener('hashchange', readHash);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener('hashchange', readHash);
+    };
+  }, []);
+  const groups = faqGroups
+    .filter((group) => topic === 'all' || group.title === topic)
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        (item.question + ' ' + item.answer).toLowerCase().includes(search.trim().toLowerCase())
+      ),
+    }))
+    .filter((group) => group.items.length > 0);
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
@@ -242,58 +288,81 @@ export function FaqPage() {
         }
       />
 
-      <QuickStartPath />
-
-      <section aria-labelledby="help-shortcuts-title">
-        <h2
-          id="help-shortcuts-title"
-          className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-(--agency-shell-muted)"
+      <WorkspaceToolbar
+        search={{
+          label: 'Search questions',
+          placeholder: 'Search questions and answers',
+          value: search,
+          onChange: setSearch,
+        }}
+        summary={`${groups.reduce((count, group) => count + group.items.length, 0)} answers`}
+        onReset={
+          search || topic !== 'all'
+            ? () => {
+                setSearch('');
+                setTopic('all');
+              }
+            : undefined
+        }
+      >
+        <NativeSelect
+          aria-label="FAQ topic"
+          value={topic}
+          onChange={(event) => setTopic(event.target.value)}
+          className="w-full sm:w-64"
         >
-          Helpful shortcuts
-        </h2>
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <ActionCard
-            icon={BotMessageSquare}
-            title="Ask Assistant"
-            description="Let the Main Agent explain this screen or help you choose the next step."
-            href="/assistant"
-          />
-          <ActionCard
-            icon={PlugZap}
-            title="Set up integrations"
-            description="Choose a connector, save its credential, and run its health test."
-            href="/integrations"
-          />
-          <ActionCard
-            icon={Radar}
-            title="Diagnostics"
-            description="Check local backend health, readiness, and operational evidence."
-            href="/operations/diagnostics"
-          />
-          <ActionCard
-            icon={Activity}
-            title="Run history"
-            description="Inspect the exact execution, events, artifacts, and approval state."
-            href="/runs"
-          />
-        </div>
-      </section>
-
+          <option value="all">All topics</option>
+          {faqGroups.map((group) => (
+            <option key={group.title} value={group.title}>
+              {group.title}
+            </option>
+          ))}
+        </NativeSelect>
+      </WorkspaceToolbar>
+      {!groups.length ? (
+        <AppState
+          variant="empty"
+          title="No matching answers"
+          description="Try another question or clear the filters."
+          actionLabel="Clear filters"
+          onAction={() => {
+            setSearch('');
+            setTopic('all');
+          }}
+        />
+      ) : null}
       <div className="flex flex-col gap-4">
-        {faqGroups.map((group) => (
+        {groups.map((group) => (
           <Card key={group.title}>
             <CardHeader className="border-b border-(--agency-shell-border)">
               <CardTitle className="text-base">{group.title}</CardTitle>
             </CardHeader>
             <CardContent>
-              <Accordion type="single" collapsible className="w-full">
+              <Accordion
+                type="single"
+                collapsible
+                className="w-full"
+                value={openQuestion}
+                onValueChange={setOpenQuestion}
+              >
                 {group.items.map((item) => (
-                  <AccordionItem key={item.question} value={item.question}>
+                  <AccordionItem
+                    key={item.question}
+                    id={questionId(item.question)}
+                    value={item.question}
+                    className="scroll-mt-24"
+                  >
                     <AccordionTrigger className="text-left text-sm no-underline hover:no-underline">
                       {item.question}
                     </AccordionTrigger>
                     <AccordionContent className="max-w-4xl text-sm leading-6 text-(--agency-shell-muted)">
                       {item.answer}
+                      <a
+                        href={`#${questionId(item.question)}`}
+                        className="mt-3 block text-xs text-primary underline underline-offset-4"
+                      >
+                        Link to this answer
+                      </a>
                     </AccordionContent>
                   </AccordionItem>
                 ))}
@@ -302,6 +371,48 @@ export function FaqPage() {
           </Card>
         ))}
       </div>
+      <FormSection
+        title="Getting started and shortcuts"
+        description="Follow the setup path or jump to a related workspace."
+        advanced
+      >
+        <QuickStartPath />
+
+        <section aria-labelledby="help-shortcuts-title">
+          <h2
+            id="help-shortcuts-title"
+            className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-(--agency-shell-muted)"
+          >
+            Helpful shortcuts
+          </h2>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <ActionCard
+              icon={BotMessageSquare}
+              title="Ask Assistant"
+              description="Let the Main Agent explain this screen or help you choose the next step."
+              href="/assistant"
+            />
+            <ActionCard
+              icon={PlugZap}
+              title="Set up integrations"
+              description="Choose a connector, save its credential, and run its health test."
+              href="/integrations"
+            />
+            <ActionCard
+              icon={Radar}
+              title="Diagnostics"
+              description="Check local backend health, readiness, and operational evidence."
+              href="/operations/diagnostics"
+            />
+            <ActionCard
+              icon={Activity}
+              title="Run history"
+              description="Inspect the exact execution, events, artifacts, and approval state."
+              href="/runs"
+            />
+          </div>
+        </section>
+      </FormSection>
     </div>
   );
 }

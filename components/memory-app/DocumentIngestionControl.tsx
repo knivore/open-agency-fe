@@ -1,7 +1,8 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import type { DragEvent } from 'react';
-import { useId, useRef, useState, useTransition } from 'react';
+import { useId, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, FileText, Upload, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -148,7 +149,8 @@ export default function DocumentIngestionControl({
   const [intelligence, setIntelligence] = useState<DocumentUploadIntelligenceResult | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  // Keep forms locked through both the request and its refresh.
+  const [isPending, setIsPending] = useState(false);
 
   const clearFile = () => {
     setFile(null);
@@ -272,52 +274,56 @@ export default function DocumentIngestionControl({
     selectFile(event.dataTransfer.files?.[0]);
   };
 
-  const handleIngest = () => {
+  const handleIngest = async () => {
+    if (isPending) return;
     if (!file) {
       return;
     }
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          const result = await documentsApi.ingestDocument({
-            file,
-            scope,
-            workspaceId: effectiveWorkspaceId.trim() || undefined,
-            conversationId: effectiveConversationId.trim() || undefined,
-            workflowId: effectiveWorkflowId.trim() || undefined,
-            agentId: effectiveAgentId.trim() || undefined,
-            tags: normalizedTags(tags),
-            chunkSize:
-              customChunking || intelligence?.recommended?.chunk_size
-                ? Number(chunkSize) || undefined
-                : undefined,
-            chunkOverlap:
-              customChunking || intelligence?.recommended?.chunk_overlap !== undefined
-                ? Number(chunkOverlap) || undefined
-                : undefined,
-            autoIntelligence: true,
-            allowScopeSuggestion: !lockedScope,
-            allowAgentSuggestion: !lockedAgent,
-            purpose,
-            uploadMode,
-          });
-          await queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() });
-          await onIngested?.(result);
-          clearFile();
-          toast.success(uploadSuccessMessage(result), { position: 'top-right' });
-        } catch (ingestError) {
-          setError(
-            ingestError instanceof Error ? ingestError.message : 'Failed to ingest document.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      const result = await documentsApi.ingestDocument({
+        file,
+        scope,
+        workspaceId: effectiveWorkspaceId.trim() || undefined,
+        conversationId: effectiveConversationId.trim() || undefined,
+        workflowId: effectiveWorkflowId.trim() || undefined,
+        agentId: effectiveAgentId.trim() || undefined,
+        tags: normalizedTags(tags),
+        chunkSize:
+          customChunking || intelligence?.recommended?.chunk_size
+            ? Number(chunkSize) || undefined
+            : undefined,
+        chunkOverlap:
+          customChunking || intelligence?.recommended?.chunk_overlap !== undefined
+            ? Number(chunkOverlap) || undefined
+            : undefined,
+        autoIntelligence: true,
+        allowScopeSuggestion: !lockedScope,
+        allowAgentSuggestion: !lockedAgent,
+        purpose,
+        uploadMode,
+      });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.backendMemories(),
+      });
+      await onIngested?.(result);
+      clearFile();
+      toast.success(uploadSuccessMessage(result), { position: 'top-right' });
+    } catch (ingestError) {
+      setError(
+        ingestError instanceof Error
+          ? ingestError.message
+          : 'Failed to ingest document.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const content = (
-    <div className="space-y-4">
-      <input
+    <div className="@container space-y-4">
+      <Input
         ref={fileInputRef}
         type="file"
         accept={documentUploadAccept}
@@ -341,13 +347,13 @@ export default function DocumentIngestionControl({
             : 'border-slate-300 bg-slate-50 hover:border-primary-300 hover:bg-white dark:border-white/12 dark:bg-slate-950/70 dark:hover:border-sky-300/35 dark:hover:bg-slate-950/88'
         }`}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 @[26rem]:flex-row @[26rem]:items-center @[26rem]:justify-between">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-700 dark:bg-sky-500/12 dark:text-sky-200">
               <Upload className="h-5 w-5" />
             </div>
             <div className="min-w-0">
-              <p className="text-sm font-semibold text-slate-950 dark:text-slate-100">
+              <p className="break-words text-sm font-semibold text-slate-950 dark:text-slate-100">
                 {file ? file.name : 'Drop a document here'}
               </p>
               <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -362,6 +368,7 @@ export default function DocumentIngestionControl({
           <Button
             type="button"
             variant="outline"
+            className="shrink-0"
             disabled={isPending}
             onClick={() => fileInputRef.current?.click()}
           >
@@ -450,7 +457,7 @@ export default function DocumentIngestionControl({
           {allowedUploadModes.length > 1 ? (
             <div className="space-y-1.5 md:col-span-2">
               <Label htmlFor={`${idPrefix}-document-upload-mode`}>Use document as</Label>
-              <select
+              <NativeSelect
                 id={`${idPrefix}-document-upload-mode`}
                 value={uploadMode}
                 onChange={(event) => setUploadMode(event.target.value as DocumentUploadMode)}
@@ -462,7 +469,7 @@ export default function DocumentIngestionControl({
                     {uploadModeLabels[mode]}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           ) : null}
           <div className="space-y-1.5">
@@ -470,7 +477,7 @@ export default function DocumentIngestionControl({
             {lockedScope ? (
               <Input id={`${idPrefix}-document-memory-scope`} value={scopeLabel(scope)} disabled />
             ) : (
-              <select
+              <NativeSelect
                 id={`${idPrefix}-document-memory-scope`}
                 value={scope}
                 onChange={(event) => handleScopeChange(event.target.value as DocumentMemoryScope)}
@@ -482,7 +489,7 @@ export default function DocumentIngestionControl({
                     {scopeLabel(item)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             )}
           </div>
           {scope === 'workspace' ? (
@@ -507,7 +514,7 @@ export default function DocumentIngestionControl({
                   disabled
                 />
               ) : (
-                <select
+                <NativeSelect
                   id={`${idPrefix}-document-conversation-id`}
                   value={localConversationId}
                   onChange={(event) => setLocalConversationId(event.target.value)}
@@ -520,7 +527,7 @@ export default function DocumentIngestionControl({
                       {conversation.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               )}
             </div>
           ) : null}
@@ -534,7 +541,7 @@ export default function DocumentIngestionControl({
                   disabled
                 />
               ) : (
-                <select
+                <NativeSelect
                   id={`${idPrefix}-document-workflow-id`}
                   value={localWorkflowId}
                   onChange={(event) => setLocalWorkflowId(event.target.value)}
@@ -547,7 +554,7 @@ export default function DocumentIngestionControl({
                       {workflow.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               )}
             </div>
           ) : null}
@@ -565,7 +572,7 @@ export default function DocumentIngestionControl({
                 disabled
               />
             ) : (
-              <select
+              <NativeSelect
                 id={`${idPrefix}-document-agent-id`}
                 value={localAgentId}
                 onChange={(event) => setLocalAgentId(event.target.value)}
@@ -578,7 +585,7 @@ export default function DocumentIngestionControl({
                     {agent.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             )}
           </div>
           <div className="space-y-1.5">
@@ -594,7 +601,7 @@ export default function DocumentIngestionControl({
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-document-custom-chunking`}>Chunking</Label>
             <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100">
-              <input
+              <Input
                 id={`${idPrefix}-document-custom-chunking`}
                 type="checkbox"
                 checked={customChunking}

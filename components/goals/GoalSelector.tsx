@@ -29,10 +29,6 @@ function goalLabel(summary: GoalOperatorSummary) {
   return summary.goal.objective || summary.goal.id;
 }
 
-export function goalMentionHandle(summary: GoalOperatorSummary) {
-  return summary.goal.id.replace(/[^a-zA-Z0-9_-]/g, '-');
-}
-
 export default function GoalSelector({
   selectedGoalId,
   onGoalChange,

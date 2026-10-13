@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="144" height="96" viewBox="0 0 144 96" shape-rendering="crispEdges" role="img" aria-labelledby="title">
+  <title id="title">Open Agency kitchenette with coffee machine, microwave, sink and cupboards</title>
+  <path fill="#39394e" d="M0 36h144v54H0zM6 90h9v6H6zm123 0h9v6h-9z"/>
+  <path fill="#c5c1ce" d="M3 39h138v15H3z"/>
+  <path fill="#eee9e2" d="M3 39h138v3H3z"/>
+  <path fill="#77778d" d="M3 51h138v6H3z"/>
+  <path fill="#b7ac94" d="M3 57h42v27H3zm45 0h45v27H48zm48 0h45v27H96z"/>
+  <path fill="#d3c5a7" d="M6 60h36v3H6zm45 0h39v3H51zm48 0h39v3H99z"/>
+  <path fill="#777085" d="M36 66h3v9h-3zm48 0h3v9h-3zm48 0h3v9h-3z"/>
+  <path fill="#56556d" d="M3 84h138v6H3z"/>
+  <!-- Equipment rests on the worktop; the cabinet face is a single continuous unit. -->
+  <path fill="#39394e" d="M9 9h30v33H9z"/>
+  <path fill="#9394aa" d="M12 12h24v12H12z"/>
+  <path fill="#c5c8d7" d="M15 15h18v3H15z"/>
+  <path fill="#626479" d="M12 27h24v12H12z"/>
+  <path fill="#39394e" d="M21 24h6v6h-6z"/>
+  <path fill="#f1e7d1" d="M18 30h12v9H18zm12 0h6v6h-6z"/>
+  <path fill="#795b4e" d="M21 30h6v3h-6z"/>
+  <path fill="#d2cfdc" d="M48 9h45v30H48z"/>
+  <path fill="#56556d" d="M48 9h45v3H48zm0 3h3v27h-3zm42 0h3v27h-3zm-39 24h39v3H51z"/>
+  <path fill="#39394e" d="M54 15h24v18H54z"/>
+  <path fill="#777c94" d="M57 18h18v9H57z"/>
+  <path fill="#b0b4c7" d="M57 18h18v3H57z"/>
+  <path fill="#777085" d="M81 15h6v6h-6zm0 12h6v6h-6z"/>
+  <path fill="#9bafad" d="M84 15h3v3h-3z"/>
+  <path fill="#77778d" d="M102 39h33v15h-33z"/>
+  <path fill="#39394e" d="M105 42h27v9h-27z"/>
+  <path fill="#a0b4c2" d="M108 45h21v6h-21z"/>
+  <path fill="#56556d" d="M114 21h15v6h-9v15h-6z"/>
+  <path fill="#d4d5df" d="M114 21h12v3h-9v15h-3z"/>
+  <path fill="#77778d" d="M102 30h6v6h-6z"/>
+</svg>

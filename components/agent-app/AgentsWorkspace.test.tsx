@@ -1,16 +1,17 @@
 import type {
   ButtonHTMLAttributes,
   HTMLAttributes,
-  InputHTMLAttributes,
   LabelHTMLAttributes,
   ReactNode,
-  TextareaHTMLAttributes,
 } from 'react';
-import { forwardRef } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {forwardRef} from 'react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import AgentsWorkspace from '@/components/agent-app/AgentsWorkspace';
+
+const {router} = vi.hoisted(() => ({router: {push: vi.fn()}}));
+vi.mock('next/navigation', () => ({useRouter: () => router}));
 
 const {
   agentsApi,
@@ -42,6 +43,8 @@ const {
   documentsApi: {
     listDocuments: vi.fn(),
     deleteDocument: vi.fn(),
+    analyzeUpload: vi.fn(),
+    ingestDocument: vi.fn(),
   },
   memoriesApi: {
     listMemories: vi.fn(),
@@ -54,7 +57,7 @@ const {
     listTools: vi.fn(),
   },
 }));
-const { useRegisterAssistantPageContext } = vi.hoisted(() => ({
+const {useRegisterAssistantPageContext} = vi.hoisted(() => ({
   useRegisterAssistantPageContext: vi.fn(),
 }));
 
@@ -99,7 +102,7 @@ vi.mock('sonner', () => ({
 vi.mock('@/components/library/shadcn/button', () => ({
   buttonVariants: () => '',
   Button: forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement>>(
-    function ButtonMock({ children, ...props }, ref) {
+    function ButtonMock({children, ...props}, ref) {
       return (
         <button ref={ref} type="button" {...props}>
           {children}
@@ -109,34 +112,27 @@ vi.mock('@/components/library/shadcn/button', () => ({
   ),
 }));
 
-vi.mock('@/components/library/shadcn/input', () => ({
-  Input: (props: InputHTMLAttributes<HTMLInputElement>) => <input {...props} />,
-}));
-
-vi.mock('@/components/library/shadcn/textarea', () => ({
-  Textarea: (props: TextareaHTMLAttributes<HTMLTextAreaElement>) => <textarea {...props} />,
-}));
-
 vi.mock('@/components/library/shadcn/label', () => ({
-  Label: ({ children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
+  Label: ({children, ...props}: LabelHTMLAttributes<HTMLLabelElement>) => (
     <label {...props}>{children}</label>
   ),
 }));
 
-vi.mock('@/components/library/shadcn/select', () => ({
-  Select: ({ children }: { children: ReactNode }) => <>{children}</>,
-  SelectTrigger: ({ children, ...props }: HTMLAttributes<HTMLButtonElement>) => (
+vi.mock('@/components/library/shadcn/select', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/components/library/shadcn/select')>()),
+  Select: ({children}: { children: ReactNode }) => <>{children}</>,
+  SelectTrigger: ({children, ...props}: HTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>
       {children}
     </button>
   ),
-  SelectValue: ({ children }: { children?: ReactNode }) => <>{children}</>,
-  SelectContent: ({ children }: { children: ReactNode }) => <>{children}</>,
+  SelectValue: ({children}: { children?: ReactNode }) => <>{children}</>,
+  SelectContent: ({children}: { children: ReactNode }) => <>{children}</>,
   SelectItem: ({
-    children,
-    value,
-    ...props
-  }: { children: ReactNode; value: string } & HTMLAttributes<HTMLOptionElement>) => (
+                 children,
+                 value,
+                 ...props
+               }: { children: ReactNode; value: string } & HTMLAttributes<HTMLOptionElement>) => (
     <option value={value} {...props}>
       {children}
     </option>
@@ -154,18 +150,18 @@ function renderWorkspace() {
 
   return render(
     <QueryClientProvider client={queryClient}>
-      <AgentsWorkspace />
+      <AgentsWorkspace/>
     </QueryClientProvider>
   );
 }
 
 function openToolGroup(name: RegExp | string) {
-  fireEvent.click(screen.getByRole('button', { name }));
+  fireEvent.click(screen.getByRole('button', {name}));
 }
 
 function openToolAssignment() {
-  fireEvent.click(screen.getByText('Tool access'));
-  fireEvent.click(screen.getByRole('button', { name: /Tool assignment/i }));
+  if (screen.queryByRole('dialog')) fireEvent.click(screen.getByText('Tool access'));
+  else fireEvent.mouseDown(screen.getByRole('tab', {name: /^Capabilities/}), {button: 0, ctrlKey: false});
 }
 
 describe('AgentsWorkspace', () => {
@@ -204,7 +200,7 @@ describe('AgentsWorkspace', () => {
       default_workflow_id: 'workflow-main-1',
       default_model_profile_id: 'profile-1',
     });
-    memoriesApi.listMemories.mockResolvedValue({ items: [] });
+    memoriesApi.listMemories.mockResolvedValue({items: []});
     personasApi.listPersonas.mockResolvedValue({
       items: [
         {
@@ -225,7 +221,8 @@ describe('AgentsWorkspace', () => {
       default_workflow_id: 'workflow-main-1',
       default_model_profile_id: 'profile-3',
     });
-    documentsApi.listDocuments.mockResolvedValue({ items: [] });
+    documentsApi.listDocuments.mockResolvedValue({items: []});
+    documentsApi.analyzeUpload.mockResolvedValue({filename: 'agent-notes.md', source: 'fallback', document_kind: 'general', summary: 'Reference material.', confidence: 1, rationale: 'Provided context.', recommended: {}});
     behaviorProfilesApi.listProfiles.mockResolvedValue([
       {
         id: 'profile-1',
@@ -251,11 +248,13 @@ describe('AgentsWorkspace', () => {
         {
           id: 'tool-search',
           name: 'Search Tool',
+          routing: {group: 'memory.read'},
           description: 'Search external knowledge.',
         },
         {
           id: 'tool-email',
           name: 'Email Tool',
+          routing: {group: 'connector.write'},
           description: 'Send outbound messages.',
         },
       ],
@@ -287,7 +286,7 @@ describe('AgentsWorkspace', () => {
         role: 'Frontend implementation specialist',
         tool_ids: [],
         handoff_agent_ids: [],
-        metadata: { enabled: false },
+        metadata: {enabled: false},
       },
       suggested_tool_ids: [
         {
@@ -336,7 +335,7 @@ describe('AgentsWorkspace', () => {
             instructions: '# Frontend Developer',
             tool_ids: [],
             handoff_agent_ids: [],
-            metadata: { enabled: false },
+            metadata: {enabled: false},
           },
           suggested_tool_ids: [],
           suggested_handoff_agent_ids: [],
@@ -358,7 +357,7 @@ describe('AgentsWorkspace', () => {
             instructions: '# Backend Architect',
             tool_ids: [],
             handoff_agent_ids: [],
-            metadata: { enabled: false },
+            metadata: {enabled: false},
           },
           suggested_tool_ids: [],
           suggested_handoff_agent_ids: [],
@@ -373,12 +372,12 @@ describe('AgentsWorkspace', () => {
       results: [
         {
           status: 'created',
-          agent: { id: 'frontend-developer', name: 'Frontend Developer' },
+          agent: {id: 'frontend-developer', name: 'Frontend Developer'},
           warnings: [],
         },
         {
           status: 'created',
-          agent: { id: 'backend-architect', name: 'Backend Architect' },
+          agent: {id: 'backend-architect', name: 'Backend Architect'},
           warnings: [],
         },
       ],
@@ -394,26 +393,29 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
     expect(screen.getByText('Main orchestrator')).toBeInTheDocument();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[0]);
+    fireEvent.click(screen.getAllByRole('button', {name: 'Edit agent'})[0]);
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveFocus();
+    expect(screen.queryByRole('button', {name: 'Delete agent'})).not.toBeInTheDocument();
 
     const nameInput = screen.getByLabelText('Name');
     const roleInput = screen.getByLabelText('Role');
-    const instructionsInput = screen.getByLabelText('Instructions');
+    const instructionsInput = screen.getByRole('textbox', {name: 'Instructions'});
     const profileSelect = screen.getByLabelText('Model profile');
     openToolAssignment();
-    openToolGroup(/Memory and Knowledge/i);
-    const searchToolCheckbox = screen.getByRole('checkbox', { name: /Search Tool/i });
+    openToolGroup(/Memory & knowledge/i);
+    const searchToolCheckbox = screen.getByRole('checkbox', {name: /Search Tool/i});
 
-    fireEvent.change(nameInput, { target: { value: 'Jarvis' } });
-    fireEvent.change(roleInput, { target: { value: 'Main Agent' } });
-    fireEvent.change(instructionsInput, { target: { value: 'Be extra helpful.' } });
-    fireEvent.change(profileSelect, { target: { value: 'profile-3' } });
+    fireEvent.change(nameInput, {target: {value: 'Jarvis'}});
+    fireEvent.change(roleInput, {target: {value: 'Main Agent'}});
+    fireEvent.change(instructionsInput, {target: {value: 'Be extra helpful.'}});
+    fireEvent.change(profileSelect, {target: {value: 'profile-3'}});
     fireEvent.click(searchToolCheckbox);
-    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save agent'}));
 
     await waitFor(() => {
       expect(conversationsApi.updateMainAgent).toHaveBeenCalledWith({
@@ -433,6 +435,26 @@ describe('AgentsWorkspace', () => {
         metadata: {},
       });
     });
+  });
+
+  it('searches the directory without changing grants and restores the harness when cleared', async () => {
+    renderWorkspace();
+    await screen.findByRole('button', {name: 'Inspect Main'});
+    fireEvent.change(screen.getByRole('searchbox', {name: 'Search agents'}), {
+      target: {value: 'research'},
+    });
+    expect(screen.queryByRole('button', {name: 'Inspect Main'})).not.toBeInTheDocument();
+    expect(screen.getByRole('group', {name: 'Research Agent agent'})).toBeInTheDocument();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole('searchbox', {name: 'Search agents'}), {
+      target: {value: ''},
+    });
+    expect(screen.getByRole('button', {name: 'Inspect Main'})).toHaveAttribute(
+      'aria-current',
+      'true'
+    );
+    expect(screen.getByText('All enabled capabilities')).toBeInTheDocument();
+    expect(conversationsApi.updateMainAgent).not.toHaveBeenCalled();
   });
 
   it('pins the active main agent first even when the backend returns it later', async () => {
@@ -467,21 +489,24 @@ describe('AgentsWorkspace', () => {
       expect(screen.getByText('Main orchestrator')).toBeInTheDocument();
     });
 
-    const agentCards = screen.getAllByRole('group');
-    expect(agentCards[0]).toHaveAccessibleName('Main agent');
-    expect(agentCards[1]).toHaveAccessibleName('Research Agent agent');
+    const directory = within(screen.getByRole('navigation', {name: 'Agent directory'}));
+    const entries = directory.getAllByRole('button');
+    expect(entries[0]).toHaveAccessibleName('Inspect Main');
+    expect(entries[1]).toHaveAccessibleName('Inspect Research Agent');
+    expect(screen.getByRole('group', {name: 'Main agent'})).toBeInTheDocument();
   });
 
   it('binds a persona to an agent through metadata', async () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Research Agent')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Research Agent'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[1]);
-    fireEvent.change(screen.getByLabelText('Persona'), { target: { value: 'persona-1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Persona'), {target: {value: 'persona-1'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Save agent'}));
 
     await waitFor(() => {
       expect(agentsApi.updateAgent).toHaveBeenCalledWith(
@@ -502,14 +527,18 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Research Agent')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Research Agent'})).toBeInTheDocument();
     });
 
-    expect(screen.getAllByText('Agent documents')).toHaveLength(2);
-    expect(screen.getAllByText('Assigned tools')).toHaveLength(2);
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Research Agent'}));
+    openToolAssignment();
+    expect(screen.getByText('Assigned tools')).toBeInTheDocument();
+    openToolGroup(/Memory & knowledge/i);
     expect(screen.getByText('Search Tool')).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole('tab', {name: 'Documents'}), {button: 0, ctrlKey: false});
+    expect(screen.getAllByText('Agent documents')).toHaveLength(1);
     await waitFor(() => {
-      expect(screen.getAllByText('No documents attached.')).toHaveLength(2);
+      expect(screen.getAllByText('No documents attached.')).toHaveLength(1);
     });
     expect(screen.queryByText('Select document')).not.toBeInTheDocument();
   });
@@ -518,18 +547,18 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Research Agent')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Research Agent'})).toBeInTheDocument();
     });
 
     await waitFor(() => {
       expect(useRegisterAssistantPageContext).toHaveBeenLastCalledWith(
         expect.objectContaining({
-          selection: { agentId: 'agent-main-1' },
+          selection: {agentId: 'agent-main-1'},
         })
       );
     });
 
-    fireEvent.click(screen.getByRole('group', { name: 'Research Agent agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Research Agent'}));
 
     await waitFor(() => {
       expect(useRegisterAssistantPageContext).toHaveBeenLastCalledWith(
@@ -541,7 +570,7 @@ describe('AgentsWorkspace', () => {
               name: 'Research Agent',
             },
           ],
-          selection: { agentId: 'agent-other-1' },
+          selection: {agentId: 'agent-other-1'},
           summary: expect.objectContaining({
             selectedAgentName: 'Research Agent',
             selectedAgentIsMain: false,
@@ -575,10 +604,12 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Legacy Agent')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Legacy Agent'})).toBeInTheDocument();
     });
 
-    expect(screen.getByText('Research Profile')).toBeInTheDocument();
+    expect(within(screen.getByRole('group', {name: 'Legacy Agent agent'})).getByText('Research Profile')).toBeInTheDocument();
+    openToolAssignment();
+    openToolGroup(/Memory & knowledge/i);
     expect(screen.getByText('Search Tool')).toBeInTheDocument();
   });
 
@@ -598,20 +629,20 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'New agent' }));
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ops Agent' } });
-    fireEvent.change(screen.getByLabelText('Instructions'), {
-      target: { value: 'Handle operational requests.' },
+    fireEvent.click(screen.getByRole('button', {name: 'New agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Ops Agent'}});
+    fireEvent.change(screen.getByRole('textbox', {name: 'Instructions'}), {
+      target: {value: 'Handle operational requests.'},
     });
-    fireEvent.change(screen.getByLabelText('Role'), { target: { value: 'Operations' } });
-    fireEvent.change(screen.getByLabelText('Model profile'), { target: { value: 'profile-3' } });
+    fireEvent.change(screen.getByLabelText('Role'), {target: {value: 'Operations'}});
+    fireEvent.change(screen.getByLabelText('Model profile'), {target: {value: 'profile-3'}});
     openToolAssignment();
-    openToolGroup(/Communication and Human Input/i);
-    fireEvent.click(screen.getByRole('checkbox', { name: /Email Tool/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create agent' }));
+    openToolGroup(/Connections & delivery/i);
+    fireEvent.click(screen.getByRole('checkbox', {name: /Email Tool/i}));
+    fireEvent.click(screen.getByRole('button', {name: 'Create agent'}));
 
     await waitFor(() => {
       expect(agentsApi.createAgent).toHaveBeenCalledWith({
@@ -630,14 +661,14 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Import agent'}));
     fireEvent.change(screen.getByLabelText('Markdown'), {
-      target: { value: '---\nname: Frontend Developer\n---\n# Frontend Developer' },
+      target: {value: '---\nname: Frontend Developer\n---\n# Frontend Developer'},
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Preview import' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Preview import'}));
 
     await waitFor(() => {
       expect(agentsApi.previewAgentImport).toHaveBeenCalledWith({
@@ -647,19 +678,19 @@ describe('AgentsWorkspace', () => {
       });
     });
     expect(await screen.findByText('agency_agents_markdown')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Import reviewed agent' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Import reviewed agent'})).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Model profile'), { target: { value: 'profile-3' } });
+    fireEvent.change(screen.getByLabelText('Model profile'), {target: {value: 'profile-3'}});
     fireEvent.click(screen.getByLabelText(/Enable after import/i));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Search Tool/i }));
-    fireEvent.click(screen.getByRole('checkbox', { name: /Research Agent/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Commit import' }));
+    fireEvent.click(screen.getByRole('checkbox', {name: /Search Tool/i}));
+    fireEvent.click(screen.getByRole('checkbox', {name: /Research Agent/i}));
+    fireEvent.click(screen.getByRole('button', {name: 'Commit import'}));
 
     await waitFor(() => {
       expect(agentsApi.commitAgentImport).toHaveBeenCalledWith({
         proposal: expect.objectContaining({
           detected_format: 'agency_agents_markdown',
-          agent: expect.objectContaining({ name: 'Frontend Developer' }),
+          agent: expect.objectContaining({name: 'Frontend Developer'}),
         }),
         conflictStrategy: 'create_only',
         approvedToolIds: ['tool-search'],
@@ -674,37 +705,37 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import agent' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Import agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Upload'}));
     fireEvent.change(screen.getByLabelText('Markdown files'), {
       target: {
         files: [
-          new File(['# Frontend Developer'], 'frontend.md', { type: 'text/markdown' }),
-          new File(['# Backend Architect'], 'backend.md', { type: 'text/markdown' }),
+          new File(['# Frontend Developer'], 'frontend.md', {type: 'text/markdown'}),
+          new File(['# Backend Architect'], 'backend.md', {type: 'text/markdown'}),
         ],
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Preview import' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Preview import'}));
 
     await waitFor(() => {
       expect(agentsApi.previewAgentImportFiles).toHaveBeenCalledWith([
-        expect.objectContaining({ name: 'frontend.md' }),
-        expect.objectContaining({ name: 'backend.md' }),
+        expect.objectContaining({name: 'frontend.md'}),
+        expect.objectContaining({name: 'backend.md'}),
       ]);
     });
     expect(await screen.findByText('Batch preview')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Backend Architect' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Backend Architect'})).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Commit all without tools' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Commit all without tools'}));
 
     await waitFor(() => {
       expect(agentsApi.commitAgentImportBatch).toHaveBeenCalledWith([
         expect.objectContaining({
           proposal: expect.objectContaining({
-            agent: expect.objectContaining({ name: 'Frontend Developer' }),
+            agent: expect.objectContaining({name: 'Frontend Developer'}),
           }),
           conflictStrategy: 'create_only',
           approvedToolIds: [],
@@ -714,7 +745,7 @@ describe('AgentsWorkspace', () => {
         }),
         expect.objectContaining({
           proposal: expect.objectContaining({
-            agent: expect.objectContaining({ name: 'Backend Architect' }),
+            agent: expect.objectContaining({name: 'Backend Architect'}),
           }),
         }),
       ]);
@@ -737,7 +768,7 @@ describe('AgentsWorkspace', () => {
             instructions: '# Frontend Developer',
             tool_ids: [],
             handoff_agent_ids: [],
-            metadata: { enabled: false },
+            metadata: {enabled: false},
           },
           suggested_tool_ids: [],
           suggested_handoff_agent_ids: [],
@@ -758,7 +789,7 @@ describe('AgentsWorkspace', () => {
             instructions: '# Risky Import',
             tool_ids: [],
             handoff_agent_ids: [],
-            metadata: { enabled: false },
+            metadata: {enabled: false},
           },
           suggested_tool_ids: [],
           suggested_handoff_agent_ids: [],
@@ -780,29 +811,29 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Import agent' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Upload' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Import agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Upload'}));
     fireEvent.change(screen.getByLabelText('Markdown files'), {
       target: {
         files: [
-          new File(['# Frontend Developer'], 'frontend.md', { type: 'text/markdown' }),
-          new File(['# Risky Import'], 'risky.md', { type: 'text/markdown' }),
+          new File(['# Frontend Developer'], 'frontend.md', {type: 'text/markdown'}),
+          new File(['# Risky Import'], 'risky.md', {type: 'text/markdown'}),
         ],
       },
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Preview import' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Preview import'}));
 
     expect(await screen.findByText('1 import require individual review.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Commit safe imports' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Commit safe imports'}));
 
     await waitFor(() => {
       expect(agentsApi.commitAgentImportBatch).toHaveBeenCalledWith([
         expect.objectContaining({
           proposal: expect.objectContaining({
-            agent: expect.objectContaining({ name: 'Frontend Developer' }),
+            agent: expect.objectContaining({name: 'Frontend Developer'}),
           }),
         }),
       ]);
@@ -816,19 +847,19 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'New agent' }));
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'All Tool Agent' } });
-    fireEvent.change(screen.getByLabelText('Instructions'), {
-      target: { value: 'Use every assigned tool when useful.' },
+    fireEvent.click(screen.getByRole('button', {name: 'New agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'All Tool Agent'}});
+    fireEvent.change(screen.getByRole('textbox', {name: 'Instructions'}), {
+      target: {value: 'Use every assigned tool when useful.'},
     });
     openToolAssignment();
-    fireEvent.click(screen.getByRole('button', { name: 'All tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'No tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'All tools' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Create agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select matching (2)'}));
+    fireEvent.click(screen.getByRole('button', {name: 'No tools'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Select matching (2)'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Create agent'}));
 
     await waitFor(() => {
       expect(agentsApi.createAgent).toHaveBeenCalledWith({
@@ -849,16 +880,19 @@ describe('AgentsWorkspace', () => {
         {
           id: 'tool-browser',
           name: 'Capture Browser Screenshot',
+          routing: {group: 'browser.read'},
           description: 'Capture the current browser page screenshot.',
         },
         {
           id: 'tool-file',
           name: 'Convert Markdown to Word',
+          routing: {group: 'documents.write'},
           description: 'Convert markdown text into a Word document.',
         },
         {
           id: 'tool-command',
           name: 'Run Command',
+          routing: {group: 'code.execution'},
           description: 'Run CLI commands in the selected workspace.',
         },
       ],
@@ -867,27 +901,27 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Main')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[0]);
+    fireEvent.click(screen.getAllByRole('button', {name: 'Edit agent'})[0]);
 
-    expect(screen.getByRole('button', { name: /Tool assignment/i })).toBeInTheDocument();
-    expect(screen.queryByText('Browser and Screenshots')).not.toBeInTheDocument();
+    expect(screen.getByText('Tool assignment')).toBeInTheDocument();
+    expect(screen.getByLabelText('Search capabilities')).not.toBeVisible();
 
     openToolAssignment();
-    expect(screen.getByText('Browser and Screenshots')).toBeInTheDocument();
-    expect(screen.getByText('Files and Documents')).toBeInTheDocument();
-    expect(screen.getByText('System and Command')).toBeInTheDocument();
+    expect(screen.getByText('Browser & local apps')).toBeInTheDocument();
+    expect(screen.getByText('Files & documents')).toBeInTheDocument();
+    expect(screen.getByText('System & commands')).toBeInTheDocument();
     expect(
-      screen.queryByRole('checkbox', { name: /Capture Browser Screenshot/i })
+      screen.queryByRole('checkbox', {name: /Capture Browser Screenshot/i})
     ).not.toBeInTheDocument();
 
-    openToolGroup(/Browser and Screenshots/i);
-    expect(screen.getByRole('checkbox', { name: /Capture Browser Screenshot/i })).toBeVisible();
+    openToolGroup(/Browser & local apps/i);
+    expect(screen.getByRole('checkbox', {name: /Capture Browser Screenshot/i})).toBeVisible();
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Select group' })[0]);
-    fireEvent.click(screen.getByRole('button', { name: 'Save agent' }));
+    fireEvent.click(screen.getAllByRole('button', {name: 'Select group'})[0]);
+    fireEvent.click(screen.getByRole('button', {name: 'Save agent'}));
 
     await waitFor(() => {
       expect(agentsApi.updateAgent).toHaveBeenCalledWith(
@@ -903,12 +937,13 @@ describe('AgentsWorkspace', () => {
     renderWorkspace();
 
     await waitFor(() => {
-      expect(screen.getByText('Research Agent')).toBeInTheDocument();
+      expect(screen.getByRole('button', {name: 'Inspect Research Agent'})).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[1]);
-    fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Delete agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Delete agent'}));
 
     await waitFor(() => {
       expect(agentsApi.deleteAgent).toHaveBeenCalledWith('agent-other-1');
@@ -922,26 +957,172 @@ describe('AgentsWorkspace', () => {
 
     renderWorkspace();
 
-    expect(await screen.findByText('Research Agent')).toBeInTheDocument();
+    expect(
+      await screen.findByRole('button', {name: 'Inspect Research Agent'})
+    ).toBeInTheDocument();
     expect(screen.getByText('Tool assignments are temporarily unavailable')).toBeInTheDocument();
     expect(screen.queryByText(/UndefinedColumnError/i)).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry tools' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Retry tools'})).toBeInTheDocument();
   });
 
-  it('protects unsaved agent edits before closing the dialog', async () => {
+  it('protects unsaved inline edits before canceling and restores edit focus', async () => {
     renderWorkspace();
 
-    await screen.findByText('Research Agent');
-    fireEvent.click(screen.getAllByRole('button', { name: 'Edit agent' })[1]);
-    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Research Lead' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await screen.findByRole('button', {name: 'Inspect Research Agent'});
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Research Lead'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Cancel'}));
 
-    expect(screen.getByRole('heading', { name: 'Discard unsaved changes?' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Continue editing' }));
-    expect(screen.getByRole('heading', { name: 'Edit Research Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Discard unsaved changes?'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Continue editing'}));
+    expect(screen.getByLabelText('Name')).toHaveValue('Research Lead');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' }));
-    expect(screen.queryByRole('heading', { name: 'Edit Research Agent' })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Cancel'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Discard changes'}));
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Edit agent'})).toHaveFocus();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('guards switching agents and keeps the current draft until explicitly discarded', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Research Lead'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Main'}));
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Continue editing'}));
+    expect(screen.getByLabelText('Name')).toHaveValue('Research Lead');
+    expect(screen.getByRole('button', {name: 'Inspect Research Agent'})).toHaveAttribute('aria-current', 'true');
+    fireEvent.click(screen.getByRole('button', {name: 'Inspect Main'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Discard changes'}));
+    expect(screen.getByRole('group', {name: 'Main agent'})).toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('keeps the draft visible when directory search filters out the edited agent', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByRole('textbox', {name: 'Instructions'}), {target: {value: 'Draft instructions'}});
+    fireEvent.change(screen.getByRole('searchbox', {name: 'Search agents'}), {target: {value: 'Main'}});
+    expect(screen.queryByRole('button', {name: 'Inspect Research Agent'})).not.toBeInTheDocument();
+    expect(screen.getByRole('textbox', {name: 'Instructions'})).toHaveValue('Draft instructions');
+    expect(screen.getByRole('group', {name: 'Research Agent agent'})).toBeInTheDocument();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('guards app navigation before an inline draft can be unmounted', async () => {
+    renderWorkspace();
+    render(<a href="/models">Models route</a>);
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Research Lead'}});
+    fireEvent.click(screen.getByRole('link', {name: 'Models route'}));
+    expect(router.push).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', {name: 'Continue editing'}));
+    expect(screen.getByLabelText('Name')).toHaveValue('Research Lead');
+    fireEvent.click(screen.getByRole('link', {name: 'Models route'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Discard changes'}));
+    expect(router.push).toHaveBeenCalledWith('/models');
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('preserves failed saves in the editor so they can be corrected or retried', async () => {
+    agentsApi.updateAgent.mockRejectedValueOnce(new Error('Save unavailable'));
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Research Lead'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Save agent'}));
+    expect(await screen.findByRole('alert')).toHaveTextContent('Save unavailable');
+    expect(screen.getByLabelText('Name')).toHaveValue('Research Lead');
+    expect(screen.getByRole('button', {name: 'Save agent'})).toBeEnabled();
+  });
+
+  it('browses main-agent capabilities without implicitly saving grants', async () => {
+    renderWorkspace();
+    await screen.findByRole('button', {name: 'Inspect Main'});
+    openToolAssignment();
+    expect(screen.getByText('2 available')).toBeInTheDocument();
+    openToolGroup(/Connections & delivery/i);
+    expect(screen.getByText('Email Tool')).toBeVisible();
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument();
+    expect(screen.getByText('All enabled capabilities')).toBeVisible();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+    expect(conversationsApi.updateMainAgent).not.toHaveBeenCalled();
+  });
+
+  it('filters persona-backed agents, searches models and clears both filters', async () => {
+    agentsApi.listAgentCatalog.mockResolvedValue([
+      {id: 'agent-main-1', name: 'Assistant', config: {instructions: 'Help.', modelProfileId: 'profile-1', toolIds: [], handoffAgentIds: []}},
+      {id: 'agent-persona-1', name: 'Audit Specialist', config: {instructions: 'Review.', modelProfileId: 'profile-3', toolIds: [], handoffAgentIds: [], metadata: {persona_id: 'persona-1', persona_slug: 'audit-manager', generated_from_persona_factory: true}}},
+    ]);
+    renderWorkspace();
+    await screen.findByRole('button', {name: 'Inspect Main'});
+    fireEvent.change(screen.getByLabelText('Filter agents by type'), {target: {value: 'personas'}});
+    expect(screen.queryByRole('button', {name: 'Inspect Main'})).not.toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Inspect Audit Specialist'})).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', {name: 'Search agents'}), {target: {value: 'Operations Profile'}});
+    expect(screen.getByRole('group', {name: 'Audit Specialist agent'})).toBeInTheDocument();
+    fireEvent.change(screen.getByRole('searchbox', {name: 'Search agents'}), {target: {value: 'does not exist'}});
+    expect(screen.getByRole('heading', {name: 'No matching agents'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Clear search'}));
+    expect(screen.getByLabelText('Filter agents by type')).toHaveValue('all');
+    expect(screen.getByRole('button', {name: 'Inspect Main'})).toHaveAttribute('aria-current', 'true');
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('preserves identity, instructions and a chosen document across sections without saving', async () => {
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Research Lead'}});
+    fireEvent.change(screen.getByRole('textbox', {name: 'Instructions'}), {target: {value: 'Draft behavior'}});
+    fireEvent.mouseDown(screen.getByRole('tab', {name: 'Documents'}), {button: 0, ctrlKey: false});
+    const documents = screen.getByRole('tabpanel', {name: 'Documents'});
+    fireEvent.change(documents.querySelector('input[type="file"]')!, {target: {files: [new File(['Reference context'], 'agent-notes.md', {type: 'text/markdown'})]}});
+    await waitFor(() => expect(documentsApi.analyzeUpload).toHaveBeenCalledTimes(1));
+    openToolAssignment();
+    fireEvent.mouseDown(screen.getByRole('tab', {name: 'Overview'}), {button: 0, ctrlKey: false});
+    expect(screen.getByLabelText('Name')).toHaveValue('Research Lead');
+    expect(screen.getByRole('textbox', {name: 'Instructions'})).toHaveValue('Draft behavior');
+    fireEvent.mouseDown(screen.getByRole('tab', {name: 'Documents'}), {button: 0, ctrlKey: false});
+    expect(screen.getByRole('button', {name: 'Change file'})).toBeVisible();
+    expect(within(screen.getByRole('tabpanel', {name: 'Documents'})).getAllByText('agent-notes.md')[0]).toBeVisible();
+    expect(documentsApi.analyzeUpload).toHaveBeenCalledTimes(1);
+    expect(documentsApi.ingestDocument).not.toHaveBeenCalled();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('retains an unavailable model preset in the reusable identity fields', async () => {
+    behaviorProfilesApi.listProfiles.mockResolvedValue([]);
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    expect(screen.getByLabelText('Model profile')).toHaveValue('profile-2');
+    expect(screen.getByRole('option', {name: 'profile-2 · Unavailable'})).toBeInTheDocument();
+    expect(agentsApi.updateAgent).not.toHaveBeenCalled();
+  });
+
+  it('blocks competing actions while a save is pending', async () => {
+    let finish!: (value: unknown) => void;
+    agentsApi.updateAgent.mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    renderWorkspace();
+    fireEvent.click(await screen.findByRole('button', {name: 'Inspect Research Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit agent'}));
+    fireEvent.change(screen.getByLabelText('Name'), {target: {value: 'Research Lead'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Save agent'}));
+    expect(screen.getByRole('button', {name: 'Saving...'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Cancel'})).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Inspect Main'})).toBeDisabled();
+    expect(screen.getByRole('searchbox', {name: 'Search agents'})).toBeDisabled();
+    expect(screen.getByLabelText('Filter agents by type')).toBeDisabled();
+    expect(screen.getByLabelText('Name')).toBeDisabled();
+    finish({id: 'agent-other-1', name: 'Research Lead'});
+    await screen.findByRole('button', {name: 'Edit agent'});
+    expect(agentsApi.updateAgent).toHaveBeenCalledTimes(1);
   });
 });

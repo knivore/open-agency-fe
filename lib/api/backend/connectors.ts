@@ -1,5 +1,5 @@
-import { agencyApiClient, appApiClient } from '@/lib/api/clientInstances';
-import { backendRoutes } from '@/lib/api/backend/routes';
+import {agencyApiClient, appApiClient} from '@/lib/api/clientInstances';
+import {backendRoutes} from '@/lib/api/backend/routes';
 import type {
   ConnectorHealthHistoryPayload,
   ConnectorInstallationDefinition,
@@ -32,7 +32,62 @@ function connectorHistoryQueryString(query?: ConnectorHistoryQuery) {
   return serialized ? `?${serialized}` : '';
 }
 
+export type TelegramLinkStatus = {
+  status: 'not_linked' | 'waiting' | 'linked' | 'verified' | 'enabled' | 'expired';
+  link_url?: string;
+  display_name?: string;
+  conversation_id?: string;
+};
+
+export type WhatsAppSetupStatus = {
+  mode: 'personal' | 'business';
+  installation_id: string;
+  connection_status: string;
+  account_connected: boolean;
+  bridge_status?: string;
+  setup_expired?: boolean;
+  qr_data_url?: string;
+  linking: { status: string; display_name?: string; conversation_id?: string };
+  webhook_verified?: boolean;
+  template_verified?: boolean;
+  human_action?: string;
+  link_url?: string;
+  webhook_url?: string;
+  webhook_verify_token?: string;
+};
+
 export const connectorsApi = {
+  whatsappSetupStatus(installationId: string) {
+    return appApiClient.get<WhatsAppSetupStatus>(
+      `/api/backend-connectors/installations/${installationId}/whatsapp-setup`
+    );
+  },
+  whatsappSetupAction(
+    installationId: string,
+    action: 'start' | 'verify' | 'test' | 'enable' | 'disconnect'
+  ) {
+    return appApiClient.post<WhatsAppSetupStatus>(
+      `/api/backend-connectors/installations/${installationId}/whatsapp-setup/${action}`,
+      {}
+    );
+  },
+  telegramLinkStatus(installationId: string) {
+    return appApiClient.get<TelegramLinkStatus>(
+      `/api/backend-connectors/installations/${installationId}/telegram-link`
+    );
+  },
+  startTelegramLink(installationId: string) {
+    return appApiClient.post<TelegramLinkStatus>(
+      `/api/backend-connectors/installations/${installationId}/telegram-link`,
+      {}
+    );
+  },
+  enableTelegramNotifications(installationId: string) {
+    return appApiClient.post<TelegramLinkStatus>(
+      `/api/backend-connectors/installations/${installationId}/telegram-link/enable`,
+      {}
+    );
+  },
   listConnectorInstallations() {
     return appApiClient.get<{ items: ConnectorInstallationDefinition[] }>(
       '/api/backend-connectors/installations'
@@ -103,7 +158,7 @@ export const backendConnectorsApi = {
   resumeConnectorSetupSession(installationId: string, headers: HeadersInit) {
     return agencyApiClient.get<ConnectorSetupSessionPayload>(
       backendRoutes.connectors.setupSessionByInstallationId(installationId),
-      { headers }
+      {headers}
     );
   },
   createConnectorSetupSession(

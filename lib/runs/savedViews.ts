@@ -12,6 +12,8 @@ export interface SavedRunView {
   label: string;
   search: string;
   status: RunsStatusFilter;
+  workflowId?: string;
+  dateRange?: string;
 }
 
 let savedRunViewsCache: SavedRunView[] | null = null;
@@ -35,7 +37,9 @@ function normalizeSavedRunViews(value: unknown): SavedRunView[] {
         typeof candidate.id === 'string' &&
         typeof candidate.label === 'string' &&
         typeof candidate.search === 'string' &&
-        typeof candidate.status === 'string'
+        typeof candidate.status === 'string' &&
+        (candidate.workflowId === undefined || typeof candidate.workflowId === 'string') &&
+        (candidate.dateRange === undefined || ['all', '1', '7', '30'].includes(candidate.dateRange))
       );
     })
     .slice(0, 12);
@@ -64,20 +68,40 @@ function publishSavedRunViews(items: SavedRunView[]) {
   window.dispatchEvent(new Event(savedRunViewsChangeEvent));
 }
 
-export function createSavedRunView(search: string, status: RunsStatusFilter): SavedRunView {
+export function createSavedRunView(
+  search: string,
+  status: RunsStatusFilter,
+  filters: { workflowId?: string; dateRange?: string; workflowLabel?: string } = {}
+): SavedRunView {
   const normalizedSearch = search.trim();
   const statusLabel = status === 'all' ? 'All statuses' : status.replaceAll('_', ' ');
   return {
     id: crypto.randomUUID(),
-    label: normalizedSearch ? `${statusLabel} · ${normalizedSearch}` : statusLabel,
+    label: [
+      normalizedSearch ? `${statusLabel} · ${normalizedSearch}` : statusLabel,
+      filters.workflowId && filters.workflowId !== 'all'
+        ? filters.workflowLabel || filters.workflowId
+        : '',
+      filters.dateRange && filters.dateRange !== 'all' ? `Last ${filters.dateRange} day(s)` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
     search: normalizedSearch,
     status,
+    ...(filters.workflowId && filters.workflowId !== 'all'
+      ? { workflowId: filters.workflowId }
+      : {}),
+    ...(['1', '7', '30'].includes(filters.dateRange || '') ? { dateRange: filters.dateRange } : {}),
   };
 }
 
 export function saveRunView(view: SavedRunView) {
   const duplicate = readSavedRunViews().find(
-    (item) => item.search === view.search && item.status === view.status
+    (item) =>
+      item.search === view.search &&
+      item.status === view.status &&
+      (item.workflowId || 'all') === (view.workflowId || 'all') &&
+      (item.dateRange || 'all') === (view.dateRange || 'all')
   );
   if (duplicate) {
     return duplicate;

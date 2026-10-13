@@ -20,6 +20,13 @@ describe('run presentation', () => {
     ).toBe('Provider credentials are missing.');
   });
 
+  it('summarizes verbose validation failures while keeping the source error intact', () => {
+    const run = { id: 'schema-run', status: 'failed' as const, error: 'input is not of type object\nFailed validating type in schema' };
+    expect(describeRunEvidence(run)).toContain('required schema');
+    expect(run.error).toContain('Failed validating');
+    expect(describeRunEvidence({ id: 'finished', status: 'completed' })).toContain('Inspect outputs and evidence');
+  });
+
   it('formats compact execution duration', () => {
     expect(
       formatRunDuration({

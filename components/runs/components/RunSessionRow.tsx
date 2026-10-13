@@ -98,7 +98,7 @@ export default function RunSessionRow({
               ) : (
                 <FileCheck2 className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               )}
-              <span className="line-clamp-2" title={evidence}>
+              <span className="line-clamp-2" title={execution.error || evidence}>
                 {evidence}
               </span>
             </div>
@@ -131,7 +131,7 @@ export default function RunSessionRow({
           ) : (
             <FileCheck2 className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           )}
-          <span className="line-clamp-2" title={evidence}>
+          <span className="line-clamp-2" title={execution.error || evidence}>
             {evidence}
           </span>
         </div>

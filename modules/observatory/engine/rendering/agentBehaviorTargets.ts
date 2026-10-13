@@ -1,5 +1,10 @@
 import type { ObservatoryAssetDefinition } from '@/modules/observatory/engine/assets/assetRegistry';
 import type {
+  ObservatoryCharacterActionName,
+  ObservatoryCharacterDirection,
+} from '../assets/assetRegistry';
+import { observatoryObjectVisibleBounds } from '../world/objectGeometry';
+import type {
   ObservatoryAgent,
   ObservatoryMap,
   ObservatoryObject,
@@ -22,41 +27,39 @@ export interface ObservatoryAgentBehaviorTargetOptions {
   fromPoint?: { x: number; y: number };
   seed?: number | string;
   targetRoomId: string;
+  tileSize?: number;
+  occupiedPoints?: Array<{ x: number; y: number }>;
+  occupiedFootPositions?: Array<{ x: number; y: number }>;
 }
 
 export function pickObservatoryAgentBehaviorTargetPoint(
   map: ObservatoryMap,
   options: ObservatoryAgentBehaviorTargetOptions
 ) {
+  return resolveObservatoryAgentBehaviorInteraction(map, options)?.point ?? null;
+}
+export function resolveObservatoryAgentBehaviorInteraction(
+  map: ObservatoryMap,
+  options: ObservatoryAgentBehaviorTargetOptions
+): ObservatoryObjectInteraction | null {
   const room = map.rooms.find((candidate) => candidate.id === options.targetRoomId);
-
-  if (!room) {
-    return null;
-  }
-
+  if (!room) return null;
   const agent = map.agents.find((candidate) => candidate.id === options.agentId);
-  const explicitTargetObject = agent?.runtime?.targetObjectId
-    ? map.objects.find((object) => object.id === agent.runtime?.targetObjectId)
-    : undefined;
-  const targetObject = explicitTargetObject ?? pickBehaviorTargetObject(map, room, agent, options);
-
-  if (targetObject) {
-    const adjacentPoint = pickObservatoryObjectAdjacentWalkablePoint(map, targetObject, {
-      assetsById: options.assetsById,
-      fromPoint: options.fromPoint,
-      seed: `${options.agentId}:${targetObject.id}:${options.seed ?? ''}`,
+  const explicit = map.objects.find(
+    (object) => object.id === agent?.runtime?.targetObjectId && object.roomId === room.id
+  );
+  const target = explicit ?? pickBehaviorTargetObject(map, room, agent, options);
+  if (target) {
+    const interaction = resolveObservatoryObjectInteraction(map, target, {
+      ...options,
+      seed: `${options.agentId}:${target.id}:${options.seed ?? ''}`,
     });
-
-    if (adjacentPoint) {
-      return adjacentPoint;
-    }
+    if (interaction) return interaction;
   }
-
-  return pickObservatoryRoomRoamPoint(map, room, {
-    assetsById: options.assetsById,
-    fromPoint: options.fromPoint,
-    seed: `${options.agentId}:${options.seed ?? ''}`,
-  });
+  const point = pickObservatoryRoomRoamPoint(map, room, options);
+  return point
+    ? { point, direction: 'down', action: 'idle', offsetPx: { x: 0, y: 0 }, objectId: '' }
+    : null;
 }
 
 export function pickObservatoryObjectAdjacentWalkablePoint(
@@ -68,10 +71,125 @@ export function pickObservatoryObjectAdjacentWalkablePoint(
     seed?: number | string;
   } = {}
 ) {
-  const bounds = objectCollisionGridRect(object, options.assetsById);
-  const candidates = createObjectInteractionCandidates(bounds, options.seed ?? object.id);
+  return resolveObservatoryObjectInteraction(map, object, options)?.point ?? null;
+}
 
-  return pickWalkableCandidate(map, candidates, options.assetsById, options.fromPoint);
+export interface ObservatoryObjectInteraction {
+  point: { x: number; y: number };
+  direction: ObservatoryCharacterDirection;
+  action: ObservatoryCharacterActionName;
+  offsetPx: { x: number; y: number };
+  objectId: string;
+}
+
+export function resolveObservatoryObjectInteraction(
+  map: ObservatoryMap,
+  requestedObject: ObservatoryObject,
+  options: {
+    assetsById?: Map<string, ObservatoryAssetDefinition>;
+    fromPoint?: { x: number; y: number };
+    seed?: number | string;
+    tileSize?: number;
+    occupiedPoints?: Array<{ x: number; y: number }>;
+    occupiedFootPositions?: Array<{ x: number; y: number }>;
+  } = {}
+): ObservatoryObjectInteraction | null {
+  let object = requestedObject;
+  const seen = new Set([object.id]);
+  // A keyboard or monitor belongs to its desk; approaching its tiny source crop
+  // can otherwise put an agent inside the desk's blocking footprint.
+  while (object.runtime?.targetObjectId) {
+    const parent = map.objects.find(
+      (candidate) =>
+        candidate.id === object.runtime?.targetObjectId && candidate.roomId === object.roomId
+    );
+    if (!parent || seen.has(parent.id)) break;
+    seen.add(parent.id);
+    object = parent;
+  }
+  const tile = options.tileSize ?? 48;
+  const bounds = objectCollisionGridRect(object, options.assetsById);
+  const occupied = (point: { x: number; y: number }, offset = { x: 0, y: 0 }) =>
+    options.occupiedPoints?.some((other) => isSameGridPoint(point, other)) ||
+    isFootPositionOccupied(point, offset, tile, options.occupiedFootPositions);
+  const seats = map.objects.filter(
+    (candidate) =>
+      candidate.runtime?.targetObjectId === object.id &&
+      candidate.runtime.role === 'workstation-seat'
+  );
+  for (const seat of seats) {
+    const visible = observatoryObjectVisibleBounds(
+      seat,
+      options.assetsById?.get(seat.assetId),
+      tile
+    );
+    const centerX = visible.x + visible.width / 2;
+    const point = {
+      x: Math.floor(centerX / tile),
+      y: Math.floor((visible.y + visible.height - 1) / tile),
+    };
+    const offsetPx = {
+      x: Math.max(-tile / 2, Math.min(tile / 2, centerX - (point.x + 0.5) * tile)),
+      y: Math.max(
+        -tile / 2,
+        Math.min(tile / 2, visible.y + visible.height - (point.y + 0.5) * tile)
+      ),
+    };
+    if (
+      occupied(point, offsetPx) ||
+      !pickWalkableCandidate(map, [point], options.assetsById, options.fromPoint)
+    )
+      continue;
+    const direction = directionTowardObject(point, bounds);
+    return {
+      point,
+      direction,
+      // The tracked sheet has only left/right sitting poses. A north-facing desk
+      // uses its supported idle pose instead of silently showing a sideways sit.
+      action: direction === 'left' || direction === 'right' ? 'sit' : 'idle',
+      offsetPx,
+      objectId: object.id,
+    };
+  }
+  const candidates = createObjectInteractionCandidates(bounds, options.seed ?? object.id).filter(
+    (point) => !occupied(point)
+  );
+  const point = pickWalkableCandidate(map, candidates, options.assetsById, options.fromPoint);
+  return point
+    ? {
+        point,
+        direction: directionTowardObject(point, bounds),
+        action: 'idle',
+        offsetPx: { x: 0, y: 0 },
+        objectId: object.id,
+      }
+    : null;
+}
+
+function isFootPositionOccupied(
+  point: { x: number; y: number },
+  offset: { x: number; y: number },
+  tile: number,
+  feet?: Array<{ x: number; y: number }>
+) {
+  const x = (point.x + 0.5) * tile + offset.x,
+    y = (point.y + 0.5) * tile + offset.y;
+  // Chair offsets can put adjacent grid destinations only half a tile apart.
+  // Reserve the rendered footprint too, so actors do not stack at the same desk.
+  return (
+    feet?.some(
+      (other) => Math.abs(other.x - x) < tile * 0.9 && Math.abs(other.y - y) < tile * 0.6
+    ) ?? false
+  );
+}
+
+function directionTowardObject(
+  point: { x: number; y: number },
+  bounds: { x: number; y: number; width: number; height: number }
+): ObservatoryCharacterDirection {
+  const dx = bounds.x + (bounds.width - 1) / 2 - point.x;
+  const dy = bounds.y + (bounds.height - 1) / 2 - point.y;
+  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : dy > 0 ? 'down' : 'up';
 }
 
 export function resolveObservatoryGridPath(
@@ -138,6 +256,9 @@ export function pickObservatoryRoomRoamPoint(
     assetsById?: Map<string, ObservatoryAssetDefinition>;
     fromPoint?: { x: number; y: number };
     seed?: number | string;
+    tileSize?: number;
+    occupiedPoints?: Array<{ x: number; y: number }>;
+    occupiedFootPositions?: Array<{ x: number; y: number }>;
   } = {}
 ) {
   const { minX, maxX, minY, maxY } = observatoryRoomInteriorBounds(room);
@@ -154,6 +275,13 @@ export function pickObservatoryRoomRoamPoint(
 
     if (
       isObservatoryGridWalkable(map, candidate, options.assetsById) &&
+      !options.occupiedPoints?.some((point) => isSameGridPoint(point, candidate)) &&
+      !isFootPositionOccupied(
+        candidate,
+        { x: 0, y: 0 },
+        options.tileSize ?? 48,
+        options.occupiedFootPositions
+      ) &&
       (!options.fromPoint ||
         isSameGridPoint(options.fromPoint, candidate) ||
         resolveObservatoryGridPath(map, options.fromPoint, candidate, options.assetsById).length >
@@ -163,7 +291,7 @@ export function pickObservatoryRoomRoamPoint(
     }
   }
 
-  return pickWalkableCandidate(map, [{ x: minX, y: minY }], options.assetsById);
+  return null;
 }
 
 export function isObservatoryGridWalkable(
@@ -270,6 +398,8 @@ export function classifyObservatoryObjectBehaviorRole(
   objectOrAssetId: ObservatoryObject | string,
   assetsById?: Map<string, ObservatoryAssetDefinition>
 ): ObservatoryBehaviorTargetRole {
+  if (typeof objectOrAssetId !== 'string' && objectOrAssetId.runtime?.role === 'workstation')
+    return 'computer';
   const assetId = typeof objectOrAssetId === 'string' ? objectOrAssetId : objectOrAssetId.assetId;
   const asset = assetsById?.get(assetId);
   const text = [
@@ -397,11 +527,15 @@ function statusToBehavior(
   return 'ambient';
 }
 
-function objectCollisionGridRect(
+export function objectCollisionGridRect(
   object: ObservatoryObject,
   assetsById?: Map<string, ObservatoryAssetDefinition>
 ) {
-  const collision = assetsById?.get(object.assetId)?.collision;
+  // Cropped assemblies reserve their visible footprint in `size`; the pack's
+  // collision offsets still refer to the original padded source canvas.
+  const collision = object.render?.sourceCrop
+    ? undefined
+    : assetsById?.get(object.assetId)?.collision;
   const size = collision ?? object.size;
 
   return {
@@ -432,6 +566,8 @@ function pickWalkableCandidate(
     if (reachableCandidate) {
       return reachableCandidate;
     }
+    // A walkable tile in a disconnected room is not a usable fallback.
+    return null;
   }
 
   return walkableCandidates[0] ?? null;
@@ -443,8 +579,10 @@ function createObjectInteractionCandidates(
 ) {
   const centerX = bounds.x + Math.floor((bounds.width - 1) / 2);
   const centerY = bounds.y + Math.floor((bounds.height - 1) / 2);
-  const horizontal = centerOutRange(bounds.x - 1, bounds.x + bounds.width, centerX);
-  const vertical = centerOutRange(bounds.y - 1, bounds.y + bounds.height, centerY);
+  // Corner-only contact can leave the avatar looking past the desk. Use tiles
+  // that share an edge with the surface, especially when its chair is occupied.
+  const horizontal = centerOutRange(bounds.x, bounds.x + bounds.width - 1, centerX);
+  const vertical = centerOutRange(bounds.y, bounds.y + bounds.height - 1, centerY);
   const sideOffset = hashString(String(seed)) % 2;
   const sideGroups =
     sideOffset === 0

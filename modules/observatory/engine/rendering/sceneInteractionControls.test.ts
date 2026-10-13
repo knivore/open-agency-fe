@@ -104,6 +104,7 @@ const map = {
 } as ObservatoryMap;
 
 const renderedMap = {
+  getSelectedObjectId: () => null,
   getSelectedAgentId: () => null,
   getSelectedRoomId: () => null,
   moveSelectedAgentToGrid: () => undefined,
@@ -137,6 +138,55 @@ function createPointer(overrides: Partial<FakePointer> = {}): FakePointer {
 }
 
 describe('setupObservatorySceneInteractions', () => {
+  it('gives an armed placement priority over existing room selection', () => {
+    const harness = createSceneHarness();
+    const placed: Array<{ x: number; y: number }> = [];
+    setupObservatorySceneInteractions(harness.scene as never, {
+      placementActive: true,
+      grid: { tileSize: 16 },
+      map,
+      onGridClick: (point) => placed.push(point),
+      renderedMap: {
+        ...renderedMap,
+        selectAtWorldPoint: () => {
+          throw new Error('Placement must win over selection');
+        },
+      } as never,
+      showDebugCoordinates: false,
+    });
+    harness.handlers.get('pointerup')?.(
+      createPointer({ primaryDown: false, worldX: 48, worldY: 64 })
+    );
+    expect(placed).toEqual([{ x: 3, y: 4 }]);
+  });
+  it('previews a selected object drag and commits it once on release', () => {
+    const harness = createSceneHarness();
+    const movements: unknown[] = [];
+    const objectMap = {
+      ...map,
+      rooms: [],
+      objects: [
+        { id: 'desk', assetId: 'desk', position: { x: 2, y: 2 }, size: { width: 2, height: 2 } },
+      ],
+    } as unknown as ObservatoryMap;
+    setupObservatorySceneInteractions(harness.scene as never, {
+      grid: { tileSize: 16 },
+      map: objectMap,
+      onSelectionDrag: (movement) => movements.push(movement),
+      renderedMap: { ...renderedMap, getSelectedObjectId: () => 'desk' } as never,
+      showDebugCoordinates: false,
+    });
+    harness.handlers.get('pointerdown')?.(createPointer({ worldX: 32, worldY: 32 }));
+    harness.handlers.get('pointermove')?.(createPointer({ worldX: 48, worldY: 32 }));
+    harness.handlers.get('pointermove')?.(createPointer({ worldX: 64, worldY: 32 }));
+    expect(movements).toHaveLength(0);
+    harness.handlers.get('pointerup')?.(
+      createPointer({ primaryDown: false, worldX: 64, worldY: 32 })
+    );
+    expect(movements).toEqual([
+      { from: { x: 2, y: 2 }, id: 'desk', kind: 'object', to: { x: 4, y: 2 } },
+    ]);
+  });
   it('ignores drag panning and wheel zooming when camera controls are locked', () => {
     const harness = createSceneHarness();
 

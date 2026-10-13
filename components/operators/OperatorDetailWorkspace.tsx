@@ -1,5 +1,6 @@
 'use client';
 
+import { Input } from '@/components/library/shadcn/input';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -161,7 +162,7 @@ export default function OperatorDetailWorkspace({ operatorId }: { operatorId: st
             selectWorkspace(workspaceDraft);
           }}
         >
-          <input
+          <Input
             className="h-10 min-w-0 flex-1 rounded-lg border border-input bg-(--agency-input-bg) px-3 text-sm"
             value={workspaceDraft}
             onChange={(event) => setWorkspaceDraft(event.target.value)}

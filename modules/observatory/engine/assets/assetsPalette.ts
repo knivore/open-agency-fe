@@ -1,6 +1,7 @@
 import { getObservatoryFullModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
 import type { ObservatoryAssetDefinition } from '@/modules/observatory/engine/assets/assetRegistry';
 import { observatoryAssetCatalogEntries } from '@/modules/observatory/engine/assets/assetCatalog';
+import { observatoryAssetPlacement } from '@/modules/observatory/engine/world/objectGeometry';
 
 export type ObservatoryPaletteThemeId =
   | 'all'
@@ -354,6 +355,12 @@ function resolveA4WallPreviewRowOffset(setHeight: number) {
 }
 
 function footprintForAsset(asset: ObservatoryAssetDefinition) {
+  if (
+    asset.source.kind === 'image' &&
+    (asset.sourceCrop || asset.previewCrop || asset.tags?.includes('pantry-fixture'))
+  ) {
+    return observatoryAssetPlacement(asset).size;
+  }
   const frameWidth = asset.source.frameWidth ?? asset.width ?? 48;
   const frameHeight = asset.source.frameHeight ?? asset.height ?? 48;
 
@@ -456,6 +463,7 @@ function roleForAsset(
 
   if (asset.category === 'floor') return 'decor';
   if (asset.category === 'wall') return 'partitions';
+  if (/(lamp|paper|handset|bottle|poster|whiteboard|chart)/.test(text)) return 'decor';
   if (/(workstation|computer|printer|laptop|keyboard|mouse|console)/.test(text))
     return 'workstations';
   if (/(desk|table|counter|workbench)/.test(text)) return 'tables';

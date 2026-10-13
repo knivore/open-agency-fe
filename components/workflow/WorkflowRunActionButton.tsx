@@ -1,6 +1,5 @@
 'use client';
 
-import { useTransition } from 'react';
 import { Button } from '@/components/library/shadcn/button';
 import { useWorkflowRunLauncher } from '@/lib/workflows/useWorkflowRunLauncher';
 import { toast } from 'sonner';
@@ -20,8 +19,7 @@ export default function WorkflowRunActionButton({
   variant = 'outline',
   redirectTo,
 }: WorkflowRunActionButtonProps) {
-  const [isPending, startTransition] = useTransition();
-  const { workflowQuery, runtimeAdaptersQuery, preferredRuntimeAdapterId, launchWorkflow } =
+  const { workflowQuery, runtimeAdaptersQuery, preferredRuntimeAdapterId, launchMutation, launchWorkflow } =
     useWorkflowRunLauncher({
       workflowId,
       redirectTo: (runId) => (redirectTo ? redirectTo(runId) : `/runs/${runId}`),
@@ -29,13 +27,12 @@ export default function WorkflowRunActionButton({
   const actionLabel = preferredRuntimeAdapterId ? `${label} (${preferredRuntimeAdapterId})` : label;
 
   const handleRun = () => {
-    startTransition(() => {
-      void toast.promise(launchWorkflow(undefined), {
-        loading: 'Starting workflow...',
-        success: 'Workflow run started.',
-        error: (error) => (error instanceof Error ? error.message : 'Failed to start workflow.'),
-        position: 'top-right',
-      });
+    if (launchMutation.isPending) return;
+    void toast.promise(launchWorkflow(undefined), {
+      loading: 'Starting workflow...',
+      success: 'Workflow run started.',
+      error: (error) => (error instanceof Error ? error.message : 'Failed to start workflow.'),
+      position: 'top-right',
     });
   };
 
@@ -44,10 +41,10 @@ export default function WorkflowRunActionButton({
       type="button"
       variant={variant}
       size={size}
-      disabled={isPending || workflowQuery.isError || runtimeAdaptersQuery.isError}
+      disabled={launchMutation.isPending || workflowQuery.isError || runtimeAdaptersQuery.isError}
       onClick={handleRun}
     >
-      {isPending ? 'Starting...' : actionLabel}
+      {launchMutation.isPending ? 'Starting...' : actionLabel}
     </Button>
   );
 }

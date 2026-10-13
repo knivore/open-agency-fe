@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createApiClient } from '@/lib/api/client';
+import {afterEach, describe, expect, it, vi} from 'vitest';
+import {createApiClient} from '@/lib/api/client';
 
 describe('createApiClient', () => {
   afterEach(() => {
@@ -21,12 +21,12 @@ describe('createApiClient', () => {
       vi.fn(async () => {
         return new Response(tracebackBody, {
           status: 500,
-          headers: { 'content-type': 'text/html; charset=utf-8' },
+          headers: {'content-type': 'text/html; charset=utf-8'},
         });
       })
     );
 
-    const client = createApiClient({ baseUrl: 'http://api.test', includeAuthToken: false });
+    const client = createApiClient({baseUrl: 'http://api.test', includeAuthToken: false});
 
     await expect(client.get('/assistant')).rejects.toMatchObject({
       status: 500,
@@ -38,18 +38,46 @@ describe('createApiClient', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
-        return new Response(JSON.stringify({ detail: 'Invalid request payload.' }), {
+        return new Response(JSON.stringify({detail: 'Invalid request payload.'}), {
           status: 400,
-          headers: { 'content-type': 'application/json' },
+          headers: {'content-type': 'application/json'},
         });
       })
     );
 
-    const client = createApiClient({ baseUrl: 'http://api.test', includeAuthToken: false });
+    const client = createApiClient({baseUrl: 'http://api.test', includeAuthToken: false});
 
     await expect(client.get('/assistant')).rejects.toMatchObject({
       status: 400,
       message: 'Invalid request payload.',
     });
+  });
+});
+
+
+describe('JSON response boundary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it('rejects a successful HTML login page before it can become conversation state', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response('<html><body>Sign in</body></html>', {
+      status: 200, headers: {'content-type': 'text/html; charset=utf-8'},
+    })));
+    const client = createApiClient({baseUrl: 'http://api.test', includeAuthToken: false});
+    await expect(client.post('/conversations', {})).rejects.toMatchObject({
+      code: 'INVALID_RESPONSE',
+      message: 'The server returned an unexpected response. Sign in again if your session has expired.',
+    });
+  });
+
+  it('still supports explicit text responses and valid JSON without a content type', async () => {
+    vi.stubGlobal('fetch', vi.fn()
+      .mockResolvedValueOnce(new Response('plain text'))
+      .mockResolvedValueOnce(new Response('{"id":"conversation-1"}')));
+    const client = createApiClient({baseUrl: 'http://api.test', includeAuthToken: false});
+    await expect(client.get('/export', {responseType: 'text'})).resolves.toBe('plain text');
+    await expect(client.post('/conversations', {})).resolves.toEqual({id: 'conversation-1'});
   });
 });

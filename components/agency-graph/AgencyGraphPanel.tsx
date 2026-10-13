@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Input } from '@/components/library/shadcn/input';
+import { NativeSelect } from '@/components/library/shadcn/select';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import Link from 'next/link';
 import {
   Compass,
@@ -16,27 +18,27 @@ import {
   RotateCw,
   X,
 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import { executionsApi } from '@/lib/api/backend/executions';
-import { workflowsApi } from '@/lib/api/backend/workflows';
-import { graphReadApi } from '@/lib/api/backend/graphRead';
-import { buildGraphDeltaStreamUrl } from '@/lib/api/backend/graphStream';
-import { observabilityApi } from '@/lib/api/backend/observability';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import type { AuthUser } from '@/types/auth';
-import type { WorkflowDefinition } from '@/types/workflows';
-import { agencyGraphReadToSigmaGraph } from '@/lib/agency-graph/adapters';
+import {useQuery} from '@tanstack/react-query';
+import {executionsApi} from '@/lib/api/backend/executions';
+import {workflowsApi} from '@/lib/api/backend/workflows';
+import {graphReadApi} from '@/lib/api/backend/graphRead';
+import {buildGraphDeltaStreamUrl} from '@/lib/api/backend/graphStream';
+import {observabilityApi} from '@/lib/api/backend/observability';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import type {AuthUser} from '@/types/auth';
+import type {WorkflowDefinition} from '@/types/workflows';
+import {agencyGraphReadToSigmaGraph} from '@/lib/agency-graph/adapters';
 import {
   executionEventsToSigmaGraph,
   recentExecutionsToSigmaGraph,
   workflowExecutionsToSigmaGraph,
 } from '@/lib/agency-graph/executionFallbackGraph';
-import { isAgencyGraphRealtimeEnabled } from '@/lib/agency-graph/config';
-import { useAgencyGraphRealtimeDocument } from '@/lib/agency-graph/realtime';
-import type { ExecutionEventRecord, ExecutionRecord } from '@/types/runtime';
+import {isAgencyGraphRealtimeEnabled} from '@/lib/agency-graph/config';
+import {useAgencyGraphRealtimeDocument} from '@/lib/agency-graph/realtime';
+import type {ExecutionEventRecord, ExecutionRecord} from '@/types/runtime';
 import ForceGraph3DCanvas from '@/modules/sigma-graph/ForceGraph3DCanvas';
 import SigmaGraphCanvas from '@/modules/sigma-graph/SigmaGraphCanvas';
-import { applySigmaGraphFilters } from '@/modules/sigma-graph/filters';
+import {applySigmaGraphFilters} from '@/modules/sigma-graph/filters';
 import type {
   SigmaGraphDocument,
   SigmaGraphEdge,
@@ -46,10 +48,10 @@ import type {
   SigmaGraphNode,
   SigmaGraphSelection,
 } from '@/modules/sigma-graph/types';
-import { Badge } from '@/components/library/shadcn/badge';
-import { Button } from '@/components/library/shadcn/button';
-import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/library/shadcn/popover';
+import {Badge} from '@/components/library/shadcn/badge';
+import {Button} from '@/components/library/shadcn/button';
+import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
+import {Popover, PopoverContent, PopoverTrigger} from '@/components/library/shadcn/popover';
 import {
   Tooltip,
   TooltipContent,
@@ -104,14 +106,14 @@ const agencyGraphPerformanceBudget = {
   rootCacheMs: 60_000,
 };
 const agencyGraphRootTypeOptions: { label: string; value: AgencyGraphRootType }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Memory', value: 'memory' },
-  { label: 'Run', value: 'run' },
-  { label: 'Workflow', value: 'workflow' },
-  { label: 'Agent', value: 'agent' },
-  { label: 'Entity', value: 'entity' },
-  { label: 'Document', value: 'document' },
-  { label: 'Error', value: 'error' },
+  {label: 'All', value: 'all'},
+  {label: 'Memory', value: 'memory'},
+  {label: 'Run', value: 'run'},
+  {label: 'Workflow', value: 'workflow'},
+  {label: 'Agent', value: 'agent'},
+  {label: 'Entity', value: 'entity'},
+  {label: 'Document', value: 'document'},
+  {label: 'Error', value: 'error'},
 ];
 const agencyGraphPrimaryRootTypeOptions = agencyGraphRootTypeOptions.filter((option) =>
   ['all', 'memory', 'run', 'workflow'].includes(option.value)
@@ -158,15 +160,15 @@ function graphKeyboardTargetIsEditable(target: EventTarget | null) {
 }
 
 export default function AgencyGraphPanel({
-  graphStatus,
-  graphStatusError,
-  isGraphStatusLoading = false,
-  isRootOptionsLoading = false,
-  memoryId,
-  onRefreshRoots,
-  rootOptions = [],
-  user,
-}: AgencyGraphPanelProps) {
+                                           graphStatus,
+                                           graphStatusError,
+                                           isGraphStatusLoading = false,
+                                           isRootOptionsLoading = false,
+                                           memoryId,
+                                           onRefreshRoots,
+                                           rootOptions = [],
+                                           user,
+                                         }: AgencyGraphPanelProps) {
   const graphSurfaceRef = useRef<HTMLElement | null>(null);
   const graphSearchInputRef = useRef<HTMLInputElement | null>(null);
   const rootSearchInputRef = useRef<HTMLInputElement | null>(null);
@@ -182,7 +184,7 @@ export default function AgencyGraphPanel({
     entity: '',
     error: '',
   });
-  const [selection, setSelection] = useState<SigmaGraphSelection>({ nodeIds: [], edgeIds: [] });
+  const [selection, setSelection] = useState<SigmaGraphSelection>({nodeIds: [], edgeIds: []});
   const [runStatusFilter, setRunStatusFilter] = useState<AgencyGraphRunStatusFilter>('all');
   const [selectedNodeStatus, setSelectedNodeStatus] = useState('all');
   const [selectedNodeSeverity, setSelectedNodeSeverity] = useState('all');
@@ -320,11 +322,11 @@ export default function AgencyGraphPanel({
         limit: agencyGraphNeighborhoodLimit,
         ...(includeOperationalCoverage
           ? {
-              includeOperationalCoverage,
-              incidentLimit: 12,
-              recentRunLimit: agencyGraphPerformanceBudget.maxRecentRunsPerFallback,
-              workflowRunLimit: agencyGraphPerformanceBudget.maxWorkflowRunsPerFallback,
-            }
+            includeOperationalCoverage,
+            incidentLimit: 12,
+            recentRunLimit: agencyGraphPerformanceBudget.maxRecentRunsPerFallback,
+            workflowRunLimit: agencyGraphPerformanceBudget.maxWorkflowRunsPerFallback,
+          }
           : {}),
       };
       if (rootType === 'all') {
@@ -345,14 +347,14 @@ export default function AgencyGraphPanel({
       if (rootType === 'document') {
         return graphReadApi.getNodeNeighborhood(
           resolvedManualRootId,
-          { ...params, labels: 'Document' },
+          {...params, labels: 'Document'},
           user
         );
       }
       if (rootType === 'error') {
         return graphReadApi.getNodeNeighborhood(
           resolvedManualRootId,
-          { ...params, labels: 'Error' },
+          {...params, labels: 'Error'},
           user
         );
       }
@@ -514,14 +516,14 @@ export default function AgencyGraphPanel({
     () =>
       rootType === 'all'
         ? mergeAgencyGraphDocuments(
-            mergeAgencyGraphDocuments(projectedDocument, recentRunsFallbackDocument),
-            runFallbackDocument
-          ) || placeholderDocument
+        mergeAgencyGraphDocuments(projectedDocument, recentRunsFallbackDocument),
+        runFallbackDocument
+      ) || placeholderDocument
         : rootType === 'workflow'
           ? mergeAgencyGraphDocuments(projectedDocument, workflowFallbackDocument) ||
-            projectedDocument ||
-            workflowFallbackDocument ||
-            placeholderDocument
+          projectedDocument ||
+          workflowFallbackDocument ||
+          placeholderDocument
           : hasRunFallbackGraph
             ? runFallbackDocument!
             : hasProjectedGraph
@@ -578,7 +580,7 @@ export default function AgencyGraphPanel({
       return null;
     }
     if (rootType === 'run' && resolvedRunId) {
-      return buildGraphDeltaStreamUrl({ executionId: resolvedRunId, limit: 50, pollSeconds: 2 });
+      return buildGraphDeltaStreamUrl({executionId: resolvedRunId, limit: 50, pollSeconds: 2});
     }
     if (rootType === 'workflow' && resolvedWorkflowId) {
       return buildGraphDeltaStreamUrl({
@@ -587,7 +589,7 @@ export default function AgencyGraphPanel({
         workflowId: resolvedWorkflowId,
       });
     }
-    return buildGraphDeltaStreamUrl({ limit: 50, pollSeconds: 2 });
+    return buildGraphDeltaStreamUrl({limit: 50, pollSeconds: 2});
   }, [graphUnavailable, hasProjectedGraph, resolvedRunId, resolvedWorkflowId, rootType]);
   const realtimeGraph = useAgencyGraphRealtimeDocument({
     snapshotDocument: expandedSourceDocument,
@@ -773,7 +775,7 @@ export default function AgencyGraphPanel({
     visibleDisplayDocument,
   ]);
   const displayVisualDocument = useMemo(
-    () => applyAgencyGraphVisualEncoding(filteredDocument, { colorMode: graphColorMode }),
+    () => applyAgencyGraphVisualEncoding(filteredDocument, {colorMode: graphColorMode}),
     [filteredDocument, graphColorMode]
   );
   const displayTimelineDocument = displayVisualDocument;
@@ -832,12 +834,12 @@ export default function AgencyGraphPanel({
         'Operational relationships across workflows, agents, runs, memory, and incidents.',
       entities: selectedNode
         ? [
-            {
-              type: agencyGraphNodeCategory(selectedNode.type).toLowerCase(),
-              id: selectedNode.id,
-              name: selectedNode.label,
-            },
-          ]
+          {
+            type: agencyGraphNodeCategory(selectedNode.type).toLowerCase(),
+            id: selectedNode.id,
+            name: selectedNode.label,
+          },
+        ]
         : [],
       selection: {
         mode: graphViewMode,
@@ -898,45 +900,45 @@ export default function AgencyGraphPanel({
   const graphThemeChrome =
     graphCanvasTheme === 'light'
       ? {
-          frame:
-            'border-slate-300/80 bg-[linear-gradient(180deg,rgba(241,245,249,0.98),rgba(226,236,248,0.96))]',
-          toolbar:
-            'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,248,253,0.92))] text-slate-700 shadow-[0_18px_45px_rgba(148,163,184,0.22)]',
-          toolbarButton:
-            'text-slate-700 hover:bg-linear-to-r hover:from-sky-50 hover:to-indigo-50 hover:text-slate-900',
-          legend:
-            'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,248,253,0.9))] text-slate-800 shadow-[0_18px_45px_rgba(148,163,184,0.2)]',
-          legendTitle: 'text-slate-900',
-          legendSection: 'text-slate-600',
-          legendChip:
-            'border-sky-100/90 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(240,247,255,0.95))]',
-          legendText: 'text-slate-800',
-          legendCount: 'text-slate-500',
-          filterPopover:
-            'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,248,253,0.96))] text-slate-900 shadow-[0_24px_60px_rgba(148,163,184,0.24)]',
-          filterCount: 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-500',
-          inspector:
-            'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,248,253,0.92))] text-slate-900 shadow-[0_18px_45px_rgba(148,163,184,0.2)]',
-        }
+        frame:
+          'border-slate-300/80 bg-[linear-gradient(180deg,rgba(241,245,249,0.98),rgba(226,236,248,0.96))]',
+        toolbar:
+          'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,248,253,0.92))] text-slate-700 shadow-[0_18px_45px_rgba(148,163,184,0.22)]',
+        toolbarButton:
+          'text-slate-700 hover:bg-linear-to-r hover:from-sky-50 hover:to-indigo-50 hover:text-slate-900',
+        legend:
+          'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.94),rgba(244,248,253,0.9))] text-slate-800 shadow-[0_18px_45px_rgba(148,163,184,0.2)]',
+        legendTitle: 'text-slate-900',
+        legendSection: 'text-slate-600',
+        legendChip:
+          'border-sky-100/90 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(240,247,255,0.95))]',
+        legendText: 'text-slate-800',
+        legendCount: 'text-slate-500',
+        filterPopover:
+          'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.98),rgba(244,248,253,0.96))] text-slate-900 shadow-[0_24px_60px_rgba(148,163,184,0.24)]',
+        filterCount: 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-500',
+        inspector:
+          'border-sky-200/70 bg-[linear-gradient(180deg,rgba(255,255,255,0.95),rgba(244,248,253,0.92))] text-slate-900 shadow-[0_18px_45px_rgba(148,163,184,0.2)]',
+      }
       : {
-          frame:
-            'border-[rgba(94,234,212,0.12)] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_28%),linear-gradient(180deg,#070b13,#090d15)] shadow-[inset_0_1px_0_rgba(148,163,184,0.06)]',
-          toolbar:
-            'border-white/10 bg-[linear-gradient(180deg,rgba(13,24,39,0.96),rgba(10,18,31,0.92))] text-slate-200 shadow-[0_24px_54px_rgba(0,0,0,0.34)]',
-          toolbarButton: 'text-slate-300 hover:bg-white/8 hover:text-white',
-          legend:
-            'border-[rgba(94,234,212,0.12)] bg-[linear-gradient(180deg,rgba(6,12,24,0.94),rgba(4,9,18,0.92))] text-slate-100 shadow-[0_18px_42px_rgba(0,0,0,0.36)]',
-          legendTitle: 'text-slate-50',
-          legendSection: 'text-slate-300',
-          legendChip: 'border-white/10 bg-white/4',
-          legendText: 'text-slate-100',
-          legendCount: 'text-slate-400',
-          filterPopover:
-            'border-white/10 bg-[linear-gradient(180deg,rgba(7,14,28,0.98),rgba(4,9,18,0.96))] text-slate-100 shadow-[0_24px_60px_rgba(0,0,0,0.44)]',
-          filterCount: 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-400',
-          inspector:
-            'border-[rgba(94,234,212,0.12)] bg-[linear-gradient(180deg,rgba(6,12,24,0.94),rgba(4,9,18,0.92))] text-slate-100 shadow-[0_18px_42px_rgba(0,0,0,0.38)]',
-        };
+        frame:
+          'border-[rgba(94,234,212,0.12)] bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.08),transparent_28%),linear-gradient(180deg,#070b13,#090d15)] shadow-[inset_0_1px_0_rgba(148,163,184,0.06)]',
+        toolbar:
+          'border-white/10 bg-[linear-gradient(180deg,rgba(13,24,39,0.96),rgba(10,18,31,0.92))] text-slate-200 shadow-[0_24px_54px_rgba(0,0,0,0.34)]',
+        toolbarButton: 'text-slate-300 hover:bg-white/8 hover:text-white',
+        legend:
+          'border-[rgba(94,234,212,0.12)] bg-[linear-gradient(180deg,rgba(6,12,24,0.94),rgba(4,9,18,0.92))] text-slate-100 shadow-[0_18px_42px_rgba(0,0,0,0.36)]',
+        legendTitle: 'text-slate-50',
+        legendSection: 'text-slate-300',
+        legendChip: 'border-white/10 bg-white/4',
+        legendText: 'text-slate-100',
+        legendCount: 'text-slate-400',
+        filterPopover:
+          'border-white/10 bg-[linear-gradient(180deg,rgba(7,14,28,0.98),rgba(4,9,18,0.96))] text-slate-100 shadow-[0_24px_60px_rgba(0,0,0,0.44)]',
+        filterCount: 'text-xs font-semibold uppercase tracking-[0.18em] text-slate-400',
+        inspector:
+          'border-[rgba(94,234,212,0.12)] bg-[linear-gradient(180deg,rgba(6,12,24,0.94),rgba(4,9,18,0.92))] text-slate-100 shadow-[0_18px_42px_rgba(0,0,0,0.38)]',
+      };
   const emptyState = agencyGraphEmptyState({
     graphStatus,
     graphStatusError,
@@ -987,7 +989,7 @@ export default function AgencyGraphPanel({
           return;
         }
         if (hasSelection) {
-          setSelection({ nodeIds: [], edgeIds: [] });
+          setSelection({nodeIds: [], edgeIds: []});
         }
         return;
       }
@@ -997,7 +999,7 @@ export default function AgencyGraphPanel({
       if (event.key === '0') {
         event.preventDefault();
         setGraphViewMode('global');
-        setSelection({ nodeIds: [], edgeIds: [] });
+        setSelection({nodeIds: [], edgeIds: []});
         return;
       }
       if (event.key.toLowerCase() === 'f' && hasSelection) {
@@ -1024,7 +1026,7 @@ export default function AgencyGraphPanel({
     setRootType('run');
     setRunStatusFilter('failed');
     setInternalRunId(fallbackRun.id);
-    setSelection({ nodeIds: [], edgeIds: [] });
+    setSelection({nodeIds: [], edgeIds: []});
   }, [fallbackRun, graphUnavailable, hasProjectedGraph, memoryId, rootOptions.length, rootType]);
   const toggleFullscreen = async () => {
     if (document.fullscreenElement) {
@@ -1064,16 +1066,16 @@ export default function AgencyGraphPanel({
   };
   const isCurrentGraphFetching = supportsRunFallback
     ? graphQuery.isFetching ||
-      runEventsQuery.isFetching ||
-      runTimelineQuery.isFetching ||
-      executionsQuery.isFetching ||
-      selectedNodeExpansionQuery.isFetching
+    runEventsQuery.isFetching ||
+    runTimelineQuery.isFetching ||
+    executionsQuery.isFetching ||
+    selectedNodeExpansionQuery.isFetching
     : graphQuery.isFetching || selectedNodeExpansionQuery.isFetching;
 
   return (
     <section
       ref={graphSurfaceRef}
-      className={`relative flex flex-1 flex-col overflow-hidden rounded-lg border ${
+      className={`relative flex flex-1 flex-col overflow-hidden rounded-xl border ${
         graphThemeChrome.frame
       } ${isFullscreen ? 'h-screen min-h-screen' : 'h-[68dvh] min-h-[28rem] sm:h-[calc(100vh-22rem)] sm:min-h-[32.5rem]'}`}
     >
@@ -1088,7 +1090,7 @@ export default function AgencyGraphPanel({
                 aria-label="Agency graph status"
                 className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${graphThemeChrome.toolbarButton}`}
               >
-                <span className={`h-2.5 w-2.5 rounded-full ${statusIndicator.className}`} />
+                <span className={`h-2.5 w-2.5 rounded-full ${statusIndicator.className}`}/>
               </button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
@@ -1131,7 +1133,7 @@ export default function AgencyGraphPanel({
                     aria-label="Open agency graph filters"
                     className={graphThemeChrome.toolbarButton}
                   >
-                    <Filter className="h-4 w-4" />
+                    <Filter className="h-4 w-4"/>
                   </Button>
                 </PopoverTrigger>
               </TooltipTrigger>
@@ -1188,13 +1190,13 @@ export default function AgencyGraphPanel({
                     <div className="space-y-3">
                       <label className="sr-only">
                         Agency graph root type
-                        <select
+                        <NativeSelect
                           aria-label="Agency graph root type"
                           value={rootType}
                           onChange={(event) => {
                             setRootSearchQuery('');
                             setRootType(event.target.value as AgencyGraphRootType);
-                            setSelection({ nodeIds: [], edgeIds: [] });
+                            setSelection({nodeIds: [], edgeIds: []});
                           }}
                         >
                           {agencyGraphRootTypeOptions.map((option) => (
@@ -1202,7 +1204,7 @@ export default function AgencyGraphPanel({
                               {option.label}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </label>
                       <div
                         aria-label="Agency graph root type segmented control"
@@ -1228,7 +1230,7 @@ export default function AgencyGraphPanel({
                               onClick={() => {
                                 setRootSearchQuery('');
                                 setRootType(option.value);
-                                setSelection({ nodeIds: [], edgeIds: [] });
+                                setSelection({nodeIds: [], edgeIds: []});
                               }}
                             >
                               {option.label}
@@ -1240,7 +1242,7 @@ export default function AgencyGraphPanel({
                         className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                       >
                         Direct ID
-                        <select
+                        <NativeSelect
                           aria-label="Agency graph direct root type"
                           className={graphFilterFieldClass}
                           value={isManualRootType(rootType) ? rootType : ''}
@@ -1251,7 +1253,7 @@ export default function AgencyGraphPanel({
                             }
                             setRootSearchQuery('');
                             setRootType(nextValue);
-                            setSelection({ nodeIds: [], edgeIds: [] });
+                            setSelection({nodeIds: [], edgeIds: []});
                           }}
                         >
                           <option value="">Agent, entity, document, error</option>
@@ -1260,7 +1262,7 @@ export default function AgencyGraphPanel({
                               {option.label}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </label>
                     </div>
                     {rootType === 'memory' || rootType === 'run' || rootType === 'workflow' ? (
@@ -1268,7 +1270,7 @@ export default function AgencyGraphPanel({
                         className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                       >
                         Search roots
-                        <input
+                        <Input
                           ref={rootSearchInputRef}
                           aria-label="Agency graph root search"
                           className={graphFilterFieldClass}
@@ -1283,7 +1285,7 @@ export default function AgencyGraphPanel({
                         className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                       >
                         Root {rootTypeLabel(rootType)}
-                        <input
+                        <Input
                           aria-label={`Agency graph root ${rootType}`}
                           className={graphFilterFieldClass}
                           placeholder={`${rootType}:...`}
@@ -1293,7 +1295,7 @@ export default function AgencyGraphPanel({
                               ...current,
                               [rootType]: event.target.value,
                             }));
-                            setSelection({ nodeIds: [], edgeIds: [] });
+                            setSelection({nodeIds: [], edgeIds: []});
                           }}
                         />
                       </label>
@@ -1303,13 +1305,13 @@ export default function AgencyGraphPanel({
                         className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                       >
                         Root memory
-                        <select
+                        <NativeSelect
                           aria-label="Agency graph root memory"
                           className={graphFilterFieldClass}
                           value={resolvedMemoryId}
                           onChange={(event) => {
                             setInternalMemoryId(event.target.value);
-                            setSelection({ nodeIds: [], edgeIds: [] });
+                            setSelection({nodeIds: [], edgeIds: []});
                           }}
                         >
                           {filteredMemoryRootOptions.length === 0 ? (
@@ -1321,7 +1323,7 @@ export default function AgencyGraphPanel({
                               </option>
                             ))
                           )}
-                        </select>
+                        </NativeSelect>
                       </label>
                     ) : null}
                     {rootType === 'run' ? (
@@ -1330,14 +1332,14 @@ export default function AgencyGraphPanel({
                           className={`flex min-w-0 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                         >
                           Run status
-                          <select
+                          <NativeSelect
                             aria-label="Agency graph run status filter"
                             className={graphFilterFieldClass}
                             value={runStatusFilter}
                             onChange={(event) => {
                               setRunStatusFilter(event.target.value as AgencyGraphRunStatusFilter);
                               setInternalRunId('');
-                              setSelection({ nodeIds: [], edgeIds: [] });
+                              setSelection({nodeIds: [], edgeIds: []});
                             }}
                           >
                             <option value="all">All statuses</option>
@@ -1345,20 +1347,20 @@ export default function AgencyGraphPanel({
                             <option value="completed">Completed</option>
                             <option value="running">Running</option>
                             <option value="cancelled">Cancelled</option>
-                          </select>
+                          </NativeSelect>
                         </label>
                         <label
                           className={`flex min-w-0 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                         >
                           Root run
-                          <select
+                          <NativeSelect
                             aria-label="Agency graph root run"
                             className={graphFilterFieldClass}
                             disabled={filteredRunRootOptions.length === 0}
                             value={resolvedRunId}
                             onChange={(event) => {
                               setInternalRunId(event.target.value);
-                              setSelection({ nodeIds: [], edgeIds: [] });
+                              setSelection({nodeIds: [], edgeIds: []});
                             }}
                           >
                             {filteredRunRootOptions.length === 0 ? (
@@ -1370,7 +1372,7 @@ export default function AgencyGraphPanel({
                                 </option>
                               ))
                             )}
-                          </select>
+                          </NativeSelect>
                         </label>
                       </div>
                     ) : null}
@@ -1379,14 +1381,14 @@ export default function AgencyGraphPanel({
                         className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                       >
                         Root workflow
-                        <select
+                        <NativeSelect
                           aria-label="Agency graph root workflow"
                           className={graphFilterFieldClass}
                           disabled={filteredWorkflowRootOptions.length === 0}
                           value={resolvedWorkflowId}
                           onChange={(event) => {
                             setInternalWorkflowId(event.target.value);
-                            setSelection({ nodeIds: [], edgeIds: [] });
+                            setSelection({nodeIds: [], edgeIds: []});
                           }}
                         >
                           {filteredWorkflowRootOptions.length === 0 ? (
@@ -1398,7 +1400,7 @@ export default function AgencyGraphPanel({
                               </option>
                             ))
                           )}
-                        </select>
+                        </NativeSelect>
                       </label>
                     ) : null}
                     {hasGraphData ? (
@@ -1407,7 +1409,7 @@ export default function AgencyGraphPanel({
                           className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                         >
                           Search graph
-                          <input
+                          <Input
                             ref={graphSearchInputRef}
                             aria-label="Agency graph search"
                             className={graphFilterFieldClass}
@@ -1415,7 +1417,7 @@ export default function AgencyGraphPanel({
                             value={graphSearchQuery}
                             onChange={(event) => {
                               setGraphSearchQuery(event.target.value);
-                              setSelection({ nodeIds: [], edgeIds: [] });
+                              setSelection({nodeIds: [], edgeIds: []});
                             }}
                           />
                         </label>
@@ -1424,13 +1426,13 @@ export default function AgencyGraphPanel({
                             className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                           >
                             Status
-                            <select
+                            <NativeSelect
                               aria-label="Agency graph node status filter"
                               className={`${graphFilterFieldClass} w-full`}
                               value={activeNodeStatus}
                               onChange={(event) => {
                                 setSelectedNodeStatus(event.target.value);
-                                setSelection({ nodeIds: [], edgeIds: [] });
+                                setSelection({nodeIds: [], edgeIds: []});
                               }}
                             >
                               <option value="all">All statuses</option>
@@ -1439,7 +1441,7 @@ export default function AgencyGraphPanel({
                                   {statusLabel(status)}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                           </label>
                         ) : null}
                         {nodeSeverityOptions.length > 0 ? (
@@ -1447,13 +1449,13 @@ export default function AgencyGraphPanel({
                             className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                           >
                             Severity
-                            <select
+                            <NativeSelect
                               aria-label="Agency graph node severity filter"
                               className={`${graphFilterFieldClass} w-full`}
                               value={activeNodeSeverity}
                               onChange={(event) => {
                                 setSelectedNodeSeverity(event.target.value);
-                                setSelection({ nodeIds: [], edgeIds: [] });
+                                setSelection({nodeIds: [], edgeIds: []});
                               }}
                             >
                               <option value="all">All severities</option>
@@ -1462,7 +1464,7 @@ export default function AgencyGraphPanel({
                                   {statusLabel(severity)}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                           </label>
                         ) : null}
                         {relationshipTypeOptions.length > 0 ? (
@@ -1470,13 +1472,13 @@ export default function AgencyGraphPanel({
                             className={`flex min-w-65 flex-col gap-1 text-xs font-medium ${graphFilterLabelClass}`}
                           >
                             Relationship
-                            <select
+                            <NativeSelect
                               aria-label="Agency graph relationship type filter"
                               className={`${graphFilterFieldClass} w-full`}
                               value={activeRelationshipType}
                               onChange={(event) => {
                                 setSelectedRelationshipType(event.target.value);
-                                setSelection({ nodeIds: [], edgeIds: [] });
+                                setSelection({nodeIds: [], edgeIds: []});
                               }}
                             >
                               <option value="all">All relationships</option>
@@ -1485,7 +1487,7 @@ export default function AgencyGraphPanel({
                                   {relationshipTypeLabel(relationshipType)}
                                 </option>
                               ))}
-                            </select>
+                            </NativeSelect>
                           </label>
                         ) : null}
                         <Button
@@ -1500,7 +1502,7 @@ export default function AgencyGraphPanel({
                             !graphSearchQuery.trim()
                           }
                           onClick={() => {
-                            setSelection({ nodeIds: [], edgeIds: [] });
+                            setSelection({nodeIds: [], edgeIds: []});
                             setSelectedNodeStatus('all');
                             setSelectedNodeSeverity('all');
                             setSelectedRelationshipType('all');
@@ -1508,7 +1510,7 @@ export default function AgencyGraphPanel({
                             setGraphSearchQuery('');
                           }}
                         >
-                          <X className="mr-2 h-4 w-4" />
+                          <X className="mr-2 h-4 w-4"/>
                           Clear filters
                         </Button>
                       </>
@@ -1529,7 +1531,7 @@ export default function AgencyGraphPanel({
                 className={graphThemeChrome.toolbarButton}
                 onClick={focusGraphSearch}
               >
-                <Keyboard className="h-4 w-4" />
+                <Keyboard className="h-4 w-4"/>
               </Button>
             </TooltipTrigger>
             <TooltipContent className="max-w-xs">
@@ -1583,7 +1585,7 @@ export default function AgencyGraphPanel({
                       }`}
                       onClick={() => {
                         setGraphViewMode(option.value as AgencyGraphViewMode);
-                        setSelection({ nodeIds: [], edgeIds: [] });
+                        setSelection({nodeIds: [], edgeIds: []});
                       }}
                     >
                       {option.label}
@@ -1650,7 +1652,7 @@ export default function AgencyGraphPanel({
                     className={graphThemeChrome.toolbarButton}
                     onClick={() => rotateGraph(-12)}
                   >
-                    <RotateCcw className="h-4 w-4" />
+                    <RotateCcw className="h-4 w-4"/>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Rotate left</TooltipContent>
@@ -1665,7 +1667,7 @@ export default function AgencyGraphPanel({
                     className={graphThemeChrome.toolbarButton}
                     onClick={() => rotateGraph(12)}
                   >
-                    <RotateCw className="h-4 w-4" />
+                    <RotateCw className="h-4 w-4"/>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Rotate right</TooltipContent>
@@ -1687,7 +1689,7 @@ export default function AgencyGraphPanel({
                     className={graphThemeChrome.toolbarButton}
                     onClick={() => setGraphAutoRotate((current) => !current)}
                   >
-                    {graphAutoRotate ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {graphAutoRotate ? <Pause className="h-4 w-4"/> : <Play className="h-4 w-4"/>}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -1704,7 +1706,7 @@ export default function AgencyGraphPanel({
                     className={graphThemeChrome.toolbarButton}
                     onClick={() => setGraphResetViewToken((current) => current + 1)}
                   >
-                    <Compass className="h-4 w-4" />
+                    <Compass className="h-4 w-4"/>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Reset 3D view</TooltipContent>
@@ -1722,7 +1724,7 @@ export default function AgencyGraphPanel({
                 onClick={() => void refreshGraph()}
                 className={graphThemeChrome.toolbarButton}
               >
-                <RefreshCw className={`h-4 w-4 ${isCurrentGraphFetching ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-4 w-4 ${isCurrentGraphFetching ? 'animate-spin' : ''}`}/>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Refresh graph</TooltipContent>
@@ -1738,9 +1740,9 @@ export default function AgencyGraphPanel({
                 className={graphThemeChrome.toolbarButton}
               >
                 {isFullscreen ? (
-                  <Minimize2 className="h-4 w-4" />
+                  <Minimize2 className="h-4 w-4"/>
                 ) : (
-                  <Maximize2 className="h-4 w-4" />
+                  <Maximize2 className="h-4 w-4"/>
                 )}
               </Button>
             </TooltipTrigger>
@@ -1796,9 +1798,9 @@ export default function AgencyGraphPanel({
         <div
           className={`absolute bottom-4 left-4 z-10 hidden w-80 max-w-[calc(100%-2rem)] overflow-hidden rounded-2xl backdrop-blur md:block ${graphThemeChrome.legend}`}
         >
-          <div className="h-px bg-linear-to-r from-sky-300/70 via-violet-300/45 to-amber-200/60" />
+          <div className="h-px bg-linear-to-r from-sky-300/70 via-violet-300/45 to-amber-200/60"/>
           <div className="p-3">
-            <AgencyGraphVisualLegend legend={visualLegend} theme={graphCanvasTheme} />
+            <AgencyGraphVisualLegend legend={visualLegend} theme={graphCanvasTheme}/>
           </div>
         </div>
       ) : null}
@@ -1807,7 +1809,8 @@ export default function AgencyGraphPanel({
         <div
           className={`absolute bottom-3 left-3 right-3 z-10 flex max-h-[55%] overflow-hidden rounded-2xl backdrop-blur md:bottom-4 md:left-auto md:right-4 md:max-h-[calc(100%-6rem)] md:w-80 md:max-w-[calc(100%-2rem)] ${graphThemeChrome.inspector}`}
         >
-          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-sky-300/70 via-violet-300/45 to-amber-200/60" />
+          <div
+            className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-sky-300/70 via-violet-300/45 to-amber-200/60"/>
           <AgencyGraphSelectionInspector
             condensedEvents={selectedNodeCondensedEvents}
             edge={selectedEdge}
@@ -1849,9 +1852,9 @@ interface AgencyGraphVisualLegendData {
 }
 
 function AgencyGraphVisualLegend({
-  legend,
-  theme,
-}: {
+                                   legend,
+                                   theme,
+                                 }: {
   legend: AgencyGraphVisualLegendData;
   theme: AgencyGraphCanvasTheme;
 }) {
@@ -1861,20 +1864,20 @@ function AgencyGraphVisualLegend({
         Legend
       </p>
       <div className="space-y-2">
-        <LegendSection items={legend.nodeTypes} title="Types" theme={theme} />
-        <LegendSection items={legend.statuses} title="Status" theme={theme} />
-        <LegendSection items={legend.edgeTones} title="Lines" line theme={theme} />
+        <LegendSection items={legend.nodeTypes} title="Types" theme={theme}/>
+        <LegendSection items={legend.statuses} title="Status" theme={theme}/>
+        <LegendSection items={legend.edgeTones} title="Lines" line theme={theme}/>
       </div>
     </aside>
   );
 }
 
 function LegendSection({
-  items,
-  line = false,
-  theme,
-  title,
-}: {
+                         items,
+                         line = false,
+                         theme,
+                         title,
+                       }: {
   items: AgencyGraphLegendItem[];
   line?: boolean;
   theme: AgencyGraphCanvasTheme;
@@ -1918,7 +1921,7 @@ function LegendSection({
                 className={`h-2.5 w-2.5 shrink-0 rounded-full ring-1 ${
                   theme === 'light' ? 'ring-sky-200/90' : 'ring-black/35'
                 }`}
-                style={{ backgroundColor: item.color }}
+                style={{backgroundColor: item.color}}
               />
             )}
             <span className={`truncate ${theme === 'light' ? 'text-slate-800' : 'text-slate-100'}`}>
@@ -1935,15 +1938,15 @@ function LegendSection({
 }
 
 function AgencyGraphSelectionInspector({
-  condensedEvents = [],
-  node,
-  edge,
-  relationships = [],
-  selectedEventDetails,
-  sourceNode,
-  targetNode,
-  theme,
-}: AgencyGraphSelectionInspectorProps) {
+                                         condensedEvents = [],
+                                         node,
+                                         edge,
+                                         relationships = [],
+                                         selectedEventDetails,
+                                         sourceNode,
+                                         targetNode,
+                                         theme,
+                                       }: AgencyGraphSelectionInspectorProps) {
   const sourceRecord = node ? sourceRecordForNode(node) : undefined;
   const actionLinks = node ? inspectorActionLinksForNode(node) : [];
   const timestampRows = node ? timestampRowsForNode(node) : [];
@@ -1953,26 +1956,26 @@ function AgencyGraphSelectionInspector({
   const chrome =
     theme === 'light'
       ? {
-          badge:
-            'border-sky-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(240,247,255,0.92))] text-slate-600',
-          card: 'border-sky-100/90 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(240,247,255,0.95))]',
-          cardText: 'text-slate-700',
-          cardTitle: 'text-slate-900',
-          rootText: 'text-slate-700',
-          subtitle: 'text-slate-500',
-          title: 'text-slate-900',
-          warning: 'border-amber-200/80 bg-amber-50/95 text-amber-950',
-        }
+        badge:
+          'border-sky-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(240,247,255,0.92))] text-slate-600',
+        card: 'border-sky-100/90 bg-[linear-gradient(180deg,rgba(248,250,252,0.98),rgba(240,247,255,0.95))]',
+        cardText: 'text-slate-700',
+        cardTitle: 'text-slate-900',
+        rootText: 'text-slate-700',
+        subtitle: 'text-slate-500',
+        title: 'text-slate-900',
+        warning: 'border-amber-200/80 bg-amber-50/95 text-amber-950',
+      }
       : {
-          badge: 'border-white/10 bg-white/5 text-slate-400',
-          card: 'border-white/10 bg-white/6',
-          cardText: 'text-slate-300',
-          cardTitle: 'text-slate-100',
-          rootText: 'text-slate-300',
-          subtitle: 'text-slate-400',
-          title: 'text-slate-50',
-          warning: 'border-amber-200 bg-amber-50 text-amber-950',
-        };
+        badge: 'border-white/10 bg-white/5 text-slate-400',
+        card: 'border-white/10 bg-white/6',
+        cardText: 'text-slate-300',
+        cardTitle: 'text-slate-100',
+        rootText: 'text-slate-300',
+        subtitle: 'text-slate-400',
+        title: 'text-slate-50',
+        warning: 'border-amber-200 bg-amber-50 text-amber-950',
+      };
 
   return (
     <aside
@@ -2164,7 +2167,7 @@ function AgencyGraphSelectionInspector({
           {selectedEventDetails ? (
             <div className={`rounded-xl border p-3 text-xs shadow-sm ${chrome.card}`}>
               <p className={`font-medium ${chrome.cardTitle}`}>Selected event details</p>
-              <PropertyList properties={selectedEventDetails} theme={theme} />
+              <PropertyList properties={selectedEventDetails} theme={theme}/>
             </div>
           ) : null}
           {actionLinks.length > 0 ? (
@@ -2180,12 +2183,12 @@ function AgencyGraphSelectionInspector({
                   href={action.href}
                 >
                   {action.label}
-                  <ExternalLink className="h-3 w-3" />
+                  <ExternalLink className="h-3 w-3"/>
                 </Link>
               ))}
             </div>
           ) : null}
-          <PropertyList properties={node.data || {}} theme={theme} />
+          <PropertyList properties={node.data || {}} theme={theme}/>
         </div>
       ) : edge ? (
         <div className={`mt-3 space-y-3 text-sm ${chrome.rootText}`}>
@@ -2204,7 +2207,7 @@ function AgencyGraphSelectionInspector({
               {targetNode?.label || edge.target}
             </p>
           </div>
-          <PropertyList properties={edge.data || {}} theme={theme} />
+          <PropertyList properties={edge.data || {}} theme={theme}/>
         </div>
       ) : (
         <p className={`mt-3 text-sm ${chrome.subtitle}`}>Select a node or edge to inspect it.</p>
@@ -2248,19 +2251,19 @@ function incidentDetailsForNode(node: SigmaGraphNode) {
 function sourceRecordForNode(node: SigmaGraphNode) {
   const sourceRecord = sourceRecordIdsForNode(node);
   if (sourceRecord.executionId) {
-    return { label: 'Source run', value: sourceRecord.executionId };
+    return {label: 'Source run', value: sourceRecord.executionId};
   }
   if (sourceRecord.workflowId) {
-    return { label: 'Source workflow', value: sourceRecord.workflowId };
+    return {label: 'Source workflow', value: sourceRecord.workflowId};
   }
   if (sourceRecord.memoryId) {
-    return { label: 'Source memory', value: sourceRecord.memoryId };
+    return {label: 'Source memory', value: sourceRecord.memoryId};
   }
   if (sourceRecord.agentId) {
-    return { label: 'Source agent', value: sourceRecord.agentId };
+    return {label: 'Source agent', value: sourceRecord.agentId};
   }
   if (sourceRecord.documentId) {
-    return { label: 'Source document', value: sourceRecord.documentId };
+    return {label: 'Source document', value: sourceRecord.documentId};
   }
   return undefined;
 }
@@ -2326,7 +2329,7 @@ function sourceRecordIdsForNode(node: SigmaGraphNode) {
     stringValue(data.document_id) ||
     stringValue(data.documentId) ||
     (node.type === 'Document' ? sourceRecordId || node.id.replace(/^document:/, '') : undefined);
-  return { agentId, documentId, executionId, memoryId, workflowId };
+  return {agentId, documentId, executionId, memoryId, workflowId};
 }
 
 function mergeAgencyGraphDocuments(
@@ -2427,45 +2430,45 @@ function applyAgencyGraphPerformanceBudget(
 ): SigmaGraphDocument {
   const originalNodeCount = document.nodes.length;
   const originalEdgeCount = document.edges.length;
-  const indexedNodes = document.nodes.map((node, index) => ({ index, node }));
+  const indexedNodes = document.nodes.map((node, index) => ({index, node}));
   const keptNodeEntries =
     indexedNodes.length > budget.defaultMaxNodes
       ? [...indexedNodes]
-          .sort(
-            (left, right) =>
-              nodeBudgetPriority(right.node) - nodeBudgetPriority(left.node) ||
-              left.index - right.index
-          )
-          .slice(0, budget.defaultMaxNodes)
-          .sort((left, right) => left.index - right.index)
+        .sort(
+          (left, right) =>
+            nodeBudgetPriority(right.node) - nodeBudgetPriority(left.node) ||
+            left.index - right.index
+        )
+        .slice(0, budget.defaultMaxNodes)
+        .sort((left, right) => left.index - right.index)
       : indexedNodes;
   const visibleNodeIds = new Set(keptNodeEntries.map((entry) => entry.node.id));
   const candidateEdges = document.edges
-    .map((edge, index) => ({ edge, index }))
+    .map((edge, index) => ({edge, index}))
     .filter(
       (entry) => visibleNodeIds.has(entry.edge.source) && visibleNodeIds.has(entry.edge.target)
     );
   const keptEdgeEntries =
     candidateEdges.length > budget.defaultMaxEdges
       ? [...candidateEdges]
-          .sort(
-            (left, right) =>
-              edgeBudgetPriority(right.edge) - edgeBudgetPriority(left.edge) ||
-              left.index - right.index
-          )
-          .slice(0, budget.defaultMaxEdges)
-          .sort((left, right) => left.index - right.index)
+        .sort(
+          (left, right) =>
+            edgeBudgetPriority(right.edge) - edgeBudgetPriority(left.edge) ||
+            left.index - right.index
+        )
+        .slice(0, budget.defaultMaxEdges)
+        .sort((left, right) => left.index - right.index)
       : candidateEdges;
   const nodeTruncated = keptNodeEntries.length < originalNodeCount;
   const edgeTruncated = keptEdgeEntries.length < originalEdgeCount;
 
   return {
     ...document,
-    nodes: keptNodeEntries.map(({ node }) => ({
+    nodes: keptNodeEntries.map(({node}) => ({
       ...node,
       label: truncateGraphLabel(node.label, budget.maxLabelLength),
     })),
-    edges: keptEdgeEntries.map(({ edge }) => ({
+    edges: keptEdgeEntries.map(({edge}) => ({
       ...edge,
       label: edge.label ? truncateGraphLabel(edge.label, budget.maxLabelLength) : edge.label,
     })),
@@ -2509,12 +2512,12 @@ function graphBudgetSummaryForDocument(document: SigmaGraphDocument) {
 }
 
 function agencyGraphCoverageSummary({
-  document,
-  recentExecutions,
-  rootType,
-  selectedExecution,
-  workflowExecutions,
-}: {
+                                      document,
+                                      recentExecutions,
+                                      rootType,
+                                      selectedExecution,
+                                      workflowExecutions,
+                                    }: {
   document: SigmaGraphDocument;
   recentExecutions: ExecutionRecord[];
   rootType: AgencyGraphRootType;
@@ -2734,9 +2737,9 @@ function timestampRowsForNode(node: SigmaGraphNode) {
       label: 'Started',
       value: formatDateTime(node.startedAt || stringValue(node.data?.started_at)),
     },
-    { label: 'Ended', value: formatDateTime(node.endedAt || stringValue(node.data?.ended_at)) },
-    { label: 'Created', value: formatDateTime(stringValue(node.data?.created_at)) },
-    { label: 'Last seen', value: formatDateTime(stringValue(node.data?.last_seen_at)) },
+    {label: 'Ended', value: formatDateTime(node.endedAt || stringValue(node.data?.ended_at))},
+    {label: 'Created', value: formatDateTime(stringValue(node.data?.created_at))},
+    {label: 'Last seen', value: formatDateTime(stringValue(node.data?.last_seen_at))},
   ].filter((row): row is { label: string; value: string } => Boolean(row.value));
 }
 
@@ -2764,7 +2767,7 @@ function relationshipsForNode(
     groups.set(edge.type, records);
   }
   return [...groups.entries()]
-    .map(([type, records]) => ({ records, type }))
+    .map(([type, records]) => ({records, type}))
     .sort((left, right) => left.type.localeCompare(right.type));
 }
 
@@ -2969,11 +2972,11 @@ function applyAgencyGraphVisualEncoding(
 }
 
 function applyAgencyGraphNodeVisualEncoding({
-  edgeCount,
-  eventCount,
-  node,
-  options,
-}: {
+                                              edgeCount,
+                                              eventCount,
+                                              node,
+                                              options,
+                                            }: {
   edgeCount: number;
   eventCount: number;
   node: SigmaGraphNode;
@@ -3232,7 +3235,7 @@ function agencyGraphEdgeStyle(type: string) {
       'SUPERSEDES',
     ].includes(type)
   ) {
-    return { color: '#4f46e5', size: 2, style: 'dashed', tone: 'lineage' };
+    return {color: '#4f46e5', size: 2, style: 'dashed', tone: 'lineage'};
   }
   if (
     [
@@ -3250,23 +3253,23 @@ function agencyGraphEdgeStyle(type: string) {
       'USED_RUNTIME',
     ].includes(type)
   ) {
-    return { color: '#0f766e', size: 1.6, style: 'solid', tone: 'operational' };
+    return {color: '#0f766e', size: 1.6, style: 'solid', tone: 'operational'};
   }
   if (['FAILED_WITH', 'HAS_INCIDENT'].includes(type)) {
-    return { color: '#dc2626', size: 2.5, style: 'solid', tone: 'warning' };
+    return {color: '#dc2626', size: 2.5, style: 'solid', tone: 'warning'};
   }
   if (['USED_MODEL', 'USED_PROVIDER'].includes(type)) {
-    return { color: '#ea580c', size: 2, style: 'solid', tone: 'cost' };
+    return {color: '#ea580c', size: 2, style: 'solid', tone: 'cost'};
   }
   if (['HAS_APPROVAL', 'USES_INTEGRATION', 'AVAILABLE_TO'].includes(type)) {
-    return { color: '#be123c', size: 2, style: 'dotted', tone: 'governance' };
+    return {color: '#be123c', size: 2, style: 'dotted', tone: 'governance'};
   }
   if (
     ['CONSTRAINS', 'HAS_CHUNK', 'MENTIONS', 'RAISED_QUESTION', 'SUPPORTS_DECISION'].includes(type)
   ) {
-    return { color: '#0891b2', size: 1.5, style: 'solid', tone: 'knowledge' };
+    return {color: '#0891b2', size: 1.5, style: 'solid', tone: 'knowledge'};
   }
-  return { color: '#64748b', size: 1, style: 'solid', tone: 'default' };
+  return {color: '#64748b', size: 1, style: 'solid', tone: 'default'};
 }
 
 function healthWarningsForNode(node: SigmaGraphNode) {
@@ -3310,9 +3313,9 @@ function healthWarningsForNode(node: SigmaGraphNode) {
 function costRowsForNode(node: SigmaGraphNode) {
   const data = node.data || {};
   return [
-    { label: 'Cost', value: formatCurrency(numberValue(data.cost_estimate ?? data.costEstimate)) },
-    { label: 'Cost USD', value: formatCurrency(numberValue(data.cost_usd ?? data.costUsd)) },
-    { label: 'Tokens', value: formatNumber(numberValue(data.token_count ?? data.tokenCount)) },
+    {label: 'Cost', value: formatCurrency(numberValue(data.cost_estimate ?? data.costEstimate))},
+    {label: 'Cost USD', value: formatCurrency(numberValue(data.cost_usd ?? data.costUsd))},
+    {label: 'Tokens', value: formatNumber(numberValue(data.token_count ?? data.tokenCount))},
     {
       label: 'Input tokens',
       value: formatNumber(numberValue(data.input_tokens ?? data.inputTokens)),
@@ -3340,7 +3343,7 @@ function createPlaceholderAgencyGraphDocument(label: string): SigmaGraphDocument
         label,
         size: 14,
         color: '#3b82f6',
-        position: { x: 0, y: 0 },
+        position: {x: 0, y: 0},
         data: {
           state: 'placeholder',
         },
@@ -3369,11 +3372,11 @@ function sortExecutionsForGraph(executions: ExecutionRecord[]) {
 }
 
 function selectRecentExecutionsForGraphCoverage(executions: ExecutionRecord[], limit: number) {
-  return selectExecutionsForCoverage(executions, limit, { preserveWorkflowDiversity: true });
+  return selectExecutionsForCoverage(executions, limit, {preserveWorkflowDiversity: true});
 }
 
 function selectWorkflowExecutionsForGraphCoverage(executions: ExecutionRecord[], limit: number) {
-  return selectExecutionsForCoverage(executions, limit, { preserveWorkflowDiversity: false });
+  return selectExecutionsForCoverage(executions, limit, {preserveWorkflowDiversity: false});
 }
 
 function selectExecutionsForCoverage(
@@ -3495,14 +3498,14 @@ function isManualRootType(rootType: AgencyGraphRootType): rootType is AgencyGrap
 }
 
 function selectedAgencyGraphRootLabel({
-  execution,
-  manualRootId,
-  memoryId,
-  rootOptions,
-  rootType,
-  workflowId,
-  workflowOptions,
-}: {
+                                        execution,
+                                        manualRootId,
+                                        memoryId,
+                                        rootOptions,
+                                        rootType,
+                                        workflowId,
+                                        workflowOptions,
+                                      }: {
   execution?: ExecutionRecord;
   manualRootId: string;
   memoryId: string;
@@ -3799,10 +3802,10 @@ function formatCurrency(value?: number) {
   return value === undefined
     ? undefined
     : new Intl.NumberFormat(undefined, {
-        currency: 'USD',
-        maximumFractionDigits: 4,
-        style: 'currency',
-      }).format(value);
+      currency: 'USD',
+      maximumFractionDigits: 4,
+      style: 'currency',
+    }).format(value);
 }
 
 function timestampValue(value?: string | null) {
@@ -3814,20 +3817,20 @@ function timestampValue(value?: string | null) {
 }
 
 function agencyGraphEmptyState({
-  graphStatus,
-  graphStatusError,
-  graphQueryError,
-  hasGraphData,
-  isGraphStatusLoading,
-  isRootOptionsLoading,
-  resolvedRootId,
-  rootOptions,
-  rootType,
-  runEventsError,
-  runStatusFilter,
-  selectedExecution,
-  totalRunCount,
-}: {
+                                 graphStatus,
+                                 graphStatusError,
+                                 graphQueryError,
+                                 hasGraphData,
+                                 isGraphStatusLoading,
+                                 isRootOptionsLoading,
+                                 resolvedRootId,
+                                 rootOptions,
+                                 rootType,
+                                 runEventsError,
+                                 runStatusFilter,
+                                 selectedExecution,
+                                 totalRunCount,
+                               }: {
   graphStatus?: Record<string, unknown>;
   graphStatusError?: unknown;
   graphQueryError: unknown;
@@ -3952,19 +3955,19 @@ function agencyGraphEmptyState({
       rootType === 'run'
         ? 'The selected run loaded successfully, but no event-derived nodes were generated.'
         : `The selected ${rootTypeLabel(
-            rootType
-          ).toLowerCase()} loaded successfully, but the graph projection returned no nodes.`,
+          rootType
+        ).toLowerCase()} loaded successfully, but the graph projection returned no nodes.`,
   };
 }
 
 function agencyGraphStatusIndicator({
-  graphStatus,
-  graphStatusError,
-  hasGraphData,
-  isGraphStatusLoading,
-  runEventsError,
-  supportsRunFallback,
-}: {
+                                      graphStatus,
+                                      graphStatusError,
+                                      hasGraphData,
+                                      isGraphStatusLoading,
+                                      runEventsError,
+                                      supportsRunFallback,
+                                    }: {
   graphStatus?: Record<string, unknown>;
   graphStatusError?: unknown;
   hasGraphData: boolean;
@@ -4032,9 +4035,9 @@ function articleFor(value: string) {
 }
 
 function PropertyList({
-  properties,
-  theme,
-}: {
+                        properties,
+                        theme,
+                      }: {
   properties: SigmaGraphJsonObject;
   theme: AgencyGraphCanvasTheme;
 }) {

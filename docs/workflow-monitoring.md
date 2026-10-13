@@ -1,12 +1,12 @@
 # Workflow Monitoring
 
-For the consolidated integration operating model across setup, delivery, workflow bindings, and
-future TODOs, start with [integration-operations-guide.md](./integration-operations-guide.md).
+For the consolidated integration operating model across setup, delivery, workflow bindings, and future TODOs, start
+with [integration-operations-guide.md](./integration-operations-guide.md).
 
-Workflow monitoring is the workflow-level policy surface for the background main-agent monitor.
-The frontend displays and updates the policy, while the backend owns the canonical monitoring
-behavior, findings, proposals, evaluation records, steering requests, and approval routing.
-Token budgets and compaction policy are configured in the separate Runtime governance panel; see
+Workflow monitoring is the workflow-level policy surface for the background main-agent monitor. The frontend displays
+and updates the policy, while the backend owns the canonical monitoring behavior, findings, proposals, evaluation
+records, steering requests, and approval routing. Token budgets and compaction policy are configured in the separate
+Runtime governance panel; see
 [`workflow-runtime-governance.md`](workflow-runtime-governance.md).
 
 This document explains the fields exposed by `WorkflowMonitoringOperatorPayload` and
@@ -22,19 +22,18 @@ Monitoring policy is fetched and updated through:
 - `PATCH /api/workflows/:id/monitoring`
 - `GET /api/workflows/:id/monitoring/events`
 
-The Next.js API routes proxy these requests to the Open Agency backend with the authenticated frontend
-user. The frontend optimistically updates local query state, then invalidates workflow and
-monitoring-event queries after the backend responds.
+The Next.js API routes proxy these requests to the Open Agency backend with the authenticated frontend user. The
+frontend optimistically updates local query state, then invalidates workflow and monitoring-event queries after the
+backend responds.
 
 The Main-Agent Monitor workspace at `/operations/main-agent-monitor` is the operator command center. It uses
-`GET /api/main-agent/monitor` to show monitor loop health, latest tick counters, monitored workflow
-coverage, pending monitor approvals, repo-write permission gates, recent findings/proposals/steering
-requests, and the active notification route. It uses `PATCH /api/main-agent/monitor` to update the
-active main-agent monitor approval conversation and optional `monitor_delivery` metadata for
-Telegram, Discord, or WhatsApp delivery.
+`GET /api/main-agent/monitor` to show monitor loop health, latest tick counters, monitored workflow coverage, pending
+monitor approvals, repo-write permission gates, recent findings/proposals/steering requests, and the active notification
+route. It uses `PATCH /api/main-agent/monitor` to update the active main-agent monitor approval conversation and
+optional `monitor_delivery` metadata for Telegram, Discord, or WhatsApp delivery.
 
-The command center does not silently mutate workflows. Approval buttons act on explicit backend
-approval requests, and repo-write requests remain human-held gates.
+The command center does not silently mutate workflows. Approval buttons act on explicit backend approval requests, and
+repo-write requests remain human-held gates.
 
 ## Operator Workflow
 
@@ -57,10 +56,9 @@ The page refetches periodically, but approval decisions are still explicit user 
 decisions to the conversation approval API; the backend owns the actual policy enforcement and mutation application.
 
 Monitoring data is not embedded in normal workflow execution definitions. Before starting a run,
-`buildExecutionWorkflowDefinition` removes `workflow.monitoring` from the workflow definition sent
-to the runtime. Monitoring affects the workflow through backend-side observation, proposals,
-approvals, steering events, run metadata, and graph overlays, not by directly rewriting the task
-or agent definitions in the frontend execution payload.
+`buildExecutionWorkflowDefinition` removes `workflow.monitoring` from the workflow definition sent to the runtime.
+Monitoring affects the workflow through backend-side observation, proposals, approvals, steering events, run metadata,
+and graph overlays, not by directly rewriting the task or agent definitions in the frontend execution payload.
 
 ## Goal Binding
 
@@ -80,14 +78,13 @@ metadata may still provide reusable goal defaults such as guarded autonomy or su
 
 ## Workflow Governance Queue
 
-Workflow detail now includes a separate Governance Queue panel for record-level operator work on
-workflow improvement proposals and steering approvals. This panel is distinct from runtime
-governance:
+Workflow detail now includes a separate Governance Queue panel for record-level operator work on workflow improvement
+proposals and steering approvals. This panel is distinct from runtime governance:
 
 - monitoring explains why the backend monitor created findings, proposals, or steering requests
 - runtime governance configures token-budget and compaction policy
-- governance queue handles evidence linkage, approval routing, remediation drift, and manual review
-  closure for existing governance records
+- governance queue handles evidence linkage, approval routing, remediation drift, and manual review closure for existing
+  governance records
 
 The frontend currently calls these workflow-scoped proxy routes:
 
@@ -102,8 +99,7 @@ The frontend currently calls these workflow-scoped proxy routes:
 
 ### Governance Queue Operator Flow
 
-Use the Governance Queue when the question is "what record-level governance work is still open for
-this workflow?"
+Use the Governance Queue when the question is "what record-level governance work is still open for this workflow?"
 
 Normal governance review flow:
 
@@ -115,16 +111,15 @@ Normal governance review flow:
 6. Use Resolve or Dismiss only for manual operator closure when no linked approval request exists.
 7. Use Reopen to return a manually closed record to active review.
 
-Manual lifecycle actions are intentionally blocked while a governance record is already linked to an
-approval request. That prevents the UI from creating local workflow state that silently disagrees
-with the canonical approval record.
+Manual lifecycle actions are intentionally blocked while a governance record is already linked to an approval request.
+That prevents the UI from creating local workflow state that silently disagrees with the canonical approval record.
 
 ### Governance Queue Item Shape
 
 Each governance queue item now includes:
 
 | Field                 | Meaning                                                                                                    |
-| --------------------- | ---------------------------------------------------------------------------------------------------------- |
+|-----------------------|------------------------------------------------------------------------------------------------------------|
 | `record_kind`         | Either `improvement_proposal` or `steering_approval`.                                                      |
 | `record_id`           | Workflow-owned governance record id.                                                                       |
 | `status`              | Record status after approval sync and manual operator transitions.                                         |
@@ -139,24 +134,23 @@ Each governance queue item now includes:
 
 ### Governance Activity Timeline
 
-The Governance Queue detail dialog renders `activity` as a compact operator timeline. This timeline
-is currently derived from existing workflow state rather than a dedicated append-only event log, so
-it is strongest for these events:
+The Governance Queue detail dialog renders `activity` as a compact operator timeline. This timeline is currently derived
+from existing workflow state rather than a dedicated append-only event log, so it is strongest for these events:
 
 - record creation timestamps from proposal or steering history
 - evidence link attachment timestamps from workflow document links
 - approval request creation timestamps from linked approval records
 - decision timestamps such as resolve, dismiss, approve, reject, or apply
 
-When the backend sees a meaningful `updated_at` change without a stronger event signal, it may emit
-a generic `updated` activity entry instead of guessing a specific operator action.
+When the backend sees a meaningful `updated_at` change without a stronger event signal, it may emit a generic `updated`
+activity entry instead of guessing a specific operator action.
 
 ## Visible Monitoring Controls
 
 These fields are currently visible in the Main agent monitoring panel.
 
 | UI label              | Payload field                                  | Capability                     | Meaning                                                                                                              | Impact                                                                                                                                                                                                                                             |
-| --------------------- | ---------------------------------------------- | ------------------------------ | -------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+|-----------------------|------------------------------------------------|--------------------------------|----------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Monitor workflow      | `enabled`, `controls.enabled`                  | Workflow monitoring gate       | Controls whether the backend main-agent monitor can inspect active and recent runs for this workflow.                | When disabled, the workflow is treated as exempt. The graph labels monitored nodes as `Monitoring off`, and the exemption reason can be saved.                                                                                                     |
 | Monitoring level      | `level`, `controls.level`                      | Monitoring intensity           | Selects the policy level: `minimal`, `standard`, or `strict`.                                                        | The frontend shows this as the monitoring status. Backend policy decides how many checks, evaluations, or interventions each level enables.                                                                                                        |
 | Self monitoring       | `controls.allow_self_monitoring`               | Main-agent self-supervision    | Allows the main-agent monitor to monitor the main agent default workflow itself.                                     | Only shown when `is_main_agent_default_workflow` is true. Turning it on also enables workflow monitoring.                                                                                                                                          |
@@ -174,11 +168,11 @@ These fields are currently visible in the Main agent monitoring panel.
 
 ## Operator Payload Fields
 
-These top-level fields describe the backend's monitoring policy state. Some are visible in the UI;
-others are backend/operator metadata.
+These top-level fields describe the backend's monitoring policy state. Some are visible in the UI; others are
+backend/operator metadata.
 
 | Field                            | Capability                   | Meaning                                                                 | Impact                                                                                                                            |
-| -------------------------------- | ---------------------------- | ----------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+|----------------------------------|------------------------------|-------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
 | `enabled`                        | Monitoring gate              | Canonical top-level on/off state for workflow monitoring.               | Drives the UI status badge and graph `Monitoring off` labels.                                                                     |
 | `level`                          | Monitoring intensity         | Canonical top-level monitoring level.                                   | Displayed as the status label unless the workflow is exempt or off.                                                               |
 | `exempted`                       | Exemption state              | Indicates the workflow is explicitly exempt from monitoring.            | UI status becomes `Exempt`; exemption reason is shown when present.                                                               |
@@ -197,7 +191,7 @@ others are backend/operator metadata.
 These fields live under `monitoring.controls`.
 
 | Field                                     | Visible | Capability                     | Meaning                                                                                | Impact                                                                                                               |
-| ----------------------------------------- | ------- | ------------------------------ | -------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+|-------------------------------------------|---------|--------------------------------|----------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
 | `enabled`                                 | Yes     | Monitoring gate                | Nested copy of the monitoring enabled state.                                           | Kept aligned with top-level `enabled` by the frontend optimistic patch helper.                                       |
 | `level`                                   | Yes     | Monitoring intensity           | Nested copy of the monitoring level.                                                   | Kept aligned with top-level `level` by the frontend optimistic patch helper.                                         |
 | `store_run_summaries`                     | No      | Summary persistence            | Allows the backend monitor to store summaries of workflow runs.                        | Can provide compact historical context for later monitoring and review. Not currently editable in the panel.         |
@@ -224,7 +218,7 @@ These fields live under `monitoring.controls`.
 The `/operations/main-agent-monitor` page is intentionally broader than a single workflow panel:
 
 | Section                 | Source field                                 | Purpose                                                                                 |
-| ----------------------- | -------------------------------------------- | --------------------------------------------------------------------------------------- |
+|-------------------------|----------------------------------------------|-----------------------------------------------------------------------------------------|
 | Status counters         | `summary`, `settings`, `runtime`             | Shows whether the monitor is enabled, workflow coverage, pending approvals, and ticks.  |
 | Notification routing    | `notification_route`                         | Edits the default approval inbox and optional linked chat delivery metadata.            |
 | Human attention inbox   | `pending_approvals`                          | Lets an operator approve or reject monitor-created workflow updates and steering gates. |
@@ -232,32 +226,33 @@ The `/operations/main-agent-monitor` page is intentionally broader than a single
 | Recent monitor evidence | `findings`, `proposals`, `steering_requests` | Shows the newest monitor events across workflows.                                       |
 | Monitored workflows     | `workflows`                                  | Links back to workflow-level monitoring controls.                                       |
 
-External chat routing is configured by setting an approval conversation that represents the linked
-channel, then saving `monitor_delivery.provider` and `monitor_delivery.credential_id`. Supported
-providers are `telegram`, `discord`, and `whatsapp`.
+External chat routing is configured by setting an approval conversation that represents the linked channel, then saving
+`monitor_delivery.provider` and `monitor_delivery.credential_id`. Supported providers are `telegram`, `discord`, and
+`whatsapp`.
 
-The delivery target is the approval conversation's channel binding. The monitor delivery metadata
-intentionally stores only the provider and credential id.
+The delivery target is the approval conversation's channel binding. The monitor delivery metadata intentionally stores
+only the provider and credential id.
 
 | Provider | Conversation target requirement                                                                        | Credential metadata requirement                                                              |
-| -------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
+|----------|--------------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
 | Telegram | `channel_thread_id` is the Telegram `chat_id`; `channel_user_id` maps the trusted operator identity.   | Production webhooks need `webhook_secret_ref` or `webhook_secret_token`.                     |
 | Discord  | `channel_thread_id` is the Discord `channel_id`; `channel_user_id` maps the trusted operator identity. | Production webhooks need `webhook_public_key`.                                               |
 | WhatsApp | `channel_user_id` is the recipient phone number or `wa_id`.                                            | Delivery needs `phone_number_id`; production webhooks need `app_secret_ref` or `app_secret`. |
 
-When multiple credentials exist for the same provider, optional instance identity metadata such as
-bot id, workspace/guild id, sender number, project id, repository, bucket, or folder is displayed
-with the credential so operators and agents can choose the intended connector instance.
+When multiple credentials exist for the same provider, optional instance identity metadata such as bot id,
+workspace/guild id, sender number, project id, repository, bucket, or folder is displayed with the credential so
+operators and agents can choose the intended connector instance.
 
-The frontend monitor routing panel can resolve these conversation targets and creates the trusted
-channel identity mapping required for the conversation owner to match the selected credential owner.
+The frontend monitor routing panel can resolve these conversation targets and creates the trusted channel identity
+mapping required for the conversation owner to match the selected credential owner.
 
-The general assistant conversation page also exposes a Channel Target panel for saved delivery
-bindings. It writes the same conversation fields:
+The general assistant conversation page also exposes a Channel Target panel for saved delivery bindings. It writes the
+same conversation fields:
 
 - Telegram: `channel_thread_id` is the `chat_id`; `channel_user_id` is the trusted operator/user id.
 - Discord: `channel_thread_id` is the `channel_id`; `channel_user_id` is the trusted Discord user id.
-- WhatsApp: `channel_user_id` is the recipient phone number or `wa_id`; the sender is selected from the credential `phone_number_id`.
+- WhatsApp: `channel_user_id` is the recipient phone number or `wa_id`; the sender is selected from the credential
+  `phone_number_id`.
 
 Backend delivery can now use that saved conversation target directly:
 
@@ -277,14 +272,13 @@ POST /integrations/conversations/channels/{conversation_id}/deliver
 }
 ```
 
-The backend formats provider payloads from the conversation target, then sends through the selected
-credential. This prevents callers from having to pass raw provider-specific `chat_id`,
+The backend formats provider payloads from the conversation target, then sends through the selected credential. This
+prevents callers from having to pass raw provider-specific `chat_id`,
 `channel_id`, `to`, or `phone_number_id` values on every delivery attempt.
 
-Workflow connector defaults are stored separately in `workflow.metadata.connector_bindings`.
-Tool-level bindings in `ToolDefinition.security.connector_bindings` take precedence; workflow-level
-bindings provide a default when several tools should use the same provider instance. Each binding
-stores:
+Workflow connector defaults are stored separately in `workflow.metadata.connector_bindings`. Tool-level bindings in
+`ToolDefinition.security.connector_bindings` take precedence; workflow-level bindings provide a default when several
+tools should use the same provider instance. Each binding stores:
 
 ```json
 {
@@ -299,20 +293,20 @@ stores:
 }
 ```
 
-Agents must resolve credentials before proposing connector-backed tools or workflows when multiple
-provider instances exist. Runtime execution rejects connector-backed tools with no binding, and
-rejects ambiguous multiple bindings unless the tool call narrows provider or credential id.
+Agents must resolve credentials before proposing connector-backed tools or workflows when multiple provider instances
+exist. Runtime execution rejects connector-backed tools with no binding, and rejects ambiguous multiple bindings unless
+the tool call narrows provider or credential id.
 
-Backend duplicate suppression keeps one pending approval request per workflow/finding/action/failure
-signature. Additional repeated evidence remains visible as monitor events, but the inbox should not
-fill with identical approval requests while one is still pending.
+Backend duplicate suppression keeps one pending approval request per workflow/finding/action/failure signature.
+Additional repeated evidence remains visible as monitor events, but the inbox should not fill with identical approval
+requests while one is still pending.
 
 ### Command Center API Contract
 
 `GET /api/main-agent/monitor` returns `MainAgentMonitorCommandCenterResponse`:
 
 | Field                 | Purpose                                                                                     |
-| --------------------- | ------------------------------------------------------------------------------------------- |
+|-----------------------|---------------------------------------------------------------------------------------------|
 | `settings`            | Global monitor enablement, default policy, interval, stale threshold, and retention values. |
 | `runtime`             | Loop health, counters, recent actions, and the latest `main_agent_monitor.tick`.            |
 | `active_profile`      | Active main-agent profile summary, when one is configured.                                  |
@@ -338,8 +332,8 @@ fill with identical approval requests while one is still pending.
 }
 ```
 
-`monitor_delivery` is optional. When set, `provider` must be `telegram`, `discord`, or `whatsapp`.
-This route changes notification routing only. It does not approve pending requests or change workflow definitions.
+`monitor_delivery` is optional. When set, `provider` must be `telegram`, `discord`, or `whatsapp`. This route changes
+notification routing only. It does not approve pending requests or change workflow definitions.
 
 ### Approval Boundaries
 
@@ -356,7 +350,7 @@ The monitor workspace should make these boundaries clear to operators:
 The frontend currently recognizes these steering action IDs:
 
 | Action ID                   | Meaning                                      | Typical impact                                                           |
-| --------------------------- | -------------------------------------------- | ------------------------------------------------------------------------ |
+|-----------------------------|----------------------------------------------|--------------------------------------------------------------------------|
 | `request_human_review`      | Ask a human to inspect the workflow or run.  | Creates or routes a review checkpoint.                                   |
 | `request_replan`            | Ask the workflow to replan.                  | Can change the execution plan where backend/runtime supports replanning. |
 | `redirect_subagent`         | Redirect work from one sub-agent to another. | Can alter responsibility for a task or follow-up action.                 |
@@ -376,7 +370,7 @@ the Auto-apply steering UI.
 `GET /api/workflows/:id/monitoring/events` returns monitoring event groups:
 
 | Event group         | Meaning                                                         | UI impact                                                                                           |
-| ------------------- | --------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+|---------------------|-----------------------------------------------------------------|-----------------------------------------------------------------------------------------------------|
 | `findings`          | Monitor observations from run evidence.                         | Normalized into graph runtime overlays.                                                             |
 | `proposals`         | Suggested workflow improvements.                                | Rendered in the Monitor proposals panel, including approval controls when present.                  |
 | `evaluations`       | Evaluation records from monitor or evaluation-agent review.     | Normalized into graph runtime overlays.                                                             |
@@ -388,7 +382,8 @@ the Auto-apply steering UI.
 The workflow graph uses monitoring policy and monitoring events in two ways:
 
 - policy labels: agent and task nodes can show monitored, excluded, or off states
-- runtime overlays: findings, proposals, evaluations, comparisons, and steering events are normalized into graph runtime events
+- runtime overlays: findings, proposals, evaluations, comparisons, and steering events are normalized into graph runtime
+  events
 
 These overlays are transient UI projections. They are not persisted as standalone editable workflow graph entities.
 
@@ -401,3 +396,12 @@ These overlays are transient UI projections. They are not persisted as standalon
 - Graph policy labels: `components/workflow/WorkflowGraphCanvas.tsx`
 - Graph event mapping: `lib/workflows/workflowGraphAdapter.ts`
 - Execution payload boundary: `lib/workflows/executionPayload.ts`
+
+### Main agent workflow visibility
+
+For an older saved workflow that JARVIS reports as existing but hidden, open Edit Workflow, expand Configuration &
+governance and review Main agent access. Visible lets the main agent inspect the definition and use its existing
+execution and monitoring paths, subject to their own policies. Editing permissions and execution approvals remain
+separate. This field uses workflow autosave. Hidden clears both visibility aliases; unrelated metadata is preserved.
+Explicit policy denials disable the field and must be reviewed separately. Merely opening the editor does not change
+access, and new UI availability does not migrate saved workflows or authorize an agent to enable itself.

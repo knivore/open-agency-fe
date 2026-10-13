@@ -1,6 +1,17 @@
 'use client';
 
-import { type CSSProperties, startTransition, useEffect, useMemo, useState } from 'react';
+import { Textarea } from '@/components/library/shadcn/textarea';
+import { Input } from '@/components/library/shadcn/input';
+import { NativeSelect } from '@/components/library/shadcn/select';
+import {
+  type CSSProperties,
+  startTransition,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 
 import type { ObservatoryCanvasSelection } from '@/modules/observatory/engine/selection';
 import {
@@ -25,9 +36,7 @@ import {
   placeObservatoryObject,
 } from '@/modules/observatory/engine/world/layoutEditing';
 import {
-  clearObservatoryLayoutStorage,
   exportObservatoryLayoutJson,
-  OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY,
   OBSERVATORY_PUBLISHED_LAYOUT_STORAGE_KEY,
   writeObservatoryLayoutToStorage,
 } from '@/modules/observatory/engine/world/layoutPersistence';
@@ -39,11 +48,26 @@ import { generateObservatoryLayoutFromPrompt } from '@/modules/observatory/gener
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
 import type { ObservatoryGridRect } from '@/modules/observatory/engine/world/grid';
 import type { ObservatoryLayoutDocument } from '@/modules/observatory/engine/world/layoutTypes';
-import repoPublishedLayout from '@/modules/observatory/layouts/publishedLayout.json';
 
 import styles from './ManualLayoutEditorPanel.module.css';
+import { inspectObservatoryMap } from '../engine/world/layoutInspection';
+import { observatoryLayoutContentKey } from '../engine/world/layoutContentKey';
+import { observatoryAssetPlacement } from '@/modules/observatory/engine/world/objectGeometry';
+import {
+  createOfficePreset,
+  createOfficeAssetAssembly,
+  officePresetOptions,
+  placeOfficeAssembly,
+  type OfficePresetId,
+  type OfficePresetStyle,
+} from '../engine/world/officeAssemblies';
+import type { ObservatoryPlacementRequest } from '../engine/world/placementPreview';
 
 export interface ManualLayoutEditorPanelProps {
+  draftSaveStatus?: string;
+  hasPlacementErrors?: boolean;
+  mapId?: string;
+  onPlacementRequest?: (request: ObservatoryPlacementRequest) => void;
   canvasEditResult?: ObservatoryLayoutEditResult | null;
   canvasWallEditEnabled?: boolean;
   canvasWallEditRoom?: { id: string; label: string } | null;
@@ -69,6 +93,10 @@ export interface ManualLayoutEditorPanelProps {
 }
 
 export default function ManualLayoutEditorPanel({
+  draftSaveStatus,
+  hasPlacementErrors = false,
+  mapId,
+  onPlacementRequest,
   canvasSelection,
   disabled = false,
   layout,
@@ -78,9 +106,11 @@ export default function ManualLayoutEditorPanel({
   onLayoutChange,
   onPublishedLayout,
 }: ManualLayoutEditorPanelProps) {
-  const map = layout.world.maps[0];
+  const map = layout.world.maps.find((candidate) => candidate.id === mapId) ?? layout.world.maps[0];
   const [selectedRoomId, setSelectedRoomId] = useState(map?.rooms[0]?.id ?? '');
   const [assetSearch, setAssetSearch] = useState('');
+  const [presetId, setPresetId] = useState<OfficePresetId>('desktop');
+  const [presetStyle, setPresetStyle] = useState<OfficePresetStyle>('beige');
   // The builder opens on the default Observatory office, so start the large catalog
   // on office-fit assets while leaving the full 5k+ palette one filter change away.
   const [assetTheme, setAssetTheme] = useState<ObservatoryPaletteThemeId>('office');
@@ -118,6 +148,13 @@ export default function ManualLayoutEditorPanel({
     'Generate a walkable engineering pod, ops center, meeting room, and approval room with doors.'
   );
   const [layoutLibrary, setLayoutLibrary] = useState<ObservatoryLayoutLibraryEntry[]>([]);
+  const initialLayout = useRef(layout);
+  const actionPending = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [libraryReloadKey, setLibraryReloadKey] = useState(0);
+  const [savedContentKey, setSavedContentKey] = useState<string | null>(null);
+  const [deployedContentKey, setDeployedContentKey] = useState<string | null>(null);
+  const [removedFileId, setRemovedFileId] = useState<string | null>(null);
   const [layoutLibraryLoading, setLayoutLibraryLoading] = useState(false);
   const layoutMetadataKey = JSON.stringify({
     name: layout.metadata?.name ?? layout.world.name,
@@ -150,7 +187,15 @@ export default function ManualLayoutEditorPanel({
       notes,
     }));
   };
-  const [selectedManagedLayoutId, setSelectedManagedLayoutId] = useState('');
+  const [selectedManagedLayoutId, setSelectedManagedLayoutIdState] = useState('');
+  const setSelectedManagedLayoutId = useCallback((fileId: string) => {
+    setSelectedManagedLayoutIdState(fileId);
+    try {
+      window.localStorage.setItem('observatory:layout:managed-file:v1', fileId);
+    } catch {
+      /* Editing still works when browser storage is unavailable. */
+    }
+  }, []);
   const [managedLayoutActionStateId, setManagedLayoutActionId] = useState('');
   const [lastPublishedAt, setLastPublishedAt] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ObservatoryLayoutEditResult | null>(null);
@@ -207,6 +252,10 @@ export default function ManualLayoutEditorPanel({
     paletteAssets.find((asset) => asset.assetId === selectedPaletteAssetId) ?? paletteAssets[0];
 
   useEffect(() => {
+    initialLayout.current = layout;
+  }, [layout]);
+
+  useEffect(() => {
     onPaletteSelectionChange?.(
       selectedPaletteAsset
         ? {
@@ -230,15 +279,37 @@ export default function ManualLayoutEditorPanel({
           entries?: ObservatoryLayoutLibraryEntry[];
         } | null;
 
+        if (!response.ok || !payload?.entries) throw new Error('Unable to load saved layouts.');
         if (!cancelled && payload?.entries) {
           setLayoutLibrary(payload.entries);
+          let remembered = '';
+          try {
+            remembered = window.localStorage.getItem('observatory:layout:managed-file:v1') ?? '';
+          } catch {
+            /* The library remains usable without local preferences. */
+          }
+          const entry =
+            payload.entries.find(
+              (candidate) =>
+                candidate.fileId === remembered &&
+                candidate.layout.world.id === initialLayout.current.world.id
+            ) ??
+            payload.entries.find(
+              (candidate) =>
+                observatoryLayoutContentKey(candidate.layout) ===
+                observatoryLayoutContentKey(initialLayout.current)
+            );
+          if (entry) {
+            setSelectedManagedLayoutId(entry.fileId);
+            setSavedContentKey(observatoryLayoutContentKey(entry.layout));
+          }
         }
       } catch {
         if (!cancelled) {
           setLastResult({
             changed: false,
             issues: [{ path: 'layoutLibrary', reason: 'Unable to load saved layout library.' }],
-            layout,
+            layout: initialLayout.current,
             message: 'Unable to load saved layout library.',
           });
         }
@@ -254,7 +325,25 @@ export default function ManualLayoutEditorPanel({
     return () => {
       cancelled = true;
     };
-  }, [layout]);
+  }, [libraryReloadKey, setSelectedManagedLayoutId]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch('/api/observatory/published-layout', { cache: 'no-store', signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Deployment unavailable.');
+        return response.json();
+      })
+      .then((payload) => {
+        const validation = validateObservatoryLayout(payload.layout);
+        if (validation.layout) {
+          setDeployedContentKey(observatoryLayoutContentKey(validation.layout));
+          setLastPublishedAt(validation.layout.metadata?.publishedAt ?? null);
+        }
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, []);
 
   if (!map) {
     return null;
@@ -286,7 +375,45 @@ export default function ManualLayoutEditorPanel({
     setLayoutLibrary(entries);
   };
 
-  const saveManagedLayout = async (mode: 'create' | 'update') => {
+  const runManagedAction = async (action: () => Promise<void>) => {
+    if (actionPending.current) return;
+    actionPending.current = true;
+    setBusy(true);
+    try {
+      await action();
+    } catch (error) {
+      setLastResult({
+        changed: false,
+        issues: [],
+        layout,
+        message: `Request failed: ${error instanceof Error ? error.message : 'Connection unavailable'}. Your draft is preserved; retry when ready.`,
+      });
+    } finally {
+      actionPending.current = false;
+      setBusy(false);
+    }
+  };
+  const saveManagedLayout = (mode: 'create' | 'update') =>
+    runManagedAction(() => saveManagedLayoutRequest(mode));
+  const deleteManagedLayout = (fileId: string) =>
+    runManagedAction(() => deleteManagedLayoutRequest(fileId));
+  const publishManagedLayout = (document?: ObservatoryLayoutDocument) =>
+    runManagedAction(() => publishManagedLayoutRequest(document));
+  const loadRepoLayout = () => runManagedAction(loadDeployedLayoutRequest);
+  const restoreRemovedLayout = () =>
+    runManagedAction(async () => {
+      const response = await fetch('/api/observatory/layout-library', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'restore', fileId: removedFileId }),
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.message ?? 'Restore failed.');
+      setLayoutLibrary(payload.entries);
+      setRemovedFileId(null);
+      setLastResult({ changed: false, issues: [], layout, message: 'Restored saved layout.' });
+    });
+  const saveManagedLayoutRequest = async (mode: 'create' | 'update') => {
     if (typeof window === 'undefined') {
       setLastResult({
         changed: false,
@@ -345,6 +472,7 @@ export default function ManualLayoutEditorPanel({
     }
 
     syncLayoutLibrary(payload.entries);
+    setSavedContentKey(observatoryLayoutContentKey(payload.entry.layout));
     setSelectedManagedLayoutId(payload.entry.fileId);
     setManagedLayoutActionId(payload.entry.fileId);
     setLastResult({
@@ -361,6 +489,7 @@ export default function ManualLayoutEditorPanel({
   };
 
   const loadManagedLayout = (entry: ObservatoryLayoutLibraryEntry) => {
+    setSavedContentKey(observatoryLayoutContentKey(entry.layout));
     setSelectedManagedLayoutId(entry.fileId);
     setManagedLayoutActionId(entry.fileId);
     setLayoutName(entry.layout.metadata?.name ?? entry.layout.world.name);
@@ -374,7 +503,7 @@ export default function ManualLayoutEditorPanel({
     startTransition(() => onLayoutChange(cloneObservatoryLayout(entry.layout)));
   };
 
-  const deleteManagedLayout = async (fileId: string) => {
+  const deleteManagedLayoutRequest = async (fileId: string) => {
     const response = await fetch('/api/observatory/layout-library', {
       body: JSON.stringify({ fileId }),
       headers: {
@@ -401,6 +530,7 @@ export default function ManualLayoutEditorPanel({
     }
 
     syncLayoutLibrary(payload.entries);
+    setRemovedFileId(fileId);
     if (selectedManagedLayoutId === fileId) {
       setSelectedManagedLayoutId('');
     }
@@ -415,8 +545,22 @@ export default function ManualLayoutEditorPanel({
     });
   };
 
-  const publishManagedLayout = async (managedLayout?: ObservatoryLayoutDocument) => {
+  const publishManagedLayoutRequest = async (managedLayout?: ObservatoryLayoutDocument) => {
     const layoutToPublish = managedLayout ?? currentManagedLayout();
+    const errors = layoutToPublish.world.maps.flatMap((floor) =>
+      inspectObservatoryMap(floor, registryAssetsById, layoutToPublish.world.grid.tileSize)
+        .issues.filter((issue) => issue.severity === 'error')
+        .map((issue) => ({ path: floor.name, reason: issue.message }))
+    );
+    if (errors.length) {
+      setLastResult({
+        changed: false,
+        issues: errors,
+        layout,
+        message: 'Fix layout errors before deploying. Saving a draft is still available.',
+      });
+      return;
+    }
 
     if (typeof window === 'undefined') {
       applyEdit(failedNoSelection(layout, 'Layout publishing is unavailable outside the browser.'));
@@ -463,14 +607,13 @@ export default function ManualLayoutEditorPanel({
       issues: result.issues,
       layout: payload.layout,
       message: result.layout
-        ? 'Published layout to browser storage and repo file.'
-        : 'Repo publish succeeded, but browser-local publish failed.',
+        ? 'Deployed to server storage. The Runs viewer will load this layout.'
+        : 'Server deployment succeeded; the browser-local copy could not be written.',
     });
     setLastPublishedAt(payload.layout.metadata?.publishedAt ?? null);
 
-    if (result.layout) {
-      onPublishedLayout?.(result.layout);
-    }
+    setDeployedContentKey(observatoryLayoutContentKey(payload.layout));
+    onPublishedLayout?.(payload.layout);
   };
 
   const placeObjectInRoom = (roomId: string) => {
@@ -497,17 +640,34 @@ export default function ManualLayoutEditorPanel({
 
     const preferredPosition = {
       x: targetRoom.bounds.x + 1,
-      y: targetRoom.bounds.y + 1,
+      y: targetRoom.bounds.y + 2,
     };
-
+    const asset = registryAssetsById.get(selectedPaletteAsset.assetId)!;
+    const candidate = placeObservatoryObject(layout, map.id, {
+      ...observatoryAssetPlacement(asset, layout.world.grid.tileSize),
+      assetId: selectedPaletteAsset.assetId,
+      position: preferredPosition,
+      roomId: targetRoom.id,
+    });
+    if (!candidate.changed) {
+      applyEdit(candidate);
+      return;
+    }
+    const placed = candidate.layout.world.maps
+      .find((floor) => floor.id === map.id)!
+      .objects.find((object) => object.id === candidate.selectedObjectId)!;
     applyEdit(
-      placeObservatoryObject(layout, map.id, {
-        assetId: selectedPaletteAsset.assetId,
-        blocksMovement: true,
-        position: preferredPosition,
-        roomId: targetRoom.id,
-        size: selectedPaletteAsset.footprint,
-      })
+      placeOfficeAssembly(
+        layout,
+        map.id,
+        createOfficeAssetAssembly(
+          asset,
+          placed.position,
+          registryAssetsById,
+          layout.world.grid.tileSize
+        ),
+        targetRoom.id
+      )
     );
     setSelectedRoomId(targetRoom.id);
   };
@@ -535,7 +695,11 @@ export default function ManualLayoutEditorPanel({
     const currentResult = generateObservatoryLayoutFromPrompt(layout, layoutPrompt, map.id);
     const result = currentResult.valid
       ? currentResult
-      : generateObservatoryLayoutFromPrompt(createCleanPromptBaseLayout(), layoutPrompt);
+      : generateObservatoryLayoutFromPrompt(
+          createBlankObservatoryLayout(layout, map.id),
+          layoutPrompt,
+          map.id
+        );
     const nextLayout = result.layout ?? layout;
 
     setLastResult({
@@ -553,7 +717,7 @@ export default function ManualLayoutEditorPanel({
   };
 
   const resetBlankCanvas = () => {
-    const nextLayout = createBlankObservatoryLayout(layout);
+    const nextLayout = createBlankObservatoryLayout(layout, map.id);
     const validation = validateObservatoryLayout(nextLayout);
 
     setLastResult({
@@ -561,7 +725,7 @@ export default function ManualLayoutEditorPanel({
       issues: validation.issues,
       layout: validation.layout ?? layout,
       message: validation.layout
-        ? 'Reset builder to a blank canvas.'
+        ? `Cleared ${map.name}; other floors are preserved.`
         : 'Blank canvas reset failed validation.',
     });
 
@@ -576,34 +740,28 @@ export default function ManualLayoutEditorPanel({
     startTransition(() => onLayoutChange(validation.layout!));
   };
 
-  const loadRepoLayout = () => {
-    const validation = validateObservatoryLayout(repoPublishedLayout);
-
-    if (!validation.layout) {
-      setLastResult({
-        changed: false,
-        issues: validation.issues,
-        layout,
-        message: 'Repo layout failed validation.',
-      });
-      return;
-    }
-
-    if (typeof window !== 'undefined') {
-      clearObservatoryLayoutStorage(window.localStorage, OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY);
-    }
-
+  const loadDeployedLayoutRequest = async () => {
+    const response = await fetch('/api/observatory/published-layout', { cache: 'no-store' });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.message ?? 'Unable to load deployed layout.');
+    const validation = validateObservatoryLayout(payload.layout);
+    if (!validation.layout) throw new Error('Deployed layout failed validation.');
     const nextLayout = cloneObservatoryLayout(validation.layout);
-    const nextMap = nextLayout.world.maps[0];
     setSelectedManagedLayoutId('');
-    setSelectedRoomId(nextMap?.rooms[0]?.id ?? '');
+    setCanvasSelectionFromLoad();
+    setDeployedContentKey(observatoryLayoutContentKey(nextLayout));
+    setLastPublishedAt(nextLayout.metadata?.publishedAt ?? null);
     setLastResult({
       changed: true,
       issues: [],
       layout: nextLayout,
-      message: 'Loaded repo published layout into builder.',
+      message: 'Loaded deployed layout from server storage.',
     });
     startTransition(() => onLayoutChange(nextLayout));
+  };
+  const setCanvasSelectionFromLoad = () => {
+    onCanvasSelectionClear?.();
+    setSelectedRoomId('');
   };
 
   const exportLayout = () => {
@@ -640,17 +798,21 @@ export default function ManualLayoutEditorPanel({
     await publishManagedLayout();
   };
 
+  const contentKey = observatoryLayoutContentKey(currentManagedLayout());
   return (
     <section className={styles.panel} aria-label="Observatory manual layout editor">
       <div className={styles.header}>
         <div>
           <h3 className={styles.title}>Manual Layout Editor</h3>
           <p className={styles.description}>
-            Control placing, moving, deleting objects and creating or resizing rooms. <br /> Click a
-            room on the canvas to reveal resize handles directly on the map.
+            Choose a preset or an asset, then place it on the grid. Click furniture to edit its
+            setup.
           </p>
         </div>
       </div>
+      <p role="status" className={styles.status}>
+        {draftSaveStatus}
+      </p>
 
       <div className={styles.stats}>
         <div className={styles.stat}>
@@ -674,211 +836,88 @@ export default function ManualLayoutEditorPanel({
       </div>
 
       <details className={styles.accordion} open>
-        <summary className={styles.summary}>Layout management</summary>
-        <div className={styles.managementSectionStack}>
-          <section className={styles.managementCard}>
-            <div className={styles.managementCardHeader}>
-              <div>
-                <strong>Current layout</strong>
-                <p className={styles.meta}>
-                  Save the current builder state, deploy it to the repo, or export a JSON copy.
-                </p>
-              </div>
-              <span className={styles.controlCardBadge}>
-                {selectedManagedLayoutId ? 'Saved layout' : 'Unsaved'}
-              </span>
-            </div>
-            <div className={styles.managementGrid}>
-              <label className={styles.field}>
-                <span>Layout name</span>
-                <input
-                  className={styles.input}
-                  disabled={disabled}
-                  onChange={(event) => setLayoutName(event.target.value)}
-                  placeholder="Observatory Office Variant A"
-                  value={layoutName}
-                />
-              </label>
-              <label className={styles.field}>
-                <span>Layout notes</span>
-                <textarea
-                  className={`${styles.textarea} ${styles.textareaCompact}`}
-                  disabled={disabled}
-                  onChange={(event) => setLayoutNotes(event.target.value)}
-                  rows={2}
-                  value={layoutNotes}
-                />
-              </label>
-            </div>
-            <div className={styles.managementStatusRow}>
-              <span className={styles.positionBadge}>
-                {selectedManagedLayoutId ? 'Connected to saved layout' : 'Working draft'}
-              </span>
-              <span className={styles.positionBadge}>
-                Repo layouts {layoutLibrarySummaries.length}
-              </span>
-              <span className={styles.positionBadge}>
-                {lastPublishedAt
-                  ? `Last deploy ${new Date(lastPublishedAt).toLocaleString()}`
-                  : 'No deploy yet'}
-              </span>
-            </div>
-            <div className={styles.managementPrimaryActions}>
-              <button
-                className={styles.button}
-                disabled={disabled}
-                onClick={() => void saveManagedLayoutPrimary()}
-                type="button"
-              >
-                {selectedManagedLayoutId ? 'Save changes' : 'Save as new'}
-              </button>
-              <button
-                className={styles.button}
-                disabled={disabled}
-                onClick={() => void publishLayout()}
-                type="button"
-              >
-                Deploy
-              </button>
-              <button
-                className={`${styles.button} ${styles.buttonSecondary}`}
-                disabled={disabled}
-                onClick={exportLayout}
-                type="button"
-              >
-                Export JSON
-              </button>
-            </div>
-            <div className={styles.managementSecondaryActions}>
-              <button
-                className={`${styles.button} ${styles.buttonSecondary}`}
-                disabled={disabled}
-                onClick={() => void saveManagedLayout('create')}
-                type="button"
-              >
-                Save copy
-              </button>
-              <button
-                className={`${styles.button} ${styles.buttonSecondary}`}
-                disabled={disabled}
-                onClick={createRoom}
-                type="button"
-              >
-                Create room
-              </button>
-              <button
-                className={`${styles.button} ${styles.buttonSecondary}`}
-                disabled={disabled}
-                onClick={loadRepoLayout}
-                type="button"
-              >
-                Load deployed
-              </button>
-              <button
-                className={`${styles.button} ${styles.buttonDanger}`}
-                disabled={disabled}
-                onClick={resetBlankCanvas}
-                type="button"
-              >
-                Blank canvas
-              </button>
-            </div>
-          </section>
-
-          <section className={styles.managementCard}>
-            <div className={styles.managementCardHeader}>
-              <div>
-                <strong>Saved layouts</strong>
-                <p className={styles.meta}>
-                  Pick a saved repo layout when you need to load, deploy, or delete it.
-                </p>
-              </div>
-              <span className={styles.controlCardBadge}>{layoutLibrarySummaries.length}</span>
-            </div>
-            {layoutLibraryLoading ? (
-              <p className={styles.meta}>Loading saved layouts…</p>
-            ) : layoutLibrarySummaries.length === 0 ? (
-              <p className={styles.meta}>No saved repo-backed layouts yet.</p>
-            ) : (
-              <div className={styles.savedLayoutPicker}>
-                <label className={styles.field}>
-                  <span>Saved layout</span>
-                  <select
-                    className={styles.select}
-                    disabled={disabled}
-                    onChange={(event) => setManagedLayoutActionId(event.target.value)}
-                    value={managedLayoutActionId}
-                  >
-                    {layoutLibrarySummaries.map((entry) => (
-                      <option key={entry.fileId} value={entry.fileId}>
-                        {entry.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                {selectedManagedLibraryEntry && selectedManagedLibrarySummary ? (
-                  <>
-                    <div className={styles.managementStatusRow}>
-                      <span className={styles.positionBadge}>
-                        {selectedManagedLayoutId === selectedManagedLibraryEntry.fileId
-                          ? 'Loaded in builder'
-                          : 'Saved in repo'}
-                      </span>
-                      <span className={styles.positionBadge}>
-                        {selectedManagedLibrarySummary.updatedAt
-                          ? `Updated ${new Date(selectedManagedLibrarySummary.updatedAt).toLocaleString()}`
-                          : 'Updated unknown'}
-                      </span>
-                      <span className={styles.positionBadge}>
-                        v{selectedManagedLibrarySummary.version ?? 0}
-                      </span>
-                    </div>
-                    <p className={styles.meta}>
-                      {selectedManagedLibrarySummary.notes?.trim() ||
-                        selectedManagedLibraryEntry.fileName}
-                    </p>
-                    <div className={styles.managementPrimaryActions}>
-                      <button
-                        className={`${styles.button} ${selectedManagedLayoutId === selectedManagedLibraryEntry.fileId ? '' : styles.buttonSecondary}`}
-                        disabled={disabled}
-                        onClick={() => loadManagedLayout(selectedManagedLibraryEntry)}
-                        type="button"
-                      >
-                        Load into builder
-                      </button>
-                      <button
-                        className={`${styles.button} ${styles.buttonSecondary}`}
-                        disabled={disabled}
-                        onClick={() =>
-                          void publishManagedLayout(selectedManagedLibraryEntry.layout)
-                        }
-                        type="button"
-                      >
-                        Deploy saved
-                      </button>
-                      <button
-                        className={`${styles.button} ${styles.buttonDanger}`}
-                        disabled={disabled}
-                        onClick={() => void deleteManagedLayout(selectedManagedLibraryEntry.fileId)}
-                        type="button"
-                      >
-                        Delete
-                      </button>
-                    </div>
-                  </>
-                ) : null}
-              </div>
-            )}
-          </section>
+        <summary className={styles.summary}>Office presets</summary>
+        <div className={styles.assetPaletteHeader}>
+          <label className={styles.field}>
+            <span>Setup</span>
+            <NativeSelect
+              value={presetId}
+              onChange={(event) => setPresetId(event.target.value as OfficePresetId)}
+            >
+              {officePresetOptions.map((option) => (
+                <option key={option.id} value={option.id}>
+                  {option.label}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+          <label className={styles.field}>
+            <span>Desk finish</span>
+            <NativeSelect
+              value={presetStyle}
+              onChange={(event) => setPresetStyle(event.target.value as OfficePresetStyle)}
+            >
+              <option value="beige">Beige wood</option>
+              <option value="white">White</option>
+            </NativeSelect>
+          </label>
+          <button
+            type="button"
+            className={styles.button}
+            disabled={disabled || !selectedRoom}
+            onClick={() => {
+              if (onPlacementRequest) {
+                onPlacementRequest({
+                  kind: 'preset',
+                  presetId,
+                  style: presetStyle,
+                  label: officePresetOptions.find((option) => option.id === presetId)!.label,
+                });
+                return;
+              }
+              if (!selectedRoom) return;
+              for (
+                let y = selectedRoom.bounds.y + 2;
+                y < selectedRoom.bounds.y + selectedRoom.bounds.height;
+                y++
+              ) {
+                for (
+                  let x = selectedRoom.bounds.x + 1;
+                  x < selectedRoom.bounds.x + selectedRoom.bounds.width;
+                  x++
+                ) {
+                  const result = placeOfficeAssembly(
+                    layout,
+                    map.id,
+                    createOfficePreset(presetId, presetStyle, { x, y }, layout.world.grid.tileSize),
+                    selectedRoom.id
+                  );
+                  if (result.changed) {
+                    applyEdit(result);
+                    return;
+                  }
+                }
+              }
+              setLastResult({
+                changed: false,
+                issues: [],
+                layout,
+                message: 'No space for this complete setup in the selected room.',
+              });
+            }}
+          >
+            {onPlacementRequest
+              ? 'Place setup on canvas'
+              : `Add setup to ${selectedRoom?.name ?? 'selected room'}`}
+          </button>
         </div>
       </details>
-
       <details className={styles.accordion} open>
         <summary className={styles.summary}>Assets Palette</summary>
         <div className={styles.assetPaletteHeader}>
           <label className={styles.field}>
             <span>Search manifest assets</span>
-            <input
+            <Input
               className={styles.input}
               disabled={disabled}
               onChange={(event) => setAssetSearch(event.target.value)}
@@ -889,7 +928,7 @@ export default function ManualLayoutEditorPanel({
           <div className={styles.filterRow}>
             <label className={styles.field}>
               <span>Theme</span>
-              <select
+              <NativeSelect
                 className={styles.select}
                 disabled={disabled}
                 onChange={(event) => setAssetTheme(event.target.value as ObservatoryPaletteThemeId)}
@@ -900,11 +939,11 @@ export default function ManualLayoutEditorPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className={styles.field}>
               <span>Role</span>
-              <select
+              <NativeSelect
                 className={styles.select}
                 disabled={disabled}
                 onChange={(event) => setAssetRole(event.target.value as ObservatoryPaletteRoleId)}
@@ -915,11 +954,11 @@ export default function ManualLayoutEditorPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className={styles.field}>
               <span>Sort</span>
-              <select
+              <NativeSelect
                 className={styles.select}
                 disabled={disabled}
                 onChange={(event) => setAssetSort(event.target.value as ObservatoryPaletteSortId)}
@@ -930,11 +969,11 @@ export default function ManualLayoutEditorPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           </div>
           <label className={styles.checkboxField}>
-            <input
+            <Input
               checked={includeUnreviewedAssets}
               disabled={disabled}
               onChange={(event) => setIncludeUnreviewedAssets(event.target.checked)}
@@ -967,17 +1006,29 @@ export default function ManualLayoutEditorPanel({
               {selectedPaletteAsset.category !== 'floor' &&
               selectedPaletteAsset.category !== 'wall' ? (
                 <div className={styles.selectedAssetActions}>
+                  <button
+                    type="button"
+                    className={styles.button}
+                    disabled={disabled}
+                    onClick={() =>
+                      onPlacementRequest?.({
+                        kind: 'asset',
+                        assetId: selectedPaletteAsset.assetId,
+                        label: selectedPaletteAsset.label,
+                      })
+                    }
+                  >
+                    Place on canvas
+                  </button>
                   <label className={styles.field}>
                     <span>Add to</span>
-                    <select
+                    <NativeSelect
                       className={styles.select}
                       disabled={disabled || map.rooms.length === 0}
                       onChange={(event) => {
-                        const roomId = event.target.value;
-
-                        if (roomId) {
-                          placeObjectInRoom(roomId);
-                        }
+                        // Selecting a destination must not silently add furniture.
+                        setSelectedRoomId(event.target.value);
+                        onCanvasSelectionClear?.();
                       }}
                       value={assetTargetRoomId}
                     >
@@ -987,8 +1038,16 @@ export default function ManualLayoutEditorPanel({
                           {room.name} ({room.bounds.width}x{room.bounds.height})
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </label>
+                  <button
+                    type="button"
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                    disabled={disabled || !assetTargetRoomId}
+                    onClick={() => placeObjectInRoom(assetTargetRoomId)}
+                  >
+                    Auto-place in room
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1042,7 +1101,7 @@ export default function ManualLayoutEditorPanel({
         <summary className={styles.summary}>Procedural and prompt generation</summary>
         <label className={styles.field}>
           <span>Prompt-to-layout</span>
-          <textarea
+          <Textarea
             className={`${styles.textarea} ${styles.textareaCompact}`}
             disabled={disabled}
             onChange={(event) => setLayoutPrompt(event.target.value)}
@@ -1087,6 +1146,269 @@ export default function ManualLayoutEditorPanel({
           </span>
         ))}
       </p>
+      <details className={styles.accordion}>
+        <summary className={styles.summary}>Layout management</summary>
+        <div className={styles.managementSectionStack}>
+          <section className={styles.managementCard}>
+            <div className={styles.managementCardHeader}>
+              <div>
+                <strong>Current layout</strong>
+                <p className={styles.meta}>
+                  Save the current builder state, deploy it to the viewer, or export a JSON copy.
+                </p>
+              </div>
+              <span className={styles.controlCardBadge}>
+                {busy
+                  ? 'Saving…'
+                  : savedContentKey === contentKey
+                    ? 'Saved to server'
+                    : 'Unsaved changes'}
+              </span>
+            </div>
+            <div className={styles.managementGrid}>
+              <label className={styles.field}>
+                <span>Layout name</span>
+                <Input
+                  className={styles.input}
+                  disabled={disabled || busy}
+                  onChange={(event) => setLayoutName(event.target.value)}
+                  placeholder="Observatory Office Variant A"
+                  value={layoutName}
+                />
+              </label>
+              <label className={styles.field}>
+                <span>Layout notes</span>
+                <Textarea
+                  className={`${styles.textarea} ${styles.textareaCompact}`}
+                  disabled={disabled || busy}
+                  onChange={(event) => setLayoutNotes(event.target.value)}
+                  rows={2}
+                  value={layoutNotes}
+                />
+              </label>
+            </div>
+            <div className={styles.managementStatusRow}>
+              <span className={styles.positionBadge}>
+                {deployedContentKey === contentKey
+                  ? 'Matches deployment'
+                  : 'Draft differs from deployment'}
+              </span>
+              <span className={styles.positionBadge}>
+                Saved layouts {layoutLibrarySummaries.length}
+              </span>
+              <span className={styles.positionBadge}>
+                {lastPublishedAt
+                  ? `Last deploy ${new Date(lastPublishedAt).toLocaleString()}`
+                  : 'No deploy yet'}
+              </span>
+            </div>
+            <div className={styles.managementPrimaryActions}>
+              <button
+                className={styles.button}
+                disabled={disabled || busy}
+                onClick={() => void saveManagedLayoutPrimary()}
+                type="button"
+              >
+                {selectedManagedLayoutId ? 'Save changes' : 'Save as new'}
+              </button>
+              <button
+                className={styles.button}
+                disabled={disabled || busy || hasPlacementErrors}
+                title={hasPlacementErrors ? 'Fix layout errors before deploying' : undefined}
+                onClick={() => void publishLayout()}
+                type="button"
+              >
+                Deploy
+              </button>
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                disabled={disabled || busy}
+                onClick={exportLayout}
+                type="button"
+              >
+                Export JSON
+              </button>
+              <label className={styles.field}>
+                <span>Import JSON</span>
+                <Input
+                  type="file"
+                  accept=".json,application/json"
+                  disabled={disabled || busy}
+                  onChange={async (event) => {
+                    const file = event.target.files?.[0];
+                    event.target.value = '';
+                    if (!file) return;
+                    try {
+                      const validation = validateObservatoryLayout(JSON.parse(await file.text()));
+                      if (!validation.layout) {
+                        setLastResult({
+                          changed: false,
+                          issues: validation.issues,
+                          layout,
+                          message: 'Imported layout failed validation.',
+                        });
+                        return;
+                      }
+                      setLastResult({
+                        changed: true,
+                        issues: [],
+                        layout: validation.layout,
+                        message: `Imported ${file.name}. Save or deploy when ready.`,
+                      });
+                      onLayoutChange(cloneObservatoryLayout(validation.layout));
+                    } catch (error) {
+                      setLastResult({
+                        changed: false,
+                        issues: [],
+                        layout,
+                        message: `Import failed: ${error instanceof Error ? error.message : 'Invalid JSON'}`,
+                      });
+                    }
+                  }}
+                />
+              </label>
+            </div>
+            <div className={styles.managementSecondaryActions}>
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                disabled={disabled || busy}
+                onClick={() => void saveManagedLayout('create')}
+                type="button"
+              >
+                Save copy
+              </button>
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                disabled={disabled || busy}
+                onClick={createRoom}
+                type="button"
+              >
+                Create room
+              </button>
+              <button
+                className={`${styles.button} ${styles.buttonSecondary}`}
+                disabled={disabled || busy}
+                onClick={loadRepoLayout}
+                type="button"
+              >
+                Load deployed
+              </button>
+              <button
+                className={`${styles.button} ${styles.buttonDanger}`}
+                disabled={disabled || busy}
+                onClick={resetBlankCanvas}
+                type="button"
+              >
+                Blank selected floor
+              </button>
+            </div>
+          </section>
+
+          <section className={styles.managementCard}>
+            <div className={styles.managementCardHeader}>
+              <div>
+                <strong>Saved layouts</strong>
+                <button
+                  className={styles.button}
+                  type="button"
+                  disabled={busy || layoutLibraryLoading}
+                  onClick={() => setLibraryReloadKey((key) => key + 1)}
+                >
+                  Refresh library
+                </button>
+                {removedFileId ? (
+                  <button
+                    className={styles.button}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void restoreRemovedLayout()}
+                  >
+                    Restore removed layout
+                  </button>
+                ) : null}
+                <p className={styles.meta}>
+                  Pick a saved layout when you need to load, deploy, or delete it.
+                </p>
+              </div>
+              <span className={styles.controlCardBadge}>{layoutLibrarySummaries.length}</span>
+            </div>
+            {layoutLibraryLoading ? (
+              <p className={styles.meta}>Loading saved layouts…</p>
+            ) : layoutLibrarySummaries.length === 0 ? (
+              <p className={styles.meta}>No saved server layouts yet.</p>
+            ) : (
+              <div className={styles.savedLayoutPicker}>
+                <label className={styles.field}>
+                  <span>Saved layout</span>
+                  <NativeSelect
+                    className={styles.select}
+                    disabled={disabled || busy}
+                    onChange={(event) => setManagedLayoutActionId(event.target.value)}
+                    value={managedLayoutActionId}
+                  >
+                    {layoutLibrarySummaries.map((entry) => (
+                      <option key={entry.fileId} value={entry.fileId}>
+                        {entry.name}
+                      </option>
+                    ))}
+                  </NativeSelect>
+                </label>
+                {selectedManagedLibraryEntry && selectedManagedLibrarySummary ? (
+                  <>
+                    <div className={styles.managementStatusRow}>
+                      <span className={styles.positionBadge}>
+                        {selectedManagedLayoutId === selectedManagedLibraryEntry.fileId
+                          ? 'Loaded in builder'
+                          : 'Saved on server'}
+                      </span>
+                      <span className={styles.positionBadge}>
+                        {selectedManagedLibrarySummary.updatedAt
+                          ? `Updated ${new Date(selectedManagedLibrarySummary.updatedAt).toLocaleString()}`
+                          : 'Updated unknown'}
+                      </span>
+                      <span className={styles.positionBadge}>
+                        v{selectedManagedLibrarySummary.version ?? 0}
+                      </span>
+                    </div>
+                    <p className={styles.meta}>
+                      {selectedManagedLibrarySummary.notes?.trim() ||
+                        selectedManagedLibraryEntry.fileName}
+                    </p>
+                    <div className={styles.managementPrimaryActions}>
+                      <button
+                        className={`${styles.button} ${selectedManagedLayoutId === selectedManagedLibraryEntry.fileId ? '' : styles.buttonSecondary}`}
+                        disabled={disabled || busy}
+                        onClick={() => loadManagedLayout(selectedManagedLibraryEntry)}
+                        type="button"
+                      >
+                        Load into builder
+                      </button>
+                      <button
+                        className={`${styles.button} ${styles.buttonSecondary}`}
+                        disabled={disabled || busy}
+                        onClick={() =>
+                          void publishManagedLayout(selectedManagedLibraryEntry.layout)
+                        }
+                        type="button"
+                      >
+                        Deploy saved
+                      </button>
+                      <button
+                        className={`${styles.button} ${styles.buttonDanger}`}
+                        disabled={disabled || busy}
+                        onClick={() => void deleteManagedLayout(selectedManagedLibraryEntry.fileId)}
+                        type="button"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            )}
+          </section>
+        </div>
+      </details>
     </section>
   );
 }
@@ -1319,14 +1641,4 @@ function findNextRoomBounds(
   const y = Math.max(0, Math.min(mapHeight - height, 14));
 
   return { height, width, x, y };
-}
-
-function createCleanPromptBaseLayout(): ObservatoryLayoutDocument {
-  const validation = validateObservatoryLayout(repoPublishedLayout);
-
-  if (!validation.layout) {
-    throw new Error('Observatory repo published layout is invalid.');
-  }
-
-  return validation.layout;
 }

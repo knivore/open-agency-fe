@@ -48,6 +48,47 @@ const runResult: ToolRunResponse = {
 };
 
 describe('tool contract components', () => {
+  it('supports configured defaults and independent instances without duplicate field IDs', () => {
+    const first = vi.fn().mockResolvedValue(undefined),
+      second = vi.fn().mockResolvedValue(undefined);
+    render(
+      <>
+        <ToolInputForm
+          contract={sandboxContract}
+          isPending={false}
+          onRun={first}
+          initialSandbox={{ repo: '/first' }}
+        />
+        <ToolInputForm
+          contract={sandboxContract}
+          isPending={false}
+          onRun={second}
+          initialSandbox={{ repo: '/second' }}
+        />
+      </>
+    );
+    const inputs = screen.getAllByLabelText('Repository');
+    expect(inputs[0]).toHaveValue('/first');
+    expect(inputs[1]).toHaveValue('/second');
+    expect(inputs[0].id).not.toBe(inputs[1].id);
+  });
+
+  it('reports invalid JSON without calling the run callback', async () => {
+    const onRun = vi.fn().mockResolvedValue(undefined);
+    render(
+      <ToolInputForm
+        contract={{ ...sandboxContract, name: 'inspect' }}
+        isPending={false}
+        onRun={onRun}
+      />
+    );
+    fireEvent.change(screen.getByLabelText('Input payload'), { target: { value: '{invalid' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Run tool' }));
+    expect(await screen.findByRole('alert')).toBeInTheDocument();
+    expect(screen.getByLabelText('Input payload')).toHaveAttribute('aria-invalid', 'true');
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
   it('renders contract list and selected contract metadata', () => {
     const onSelect = vi.fn();
 

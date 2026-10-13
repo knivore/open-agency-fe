@@ -1,7 +1,9 @@
+'use client';
+
+import { forwardRef, useState, type ComponentPropsWithoutRef } from 'react';
+import { Check, ChevronsUpDown, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import React, { useState } from 'react';
-import { Button } from '../shadcn/button';
-import { Check, ChevronsUpDown, X, LucideIcon } from 'lucide-react';
+import { Button } from './button';
 import {
   Command,
   CommandEmpty,
@@ -9,152 +11,111 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-} from '../shadcn/command';
-import { Popover, PopoverContent, PopoverTrigger } from '../shadcn/popover';
+} from './command';
+import { Popover, PopoverContent, PopoverTrigger } from './popover';
 
-type ComboboxOption = {
+export interface ComboboxOption {
   value: string;
   label: string;
-};
+  disabled?: boolean;
+}
 
-type ComboboxProps = {
-  options: ComboboxOption[];
+export interface ComboboxProps extends Omit<
+  ComponentPropsWithoutRef<typeof Button>,
+  'value' | 'onChange' | 'children'
+> {
+  options: readonly ComboboxOption[];
+  value: string;
+  onChange: (value: string) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   noResultsText?: string;
-  value: string;
-  onChange: (value: string) => void;
-  className?: string;
   canDeselect?: boolean;
-};
-
-type IconConfig = {
-  Icon: LucideIcon;
-  action?: (e: React.MouseEvent) => void;
-  label: string;
-};
-
-const ComboboxItem = ({
-  option,
-  isSelected,
-  onSelect,
-}: {
-  option: ComboboxOption;
-  isSelected: boolean;
-  onSelect: (value: string) => void;
-}) => (
-  <CommandItem key={option.value} value={option.value} onSelect={onSelect}>
-    <Check className={cn('mr-2 h-4 w-4', isSelected ? 'opacity-100' : 'opacity-0')} />
-    {option.label}
-  </CommandItem>
-);
-
-function getIconConfig(
-  hasValue: boolean,
-  canDeselect: boolean,
-  onClear: (e: React.MouseEvent) => void
-): IconConfig {
-  if (hasValue && canDeselect) {
-    return {
-      Icon: X,
-      action: onClear,
-      label: 'Clear selection',
-    };
-  }
-
-  return {
-    Icon: ChevronsUpDown,
-    action: undefined,
-    label: 'Toggle menu',
-  };
 }
 
-export function Combobox({
-  options,
-  placeholder = 'Select an option...',
-  searchPlaceholder = 'Search...',
-  noResultsText = 'No results found.',
-  value,
-  onChange,
-  className,
-  canDeselect = false,
-}: ComboboxProps) {
-  const [open, setOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-
-  const selectedLabel = options.find((opt) => opt.value === value)?.label;
-
-  const handleSelect = (currentValue: string) => {
-    if (currentValue === value && canDeselect) {
-      onChange('');
-    } else if (currentValue !== value) {
-      onChange(currentValue);
-    }
-    setOpen(false);
-    setSearchQuery(''); // Clear search when selection is made
-  };
-
-  const handleClear = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onChange('');
-  };
-
-  const { Icon, action, label } = getIconConfig(!!value, canDeselect, handleClear);
-
-  // Filter options based on search query (matching both label and value)
-  const filteredOptions = options.filter((option) => {
-    const query = searchQuery.toLowerCase();
-    return option.label.toLowerCase().includes(query) || option.value.toLowerCase().includes(query);
-  });
-
-  return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          role="combobox"
-          aria-expanded={open}
-          className={cn('w-full justify-between', className)}
-        >
-          <span className="truncate">{selectedLabel || placeholder}</span>
-          <Icon
-            className="ml-2 h-4 w-4 shrink-0 opacity-50 hover:opacity-100 transition-opacity"
-            onClick={action}
-            aria-label={label}
-          />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent
-        className="w-[--radix-popover-trigger-width] p-0"
-        align="start"
-        sideOffset={4}
-      >
-        <Command shouldFilter={false}>
-          <CommandInput
-            placeholder={searchPlaceholder}
-            value={searchQuery}
-            onValueChange={setSearchQuery}
-          />
-          <CommandList
-            className="overflow-auto"
-            onWheel={(e) => {
-              e.stopPropagation();
-            }}
+export const Combobox = forwardRef<HTMLButtonElement, ComboboxProps>(
+  (
+    {
+      options,
+      value,
+      onChange,
+      placeholder = 'Select an option...',
+      searchPlaceholder = 'Search...',
+      noResultsText = 'No results found.',
+      canDeselect = false,
+      disabled,
+      className,
+      ...props
+    },
+    ref
+  ) => {
+    const [open, setOpen] = useState(false);
+    const selected = options.find((option) => option.value === value);
+    return (
+      <div className="flex min-w-0 items-center gap-2">
+        <Popover open={open && !disabled} onOpenChange={setOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              {...props}
+              ref={ref}
+              type="button"
+              variant="outline"
+              role="combobox"
+              aria-expanded={open && !disabled}
+              aria-haspopup="listbox"
+              disabled={disabled}
+              className={cn('min-w-0 flex-1 justify-between', className)}
+            >
+              <span className="truncate">{selected?.label || value || placeholder}</span>
+              <ChevronsUpDown data-icon="inline-end" aria-hidden="true" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+            <Command>
+              <CommandInput placeholder={searchPlaceholder} />
+              <CommandList>
+                <CommandEmpty>{noResultsText}</CommandEmpty>
+                <CommandGroup>
+                  {options.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      value={option.value}
+                      keywords={[option.label]}
+                      disabled={option.disabled}
+                      onSelect={() => {
+                        onChange(canDeselect && option.value === value ? '' : option.value);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          'size-4',
+                          option.value === value ? 'opacity-100' : 'opacity-0'
+                        )}
+                        aria-hidden="true"
+                      />
+                      {option.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        {canDeselect && value ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            disabled={disabled}
+            aria-label="Clear selection"
+            onClick={() => onChange('')}
           >
-            <CommandEmpty>{noResultsText}</CommandEmpty>
-            <CommandGroup>
-              {filteredOptions.map((option) => (
-                <ComboboxItem
-                  key={option.value}
-                  option={option}
-                  isSelected={value === option.value}
-                  onSelect={() => handleSelect(option.value)}
-                />
-              ))}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
-  );
-}
+            <X data-icon="inline-start" aria-hidden="true" />
+          </Button>
+        ) : null}
+      </div>
+    );
+  }
+);
+Combobox.displayName = 'Combobox';

@@ -1,12 +1,8 @@
-import { mkdir, readdir, readFile, unlink, writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { createObservatoryLayoutStore } from '@/modules/observatory/server/layoutStore';
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  markObservatoryLayoutStatus,
-  serializeObservatoryLayout,
-} from '@/modules/observatory/engine/world/layoutPersistence';
+import { markObservatoryLayoutStatus } from '@/modules/observatory/engine/world/layoutPersistence';
 import {
   summarizeObservatoryLayoutLibraryEntry,
   type ObservatoryLayoutLibraryEntry,
@@ -14,17 +10,9 @@ import {
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
 import type { ObservatoryLayoutDocument } from '@/modules/observatory/engine/world/layoutTypes';
 
-const layoutsDirectoryPath = path.join(
-  process.cwd(),
-  'modules',
-  'observatory',
-  'layouts',
-  'library'
-);
-
 export async function GET() {
   try {
-    const entries = await readLayoutLibrary();
+    const entries = await createObservatoryLayoutStore().readLibrary();
 
     return NextResponse.json({
       entries,
@@ -51,11 +39,19 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as {
       fileId?: string;
       layout?: ObservatoryLayoutDocument;
-      mode?: 'create' | 'update';
+      mode?: 'create' | 'update' | 'restore';
       name?: string;
       notes?: string;
     };
 
+    if (body.mode === 'restore' && body.fileId) {
+      const store = createObservatoryLayoutStore();
+      await store.restore(body.fileId);
+      return NextResponse.json({
+        entries: await store.readLibrary(),
+        message: 'Restored saved layout.',
+      });
+    }
     if (!body.layout) {
       return NextResponse.json(
         {
@@ -89,16 +85,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await mkdir(layoutsDirectoryPath, { recursive: true });
-    const existingEntries = await readLayoutLibrary();
+    const existingEntries = await createObservatoryLayoutStore().readLibrary();
     const fileId = resolveLayoutFileId(
       body.fileId,
       body.name,
       validation.layout,
       existingEntries,
-      body.mode ?? 'create'
+      body.mode === 'update' ? 'update' : 'create'
     );
-    const targetPath = path.join(layoutsDirectoryPath, `${fileId}.json`);
 
     if (body.mode === 'update' && !body.fileId) {
       return NextResponse.json(
@@ -110,8 +104,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await writeFile(targetPath, `${serializeObservatoryLayout(validation.layout)}\n`, 'utf8');
-    const entries = await readLayoutLibrary();
+    await createObservatoryLayoutStore().save(fileId, validation.layout);
+    const entries = await createObservatoryLayoutStore().readLibrary();
 
     return NextResponse.json({
       entry: entries.find((entry) => entry.fileId === fileId) ?? {
@@ -120,7 +114,10 @@ export async function POST(request: NextRequest) {
         layout: validation.layout,
       },
       entries,
-      message: body.mode === 'update' ? 'Updated saved layout.' : 'Saved new layout.',
+      message:
+        body.mode === 'update'
+          ? 'Updated layout in server storage.'
+          : 'Saved new layout in server storage.',
       summaries: entries.map((entry) => summarizeObservatoryLayoutLibraryEntry(entry)),
     });
   } catch (error) {
@@ -153,12 +150,13 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    await unlink(path.join(layoutsDirectoryPath, `${sanitizeLayoutFileId(body.fileId)}.json`));
-    const entries = await readLayoutLibrary();
+    await createObservatoryLayoutStore().remove(body.fileId);
+    const entries = await createObservatoryLayoutStore().readLibrary();
 
     return NextResponse.json({
       entries,
-      message: 'Deleted saved layout.',
+      message: 'Removed saved layout. You can restore it.',
+      removedFileId: body.fileId,
       summaries: entries.map((entry) => summarizeObservatoryLayoutLibraryEntry(entry)),
     });
   } catch (error) {
@@ -175,38 +173,6 @@ export async function DELETE(request: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function readLayoutLibrary(): Promise<ObservatoryLayoutLibraryEntry[]> {
-  await mkdir(layoutsDirectoryPath, { recursive: true });
-  const fileNames = (await readdir(layoutsDirectoryPath)).filter((fileName) =>
-    fileName.endsWith('.json')
-  );
-  const entries = await Promise.all(
-    fileNames.map(async (fileName) => {
-      const fileId = fileName.replace(/\.json$/u, '');
-      const source = await readFile(path.join(layoutsDirectoryPath, fileName), 'utf8');
-      const validation = validateObservatoryLayout(JSON.parse(source));
-
-      if (!validation.layout) {
-        throw new Error(`Saved layout ${fileName} failed validation.`);
-      }
-
-      return {
-        fileId,
-        fileName,
-        layout: validation.layout,
-      };
-    })
-  );
-
-  return entries.sort((left, right) => {
-    const leftTime =
-      Date.parse(left.layout.metadata?.updatedAt ?? left.layout.metadata?.createdAt ?? '') || 0;
-    const rightTime =
-      Date.parse(right.layout.metadata?.updatedAt ?? right.layout.metadata?.createdAt ?? '') || 0;
-    return rightTime - leftTime;
-  });
 }
 
 function resolveLayoutFileId(

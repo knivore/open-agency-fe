@@ -200,5 +200,18 @@ describe('observatory pixel agent behavior targets', () => {
     expect(isObservatoryGridWalkable(map, { x: 3, y: 4 }, assetsById)).toBe(false);
     expect(isObservatoryGridWalkable(map, { x: 3, y: 5 }, assetsById)).toBe(false);
     expect(isObservatoryGridWalkable(map, { x: 4, y: 5 }, assetsById)).toBe(true);
+
+    // Removing transparent padding moves the visible chair onto its reserved
+    // tiles; retaining the source-canvas offset would block the aisle below it.
+    map.objects[0]!.size = { width: 1, height: 2 };
+    map.objects[0]!.render = {
+      sourceCrop: { x: 0, y: 69, width: 48, height: 69 },
+      sizePx: { width: 96, height: 144 },
+      offsetPx: { x: 0, y: -69 },
+    };
+    expect(isObservatoryGridWalkable(map, { x: 3, y: 3 }, assetsById)).toBe(false);
+    expect(isObservatoryGridWalkable(map, { x: 3, y: 4 }, assetsById)).toBe(false);
+    expect(isObservatoryGridWalkable(map, { x: 3, y: 5 }, assetsById)).toBe(true);
+    expect(isObservatoryGridWalkable(map, { x: 4, y: 3 }, assetsById)).toBe(true);
   });
 });

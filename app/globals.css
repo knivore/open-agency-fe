@@ -184,6 +184,7 @@
     --agency-footer-bg: rgba(255, 255, 255, 0.92);
     --agency-footer-text: #5f6b7c;
   }
+
   .dark,
   [data-agency-theme='dark'] {
     color-scheme: dark;
@@ -291,17 +292,17 @@
   * {
     @apply border-border;
   }
+
   body {
     @apply bg-background text-foreground antialiased;
     background-color: var(--agency-shell-bg);
-    font-family:
-      Inter,
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      BlinkMacSystemFont,
-      'Segoe UI',
-      sans-serif;
+    font-family: Inter,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    sans-serif;
     text-rendering: optimizeLegibility;
   }
 
@@ -329,32 +330,31 @@
     @apply border-primary outline-none ring-2 ring-primary/20;
   }
 }
+
 /* Shadcn UI End */
 
 @layer utilities {
   .agency-workspace-background {
-    background:
-      radial-gradient(
-        60rem 24rem at 52% -16rem,
-        color-mix(in srgb, var(--brand-blue) 8%, transparent),
-        transparent 72%
-      ),
-      var(--agency-shell-bg);
+    background: radial-gradient(
+      60rem 24rem at 52% -16rem,
+      color-mix(in srgb, var(--brand-blue) 8%, transparent),
+      transparent 72%
+    ),
+    var(--agency-shell-bg);
   }
 
   [data-agency-theme='dark'] .agency-workspace-background {
-    background:
-      radial-gradient(
-        68rem 28rem at 52% -18rem,
-        color-mix(in srgb, var(--brand-violet) 10%, transparent),
-        transparent 70%
-      ),
-      radial-gradient(
-        56rem 24rem at 100% 0,
-        color-mix(in srgb, var(--brand-cyan) 5%, transparent),
-        transparent 72%
-      ),
-      var(--agency-shell-bg);
+    background: radial-gradient(
+      68rem 28rem at 52% -18rem,
+      color-mix(in srgb, var(--brand-violet) 10%, transparent),
+      transparent 70%
+    ),
+    radial-gradient(
+      56rem 24rem at 100% 0,
+      color-mix(in srgb, var(--brand-cyan) 5%, transparent),
+      transparent 72%
+    ),
+    var(--agency-shell-bg);
   }
 
   .agency-nav-item {
@@ -414,14 +414,12 @@
   }
 
   .agency-nav-icon {
-    border: 1px solid
-      color-mix(in srgb, var(--agency-nav-tone) 18%, transparent);
+    border: 1px solid color-mix(in srgb, var(--agency-nav-tone) 18%, transparent);
     background: color-mix(in srgb, var(--agency-nav-tone) 9%, transparent);
     color: var(--agency-nav-tone);
-    transition:
-      border-color 160ms ease,
-      background 160ms ease,
-      transform 160ms ease;
+    transition: border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
   }
 
   .agency-nav-item:hover .agency-nav-icon,
@@ -436,6 +434,7 @@
   }
 
   .agency-page-header::after {
+    display: none;
     content: '';
     position: absolute;
     inset: auto auto -1px 0;
@@ -491,21 +490,12 @@
     --agency-page-tone: var(--agency-run);
   }
 
-  .agency-page-header-icon {
-    border-color: color-mix(in srgb, var(--agency-page-tone) 22%, transparent);
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--agency-page-tone) 16%, transparent),
-        color-mix(in srgb, var(--agency-page-tone) 7%, transparent)
-      ),
-      hsl(var(--card));
-    color: var(--agency-page-tone);
-    box-shadow: inset 0 1px 0 color-mix(in srgb, white 55%, transparent);
-  }
-
-  [data-agency-theme='dark'] .agency-page-header-icon {
-    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.05);
+  /* Selection identifies the current destination consistently across workspaces. */
+  .agency-nav-item[aria-current='page'] .agency-nav-icon {
+    border-color: hsl(var(--primary) / 0.2);
+    background: hsl(var(--primary) / 0.08);
+    color: hsl(var(--primary));
+    transform: none;
   }
 
   .agency-quick-start {
@@ -547,97 +537,6 @@
     color: var(--agency-quick-start-tone);
   }
 
-  .agency-run-metric {
-    --agency-run-metric-tone: var(--agency-run);
-    border-color: color-mix(
-      in srgb,
-      var(--agency-run-metric-tone) 18%,
-      var(--agency-shell-border)
-    );
-    background:
-      linear-gradient(
-        145deg,
-        color-mix(in srgb, var(--agency-run-metric-tone) 7%, transparent),
-        transparent 58%
-      ),
-      hsl(var(--card));
-  }
-
-  .agency-run-metric[data-tone='waiting'] {
-    --agency-run-metric-tone: var(--agency-workflow);
-  }
-
-  .agency-run-metric[data-tone='failed'] {
-    --agency-run-metric-tone: var(--agency-monitor);
-  }
-
-  .agency-run-metric[data-tone='runtime'] {
-    --agency-run-metric-tone: var(--agency-agent);
-  }
-
-  .agency-run-metric::before {
-    content: '';
-    position: absolute;
-    inset: 0 auto 0 0;
-    width: 3px;
-    background: var(--agency-run-metric-tone);
-  }
-
-  button.agency-run-metric {
-    transition:
-      border-color 150ms ease,
-      box-shadow 150ms ease,
-      transform 150ms ease;
-  }
-
-  button.agency-run-metric:hover {
-    border-color: color-mix(
-      in srgb,
-      var(--agency-run-metric-tone) 42%,
-      var(--agency-shell-border)
-    );
-    transform: translateY(-1px);
-  }
-
-  button.agency-run-metric:focus-visible {
-    outline: 2px solid var(--agency-run-metric-tone);
-    outline-offset: 2px;
-  }
-
-  button.agency-run-metric[data-selected='true'] {
-    border-color: color-mix(
-      in srgb,
-      var(--agency-run-metric-tone) 58%,
-      var(--agency-shell-border)
-    );
-    box-shadow: 0 0 0 2px
-      color-mix(in srgb, var(--agency-run-metric-tone) 18%, transparent);
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    button.agency-run-metric {
-      transition: none;
-    }
-
-    button.agency-run-metric:hover {
-      transform: none;
-    }
-  }
-
-  .agency-run-metric-icon {
-    border-color: color-mix(
-      in srgb,
-      var(--agency-run-metric-tone) 24%,
-      transparent
-    );
-    background: color-mix(
-      in srgb,
-      var(--agency-run-metric-tone) 10%,
-      transparent
-    );
-    color: var(--agency-run-metric-tone);
-  }
-
   .workflow-schedule-status {
     --workflow-schedule-tone: var(--agency-shell-muted);
   }
@@ -660,8 +559,7 @@
 
   .workflow-schedule-dot {
     background: var(--workflow-schedule-tone);
-    box-shadow: 0 0 0 3px
-      color-mix(in srgb, var(--workflow-schedule-tone) 12%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--workflow-schedule-tone) 12%, transparent);
   }
 
   .workflow-run-status {
@@ -687,8 +585,7 @@
 
   .workflow-run-dot {
     background: var(--workflow-run-tone);
-    box-shadow: 0 0 0 3px
-      color-mix(in srgb, var(--workflow-run-tone) 12%, transparent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--workflow-run-tone) 12%, transparent);
   }
 
   .workflow-metadata-icon {
@@ -782,9 +679,8 @@
 
   .dark .workflow-drawer-panel,
   [data-agency-theme='dark'] .workflow-drawer-panel {
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.04),
-      0 18px 48px rgb(2 8 23 / 0.36);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.04),
+    0 18px 48px rgb(2 8 23 / 0.36);
   }
 
   .dark .workflow-drawer-fieldset,
@@ -942,73 +838,64 @@
   .dark .workflow-drawer-section-agent,
   [data-agency-theme='dark'] .workflow-drawer-section-agent {
     border-color: rgb(56 189 248 / 0.22);
-    background:
-      linear-gradient(180deg, rgb(10 28 48 / 0.86), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(56 189 248 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(10 28 48 / 0.86), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(56 189 248 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-agent-catalog,
   [data-agency-theme='dark'] .workflow-drawer-section-agent-catalog {
     border-color: rgb(34 211 238 / 0.24);
-    background:
-      linear-gradient(180deg, rgb(8 34 43 / 0.84), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(34 211 238 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(8 34 43 / 0.84), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(34 211 238 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-agent-persona,
   [data-agency-theme='dark'] .workflow-drawer-section-agent-persona {
     border-color: rgb(167 139 250 / 0.24);
-    background:
-      linear-gradient(180deg, rgb(28 23 48 / 0.84), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(167 139 250 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(28 23 48 / 0.84), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(167 139 250 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-path,
   [data-agency-theme='dark'] .workflow-drawer-section-path {
     border-color: rgb(52 211 153 / 0.22);
-    background:
-      linear-gradient(180deg, rgb(8 35 34 / 0.82), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(52 211 153 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(8 35 34 / 0.82), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(52 211 153 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-identity,
   [data-agency-theme='dark'] .workflow-drawer-section-identity {
     border-color: rgb(251 191 36 / 0.2);
-    background:
-      linear-gradient(180deg, rgb(40 28 12 / 0.82), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(251 191 36 / 0.11), transparent 36%);
+    background: linear-gradient(180deg, rgb(40 28 12 / 0.82), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(251 191 36 / 0.11), transparent 36%);
   }
 
   .dark .workflow-drawer-section-inputs,
   [data-agency-theme='dark'] .workflow-drawer-section-inputs {
     border-color: rgb(45 212 191 / 0.22);
-    background:
-      linear-gradient(180deg, rgb(8 34 39 / 0.82), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(45 212 191 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(8 34 39 / 0.82), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(45 212 191 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-overrides,
   [data-agency-theme='dark'] .workflow-drawer-section-overrides {
     border-color: rgb(167 139 250 / 0.24);
-    background:
-      linear-gradient(180deg, rgb(28 23 48 / 0.82), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(167 139 250 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(28 23 48 / 0.82), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(167 139 250 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-output,
   [data-agency-theme='dark'] .workflow-drawer-section-output {
     border-color: rgb(96 165 250 / 0.22);
-    background:
-      linear-gradient(180deg, rgb(12 28 50 / 0.82), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(96 165 250 / 0.12), transparent 36%);
+    background: linear-gradient(180deg, rgb(12 28 50 / 0.82), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(96 165 250 / 0.12), transparent 36%);
   }
 
   .dark .workflow-drawer-section-dependency,
   [data-agency-theme='dark'] .workflow-drawer-section-dependency {
     border-color: rgb(248 113 113 / 0.2);
-    background:
-      linear-gradient(180deg, rgb(42 20 27 / 0.78), rgb(8 15 29 / 0.9)),
-      radial-gradient(circle at 0 0, rgb(248 113 113 / 0.1), transparent 36%);
+    background: linear-gradient(180deg, rgb(42 20 27 / 0.78), rgb(8 15 29 / 0.9)),
+    radial-gradient(circle at 0 0, rgb(248 113 113 / 0.1), transparent 36%);
   }
 
   .dark .workflow-drawer-option,
@@ -1022,10 +909,9 @@
   }
 
   .workflow-drawer-option {
-    transition:
-      border-color 160ms ease,
-      background 160ms ease,
-      transform 160ms ease;
+    transition: border-color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
   }
 
   .workflow-drawer-option:hover {
@@ -1035,14 +921,14 @@
 
   .dark .workflow-drawer-input,
   .dark
-    .workflow-drawer-fieldset
-    input:not([type='checkbox']):not([type='radio']),
+  .workflow-drawer-fieldset
+  input:not([type='checkbox']):not([type='radio']),
   .dark .workflow-drawer-fieldset textarea,
   .dark .workflow-drawer-fieldset select,
   [data-agency-theme='dark'] .workflow-drawer-input,
   [data-agency-theme='dark']
-    .workflow-drawer-fieldset
-    input:not([type='checkbox']):not([type='radio']),
+  .workflow-drawer-fieldset
+  input:not([type='checkbox']):not([type='radio']),
   [data-agency-theme='dark'] .workflow-drawer-fieldset textarea,
   [data-agency-theme='dark'] .workflow-drawer-fieldset select {
     border-color: rgb(148 163 184 / 0.22);
@@ -1064,9 +950,8 @@
 }
 
 .react-flow__edge .react-flow__edge-path {
-  transition:
-    stroke 120ms ease,
-    stroke-width 120ms ease;
+  transition: stroke 120ms ease,
+  stroke-width 120ms ease;
 }
 
 .react-flow__edge:hover .react-flow__edge-path,
@@ -1075,10 +960,9 @@
 }
 
 .workflow-graph-node-card .workflow-node-connector {
-  box-shadow:
-    0 0 0 3px rgb(255 255 255 / 0.95),
-    0 0 0 6px color-mix(in srgb, currentColor 18%, transparent),
-    0 3px 8px rgb(15 23 42 / 0.18);
+  box-shadow: 0 0 0 3px rgb(255 255 255 / 0.95),
+  0 0 0 6px color-mix(in srgb, currentColor 18%, transparent),
+  0 3px 8px rgb(15 23 42 / 0.18);
 }
 
 .workflow-graph-node-card .workflow-node-connector-input {
@@ -1092,9 +976,8 @@
 .react-flow__node.graph-workflow-node-muted {
   opacity: 0.24;
   filter: saturate(0.55);
-  transition:
-    opacity 160ms ease,
-    filter 160ms ease;
+  transition: opacity 160ms ease,
+  filter 160ms ease;
 }
 
 .react-flow__edge.graph-workflow-edge-muted {
@@ -1277,8 +1160,7 @@
 
 .graph-workflow-edge-related .react-flow__edge-path {
   stroke-width: 3.4px;
-  filter: drop-shadow(0 0 8px rgb(106 0 244 / 0.34))
-    drop-shadow(0 2px 6px rgb(15 23 42 / 0.18));
+  filter: drop-shadow(0 0 8px rgb(106 0 244 / 0.34)) drop-shadow(0 2px 6px rgb(15 23 42 / 0.18));
 }
 
 .graph-workflow-edge-dependency .react-flow__edge-path {
@@ -1287,8 +1169,8 @@
 
 .dark .graph-workflow-edge-dependency .react-flow__edge-path,
 [data-agency-theme='dark']
-  .graph-workflow-edge-dependency
-  .react-flow__edge-path {
+.graph-workflow-edge-dependency
+.react-flow__edge-path {
   stroke: #a9adb8;
 }
 
@@ -1474,9 +1356,8 @@
   --border-primary: #dedbd5;
   --background-soft: #eaf7ff;
   --text-tertiary: #6b6f73;
-  --shadow-primary:
-    0px 6px 16px 0px #0a0a0a1f, 0px 4px 14px 0px #0a0a0a14,
-    0px 8px 10px 0px #0a0a0a14;
+  --shadow-primary: 0px 6px 16px 0px #0a0a0a1f, 0px 4px 14px 0px #0a0a0a14,
+  0px 8px 10px 0px #0a0a0a14;
   --processing-dot-size: 4px;
 }
 
@@ -1522,34 +1403,11 @@
     );
   }
 
-  .agency-gradient-action {
-    background-image: linear-gradient(
-      135deg,
-      #8c43ff 0%,
-      #6a00f4 52%,
-      #4d00b4 100%
-    );
-  }
-
   .agency-gradient-soft {
-    background:
-      radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
-      var(--agency-shell-bg);
+    background: radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
+    var(--agency-shell-bg);
     background-position: 0 0;
     background-size: 24px 24px;
-  }
-
-  .agency-gradient-text {
-    background-image: linear-gradient(
-      135deg,
-      var(--brand-blue) 0%,
-      var(--brand-cyan) 42%,
-      var(--brand-violet) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    color: transparent;
   }
 
   .agency-card {
@@ -1570,19 +1428,9 @@
   }
 
   [data-agency-theme='dark'] .agency-gradient-soft {
-    background:
-      radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
-      var(--agency-shell-bg);
+    background: radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
+    var(--agency-shell-bg);
     background-size: 24px 24px;
-  }
-
-  [data-agency-theme='dark'] .agency-gradient-text {
-    background-image: linear-gradient(
-      135deg,
-      #d9c5ff 0%,
-      #a66cff 40%,
-      #6a00f4 100%
-    );
   }
 
   [data-agency-theme='dark'] .agency-card {
@@ -1622,9 +1470,8 @@
   }
 
   .dark .agency-gradient-soft {
-    background:
-      radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
-      var(--agency-shell-bg);
+    background: radial-gradient(circle, var(--agency-grid-dot) 1px, transparent 1px),
+    var(--agency-shell-bg);
     background-size: 24px 24px;
   }
 
@@ -1634,212 +1481,6 @@
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
   }
 
-  .agency-soft-shadow {
-    box-shadow: 0 14px 36px rgba(6, 53, 94, 0.1);
-  }
-
-  .agency-concept-human {
-    color: var(--agency-human);
-  }
-
-  .agency-concept-agent {
-    color: var(--agency-agent);
-  }
-
-  .agency-concept-memory {
-    color: var(--agency-memory);
-  }
-
-  .agency-concept-knowledge {
-    color: var(--agency-knowledge);
-  }
-
-  .agency-concept-workflow {
-    color: var(--agency-workflow);
-  }
-}
-
-.chatbot-section {
-  background-color: var(--text-primary);
-  box-shadow: var(--shadow-primary);
-  border: 1px solid var(--border-primary);
-}
-
-.chatbot-header {
-  border-bottom: 1px solid var(--border-primary);
-}
-
-.chatbot-header svg {
-  fill: var(--text-primary-inverse);
-}
-
-.chatbot-text-primary {
-  color: var(--text-primary-inverse);
-}
-
-.chatbot-text-secondary {
-  color: var(--text-secondary);
-}
-
-.chatbot-text-secondary-inverse {
-  color: var(--text-secondary-inverse);
-}
-
-.chatbot-text-tertiary {
-  color: var(--text-tertiary);
-}
-
-.chatbot-input {
-  color: var(--text-primary-inverse);
-  border: 1px solid var(--border-primary);
-}
-
-.chatbot-input::placeholder {
-  color: var(--text-secondary);
-}
-
-.chatbot-send-button {
-  background-color: var(--text-primary-inverse);
-  color: var(--text-primary);
-}
-
-.chatbot-send-button svg {
-  fill: var(--text-primary);
-}
-
-.chatbot-button-primary {
-  background-color: var(--text-primary-inverse);
-  color: var(--text-primary);
-}
-
-.chatbot-button-secondary {
-  border: 1px solid var(--border-primary);
-  color: var(--text-primary-inverse);
-}
-
-.chatbot-faq-link {
-  border: 1px solid var(--border-primary);
-  border-radius: 24px;
-  color: var(--background-bubble-primary);
-}
-
-.chatbot-faq-link svg {
-  fill: var(--text-tertiary);
-}
-
-.talk-bubble {
-  text-align: left;
-  display: inline-block;
-  position: relative;
-  color: var(--text-secondary-inverse);
-  background-color: var(--background-bubble-secondary);
-  border-radius: 10px 10px 10px 0;
-}
-
-.talk-bubble.user {
-  text-align: right;
-  color: var(--text-primary);
-  background-color: var(--background-bubble-primary);
-  border-radius: 10px 10px 0 10px;
-}
-
-.talk-bubble svg {
-  position: absolute;
-  left: -1px;
-  bottom: 2px;
-  transform: translateY(100%) rotateY(180deg);
-  fill: var(--background-bubble-secondary);
-}
-
-.talk-bubble.user svg {
-  right: -1px;
-  left: auto;
-  bottom: 2px;
-  transform: translateY(100%);
-  fill: var(--background-bubble-primary);
-}
-
-.dot-flashing {
-  position: relative;
-  /* padding-left: 8px; */
-  /* padding-right: 8px; */
-  width: var(--processing-dot-size);
-  height: var(--processing-dot-size);
-  border-radius: 100%;
-  background-color: var(--text-tertiary);
-  color: var(--text-tertiary);
-  animation: dot-flashing 1s infinite linear alternate;
-  animation-delay: 0.5s;
-}
-
-.dot-flashing::before,
-.dot-flashing::after {
-  content: '';
-  display: inline-block;
-  position: absolute;
-  top: 0;
-}
-
-.dot-flashing::before {
-  left: -6px;
-  width: var(--processing-dot-size);
-  height: var(--processing-dot-size);
-  border-radius: 100%;
-  background-color: var(--text-tertiary);
-  color: var(--text-tertiary);
-  animation: dot-flashing 1s infinite alternate;
-  animation-delay: 0s;
-}
-
-.dot-flashing::after {
-  left: 6px;
-  width: var(--processing-dot-size);
-  height: var(--processing-dot-size);
-  border-radius: 100%;
-  background-color: var(--text-tertiary);
-  color: var(--text-tertiary);
-  animation: dot-flashing 1s infinite alternate;
-  animation-delay: 1s;
-}
-
-@keyframes dot-flashing {
-  0% {
-    background-color: var(--text-tertiary);
-  }
-
-  50%,
-  100% {
-    background-color: rgba(95, 195, 255, 0.22);
-  }
-}
-
-.prompt-button {
-  background-color: var(--background-soft);
-  color: var(--text-primary-main);
-}
-
-.verbose-button {
-  background-color: var(--background-bubble-primary);
-  color: var(--text-primary);
-}
-
-/* Toggle Styles */
-.toggle-background {
-  background-color: var(--background-bubble-primary);
-}
-
-.toggle-boarder {
-  border: 1px solid var(--background-bubble-primary);
-}
-
-.vercel-link {
-  color: var(--text-primary-inverse);
-  background-color: var(--text-primary);
-  border-color: var(--border-primary);
-}
-
-.vercel-link hr {
-  border-color: var(--border-primary);
 }
 
 @layer utilities {
@@ -1868,13 +1509,12 @@
   [data-agency-theme='dark'] .bg-slate-100,
   [data-agency-theme='dark'] .bg-gray-50,
   [data-agency-theme='dark'] .bg-gray-100 {
-    background:
-      linear-gradient(180deg, rgba(35, 38, 47, 0.96), rgba(27, 30, 37, 0.98)),
-      radial-gradient(
-        circle at top left,
-        rgba(166, 108, 255, 0.08),
-        transparent 34%
-      ) !important;
+    background: linear-gradient(180deg, rgba(35, 38, 47, 0.96), rgba(27, 30, 37, 0.98)),
+    radial-gradient(
+      circle at top left,
+      rgba(166, 108, 255, 0.08),
+      transparent 34%
+    ) !important;
     color: #f8f7f4 !important;
   }
 
@@ -1936,17 +1576,17 @@
   }
 
   [data-agency-theme='dark']
-    .divide-neutral-200
-    > :not([hidden])
-    ~ :not([hidden]),
+  .divide-neutral-200
+  > :not([hidden])
+  ~ :not([hidden]),
   [data-agency-theme='dark']
-    .divide-slate-200
-    > :not([hidden])
-    ~ :not([hidden]),
+  .divide-slate-200
+  > :not([hidden])
+  ~ :not([hidden]),
   [data-agency-theme='dark']
-    .divide-gray-200
-    > :not([hidden])
-    ~ :not([hidden]) {
+  .divide-gray-200
+  > :not([hidden])
+  ~ :not([hidden]) {
     border-color: rgba(169, 173, 184, 0.14) !important;
   }
 

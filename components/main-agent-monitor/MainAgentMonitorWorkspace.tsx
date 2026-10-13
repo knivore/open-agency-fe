@@ -1,9 +1,14 @@
 'use client';
 
+import DiffViewer from '@/components/tools/DiffViewer';
+
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { toast } from 'sonner';
+import WorkflowReviewQueue from './WorkflowReviewQueue';
+import WhatsAppNotificationSetup from '@/components/integrations-app/WhatsAppNotificationSetup';
+import TelegramNotificationSetup from '@/components/integrations-app/TelegramNotificationSetup';
+import {useMemo, useState} from 'react';
+import {useSession} from 'next-auth/react';
+import {toast} from 'sonner';
 import {
   AlertTriangle,
   Check,
@@ -17,9 +22,9 @@ import {
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Badge } from '@/components/library/shadcn/badge';
-import { Button } from '@/components/library/shadcn/button';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import {Badge} from '@/components/library/shadcn/badge';
+import {Button} from '@/components/library/shadcn/button';
 import {
   Card,
   CardContent,
@@ -27,8 +32,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/library/shadcn/card';
-import { Input } from '@/components/library/shadcn/input';
-import { Label } from '@/components/library/shadcn/label';
+import {Input} from '@/components/library/shadcn/input';
+import {Label} from '@/components/library/shadcn/label';
 import {
   Select,
   SelectContent,
@@ -37,14 +42,20 @@ import {
   SelectValue,
 } from '@/components/library/shadcn/select';
 import PageHeader from '@/components/app-shell/PageHeader';
-import { conversationsApi } from '@/lib/api/backend/conversations';
-import { credentialsApi } from '@/lib/api/backend/credentials';
-import { mainAgentMonitorApi } from '@/lib/api/backend/workflows';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import type { ApprovalRequest, Conversation } from '@/types/conversations';
-import type { CredentialDefinition } from '@/types/integrations';
-import type { ExecutionEventRecord } from '@/types/runtime';
-import type { MainAgentMonitorCommandCenterResponse } from '@/types/workflows';
+import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
+import WorkspaceMetrics from '@/components/app-shell/WorkspaceMetrics';
+import ActivityTimeline from '@/components/app-shell/ActivityTimeline';
+import AppState from '@/components/app-shell/AppState';
+import { NativeSelect } from '@/components/library/shadcn/select';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/library/shadcn/tabs';
+import {conversationsApi} from '@/lib/api/backend/conversations';
+import {credentialsApi} from '@/lib/api/backend/credentials';
+import {mainAgentMonitorApi} from '@/lib/api/backend/workflows';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import type {ApprovalRequest, Conversation} from '@/types/conversations';
+import type {CredentialDefinition} from '@/types/integrations';
+import type {ExecutionEventRecord} from '@/types/runtime';
+import type {MainAgentMonitorCommandCenterResponse} from '@/types/workflows';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -204,36 +215,11 @@ function deliveryThreadRequired(provider: string) {
   return provider === 'telegram' || provider === 'discord';
 }
 
-function StatCard({
-  label,
-  value,
-  tone = 'neutral',
-}: {
-  label: string;
-  value: string | number;
-  tone?: 'neutral' | 'good' | 'warn';
-}) {
-  const toneClass =
-    tone === 'good'
-      ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-950/20 dark:text-emerald-100'
-      : tone === 'warn'
-        ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-400/20 dark:bg-amber-950/20 dark:text-amber-100'
-        : 'border-neutral-200 bg-neutral-50 text-neutral-900 dark:border-white/10 dark:bg-white/5 dark:text-slate-100';
-  return (
-    <div className={`rounded-lg border px-4 py-3 ${toneClass}`}>
-      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-        {label}
-      </p>
-      <p className="mt-2 text-2xl font-semibold">{value}</p>
-    </div>
-  );
-}
-
-function ApprovalCard({
-  approval,
-  isMutating,
-  onDecision,
-}: {
+export function ApprovalCard({
+                               approval,
+                               isMutating,
+                               onDecision,
+                             }: {
   approval: ApprovalRequest;
   isMutating: boolean;
   onDecision: (approvalId: string, action: 'approve' | 'reject') => void;
@@ -243,8 +229,13 @@ function ApprovalCard({
     <Card className="border-neutral-200 dark:border-white/10">
       <CardHeader className="pb-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="truncate text-base">{approval.summary}</CardTitle>
+          <div className="min-w-0 flex-1">
+            <CardTitle
+              title={approval.summary}
+              className="line-clamp-2 break-words text-base leading-6"
+            >
+              {approval.summary}
+            </CardTitle>
             <CardDescription>
               {approvalKind(approval)} · {formatDate(approval.created_at)}
             </CardDescription>
@@ -256,46 +247,60 @@ function ApprovalCard({
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        {approval.diff_summary ? (
-          <p className="text-sm text-neutral-700 dark:text-slate-300">{approval.diff_summary}</p>
-        ) : null}
-        {permission ? (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            <p className="font-medium">Repository write access requested</p>
-            <p className="mt-1">
-              {text(permission.reason, 'Review read-write repo access before approving.')}
-            </p>
+        <details className="group rounded-lg border bg-background">
+          <summary
+            className="flex min-h-11 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+            Review request
+            <ChevronDown
+              className="size-4 shrink-0 transition-transform group-open:rotate-180"
+              aria-hidden="true"
+            />
+          </summary>
+          <div className="space-y-4 border-t p-3">
+            <p className="whitespace-pre-wrap break-words text-sm leading-6">{approval.summary}</p>
+            {approval.diff_summary && approval.diff_summary !== approval.summary ? (
+              <DiffViewer patch={approval.diff_summary} />
+            ) : null}
+            {permission ? (
+              <div
+                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <p className="font-medium">Repository write access requested</p>
+                <p className="mt-1">
+                  {text(permission.reason, 'Review read-write repo access before approving.')}
+                </p>
+              </div>
+            ) : null}
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                disabled={isMutating}
+                onClick={() => onDecision(approval.id, 'approve')}
+              >
+                <Check className="mr-2 h-4 w-4"/>
+                Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={isMutating}
+                onClick={() => onDecision(approval.id, 'reject')}
+              >
+                <X className="mr-2 h-4 w-4"/>
+                Reject
+              </Button>
+            </div>
           </div>
-        ) : null}
-        <div className="flex flex-wrap gap-2">
-          <Button
-            size="sm"
-            disabled={isMutating}
-            onClick={() => onDecision(approval.id, 'approve')}
-          >
-            <Check className="mr-2 h-4 w-4" />
-            Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={isMutating}
-            onClick={() => onDecision(approval.id, 'reject')}
-          >
-            <X className="mr-2 h-4 w-4" />
-            Reject
-          </Button>
-        </div>
+        </details>
       </CardContent>
     </Card>
   );
 }
 
 function EventList({
-  title,
-  events,
-  empty,
-}: {
+                     title,
+                     events,
+                     empty,
+                   }: {
   title: string;
   events: Array<ExecutionEventRecord & { workflow?: { id: string; name: string } }>;
   empty: string;
@@ -307,40 +312,33 @@ function EventList({
         <CardDescription>{events.length} recent items</CardDescription>
       </CardHeader>
       <CardContent>
-        {events.length === 0 ? (
-          <p className="text-sm text-neutral-500 dark:text-slate-400">{empty}</p>
-        ) : (
-          <div className="space-y-3">
-            {events.slice(0, 6).map((event) => (
-              <div
-                key={event.id}
-                className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-                    {eventReason(event)}
-                  </p>
-                  <Badge variant="outline">{eventSeverity(event)}</Badge>
-                </div>
-                <div className="mt-1 flex flex-wrap gap-2 text-xs text-neutral-500 dark:text-slate-400">
-                  <span>{event.workflow?.name ?? event.workflow_id}</span>
-                  <span>{formatDate(event.timestamp)}</span>
-                </div>
+        <ActivityTimeline
+          empty={empty}
+          items={events.slice(0, 6).map((event) => ({
+            id: event.id,
+            title: eventReason(event),
+            timestamp: formatDate(event.timestamp),
+            meta: (
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline">{eventSeverity(event)}</Badge>
+                <span className="text-xs text-muted-foreground">
+                  {event.workflow?.name ?? event.workflow_id}
+                </span>
               </div>
-            ))}
-          </div>
-        )}
+            ),
+          }))}
+        />
       </CardContent>
     </Card>
   );
 }
 
 function RoutingPanel({
-  data,
-  isSaving,
-  onSave,
-  actorUserId,
-}: {
+                        data,
+                        isSaving,
+                        onSave,
+                        actorUserId,
+                      }: {
   data: MainAgentMonitorCommandCenterResponse;
   isSaving: boolean;
   onSave: (payload: Record<string, unknown>) => void;
@@ -401,7 +399,7 @@ function RoutingPanel({
 
       const metadata = {
         ...(normalizedProvider === 'discord' && deliveryGuildId.trim()
-          ? { guild_id: deliveryGuildId.trim() }
+          ? {guild_id: deliveryGuildId.trim()}
           : {}),
         purpose: 'main_agent_monitor_delivery',
       };
@@ -433,7 +431,7 @@ function RoutingPanel({
           ? current
           : '';
       });
-      toast.success('Chat destination resolved.', { position: 'top-right' });
+      toast.success('Chat destination resolved.', {position: 'top-right'});
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to resolve chat destination.', {
@@ -443,10 +441,13 @@ function RoutingPanel({
   });
 
   return (
-    <details className="group overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
-      <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400">
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-cyan-300/15 dark:bg-cyan-300/8 dark:text-cyan-200">
-          <MessageSquare className="size-4" aria-hidden="true" />
+    <details
+      className="group overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+      <summary
+        className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400">
+        <span
+          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-cyan-300/15 dark:bg-cyan-300/8 dark:text-cyan-200">
+          <MessageSquare className="size-4" aria-hidden="true"/>
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-neutral-900 dark:text-slate-100">
@@ -459,10 +460,12 @@ function RoutingPanel({
         <span className="hidden text-sm text-neutral-500 sm:block dark:text-slate-400">
           {routeConversation ? conversationTargetLabel(routeConversation) : 'Inbox only'}
         </span>
-        <ChevronDown className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
+        <ChevronDown
+          className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180"/>
       </summary>
       <div className="space-y-4 border-t border-neutral-200 p-5 dark:border-white/10">
-        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+        <div
+          className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
@@ -537,7 +540,7 @@ function RoutingPanel({
               disabled={resolveDeliveryMutation.isPending}
               onClick={() => resolveDeliveryMutation.mutate()}
             >
-              <MessageSquare className="mr-2 h-4 w-4" />
+              <MessageSquare className="mr-2 h-4 w-4"/>
               Resolve
             </Button>
           </div>
@@ -563,7 +566,7 @@ function RoutingPanel({
               }}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue/>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="telegram">Telegram</SelectItem>
@@ -581,7 +584,7 @@ function RoutingPanel({
               }
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue/>
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={noExternalDeliveryValue}>Conversation inbox only</SelectItem>
@@ -615,7 +618,7 @@ function RoutingPanel({
                 onSave(payload);
               }}
             >
-              <SlidersHorizontal className="mr-2 h-4 w-4" />
+              <SlidersHorizontal className="mr-2 h-4 w-4"/>
               Save
             </Button>
           </div>
@@ -627,8 +630,13 @@ function RoutingPanel({
 
 export default function MainAgentMonitorWorkspace() {
   const queryClient = useQueryClient();
-  const { data: session } = useSession();
+  const {data: session} = useSession();
   const actorUserId = session?.user?.id ?? 'operator';
+  const [monitorTab, setMonitorTab] = useState('review');
+  const [reviewSearch, setReviewSearch] = useState('');
+  const [workflowFilter, setWorkflowFilter] = useState('all');
+  const [ageFilter, setAgeFilter] = useState('all');
+  const [severityFilter, setSeverityFilter] = useState('all');
   const monitorQuery = useQuery({
     queryKey: queryKeys.backendMainAgentMonitor(),
     queryFn: () => mainAgentMonitorApi.getCommandCenter(),
@@ -639,7 +647,7 @@ export default function MainAgentMonitorWorkspace() {
     mutationFn: (payload: Record<string, unknown>) => mainAgentMonitorApi.updateRoutes(payload),
     onSuccess: (next) => {
       queryClient.setQueryData(queryKeys.backendMainAgentMonitor(), next);
-      toast.success('Monitor routing updated.', { position: 'top-right' });
+      toast.success('Monitor routing updated.', {position: 'top-right'});
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update monitor routing.', {
@@ -649,7 +657,7 @@ export default function MainAgentMonitorWorkspace() {
   });
 
   const approvalMutation = useMutation({
-    mutationFn: ({ approvalId, action }: { approvalId: string; action: 'approve' | 'reject' }) => {
+    mutationFn: ({approvalId, action}: { approvalId: string; action: 'approve' | 'reject' }) => {
       if (action === 'approve') {
         return conversationsApi.approveApprovalRequest(approvalId, {
           user_id: actorUserId,
@@ -662,8 +670,8 @@ export default function MainAgentMonitorWorkspace() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.backendMainAgentMonitor() });
-      toast.success('Approval decision recorded.', { position: 'top-right' });
+      await queryClient.invalidateQueries({queryKey: queryKeys.backendMainAgentMonitor()});
+      toast.success('Approval decision recorded.', {position: 'top-right'});
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Approval decision failed.', {
@@ -676,7 +684,20 @@ export default function MainAgentMonitorWorkspace() {
   const summary = data?.summary;
   const runtime = isRecord(data?.runtime) ? data.runtime : {};
   const lastTick = isRecord(runtime.last_tick) ? runtime.last_tick : null;
-  const pendingApprovals = data?.pending_approvals ?? [];
+  const allApprovals = data?.pending_approvals ?? [];
+  const matchesWorkflow = (id: unknown) => workflowFilter === 'all' || id === workflowFilter;
+  const matchesAge = (timestamp: string | undefined) => ageFilter === 'all' || monitorQuery.dataUpdatedAt - Date.parse(timestamp ?? '') >= Number(ageFilter) * 86_400_000;
+  const pendingApprovals = allApprovals.filter(approval => {
+    const payload = isRecord(approval.proposed_payload) ? approval.proposed_payload : {};
+    const metadata = isRecord(approval.metadata) ? approval.metadata : {};
+    const workflowId = payload.workflow_id ?? metadata.workflow_id ?? (approval.target_type === 'workflow' ? approval.target_id : null);
+    return matchesWorkflow(workflowId) && matchesAge(approval.created_at) &&
+      (approval.summary + ' ' + approval.target_id + ' ' + approval.approval_type).toLowerCase().includes(reviewSearch.trim().toLowerCase());
+  });
+  const filterEvents = <T extends ExecutionEventRecord>(events: T[]) => events.filter(event =>
+    matchesWorkflow(event.workflow_id) && matchesAge(event.timestamp) &&
+    (severityFilter === 'all' || eventSeverity(event) === severityFilter) &&
+    eventReason(event).toLowerCase().includes(reviewSearch.trim().toLowerCase()));
   const repoWriteRequests = data?.repo_write_requests ?? [];
   const monitoredWorkflows = useMemo(
     () => (data?.workflows ?? []).filter((item) => item.monitoring.enabled),
@@ -684,7 +705,7 @@ export default function MainAgentMonitorWorkspace() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       <PageHeader
         icon={Radar}
         tone="monitor"
@@ -705,216 +726,315 @@ export default function MainAgentMonitorWorkspace() {
         }
       />
 
-      <div className="rounded-2xl border border-neutral-200 bg-white px-5 py-5 dark:border-white/10 dark:bg-white/5">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
-              Monitor operations
-            </p>
-            <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-              Latest main-agent monitor health, human gates, and workflow supervision signals.
-            </p>
-          </div>
-          {monitorQuery.isLoading || monitorQuery.isFetching ? (
-            <Badge variant="outline">Refreshing...</Badge>
-          ) : null}
-        </div>
-
-        {monitorQuery.isError ? (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
-            {monitorQuery.error instanceof Error
-              ? monitorQuery.error.message
-              : 'Failed to load main-agent monitor.'}
-          </div>
-        ) : null}
-
-        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-          <StatCard
-            label="Monitor"
-            value={data?.settings?.enabled ? 'On' : 'Off'}
-            tone={data?.settings?.enabled ? 'good' : 'warn'}
-          />
-          <StatCard label="Monitored workflows" value={summary?.monitored_workflow_count ?? 0} />
-          <StatCard label="Pending approvals" value={summary?.pending_approval_count ?? 0} />
-          <StatCard
-            label="Repo write gates"
-            value={summary?.pending_repo_write_request_count ?? 0}
-            tone={(summary?.pending_repo_write_request_count ?? 0) > 0 ? 'warn' : 'neutral'}
-          />
-          <StatCard label="Findings" value={summary?.recent_finding_count ?? 0} />
-          <StatCard label="Steering" value={summary?.recent_steering_request_count ?? 0} />
-        </div>
-      </div>
-
-      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-        <Card className="border-neutral-200 dark:border-white/10">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Inbox className="h-5 w-5 text-primary-700" />
-              <CardTitle>Human Attention Inbox</CardTitle>
-            </div>
-            <CardDescription>
-              Pending monitor approvals are explicit human gates; repo-write requests are never
-              auto-approved.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingApprovals.length === 0 ? (
-              <p className="text-sm text-neutral-500 dark:text-slate-400">
-                No pending monitor approvals.
-              </p>
-            ) : (
-              pendingApprovals.map((approval) => (
-                <ApprovalCard
-                  key={approval.id}
-                  approval={approval}
-                  isMutating={approvalMutation.isPending}
-                  onDecision={(approvalId, action) =>
-                    approvalMutation.mutate({ approvalId, action })
+      <WorkspaceMetrics
+        label="Monitor operations"
+        items={[
+          { label: 'Monitor', value: data ? (data.settings?.enabled ? 'On' : 'Off') : '—' },
+          { label: 'Monitored workflows', value: summary?.monitored_workflow_count ?? '—' },
+          {
+            label: 'Pending approvals',
+            value: summary?.pending_approval_count ?? '—',
+            onSelect: () => setMonitorTab('review'),
+            selected: monitorTab === 'review',
+          },
+          { label: 'Repo write gates', value: summary?.pending_repo_write_request_count ?? '—' },
+          {
+            label: 'Findings',
+            value: summary?.recent_finding_count ?? '—',
+            onSelect: () => setMonitorTab('activity'),
+            selected: monitorTab === 'activity',
+          },
+        ]}
+      />
+      {monitorQuery.isError ? <AppState variant="error" title="Monitor could not be loaded" description={monitorQuery.error instanceof Error ? monitorQuery.error.message : 'Try refreshing the monitor.'} onAction={() => void monitorQuery.refetch()}/> : null}
+      <Tabs
+        value={monitorTab}
+        onValueChange={setMonitorTab}
+        activationMode="manual"
+        className="flex min-w-0 flex-col gap-4"
+      >
+        <TabsList aria-label="Monitor sections" className="h-auto flex-wrap justify-start">
+          <TabsTrigger value="review">Review inbox</TabsTrigger>
+          <TabsTrigger value="activity">Activity and coverage</TabsTrigger>
+          <TabsTrigger value="notifications">Notification settings</TabsTrigger>
+        </TabsList>
+        {monitorTab !== 'notifications' ? (
+          <WorkspaceToolbar
+            search={{
+              label: 'Search monitor',
+              placeholder: 'Search findings and approval requests',
+              value: reviewSearch,
+              onChange: setReviewSearch,
+            }}
+            summary={
+              monitorTab === 'review'
+                ? `${pendingApprovals.length} of ${allApprovals.length} pending approvals`
+                : 'Filter retained monitor evidence'
+            }
+            onReset={
+              reviewSearch ||
+              workflowFilter !== 'all' ||
+              ageFilter !== 'all' ||
+              severityFilter !== 'all'
+                ? () => {
+                    setReviewSearch('');
+                    setWorkflowFilter('all');
+                    setAgeFilter('all');
+                    setSeverityFilter('all');
                   }
-                />
-              ))
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="border-neutral-200 dark:border-white/10">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <Radar className="h-5 w-5 text-primary-700" />
-              <CardTitle>Operational Health</CardTitle>
-            </div>
-            <CardDescription>Monitor loop status and delivery signals.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
-                Last tick
-              </p>
-              <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
-                {lastTick
-                  ? formatDate(lastTick.occurred_at ?? lastTick.timestamp)
-                  : 'No tick recorded yet'}
-              </p>
-              {lastTick?.error ? (
-                <p className="mt-1 text-sm text-red-700">{String(lastTick.error)}</p>
+                : undefined
+            }
+          >
+            <NativeSelect
+              aria-label="Monitor workflow"
+              value={workflowFilter}
+              onChange={(event) => setWorkflowFilter(event.target.value)}
+              className="w-full sm:w-64"
+            >
+              <option value="all">All workflows</option>
+              {workflowFilter !== 'all' &&
+              !(data?.workflows ?? []).some((item) => item.workflow.id === workflowFilter) ? (
+                <option value={workflowFilter}>{workflowFilter} · Current filter</option>
               ) : null}
-            </div>
-            <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
-                External delivery
-              </p>
-              <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
-                {routeDeliverySummary(data?.notification_route)}
-              </p>
-            </div>
-            <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
-              <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
-                Strict monitoring
-              </p>
-              <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
-                {summary?.strict_workflow_count ?? 0} workflows
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {data ? (
-        <RoutingPanel
-          key={JSON.stringify(data.notification_route ?? {})}
-          data={data}
-          isSaving={routeMutation.isPending}
-          actorUserId={actorUserId}
-          onSave={(payload) => routeMutation.mutate(payload)}
-        />
-      ) : null}
-
-      {repoWriteRequests.length > 0 ? (
-        <Card className="border-amber-200 bg-amber-50">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-700" />
-              <CardTitle>Repository Write Requests</CardTitle>
-            </div>
-            <CardDescription>
-              Approve only when the requested repo should be mounted read-write and host permissions
-              are writable.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-3 md:grid-cols-2">
-            {repoWriteRequests.map((approval) => {
-              const permission = repoWritePermission(approval);
-              return (
-                <div
-                  key={approval.id}
-                  className="rounded-md border border-amber-200 bg-white px-3 py-3 dark:border-amber-400/20 dark:bg-slate-950/60"
-                >
-                  <p className="font-medium text-neutral-900 dark:text-slate-100">
-                    {approval.summary}
+              {(data?.workflows ?? []).map((item) => (
+                <option key={item.workflow.id} value={item.workflow.id}>
+                  {item.workflow.name}
+                </option>
+              ))}
+            </NativeSelect>
+            <NativeSelect
+              aria-label="Monitor request age"
+              value={ageFilter}
+              onChange={(event) => setAgeFilter(event.target.value)}
+              className="w-full sm:w-44"
+            >
+              <option value="all">All ages</option>
+              <option value="1">Older than 1 day</option>
+              <option value="7">Older than 7 days</option>
+              <option value="30">Older than 30 days</option>
+            </NativeSelect>
+            {monitorTab === 'activity' ? (
+              <NativeSelect
+                aria-label="Finding severity"
+                value={severityFilter}
+                onChange={(event) => setSeverityFilter(event.target.value)}
+                className="w-full sm:w-44"
+              >
+                <option value="all">All severities</option>
+                {[
+                  ...new Set([
+                    ...(data?.findings ?? []).map(eventSeverity),
+                    ...(severityFilter !== 'all' ? [severityFilter] : []),
+                  ]),
+                ]
+                  .sort()
+                  .map((value) => (
+                    <option key={value} value={value}>
+                      {value}
+                    </option>
+                  ))}
+              </NativeSelect>
+            ) : null}
+          </WorkspaceToolbar>
+        ) : null}
+        <TabsContent value="review" className="flex flex-col gap-5">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
+            <Card className="border-neutral-200 dark:border-white/10">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Inbox className="h-5 w-5 text-primary-700" />
+                  <CardTitle>Human Attention Inbox</CardTitle>
+                </div>
+                <CardDescription>
+                  Pending monitor approvals are explicit human gates; repo-write requests are never
+                  auto-approved.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {monitorQuery.isLoading ? (
+                  <AppState
+                    variant="loading"
+                    title="Loading review inbox"
+                    description="Reading pending human decisions."
+                    compact
+                  />
+                ) : pendingApprovals.length === 0 ? (
+                  <p className="text-sm text-neutral-500 dark:text-slate-400">
+                    No approval requests match this view.
                   </p>
-                  <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                    {text(permission?.operator_action, 'Review read-write mounts before approval.')}
+                ) : (
+                  pendingApprovals.map((approval) => (
+                    <ApprovalCard
+                      key={approval.id}
+                      approval={approval}
+                      isMutating={approvalMutation.isPending}
+                      onDecision={(approvalId, action) =>
+                        approvalMutation.mutate({ approvalId, action })
+                      }
+                    />
+                  ))
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="border-neutral-200 dark:border-white/10">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Radar className="h-5 w-5 text-primary-700" />
+                  <CardTitle>Operational Health</CardTitle>
+                </div>
+                <CardDescription>Monitor loop status and delivery signals.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+                    Last tick
+                  </p>
+                  <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
+                    {lastTick
+                      ? formatDate(lastTick.occurred_at ?? lastTick.timestamp)
+                      : 'No tick recorded yet'}
+                  </p>
+                  {lastTick?.error ? (
+                    <p className="mt-1 text-sm text-red-700">{String(lastTick.error)}</p>
+                  ) : null}
+                </div>
+                <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+                    External delivery
+                  </p>
+                  <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
+                    {routeDeliverySummary(data?.notification_route)}
                   </p>
                 </div>
-              );
-            })}
-          </CardContent>
-        </Card>
-      ) : null}
-
-      <div className="grid gap-6 xl:grid-cols-3">
-        <EventList
-          title="Recent Findings"
-          events={data?.findings ?? []}
-          empty="No recent findings."
-        />
-        <EventList
-          title="Improvement Proposals"
-          events={data?.proposals ?? []}
-          empty="No recent proposals."
-        />
-        <EventList
-          title="Steering Requests"
-          events={data?.steering_requests ?? []}
-          empty="No recent steering requests."
-        />
-      </div>
-
-      <Card className="border-neutral-200 dark:border-white/10">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <GitBranch className="h-5 w-5 text-primary-700" />
-            <CardTitle>Monitored Workflows</CardTitle>
+                <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
+                  <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
+                    Strict monitoring
+                  </p>
+                  <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
+                    {summary?.strict_workflow_count ?? 0} workflows
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
           </div>
-          <CardDescription>Current monitor coverage and workflow-level controls.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {monitoredWorkflows.length === 0 ? (
-            <p className="text-sm text-neutral-500 dark:text-slate-400">
-              No workflows are currently monitored.
-            </p>
-          ) : (
-            <div className="grid gap-2">
-              {monitoredWorkflows.slice(0, 12).map((item) => (
-                <Link
-                  key={item.workflow.id}
-                  href={`/workflows/${item.workflow.id}?tab=monitoring`}
-                  className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm hover:border-primary-200 hover:bg-primary-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/20 dark:hover:bg-white/10"
-                >
-                  <span className="min-w-0 truncate font-medium text-neutral-900 dark:text-slate-100">
-                    {item.workflow.name}
-                  </span>
-                  <span className="flex items-center gap-2 text-neutral-500 dark:text-slate-400">
-                    {item.monitoring.status_label}
-                    <ExternalLink className="h-3.5 w-3.5" />
-                  </span>
-                </Link>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+
+          <WorkflowReviewQueue
+            jobs={
+              (Array.isArray(data?.review_queue) ? data.review_queue : []) as React.ComponentProps<
+                typeof WorkflowReviewQueue
+              >['jobs']
+            }
+            refresh={() => monitorQuery.refetch()}
+          />
+
+          {repoWriteRequests.length > 0 ? (
+            <Card className="border-amber-200 bg-amber-50">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-700" />
+                  <CardTitle>Repository Write Requests</CardTitle>
+                </div>
+                <CardDescription>
+                  Approve only when the requested repo should be mounted read-write and host permissions
+                  are writable.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-2">
+                {repoWriteRequests.map((approval) => {
+                  const permission = repoWritePermission(approval);
+                  return (
+                    <div
+                      key={approval.id}
+                      className="rounded-md border border-amber-200 bg-white px-3 py-3 dark:border-amber-400/20 dark:bg-slate-950/60"
+                    >
+                      <p className="font-medium text-neutral-900 dark:text-slate-100">
+                        {approval.summary}
+                      </p>
+                      <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
+                        {text(permission?.operator_action, 'Review read-write mounts before approval.')}
+                      </p>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          ) : null}
+        </TabsContent>
+        <TabsContent value="activity" className="flex flex-col gap-5">
+          <div className="grid gap-6 xl:grid-cols-3">
+            <EventList
+              title="Recent Findings"
+              events={filterEvents(data?.findings ?? [])}
+              empty="No recent findings."
+            />
+            <EventList
+              title="Improvement Proposals"
+              events={filterEvents(data?.proposals ?? [])}
+              empty="No recent proposals."
+            />
+            <EventList
+              title="Steering Requests"
+              events={filterEvents(data?.steering_requests ?? [])}
+              empty="No recent steering requests."
+            />
+          </div>
+
+          <Card className="border-neutral-200 dark:border-white/10">
+            <CardHeader>
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5 text-primary-700" />
+                <CardTitle>Monitored Workflows</CardTitle>
+              </div>
+              <CardDescription>Current monitor coverage and workflow-level controls.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {monitoredWorkflows.length === 0 ? (
+                <p className="text-sm text-neutral-500 dark:text-slate-400">
+                  No workflows are currently monitored.
+                </p>
+              ) : (
+                <div className="grid gap-2">
+                  {monitoredWorkflows.slice(0, 12).map((item) => (
+                    <Link
+                      key={item.workflow.id}
+                      href={`/workflows/${item.workflow.id}?tab=monitoring`}
+                      className="flex items-center justify-between gap-3 rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm hover:border-primary-200 hover:bg-primary-50 dark:border-white/10 dark:bg-white/5 dark:hover:border-cyan-400/20 dark:hover:bg-white/10"
+                    >
+                      <span className="min-w-0 truncate font-medium text-neutral-900 dark:text-slate-100">
+                        {item.workflow.name}
+                      </span>
+                      <span className="flex items-center gap-2 text-neutral-500 dark:text-slate-400">
+                        {item.monitoring.status_label}
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        <TabsContent
+          value="notifications"
+          forceMount
+          hidden={monitorTab !== 'notifications'}
+          className="flex flex-col gap-5 data-[state=inactive]:hidden"
+        >
+          <TelegramNotificationSetup />
+          <WhatsAppNotificationSetup />
+
+          {data ? (
+            <RoutingPanel
+              key={JSON.stringify(data.notification_route ?? {})}
+              data={data}
+              isSaving={routeMutation.isPending}
+              actorUserId={actorUserId}
+              onSave={(payload) => routeMutation.mutate(payload)}
+            />
+          ) : null}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

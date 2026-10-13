@@ -1,9 +1,9 @@
 import './globals.css';
-import { auth } from '@/auth';
+import {auth} from '@/auth';
 import Providers from '@/app/providers';
-import { InlineScript } from '@/app/inline-script';
+import {InlineScript} from '@/app/inline-script';
 import AppToaster from '@/components/app-shell/AppToaster';
-import type { Metadata } from 'next';
+import type {Metadata} from 'next';
 import React from 'react';
 
 const themeInitScript = `
@@ -30,21 +30,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({children}: Readonly<{ children: React.ReactNode }>) {
   const session = await auth();
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <InlineScript html={themeInitScript} />
-        <title>Open Agency</title>
-      </head>
-      <body className="min-h-dvh">
-        <Providers session={session}>
-          {children}
-          {/*<Footer />*/}
-          <AppToaster />
-        </Providers>
-      </body>
+    <head>
+      <InlineScript html={themeInitScript}/>
+      <title>Open Agency</title>
+    </head>
+    <body className="min-h-dvh">
+    <Providers session={session}>
+      {children}
+      <AppToaster/>
+    </Providers>
+    </body>
     </html>
   );
 }

@@ -1,4 +1,6 @@
-import { useState } from 'react';
+'use client';
+
+import { useId, useState } from 'react';
 import { Button } from '@/components/library/shadcn/button';
 import {
   Card,
@@ -10,76 +12,64 @@ import {
 import { Checkbox } from '@/components/library/shadcn/checkbox';
 import { Input } from '@/components/library/shadcn/input';
 import { Textarea } from '@/components/library/shadcn/textarea';
+import { FormField, FormFieldGroup } from '@/components/app-shell/FormSection';
 import type { ToolContract } from '@/types/toolContracts';
 
-const SAMPLE_PATCH = `diff --git a/README.md b/README.md
---- a/README.md
-+++ b/README.md
-@@ -1,1 +1,1 @@
--hello
-+hello world
-`;
+const SAMPLE_PATCH =
+  'diff --git a/README.md b/README.md\n--- a/README.md\n+++ b/README.md\n@@ -1,1 +1,1 @@\n-hello\n+hello world\n';
 
-type SandboxForm = {
+export type SandboxForm = {
   repo: string;
   ref: string;
   path: string;
   patch: string;
   dryRun: boolean;
 };
-
-function sandboxPayload(form: SandboxForm) {
-  return {
-    repo: form.repo,
-    ref: form.ref,
-    dryRun: form.dryRun,
-    changes: [
-      {
-        path: form.path,
-        patch: form.patch,
-      },
-    ],
-  };
+export interface ToolInputFormProps {
+  contract?: ToolContract | null;
+  isPending: boolean;
+  onRun: (payload: unknown) => Promise<void>;
+  initialSandbox?: Partial<SandboxForm>;
+  initialPayload?: unknown;
+  idPrefix?: string;
+  submitLabel?: string;
 }
 
 export default function ToolInputForm({
   contract,
   isPending,
   onRun,
-}: {
-  contract?: ToolContract | null;
-  isPending: boolean;
-  onRun: (payload: unknown) => Promise<void>;
-}) {
-  const [sandboxForm, setSandboxForm] = useState<SandboxForm>({
+  initialSandbox,
+  initialPayload = {},
+  idPrefix,
+  submitLabel,
+}: ToolInputFormProps) {
+  const generatedId = useId();
+  const fieldId = idPrefix ?? generatedId;
+  const [sandboxForm, setSandboxForm] = useState<SandboxForm>(() => ({
     repo: '/workspace/open-agency',
     ref: 'main',
     path: 'README.md',
     patch: SAMPLE_PATCH,
     dryRun: true,
-  });
-  const [jsonPayload, setJsonPayload] = useState('{}');
+    ...initialSandbox,
+  }));
+  const [jsonPayload, setJsonPayload] = useState(
+    () => JSON.stringify(initialPayload, null, 2) ?? '{}'
+  );
   const [error, setError] = useState<string | null>(null);
+  if (!contract) return null;
 
-  if (!contract) {
-    return null;
-  }
-
-  const runSandbox = async () => {
-    setError(null);
-    await onRun(sandboxPayload(sandboxForm));
-  };
-
-  const runJson = async () => {
+  async function run(payload: () => unknown) {
     setError(null);
     try {
-      await onRun(JSON.parse(jsonPayload) as unknown);
-    } catch (parseError) {
-      setError(parseError instanceof Error ? parseError.message : 'Payload must be valid JSON.');
+      await onRun(payload());
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'The tool request failed.');
     }
-  };
+  }
 
-  if (contract.name !== 'sandbox-edit') {
+  if (contract.name !== 'sandbox-edit')
     return (
       <Card>
         <CardHeader>
@@ -88,21 +78,26 @@ export default function ToolInputForm({
             Provide a JSON payload matching the contract input schema.
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-3">
-          <Textarea
-            className="min-h-55 font-mono text-xs"
-            value={jsonPayload}
-            onChange={(event) => setJsonPayload(event.target.value)}
+        <CardContent className="flex flex-col gap-3">
+          <FormField label="Input payload" htmlFor={fieldId + '-payload'} error={error}>
+            <Textarea
+              id={fieldId + '-payload'}
+              className="min-h-55 font-mono text-xs"
+              value={jsonPayload}
+              onChange={(event) => setJsonPayload(event.target.value)}
+              disabled={isPending}
+            />
+          </FormField>
+          <Button
+            type="button"
+            onClick={() => run(() => JSON.parse(jsonPayload) as unknown)}
             disabled={isPending}
-          />
-          {error ? <p className="text-xs text-red-600">{error}</p> : null}
-          <Button type="button" onClick={runJson} disabled={isPending}>
-            {isPending ? 'Running...' : 'Run tool'}
+          >
+            {isPending ? 'Running...' : (submitLabel ?? 'Run tool')}
           </Button>
         </CardContent>
       </Card>
     );
-  }
 
   return (
     <Card>
@@ -112,91 +107,79 @@ export default function ToolInputForm({
           Validate a patch through the contract validator, policy engine, and git dry-run sandbox.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1">
-            <label
-              htmlFor="sandbox-repo"
-              className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500"
-            >
-              Repository
-            </label>
+      <CardContent className="flex flex-col gap-4">
+        <FormFieldGroup columns={2}>
+          <FormField label="Repository" htmlFor={fieldId + '-repo'}>
             <Input
-              id="sandbox-repo"
+              id={fieldId + '-repo'}
               value={sandboxForm.repo}
+              disabled={isPending}
               onChange={(event) =>
                 setSandboxForm((current) => ({ ...current, repo: event.target.value }))
               }
-              disabled={isPending}
             />
-          </div>
-          <div className="space-y-1">
-            <label
-              htmlFor="sandbox-ref"
-              className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500"
-            >
-              Base ref
-            </label>
+          </FormField>
+          <FormField label="Base ref" htmlFor={fieldId + '-ref'}>
             <Input
-              id="sandbox-ref"
+              id={fieldId + '-ref'}
               value={sandboxForm.ref}
+              disabled={isPending}
               onChange={(event) =>
                 setSandboxForm((current) => ({ ...current, ref: event.target.value }))
               }
-              disabled={isPending}
             />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <label
-            htmlFor="sandbox-path"
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500"
-          >
-            Path
-          </label>
+          </FormField>
+        </FormFieldGroup>
+        <FormField label="Path" htmlFor={fieldId + '-path'}>
           <Input
-            id="sandbox-path"
+            id={fieldId + '-path'}
             value={sandboxForm.path}
+            disabled={isPending}
             onChange={(event) =>
               setSandboxForm((current) => ({ ...current, path: event.target.value }))
             }
-            disabled={isPending}
           />
-        </div>
-        <div className="space-y-1">
-          <label
-            htmlFor="sandbox-patch"
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500"
-          >
-            Unified diff
-          </label>
+        </FormField>
+        <FormField label="Unified diff" htmlFor={fieldId + '-patch'}>
           <Textarea
-            id="sandbox-patch"
+            id={fieldId + '-patch'}
             className="min-h-60 font-mono text-xs"
             value={sandboxForm.patch}
+            disabled={isPending}
             onChange={(event) =>
               setSandboxForm((current) => ({ ...current, patch: event.target.value }))
             }
-            disabled={isPending}
           />
-        </div>
-        <label className="flex items-center gap-2 text-sm text-neutral-700">
+        </FormField>
+        <label className="flex items-center gap-2 text-sm" htmlFor={fieldId + '-dry-run'}>
           <Checkbox
+            id={fieldId + '-dry-run'}
             checked={sandboxForm.dryRun}
+            disabled={isPending}
             onCheckedChange={(checked) =>
               setSandboxForm((current) => ({ ...current, dryRun: checked === true }))
             }
-            disabled={isPending}
           />
           Dry-run only
         </label>
+        {error ? (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        ) : null}
         <Button
           type="button"
-          className="bg-slate-950 text-white hover:bg-slate-800"
-          onClick={runSandbox}
           disabled={isPending}
+          onClick={() =>
+            run(() => ({
+              repo: sandboxForm.repo,
+              ref: sandboxForm.ref,
+              dryRun: sandboxForm.dryRun,
+              changes: [{ path: sandboxForm.path, patch: sandboxForm.patch }],
+            }))
+          }
         >
-          {isPending ? 'Running policy sandbox...' : 'Run dry-run'}
+          {isPending ? 'Running policy sandbox...' : (submitLabel ?? 'Run dry-run')}
         </Button>
       </CardContent>
     </Card>

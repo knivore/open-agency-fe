@@ -1,5 +1,13 @@
 'use client';
 
+import { inspectObservatoryMap } from '../engine/world/layoutInspection';
+import {
+  OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY,
+  writeObservatoryLayoutToStorage,
+} from '../engine/world/layoutPersistence';
+import { useLayoutHistory } from '../components/useLayoutHistory';
+import { Input } from '@/components/library/shadcn/input';
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
@@ -19,12 +27,29 @@ import {
 } from '@/modules/observatory/engine/rendering/agentVisualState';
 import {
   isObservatoryGridWalkable,
+  objectCollisionGridRect,
+  resolveObservatoryObjectInteraction,
   observatoryRoomInteriorBounds,
   pickObservatoryObjectAdjacentWalkablePoint,
 } from '@/modules/observatory/engine/rendering/agentBehaviorTargets';
 import { pointInGridRect } from '@/modules/observatory/engine/world/grid';
 import type { ObservatoryAssetDefinition } from '@/modules/observatory/engine/assets/assetRegistry';
-import { getObservatoryModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleAssetRegistry';
+import { getObservatoryFullModuleAssetRegistry as getObservatoryModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
+import {
+  observatoryAssetSourceSize,
+  scaleObservatoryObject,
+} from '@/modules/observatory/engine/world/objectGeometry';
+import type { ObservatoryPlacementRequest } from '../engine/world/placementPreview';
+import {
+  assemblyPlacementIssue,
+  createOfficeAssetAssembly,
+  createOfficePreset,
+  placeOfficeAssembly,
+  deleteOfficeAssembly,
+  duplicateOfficeAssembly,
+  moveOfficeAssembly,
+  observatoryObjectGroup,
+} from '../engine/world/officeAssemblies';
 import type {
   ObservatoryCanvasGridClick,
   ObservatoryCanvasSelection,
@@ -33,9 +58,7 @@ import type { RunSessionSummary } from '@/types/runtime';
 import type { WorkflowDefinition } from '@/types/workflows';
 import {
   cloneObservatoryLayout,
-  deleteObservatoryObject,
   deleteObservatoryRoom,
-  duplicateObservatoryObject,
   moveObservatoryRoom,
   type ObservatoryLayoutEditResult,
   resizeObservatoryRoom,
@@ -86,10 +109,7 @@ import {
   readObservatoryAgentVisibilityMode,
   writeObservatoryAgentVisibilityMode,
 } from '@/modules/observatory/runtime/agentVisibility';
-import {
-  createInitialObservatoryRuntimeVisualState,
-  reduceObservatoryRuntimeEvents,
-} from '@/modules/observatory/runtime/visualState';
+import { createInitialObservatoryRuntimeVisualState } from '@/modules/observatory/runtime/visualState';
 import { createObservatoryRuntimeVisualStore } from '@/modules/observatory/state/runtimeVisualStore';
 import { useObservatoryRuntimeVisualStoreSnapshot } from '@/modules/observatory/state/useRuntimeVisualStore';
 
@@ -170,18 +190,9 @@ export default function ObservatoryRuntimeSurface({
       }),
     []
   );
-  const seededRuntimeEvents = useMemo(
-    () => (isBuilderMode ? normalizedSampleEvents : []),
-    [isBuilderMode, normalizedSampleEvents]
-  );
-  const initialRuntimeState = useMemo(
-    () =>
-      reduceObservatoryRuntimeEvents(
-        createInitialObservatoryRuntimeVisualState(),
-        seededRuntimeEvents
-      ),
-    [seededRuntimeEvents]
-  );
+  // Sample events refer to the demo office. Applying them on load claims the real office's
+  // idle agents with stale room assignments and prevents their normal background roaming.
+  const initialRuntimeState = useMemo(() => createInitialObservatoryRuntimeVisualState(), []);
   const runtimeStore = useMemo(
     () => createObservatoryRuntimeVisualStore(initialRuntimeState),
     [initialRuntimeState]
@@ -191,12 +202,12 @@ export default function ObservatoryRuntimeSurface({
   const [levelFilter, setLevelFilter] = useState<ObservatoryFeedLevelFilter>('all');
   const [bridgeIssues, setBridgeIssues] = useState<ObservatoryEventValidationIssue[]>([]);
   const [rawEventIssues, setRawEventIssues] = useState<ObservatoryEventValidationIssue[]>([]);
-  const [acceptedEventCount, setAcceptedEventCount] = useState(seededRuntimeEvents.length);
+  const [acceptedEventCount, setAcceptedEventCount] = useState(0);
   const [ambientTick, setAmbientTick] = useState(0);
-  const [replayEvents, setReplayEvents] =
-    useState<ObservatoryNormalizedOfficeEvent[]>(seededRuntimeEvents);
-  const [replayCursor, setReplayCursor] = useState(seededRuntimeEvents.length - 1);
-  const replayEventsRef = useRef<ObservatoryNormalizedOfficeEvent[]>(seededRuntimeEvents);
+  const [builderAgentActivityEnabled, setBuilderAgentActivityEnabled] = useState(true);
+  const [replayEvents, setReplayEvents] = useState<ObservatoryNormalizedOfficeEvent[]>([]);
+  const [replayCursor, setReplayCursor] = useState(-1);
+  const replayEventsRef = useRef<ObservatoryNormalizedOfficeEvent[]>([]);
   const ambientSocialStateRef = useRef<AmbientSocialState>(createAmbientSocialState());
   const [debugPanelOpen, setDebugPanelOpen] = useState(false);
   const [assetPackOpen, setAssetPackOpen] = useState(false);
@@ -236,9 +247,26 @@ export default function ObservatoryRuntimeSurface({
   const [viewerSearch, setViewerSearch] = useState('');
   const [viewerMapId, setViewerMapId] = useState<string | null>(null);
   const [sampleEventCursor, setSampleEventCursor] = useState(0);
-  const [layout, setLayout] = useState<ObservatoryLayoutDocument | null>(() =>
-    isBuilderMode ? createRepoPublishedLayout() : null
+  const [layoutHydrated, setLayoutHydrated] = useState(false);
+  const [draftSaveStatus, setDraftSaveStatus] = useState('Loading draft…');
+  const [showWalkability, setShowWalkability] = useState(false);
+  const [inspectorTarget, setInspectorTarget] = useState<HTMLDivElement | null>(null);
+  const [editWholeSetup, setEditWholeSetup] = useState(true);
+  const [pendingPlacement, setPendingPlacement] = useState<ObservatoryPlacementRequest | null>(
+    null
   );
+  const [placementPoint, setPlacementPoint] = useState<ObservatoryCanvasGridClick | null>(null);
+  const {
+    layout,
+    setLayout,
+    replaceLayout,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    beginGesture,
+    endGesture,
+  } = useLayoutHistory(() => (isBuilderMode ? createRepoPublishedLayout() : null));
   const [viewerLayoutStatus, setViewerLayoutStatus] = useState<
     'invalid' | 'loading' | 'missing' | 'ready'
   >(isBuilderMode ? 'ready' : 'loading');
@@ -308,6 +336,9 @@ export default function ObservatoryRuntimeSurface({
     viewerMapId && viewerMaps.some((map) => map.id === viewerMapId)
       ? viewerMapId
       : (viewerMaps[0]?.id ?? null);
+  const editingMap =
+    layout?.world.maps.find((map) => map.id === selectedViewerMapId) ??
+    (!isRuntimeCanvasMode ? layout?.world.maps[0] : undefined);
   const workflowMapAssignments = useMemo(
     () => assignRuntimeWorkflowMapIds(runtimeViewerLayout, visualizedRuntimeSourceRuns),
     [runtimeViewerLayout, visualizedRuntimeSourceRuns]
@@ -333,12 +364,12 @@ export default function ObservatoryRuntimeSurface({
     [effectiveRuns, effectiveRuntimePreviewMode, selectedViewerMapId, workflowMapAssignments]
   );
   const activeLayout = useMemo(() => {
-    if (!runtimeViewerLayout || !isRuntimeCanvasMode) {
+    if (!runtimeViewerLayout || (!isRuntimeCanvasMode && !isBuilderMode)) {
       return runtimeViewerLayout;
     }
 
     return selectObservatoryLayoutMap(runtimeViewerLayout, selectedViewerMapId);
-  }, [isRuntimeCanvasMode, runtimeViewerLayout, selectedViewerMapId]);
+  }, [isBuilderMode, isRuntimeCanvasMode, runtimeViewerLayout, selectedViewerMapId]);
   const renderedLayout = useMemo(() => {
     if (!activeLayout || !isRuntimeCanvasMode) {
       return activeLayout;
@@ -387,6 +418,48 @@ export default function ObservatoryRuntimeSurface({
     () => new Map(getObservatoryModuleAssetRegistry().assets.map((asset) => [asset.id, asset])),
     []
   );
+  const placementObjects = useMemo(() => {
+    if (!pendingPlacement || !placementPoint || !layout) return [];
+    if (pendingPlacement.kind === 'preset')
+      return createOfficePreset(
+        pendingPlacement.presetId,
+        pendingPlacement.style,
+        placementPoint,
+        layout.world.grid.tileSize
+      );
+    const asset = registryAssetsById.get(pendingPlacement.assetId);
+    return asset
+      ? createOfficeAssetAssembly(
+          asset,
+          placementPoint,
+          registryAssetsById,
+          layout.world.grid.tileSize
+        )
+      : [];
+  }, [pendingPlacement, placementPoint, layout, registryAssetsById]);
+  const placementRoom = editingMap?.rooms.find(
+    (room) => placementPoint && pointInGridRect(placementPoint, room.bounds)
+  );
+  const placementIssue =
+    editingMap && placementObjects.length
+      ? assemblyPlacementIssue(
+          editingMap!,
+          placementObjects.map((object) => ({ ...object, roomId: placementRoom?.id }))
+        )
+      : null;
+  const layoutInspections = useMemo(
+    () =>
+      new Map(
+        isBuilderMode && layout
+          ? layout.world.maps.map((map) => [
+              map.id,
+              inspectObservatoryMap(map, registryAssetsById, layout.world.grid.tileSize),
+            ])
+          : []
+      ),
+    [isBuilderMode, layout, registryAssetsById]
+  );
+  const layoutInspection = editingMap ? layoutInspections.get(editingMap.id) : undefined;
   const roomFloorOptions = useMemo(
     () =>
       Array.from(registryAssetsById.values())
@@ -402,49 +475,41 @@ export default function ObservatoryRuntimeSurface({
     [registryAssetsById]
   );
   const activeWallEditRoomState = useMemo(
-    () => layout?.world.maps[0]?.rooms.find((room) => room.id === canvasWallEditRoom?.id) ?? null,
-    [canvasWallEditRoom?.id, layout]
+    () => editingMap?.rooms.find((room) => room.id === canvasWallEditRoom?.id) ?? null,
+    [canvasWallEditRoom?.id, editingMap]
   );
   const selectedCanvasRoomState = useMemo(
     () =>
       canvasSelection?.kind === 'room'
-        ? (layout?.world.maps[0]?.rooms.find((room) => room.id === canvasSelection.id) ?? null)
+        ? (editingMap?.rooms.find((room) => room.id === canvasSelection.id) ?? null)
         : null,
-    [canvasSelection, layout]
+    [canvasSelection, editingMap]
   );
   const selectedCanvasObjectState = useMemo(
     () =>
       canvasSelection?.kind === 'object'
-        ? (layout?.world.maps[0]?.objects.find((object) => object.id === canvasSelection.id) ??
-          null)
+        ? (editingMap?.objects.find((object) => object.id === canvasSelection.id) ?? null)
         : null,
-    [canvasSelection, layout]
+    [canvasSelection, editingMap]
   );
   const selectedCanvasObjectAsset = selectedCanvasObjectState
     ? registryAssetsById.get(selectedCanvasObjectState.assetId)
     : undefined;
-  const selectedCanvasObjectCollisionSize = {
-    height:
-      selectedCanvasObjectAsset?.collision?.height ?? selectedCanvasObjectState?.size?.height ?? 1,
-    width:
-      selectedCanvasObjectAsset?.collision?.width ?? selectedCanvasObjectState?.size?.width ?? 1,
-  };
+  const selectedCanvasObjectCollisionSize = selectedCanvasObjectState
+    ? objectCollisionGridRect(selectedCanvasObjectState, registryAssetsById)
+    : { width: 1, height: 1 };
   const selectedCanvasObjectBaseSizePx = useMemo(() => {
     if (!selectedCanvasObjectState || !layout) {
       return null;
     }
 
-    const tileSize = layout.world.grid.tileSize;
-    return {
-      width: (selectedCanvasObjectState.size?.width ?? 1) * tileSize,
-      height: (selectedCanvasObjectState.size?.height ?? 1) * tileSize,
-    };
-  }, [layout, selectedCanvasObjectState]);
+    return observatoryAssetSourceSize(selectedCanvasObjectAsset);
+  }, [layout, selectedCanvasObjectAsset, selectedCanvasObjectState]);
   const activeRoomHudState =
     selectedCanvasRoomState ?? (canvasWallEditEnabled ? activeWallEditRoomState : null);
   const nextDefaultRoomHudFloorAssetId =
     activeRoomHudState?.floorAssetId ??
-    layout?.world.maps[0]?.defaultFloorAssetId ??
+    editingMap?.defaultFloorAssetId ??
     roomFloorOptions[0]?.value ??
     null;
   const activeRoomHudWallAssetId =
@@ -497,49 +562,70 @@ export default function ObservatoryRuntimeSurface({
     return createObservatoryStaticRuntimeLogAdapter([...runtimeEntries, ...layoutEntries]);
   }, [renderedLayout, selectedRuntimeContext]);
   const renderedAgentCount = renderedLayout?.world.maps[0]?.agents.length ?? 0;
+  const ambientActivityEnabled =
+    (isViewerMode || (isBuilderMode && builderAgentActivityEnabled)) && renderedAgentCount > 0;
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      if (isBuilderMode) {
-        const stored = readObservatoryDraftLayoutFromStorage(window.localStorage);
-        setViewerLayoutStatus('ready');
-        setViewerLayoutIssues(stored.issues);
-        setLayout(cloneObservatoryLayout(stored.layout ?? createRepoPublishedLayout()));
-        return;
+    const controller = new AbortController();
+    const load = async () => {
+      const draft = isBuilderMode
+        ? readObservatoryDraftLayoutFromStorage(window.localStorage)
+        : null;
+      let deployed = createRepoPublishedLayout();
+      let issues: ObservatoryLayoutIssue[] = draft?.issues ?? [];
+      try {
+        const response = await fetch('/api/observatory/published-layout', {
+          cache: 'no-store',
+          signal: controller.signal,
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.message ?? 'Unable to load deployment.');
+        const validation = validateObservatoryLayout(payload.layout);
+        if (!validation.layout) throw new Error('Deployed layout failed validation.');
+        deployed = validation.layout;
+      } catch (error) {
+        if (controller.signal.aborted) return;
+        issues = [
+          ...issues,
+          {
+            path: 'deployment',
+            reason: `Using bundled office: ${error instanceof Error ? error.message : 'server unavailable'}`,
+          },
+        ];
+        if (!isBuilderMode && layoutSource !== 'repo') {
+          const stored = readObservatoryViewerLayoutFromStorage(window.localStorage);
+          if (stored.layout) deployed = stored.layout;
+        }
       }
-
-      const repoLayout = createRepoPublishedLayout();
-
-      if (layoutSource === 'repo') {
-        setViewerLayoutIssues([]);
-        setLayout(repoLayout);
-        setViewerLayoutStatus('ready');
-        return;
-      }
-
-      const stored = readObservatoryViewerLayoutFromStorage(window.localStorage);
-      setViewerLayoutIssues(stored.issues);
-
-      if (
-        stored.layout &&
-        (stored.layout.metadata?.version ?? 0) >= (repoLayout.metadata?.version ?? 0)
-      ) {
-        setLayout(cloneObservatoryLayout(stored.layout));
-        setViewerLayoutStatus('ready');
-        return;
-      }
-
-      setLayout(repoLayout);
+      if (controller.signal.aborted) return;
+      replaceLayout(cloneObservatoryLayout(draft?.layout ?? deployed));
+      setViewerLayoutIssues(issues);
       setViewerLayoutStatus('ready');
-    }, 0);
-
-    return () => {
-      window.clearTimeout(timeoutId);
+      setLayoutHydrated(true);
     };
-  }, [isBuilderMode, layoutSource]);
+    void load();
+    return () => controller.abort();
+  }, [isBuilderMode, layoutSource, replaceLayout]);
 
   useEffect(() => {
-    if (!isViewerMode || renderedAgentCount === 0) {
+    if (!isBuilderMode || !layout || !layoutHydrated) return;
+    const timer = window.setTimeout(() => {
+      const result = writeObservatoryLayoutToStorage(
+        window.localStorage,
+        layout,
+        OBSERVATORY_DRAFT_LAYOUT_STORAGE_KEY
+      );
+      setDraftSaveStatus(
+        result.layout
+          ? 'Draft saved in this browser'
+          : 'Browser draft could not be saved; export a copy'
+      );
+    }, 400);
+    return () => window.clearTimeout(timer);
+  }, [isBuilderMode, layout, layoutHydrated]);
+
+  useEffect(() => {
+    if (!ambientActivityEnabled) {
       return undefined;
     }
 
@@ -550,7 +636,7 @@ export default function ObservatoryRuntimeSurface({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [isViewerMode, renderedAgentCount]);
+  }, [ambientActivityEnabled]);
 
   useEffect(() => {
     const currentMap = renderedLayout?.world.maps[0];
@@ -563,7 +649,7 @@ export default function ObservatoryRuntimeSurface({
       renderedLayout,
       registryAssetsById,
       ambientTick,
-      isViewerMode && renderedAgentCount > 0,
+      ambientActivityEnabled,
       ambientSocialStateRef.current
     ).filter((agent) => !runtimeAgentIds.has(agent.agentId));
     const agentVisualStates = [...runtimeAgentVisualStates, ...ambientAgentVisualStates];
@@ -576,7 +662,7 @@ export default function ObservatoryRuntimeSurface({
     return () => {
       window.clearTimeout(timeoutId);
     };
-  }, [ambientTick, isViewerMode, registryAssetsById, renderedAgentCount, renderedLayout, state]);
+  }, [ambientActivityEnabled, ambientTick, registryAssetsById, renderedLayout, state]);
 
   useEffect(() => {
     return createObservatoryPostMessageReceiver({
@@ -648,7 +734,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === roomId);
 
     if (!map || !room) {
@@ -676,12 +762,60 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
 
     if (!map) {
       return;
     }
 
+    if (pendingPlacement) {
+      const objects =
+        pendingPlacement.kind === 'preset'
+          ? createOfficePreset(
+              pendingPlacement.presetId,
+              pendingPlacement.style,
+              point,
+              layout.world.grid.tileSize
+            )
+          : (() => {
+              const asset = registryAssetsById.get(pendingPlacement.assetId);
+              return asset
+                ? createOfficeAssetAssembly(
+                    asset,
+                    point,
+                    registryAssetsById,
+                    layout.world.grid.tileSize
+                  )
+                : [];
+            })();
+      if (!objects.length) return;
+      const room = map.rooms.find((candidate) => pointInGridRect(point, candidate.bounds));
+      // Tabletop accessories inherit the workstation below them for future grouped edits.
+      if (pendingPlacement.kind === 'asset' && objects[0].blocksMovement === false) {
+        const parent = map.objects.find(
+          (object) =>
+            object.runtime?.role === 'workstation' &&
+            pointInGridRect(point, {
+              ...object.position,
+              ...(object.size ?? { width: 1, height: 1 }),
+            })
+        );
+        if (parent) objects[0] = { ...objects[0], runtime: { targetObjectId: parent.id } };
+      }
+      const result = placeOfficeAssembly(layout, map.id, objects, room?.id);
+      setCanvasEditResult(result);
+      if (result.changed) {
+        setLayout(result.layout);
+        setPendingPlacement(null);
+        setPlacementPoint(null);
+        setCanvasSelection({
+          id: result.selectedObjectId!,
+          kind: 'object',
+          label: pendingPlacement.label,
+        });
+      }
+      return;
+    }
     if (canvasWallEditEnabled && canvasWallEditRoom) {
       if (canvasWallEditTool === 'floor' && !roomHudFloorAssetId) {
         setCanvasEditResult({
@@ -793,7 +927,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const object = map?.objects.find((candidate) => candidate.id === canvasSelection.id);
 
     if (!map || !object) {
@@ -810,12 +944,16 @@ export default function ObservatoryRuntimeSurface({
           : direction === 'left'
             ? { x: -1, y: 0 }
             : { x: 1, y: 0 };
-    const result = updateObservatoryObject(layout, map.id, object.id, {
-      position: {
+    const result = moveOfficeAssembly(
+      layout,
+      map.id,
+      object.id,
+      {
         x: Math.max(0, Math.min(map.size.width - width, object.position.x + delta.x)),
         y: Math.max(0, Math.min(map.size.height - height, object.position.y + delta.y)),
       },
-    });
+      editWholeSetup
+    );
     setCanvasEditResult(result);
 
     if (!result.changed) {
@@ -835,14 +973,14 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const object = map?.objects.find((candidate) => candidate.id === canvasSelection.id);
 
     if (!map || !object) {
       return;
     }
 
-    const result = deleteObservatoryObject(layout, map.id, object.id);
+    const result = deleteOfficeAssembly(layout, map.id, object.id, editWholeSetup);
     setCanvasEditResult(result);
 
     if (!result.changed) {
@@ -858,7 +996,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === canvasSelection.id);
 
     if (!map || !room) {
@@ -899,7 +1037,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === canvasSelection.id);
 
     if (!map || !room) {
@@ -942,7 +1080,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === activeRoomHudState.id);
 
     if (!map || !room) {
@@ -984,7 +1122,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === activeRoomHudState.id);
 
     if (!map || !room) {
@@ -1023,7 +1161,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === activeRoomHudState.id);
 
     if (!map || !room) {
@@ -1050,7 +1188,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === activeRoomHudState.id);
 
     if (!map || !room) {
@@ -1075,7 +1213,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const room = map?.rooms.find((candidate) => candidate.id === activeRoomHudState.id);
 
     if (!map || !room) {
@@ -1111,7 +1249,7 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const object = map?.objects.find((candidate) => candidate.id === canvasSelection.id);
 
     if (!map || !object) {
@@ -1126,9 +1264,9 @@ export default function ObservatoryRuntimeSurface({
     }
 
     setLayout(cloneObservatoryLayout(result.layout));
-    const nextObject = result.layout.world.maps[0]?.objects.find(
-      (candidate) => candidate.id === object.id
-    );
+    const nextObject = result.layout.world.maps
+      .find((candidate) => candidate.id === map.id)
+      ?.objects.find((candidate) => candidate.id === object.id);
     setCanvasSelection({
       id: object.id,
       kind: 'object',
@@ -1137,19 +1275,16 @@ export default function ObservatoryRuntimeSurface({
   };
 
   const applySelectedObjectRenderSizeFromCanvas = (size: { width: number; height: number }) => {
-    if (!selectedCanvasObjectState) {
-      return;
-    }
-
-    updateSelectedObjectFromDrawer({
-      render: {
-        ...selectedCanvasObjectState.render,
-        sizePx: {
-          width: size.width,
-          height: size.height,
-        },
-      },
-    });
+    if (!selectedCanvasObjectState || !layout) return;
+    const source = observatoryAssetSourceSize(selectedCanvasObjectAsset);
+    updateSelectedObjectFromDrawer(
+      scaleObservatoryObject(
+        selectedCanvasObjectState,
+        selectedCanvasObjectAsset,
+        size.width / source.width,
+        layout.world.grid.tileSize
+      )
+    );
   };
 
   const resetSelectedObjectRenderSizeFromCanvas = () => {
@@ -1157,14 +1292,15 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    updateSelectedObjectFromDrawer({
-      render: selectedCanvasObjectState.render
-        ? {
-            ...selectedCanvasObjectState.render,
-            sizePx: undefined,
-          }
-        : undefined,
-    });
+    if (!layout) return;
+    updateSelectedObjectFromDrawer(
+      scaleObservatoryObject(
+        selectedCanvasObjectState,
+        selectedCanvasObjectAsset,
+        1,
+        layout.world.grid.tileSize
+      )
+    );
   };
 
   const applySelectedObjectScaleFromCanvas = (scale: number) => {
@@ -1172,10 +1308,15 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    applySelectedObjectRenderSizeFromCanvas({
-      width: selectedCanvasObjectBaseSizePx.width * scale,
-      height: selectedCanvasObjectBaseSizePx.height * scale,
-    });
+    if (!selectedCanvasObjectState || !layout) return;
+    updateSelectedObjectFromDrawer(
+      scaleObservatoryObject(
+        selectedCanvasObjectState,
+        selectedCanvasObjectAsset,
+        scale,
+        layout.world.grid.tileSize
+      )
+    );
   };
 
   const applySelectedObjectRenderOffsetFromCanvas = (offset: { x: number; y: number }) => {
@@ -1195,17 +1336,13 @@ export default function ObservatoryRuntimeSurface({
   };
 
   const resetSelectedObjectRenderOffsetFromCanvas = () => {
-    if (!selectedCanvasObjectState) {
-      return;
-    }
-
-    updateSelectedObjectFromDrawer({
-      render: selectedCanvasObjectState.render
-        ? {
-            ...selectedCanvasObjectState.render,
-            offsetPx: undefined,
-          }
-        : undefined,
+    if (!selectedCanvasObjectState) return;
+    const source = observatoryAssetSourceSize(selectedCanvasObjectAsset);
+    const size = selectedCanvasObjectState.render?.sizePx ?? source;
+    const crop = selectedCanvasObjectState.render?.sourceCrop;
+    applySelectedObjectRenderOffsetFromCanvas({
+      x: (-(crop?.x ?? 0) * size.width) / source.width,
+      y: (-(crop?.y ?? 0) * size.height) / source.height,
     });
   };
 
@@ -1224,14 +1361,14 @@ export default function ObservatoryRuntimeSurface({
       return;
     }
 
-    const map = layout.world.maps[0];
+    const map = editingMap;
     const object = map?.objects.find((candidate) => candidate.id === canvasSelection.id);
 
     if (!map || !object) {
       return;
     }
 
-    const result = duplicateObservatoryObject(layout, map.id, object.id);
+    const result = duplicateOfficeAssembly(layout, map.id, object.id, editWholeSetup);
     setCanvasEditResult(result);
 
     if (!result.changed) {
@@ -1240,9 +1377,9 @@ export default function ObservatoryRuntimeSurface({
 
     setLayout(cloneObservatoryLayout(result.layout));
     const duplicatedId = result.selectedObjectId ?? object.id;
-    const duplicatedObject = result.layout.world.maps[0]?.objects.find(
-      (candidate) => candidate.id === duplicatedId
-    );
+    const duplicatedObject = result.layout.world.maps
+      .find((candidate) => candidate.id === map.id)
+      ?.objects.find((candidate) => candidate.id === duplicatedId);
     setCanvasSelection({
       id: duplicatedId,
       kind: 'object',
@@ -1257,8 +1394,16 @@ export default function ObservatoryRuntimeSurface({
   };
 
   const resetSelectedObjectCollisionSizeFromCanvas = () => {
+    if (!selectedCanvasObjectState || !layout) return;
+    const source = observatoryAssetSourceSize(selectedCanvasObjectAsset);
+    const scale = (selectedCanvasObjectState.render?.sizePx?.width ?? source.width) / source.width;
     updateSelectedObjectFromDrawer({
-      size: { width: 1, height: 1 },
+      size: scaleObservatoryObject(
+        selectedCanvasObjectState,
+        selectedCanvasObjectAsset,
+        scale,
+        layout.world.grid.tileSize
+      ).size,
     });
   };
 
@@ -1293,9 +1438,43 @@ export default function ObservatoryRuntimeSurface({
     applyReplayCursor(replayEvents.length - 1);
   };
 
+  useEffect(() => {
+    if (!isBuilderMode) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest('input, textarea, select, [contenteditable="true"]')
+      )
+        return;
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        (event.key.toLowerCase() === 'z' || event.key.toLowerCase() === 'y')
+      ) {
+        event.preventDefault();
+        if (event.shiftKey || event.key.toLowerCase() === 'y') redo();
+        else undo();
+        setCanvasSelection(null);
+        setCanvasWallEditEnabled(false);
+        setCanvasWallEditRoom(null);
+        setPendingPlacement(null);
+        setPlacementPoint(null);
+      }
+      if (event.key === 'Escape') {
+        setPendingPlacement(null);
+        setPlacementPoint(null);
+        setCanvasSelection(null);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isBuilderMode, undo, redo]);
+
   return (
     <section
       className={`${styles.shell} ${compact || isEmbedMode ? styles.compact : ''} ${isViewerMode || isEmbedMode ? styles.viewerShell : ''}`}
+      onPointerDownCapture={isBuilderMode ? beginGesture : undefined}
+      onPointerUpCapture={isBuilderMode ? endGesture : undefined}
+      onPointerCancelCapture={isBuilderMode ? endGesture : undefined}
       aria-label="Observatory runtime surface"
     >
       {isViewerMode || isEmbedMode ? null : (
@@ -1362,6 +1541,87 @@ export default function ObservatoryRuntimeSurface({
         />
       ) : null}
 
+      {isBuilderMode && pendingPlacement ? (
+        <div role="status" className={styles.canvasTuner}>
+          Placing {pendingPlacement.label}.{' '}
+          {placementIssue ?? 'Move over the grid and click to place.'}{' '}
+          <button
+            type="button"
+            className={styles.button}
+            onClick={() => {
+              setPendingPlacement(null);
+              setPlacementPoint(null);
+            }}
+          >
+            Cancel · Esc
+          </button>
+        </div>
+      ) : null}
+      {isBuilderMode ? (
+        <div className={styles.actions} aria-label="Editing history">
+          <label>
+            Floor{' '}
+            <NativeSelect
+              aria-label="Editing floor"
+              value={selectedViewerMapId ?? ''}
+              onChange={(event) => {
+                setViewerMapId(event.target.value);
+                setCanvasSelection(null);
+                setCanvasWallEditRoom(null);
+                setCanvasWallEditEnabled(false);
+                setPendingPlacement(null);
+                setPlacementPoint(null);
+                setCanvasEditResult(null);
+              }}
+            >
+              {viewerMaps.map((map) => (
+                <option key={map.id} value={map.id}>
+                  {map.name}
+                </option>
+              ))}
+            </NativeSelect>
+          </label>
+          <label>
+            <Input
+              type="checkbox"
+              checked={showWalkability}
+              onChange={(event) => setShowWalkability(event.target.checked)}
+            />{' '}
+            Show walkable tiles
+          </label>
+          <span role="status">{draftSaveStatus}</span>
+          <button
+            className={styles.button}
+            type="button"
+            disabled={!canUndo}
+            onClick={() => {
+              undo();
+              setCanvasSelection(null);
+              setCanvasWallEditEnabled(false);
+              setCanvasWallEditRoom(null);
+              setPendingPlacement(null);
+              setPlacementPoint(null);
+            }}
+          >
+            Undo · Ctrl Z
+          </button>
+          <button
+            className={styles.button}
+            type="button"
+            disabled={!canRedo}
+            onClick={() => {
+              redo();
+              setCanvasSelection(null);
+              setCanvasWallEditEnabled(false);
+              setCanvasWallEditRoom(null);
+              setPendingPlacement(null);
+              setPlacementPoint(null);
+            }}
+          >
+            Redo · Ctrl Shift Z
+          </button>
+        </div>
+      ) : null}
       <div className={`${styles.grid} ${isViewerMode || isEmbedMode ? styles.viewerGrid : ''}`}>
         {renderedLayout ? (
           <div className={styles.canvasColumn}>
@@ -1406,6 +1666,14 @@ export default function ObservatoryRuntimeSurface({
                   >
                     {builderCameraLocked ? 'Camera locked' : 'Pan/zoom enabled'}
                   </button>
+                  <button
+                    aria-pressed={!builderAgentActivityEnabled}
+                    className={`${styles.button} ${styles.buttonSecondary}`}
+                    onClick={() => setBuilderAgentActivityEnabled((enabled) => !enabled)}
+                    type="button"
+                  >
+                    {builderAgentActivityEnabled ? 'Pause roaming' : 'Resume roaming'}
+                  </button>
                 </div>
               </section>
             ) : null}
@@ -1426,7 +1694,7 @@ export default function ObservatoryRuntimeSurface({
                     ] as const
                   ).map(([mode, label]) => (
                     <label key={mode} className={styles.checkboxOption}>
-                      <input
+                      <Input
                         checked={builderAgentVisibilityDefault === mode}
                         onChange={() => {
                           setBuilderAgentVisibilityDefault(mode);
@@ -1457,6 +1725,8 @@ export default function ObservatoryRuntimeSurface({
               />
             ) : null}
             <ObservatoryGameCanvas
+              enableMovementTest={isBuilderMode && !builderRuntimeDemo}
+              key={selectedViewerMapId}
               activeWallEditRoomId={canvasWallEditEnabled ? (canvasWallEditRoom?.id ?? null) : null}
               activeWallEditDoorCount={
                 canvasWallEditEnabled ? (activeWallEditRoomState?.wallDoors?.length ?? 0) : 0
@@ -1469,7 +1739,7 @@ export default function ObservatoryRuntimeSurface({
                 canvasWallEditTool === 'floor'
                   ? (roomHudFloorAssetId ??
                     activeWallEditRoomState?.floorAssetId ??
-                    layout?.world.maps[0]?.defaultFloorAssetId ??
+                    editingMap?.defaultFloorAssetId ??
                     roomFloorOptions[0]?.value ??
                     null)
                   : (roomHudWallBrushAssetId ?? roomWallOptions[0]?.value ?? null)
@@ -1564,6 +1834,47 @@ export default function ObservatoryRuntimeSurface({
                   ? toggleSelectedRoomWallEditFromDrawer
                   : undefined
               }
+              onGridHover={isBuilderMode ? setPlacementPoint : undefined}
+              walkabilityCells={showWalkability ? layoutInspection?.walkable : undefined}
+              placementActive={Boolean(pendingPlacement)}
+              placementPreview={
+                pendingPlacement && placementPoint
+                  ? { objects: placementObjects, valid: !placementIssue }
+                  : null
+              }
+              onSelectionDrag={
+                isBuilderMode && !pendingPlacement && !canvasWallEditEnabled
+                  ? ({ id, kind, from, to }) => {
+                      if (!layout) return;
+                      const map = editingMap;
+                      if (!map) return;
+                      const object = map.objects.find((candidate) => candidate.id === id);
+                      const room = map.rooms.find((candidate) => candidate.id === id);
+                      const result =
+                        kind === 'object' && object
+                          ? moveOfficeAssembly(
+                              layout,
+                              map.id,
+                              id,
+                              {
+                                x: object.position.x + to.x - from.x,
+                                y: object.position.y + to.y - from.y,
+                              },
+                              editWholeSetup
+                            )
+                          : room
+                            ? moveObservatoryRoom(layout, map.id, id, {
+                                x: room.bounds.x + to.x - from.x,
+                                y: room.bounds.y + to.y - from.y,
+                              })
+                            : null;
+                      if (result) {
+                        setCanvasEditResult(result);
+                        if (result.changed) setLayout(result.layout);
+                      }
+                    }
+                  : undefined
+              }
               onSelectionChange={isEmbedMode ? undefined : handleCanvasSelectionChange}
               presentation={
                 isViewerMode || isEmbedMode ? 'viewerCompact' : builderCanvasPresentation
@@ -1581,7 +1892,17 @@ export default function ObservatoryRuntimeSurface({
               selectedObjectBlocksMovement={selectedCanvasObjectState?.blocksMovement ?? true}
               selectedObjectCollisionHeight={selectedCanvasObjectCollisionSize.height}
               selectedObjectCollisionWidth={selectedCanvasObjectCollisionSize.width}
-              selectedObjectLabel={selectedCanvasObjectState?.assetId ?? null}
+              inspectorTarget={isBuilderMode ? inspectorTarget : null}
+              selectedObjectLabel={
+                selectedCanvasObjectAsset?.label ?? selectedCanvasObjectState?.assetId ?? null
+              }
+              selectedSetupSize={
+                layout && selectedCanvasObjectState
+                  ? observatoryObjectGroup(editingMap!, selectedCanvasObjectState.id).length
+                  : 1
+              }
+              editWholeSetup={editWholeSetup}
+              onEditWholeSetupChange={setEditWholeSetup}
               selectedObjectOffsetX={selectedCanvasObjectState?.render?.offsetPx?.x ?? 0}
               selectedObjectOffsetY={selectedCanvasObjectState?.render?.offsetPx?.y ?? 0}
               selectedObjectPositionLabel={
@@ -1607,9 +1928,7 @@ export default function ObservatoryRuntimeSurface({
               selectedRoomFloorLabel={
                 selectedCanvasRoomState
                   ? (registryAssetsById.get(
-                      selectedCanvasRoomState.floorAssetId ??
-                        layout?.world.maps[0]?.defaultFloorAssetId ??
-                        ''
+                      selectedCanvasRoomState.floorAssetId ?? editingMap?.defaultFloorAssetId ?? ''
                     )?.label ??
                     (selectedCanvasRoomState.floorAssetId
                       ? selectedCanvasRoomState.floorAssetId
@@ -1617,7 +1936,7 @@ export default function ObservatoryRuntimeSurface({
                   : activeWallEditRoomState
                     ? (registryAssetsById.get(
                         activeWallEditRoomState.floorAssetId ??
-                          layout?.world.maps[0]?.defaultFloorAssetId ??
+                          editingMap?.defaultFloorAssetId ??
                           ''
                       )?.label ??
                       (activeWallEditRoomState.floorAssetId
@@ -1693,17 +2012,66 @@ export default function ObservatoryRuntimeSurface({
         ) : (
           <PublishedLayoutEmptyState issues={viewerLayoutIssues} status={viewerLayoutStatus} />
         )}
-        {isBuilderMode && layout ? (
+        {isBuilderMode && layout && editingMap ? (
           <div className={styles.sidePanel}>
+            {layoutInspection ? (
+              <details
+                className={`${styles.canvasTuner} ${styles.layoutChecks}`}
+                open={layoutInspection.issues.some((issue) => issue.severity === 'error')}
+              >
+                <summary>Layout checks · {layoutInspection.issues.length} alerts</summary>
+                <p>
+                  {layoutInspection.workstations} workstations · {layoutInspection.seats} seats ·{' '}
+                  {layoutInspection.reachableWorkstations} reachable
+                </p>
+                {layoutInspection.issues.length === 0 ? (
+                  <p>No overlaps, blocked entrances, or unreachable workstations.</p>
+                ) : (
+                  layoutInspection.issues.map((issue, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      className={styles.button}
+                      onClick={() => {
+                        const object = editingMap.objects.find(
+                          (candidate) => candidate.id === issue.objectId
+                        );
+                        if (object)
+                          setCanvasSelection({
+                            kind: 'object',
+                            id: object.id,
+                            label: registryAssetsById.get(object.assetId)?.label ?? object.assetId,
+                          });
+                        else {
+                          const room = editingMap.rooms.find(
+                            (candidate) => candidate.id === issue.roomId
+                          );
+                          if (room)
+                            setCanvasSelection({ kind: 'room', id: room.id, label: room.name });
+                        }
+                      }}
+                    >
+                      {issue.severity === 'error' ? 'Fix' : 'Check'}: {issue.message}
+                    </button>
+                  ))
+                )}
+              </details>
+            ) : null}
+            <div ref={setInspectorTarget} className={styles.inspectorHost} />
             {
               <ManualLayoutEditorPanel
-                disabled={paused}
+                disabled={paused || !layoutHydrated}
+                draftSaveStatus={draftSaveStatus}
+                hasPlacementErrors={Boolean(
+                  layoutInspection?.issues.some((issue) => issue.severity === 'error')
+                )}
                 canvasSelection={canvasSelection}
                 canvasEditResult={canvasEditResult}
                 canvasWallEditEnabled={canvasWallEditEnabled}
                 canvasWallEditRoom={canvasWallEditRoom}
                 canvasWallEditTool={canvasWallEditTool}
                 layout={layout}
+                mapId={editingMap.id}
                 onCanvasWallEditEnabledChange={(enabled) => {
                   setCanvasWallEditEnabled(enabled);
                 }}
@@ -1712,6 +2080,12 @@ export default function ObservatoryRuntimeSurface({
                 onCanvasSelectionClear={() => {
                   setCanvasSelection(null);
                   setCanvasEditResult(null);
+                }}
+                onPlacementRequest={(request) => {
+                  setPendingPlacement(request);
+                  setPlacementPoint(null);
+                  setCanvasSelection(null);
+                  setCanvasWallEditEnabled(false);
                 }}
                 onPaletteSelectionChange={setBuilderPaletteSelection}
                 onResetBlank={() => {
@@ -2029,7 +2403,7 @@ function ObservatoryViewerControls({
         </div>
         <label className={styles.viewerSearch}>
           <Search aria-hidden className={styles.viewerSearchIcon} />
-          <input
+          <Input
             className={styles.viewerSearchInput}
             onChange={(event) => onSearchChange(event.target.value)}
             placeholder="Filter by room, agent, object, or runtime event"
@@ -2084,7 +2458,7 @@ function BuilderRuntimeDemoControls({
       <div className={styles.demoControlsFields}>
         <label className={styles.demoSelectLabel}>
           <span>Scenario</span>
-          <select
+          <NativeSelect
             className={styles.demoSelect}
             onChange={(event) => onDemoChange(event.target.value)}
             value={demoId}
@@ -2095,12 +2469,12 @@ function BuilderRuntimeDemoControls({
                 {fixture.label}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </label>
         {selectedDemo && maps.length > 1 ? (
           <label className={styles.demoSelectLabel}>
             <span>Floor</span>
-            <select
+            <NativeSelect
               className={styles.demoSelect}
               onChange={(event) => onMapChange(event.target.value)}
               value={selectedMapId ?? maps[0]?.id ?? ''}
@@ -2110,7 +2484,7 @@ function BuilderRuntimeDemoControls({
                   {map.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </label>
         ) : null}
       </div>
@@ -2462,7 +2836,7 @@ function SelectionDrawer({
                 >
                   <label className={styles.drawerField}>
                     <span>Layout room</span>
-                    <select
+                    <NativeSelect
                       className={styles.drawerSelect}
                       onChange={(event) => {
                         const nextRoomId = event.target.value;
@@ -2477,7 +2851,7 @@ function SelectionDrawer({
                           {candidate.name}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </label>
                   <button
                     className={`${styles.button} ${styles.buttonSecondary}`}
@@ -2500,7 +2874,7 @@ function SelectionDrawer({
                   <div className={styles.drawerFieldRow}>
                     <label className={styles.drawerField}>
                       <span>Layout grid X</span>
-                      <input
+                      <Input
                         className={styles.drawerInput}
                         inputMode="numeric"
                         onChange={(event) => setGridX(event.target.value)}
@@ -2509,7 +2883,7 @@ function SelectionDrawer({
                     </label>
                     <label className={styles.drawerField}>
                       <span>Layout grid Y</span>
-                      <input
+                      <Input
                         className={styles.drawerInput}
                         inputMode="numeric"
                         onChange={(event) => setGridY(event.target.value)}
@@ -2598,7 +2972,7 @@ function SelectionDrawer({
                     <div className={styles.drawerFieldRow}>
                       <label className={styles.drawerField}>
                         <span>Visual offset X px</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="decimal"
                           onChange={(event) => setOffsetX(event.target.value)}
@@ -2607,7 +2981,7 @@ function SelectionDrawer({
                       </label>
                       <label className={styles.drawerField}>
                         <span>Visual offset Y px</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="decimal"
                           onChange={(event) => setOffsetY(event.target.value)}
@@ -2654,7 +3028,7 @@ function SelectionDrawer({
                     <div className={styles.drawerFieldRow}>
                       <label className={styles.drawerField}>
                         <span>Visual width px</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="decimal"
                           onChange={(event) => setSizeWidthPx(event.target.value)}
@@ -2663,7 +3037,7 @@ function SelectionDrawer({
                       </label>
                       <label className={styles.drawerField}>
                         <span>Visual height px</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="decimal"
                           onChange={(event) => setSizeHeightPx(event.target.value)}
@@ -2753,7 +3127,7 @@ function SelectionDrawer({
                     <div className={styles.drawerFieldRow}>
                       <label className={styles.drawerField}>
                         <span>Origin X</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="numeric"
                           onChange={(event) => setRoomOriginX(event.target.value)}
@@ -2762,7 +3136,7 @@ function SelectionDrawer({
                       </label>
                       <label className={styles.drawerField}>
                         <span>Origin Y</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="numeric"
                           onChange={(event) => setRoomOriginY(event.target.value)}
@@ -2773,7 +3147,7 @@ function SelectionDrawer({
                     <div className={styles.drawerFieldRow}>
                       <label className={styles.drawerField}>
                         <span>Width</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="numeric"
                           onChange={(event) => setRoomWidth(event.target.value)}
@@ -2782,7 +3156,7 @@ function SelectionDrawer({
                       </label>
                       <label className={styles.drawerField}>
                         <span>Height</span>
-                        <input
+                        <Input
                           className={styles.drawerInput}
                           inputMode="numeric"
                           onChange={(event) => setRoomHeight(event.target.value)}
@@ -4399,6 +4773,7 @@ function createAmbientAgentVisualStates(
       speechTone,
       status: 'idle',
       targetPoint,
+      targetObjectId: shouldMove ? interactionObject?.id : undefined,
       targetRoomId: shouldMove && !targetPoint ? targetRoom?.id : undefined,
     };
   });
@@ -4450,32 +4825,25 @@ function createRuntimeAgentVisualState(
   const targetObject = runtime.targetObjectId
     ? map.objects.find((object) => object.id === runtime.targetObjectId)
     : undefined;
-  const workingSeat = isWorkingBehavior(behavior)
-    ? findWorkflowSeatForTargetObject(map, targetObject, runtime.workflowId)
-    : undefined;
-  const targetPoint = workingSeat
-    ? { ...workingSeat.position }
-    : targetObject
-      ? (pickObjectAdjacentWalkablePoint(
-          map,
-          targetObject,
-          agent.id,
-          agent.position,
-          assetsById,
-          index + tick
-        ) ?? agent.position)
-      : agent.position;
-  const action = pickInteractionAction(targetObject, behavior, tick + index);
+  const interaction = targetObject
+    ? resolveObservatoryObjectInteraction(map, targetObject, {
+        assetsById,
+        fromPoint: agent.position,
+      })
+    : null;
+  const targetPoint = interaction?.point ?? agent.position;
+  const action = isWorkingBehavior(behavior)
+    ? (interaction?.action ?? 'idle')
+    : pickInteractionAction(targetObject, behavior, tick + index);
   const speechMessage = pickRuntimeAgentSpeechMessage(map, agent, behavior, tick + index);
   const speechTone = pickRuntimeAgentSpeechTone(behavior, targetObject);
 
   return {
-    action: isWorkingBehavior(behavior) ? 'sit' : action,
+    action,
+    targetObjectId: targetObject?.id,
     agentId: agent.id,
     attention: behavior === 'approval' ? 'approval' : 'thinking',
-    direction: isWorkingBehavior(behavior)
-      ? 'right'
-      : pickDirectionBetweenPoints(agent.position, targetPoint),
+    direction: interaction?.direction ?? pickDirectionBetweenPoints(agent.position, targetPoint),
     movementKey: isWorkingBehavior(behavior)
       ? `runtime-working:${agent.id}:${runtime.runId ?? 'run'}:${targetPoint.x}:${targetPoint.y}`
       : `runtime:${agent.id}:${runtime.runId ?? 'run'}:${targetPoint.x}:${targetPoint.y}:${tick}`,
@@ -4637,23 +5005,6 @@ function pickRuntimeAgentSpeechTone(
   }
 
   return isWorkingBehavior(behavior) ? 'computer' : 'chat';
-}
-
-function findWorkflowSeatForTargetObject(
-  map: ObservatoryLayoutDocument['world']['maps'][number],
-  targetObject: ObservatoryLayoutDocument['world']['maps'][number]['objects'][number] | undefined,
-  workflowId: string | undefined
-) {
-  if (!targetObject || !workflowId) {
-    return undefined;
-  }
-
-  return map.objects.find(
-    (object) =>
-      object.runtime?.workflowId === workflowId &&
-      object.runtime?.targetObjectId === targetObject.id &&
-      classifyObjectBehaviorRole(object.assetId) === 'seating'
-  );
 }
 
 function pickAgentAmbientRoom(

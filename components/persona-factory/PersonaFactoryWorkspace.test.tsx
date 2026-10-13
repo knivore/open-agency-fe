@@ -951,6 +951,7 @@ describe('PersonaFactoryWorkspace', () => {
     expect(await screen.findByText('Runtime details')).toBeInTheDocument();
     expect(await screen.findByText('Package details')).toBeInTheDocument();
     expect(screen.getByText('Source lineage')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Edit persona'}));
     expect(screen.getByLabelText('Name')).toHaveValue('Audit Manager');
     expect(screen.getByLabelText('Connected knowledge view')).toHaveValue('persona_lineage');
     expect((await screen.findAllByText('v1')).length).toBeGreaterThanOrEqual(2);

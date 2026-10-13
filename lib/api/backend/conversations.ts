@@ -1,8 +1,8 @@
-import { agencyApiClient } from '@/lib/api/clientInstances';
-import { isApiError } from '@/lib/api/errors';
-import { backendRoutes } from '@/lib/api/backend/routes';
-import { encodePathSegment } from '@/lib/api/path';
-import type { AgentDefinition } from '@/types/agents';
+import {agencyApiClient} from '@/lib/api/clientInstances';
+import {isApiError} from '@/lib/api/errors';
+import {backendRoutes} from '@/lib/api/backend/routes';
+import {encodePathSegment} from '@/lib/api/path';
+import type {AgentDefinition} from '@/types/agents';
 import type {
   ApprovalRequest,
   Conversation,
@@ -11,11 +11,11 @@ import type {
   ConversationCompactResponse,
   ConversationContextUsage,
   ConversationMessage,
-  MainAgent,
   ConversationPostMessageResponse,
   ConversationStreamEvent,
+  MainAgent,
 } from '@/types/conversations';
-import type { CrudListResponse } from '@/types/api';
+import type {CrudListResponse} from '@/types/api';
 
 const FALLBACK_MAIN_AGENT_ID = 'main-agent';
 const CONVERSATION_LLM_REQUEST_TIMEOUT_MS = 180_000;
@@ -139,6 +139,12 @@ export const conversationsApi = {
       patch
     );
   },
+  stopTurn(conversationId: string, originMessageId: string) {
+    return agencyApiClient.post<{ status: 'stop_requested'; turn_id: string }>(
+      `${backendRoutes.conversations.byId(conversationId)}/turns/${encodePathSegment(originMessageId)}/stop`,
+      {}
+    );
+  },
   listMessages(conversationId: string, options?: { timeoutMs?: number }) {
     return agencyApiClient.get<CrudListResponse<ConversationMessage>>(
       backendRoutes.conversations.messages(conversationId),
@@ -154,7 +160,7 @@ export const conversationsApi = {
     return agencyApiClient.post<ConversationCompactResponse>(
       backendRoutes.conversations.compact(conversationId),
       payload,
-      { timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS }
+      {timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS}
     );
   },
   listCompactPacks(
@@ -176,7 +182,7 @@ export const conversationsApi = {
     return agencyApiClient.post<ConversationPostMessageResponse>(
       backendRoutes.conversations.messages(conversationId),
       payload,
-      { timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS }
+      {timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS}
     );
   },
   listApprovalRequests(conversationId: string) {
@@ -224,9 +230,9 @@ export const conversationsApi = {
   ) {
     return agencyApiClient.post<
       ConversationPostMessageResponse & {
-        approval_request: ApprovalRequest;
-        approval_requests?: ApprovalRequest[];
-      }
+      approval_request: ApprovalRequest;
+      approval_requests?: ApprovalRequest[];
+    }
     >(backendRoutes.conversations.splitApprovalRequest(approvalRequestId), payload, {
       timeoutMs: CONVERSATION_LLM_REQUEST_TIMEOUT_MS,
     });

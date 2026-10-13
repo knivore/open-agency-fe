@@ -45,6 +45,47 @@
   justify-content: center;
 }
 
+.placementLayer {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  overflow: hidden;
+  pointer-events: none;
+  border-radius: 12px;
+}
+
+.movementTest {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+  color: #334155;
+  background: #f8fafc;
+  font-size: 12px;
+}
+.movementTest label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.movementTest p {
+  flex: 1 1 280px;
+}
+.movementTest button {
+  background: #0f172a;
+  color: white;
+}
+.movementTest button:hover {
+  background: #1e293b;
+  color: white;
+}
+.movementTest details {
+  width: 100%;
+}
+
 .cameraHud {
   position: absolute;
   top: 12px;
@@ -75,10 +116,22 @@
 
 .hudRail {
   display: flex;
-  flex: 0 0 min(420px, 32vw);
+  flex: 1 1 auto;
   justify-content: flex-start;
-  min-width: min(420px, 32vw);
-  max-width: min(420px, 32vw);
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+}
+
+.advancedControls {
+  border-block: 1px solid rgba(148, 163, 184, 0.25);
+  padding: 8px 0;
+}
+
+.advancedControls summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .viewerShell {
@@ -187,8 +240,9 @@
 .roomHud {
   position: relative;
   display: flex;
-  width: min(470px, calc(100% - 24px));
-  max-width: min(470px, calc(100% - 24px));
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   max-height: min(78vh, 760px);
   flex-direction: column;
   gap: 10px;
@@ -206,7 +260,9 @@
 .objectHud {
   position: relative;
   display: flex;
-  width: min(450px, calc(100% - 24px));
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   max-height: min(78vh, 760px);
   flex-direction: column;
   gap: 10px;
@@ -371,6 +427,7 @@
 
 .objectHudInlineRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
@@ -406,7 +463,8 @@
 }
 
 .objectHudScaleSlider {
-  width: 120px;
+  width: 100%;
+  flex: 1 1 100%;
   accent-color: #38bdf8;
 }
 
@@ -418,7 +476,7 @@
 .objectHudButtonRow,
 .objectHudScaleRow {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: 8px;
 }
 

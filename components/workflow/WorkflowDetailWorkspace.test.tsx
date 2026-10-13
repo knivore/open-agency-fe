@@ -1,13 +1,13 @@
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { createContext, useContext } from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type {ButtonHTMLAttributes, ReactNode} from 'react';
+import {createContext, useContext} from 'react';
+import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
+import {fireEvent, render, screen, waitFor, within} from '@testing-library/react';
+import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import WorkflowDetailWorkspace from '@/components/workflow/WorkflowDetailWorkspace';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import { workflowGraphToolListSelectionId } from '@/lib/workflows/workflowGraphAdapter';
-import type { GraphEdge, GraphRuntimeEvent } from '@/modules/react-flow-graph/types';
-import type { WorkflowDefinition } from '@/types/workflows';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import {workflowGraphToolListSelectionId} from '@/lib/workflows/workflowGraphAdapter';
+import type {GraphEdge, GraphRuntimeEvent} from '@/modules/react-flow-graph/types';
+import type {WorkflowDefinition} from '@/types/workflows';
 
 const {
   agentsApi,
@@ -177,6 +177,7 @@ vi.mock('@/lib/api/backend/workflows', () => ({
 
 vi.mock('@/components/workflow/WorkflowGovernancePanel', () => ({
   default: () => <div>Governance Panel</div>,
+  WorkflowVersionHistory: () => <div>Saved revisions</div>,
 }));
 
 vi.mock('sonner', () => ({
@@ -188,12 +189,12 @@ vi.mock('sonner', () => ({
 }));
 
 vi.mock('@/components/agent-app/StatePanels', () => ({
-  LoadingCard: ({ title }: { title: string }) => <div>{title} loading</div>,
+  LoadingCard: ({title}: { title: string }) => <div>{title} loading</div>,
   ErrorAlert: ({
-    title,
-    message,
-    onRetry,
-  }: {
+                 title,
+                 message,
+                 onRetry,
+               }: {
     title: string;
     message: string;
     onRetry?: () => void;
@@ -207,11 +208,11 @@ vi.mock('@/components/agent-app/StatePanels', () => ({
       ) : null}
     </div>
   ),
-  EmptyCard: ({ title }: { title: string }) => <div>{title}</div>,
+  EmptyCard: ({title}: { title: string }) => <div>{title}</div>,
 }));
 
 vi.mock('@/components/workflow/WorkflowDetailHeader', () => ({
-  default: ({ workflowName, onExecute }: { workflowName: string; onExecute: () => void }) => (
+  default: ({workflowName, onExecute}: { workflowName: string; onExecute: () => void }) => (
     <div>
       <div>Header: {workflowName}</div>
       <button type="button" onClick={onExecute}>
@@ -227,13 +228,13 @@ vi.mock('@/components/workflow/WorkflowDetailStatus', () => ({
 
 vi.mock('@/components/workflow/WorkflowMetadataEditor', () => ({
   default: ({
-    defaultRuntimeAdapterId,
-    restartActiveExecutions,
-    runtimeAdapters,
-    onDefaultRuntimeAdapterChange,
-    onRestartActiveExecutionsChange,
-    onSave,
-  }: {
+              defaultRuntimeAdapterId,
+              restartActiveExecutions,
+              runtimeAdapters,
+              onDefaultRuntimeAdapterChange,
+              onRestartActiveExecutionsChange,
+              onSave,
+            }: {
     defaultRuntimeAdapterId: string;
     restartActiveExecutions: boolean;
     runtimeAdapters: Array<{ id: string; name: string }>;
@@ -274,49 +275,28 @@ vi.mock('@/components/workflow/WorkflowMetadataEditor', () => ({
   ),
 }));
 
-vi.mock('@/components/workflow/WorkflowBuilderPanel', () => ({
-  default: ({
-    selectedTaskId,
-    selectedTaskDetail,
-    runtimeAdapterId,
-    memoryDefinitions = [],
-  }: {
-    selectedTaskId?: string | null;
-    selectedTaskDetail?: ReactNode;
-    runtimeAdapterId?: string | null;
-    memoryDefinitions?: Array<{ id: string }>;
-  }) => (
-    <div>
-      Builder Panel: {selectedTaskId || 'none'}
-      <span>Builder runtime adapter: {runtimeAdapterId || 'none'}</span>
-      <span>Builder memories: {memoryDefinitions.length}</span>
-      {selectedTaskDetail}
-    </div>
-  ),
-}));
-
 vi.mock('@/components/workflow/WorkflowGraphCanvas', () => ({
   default: ({
-    workflow,
-    workflowValidationIssues = [],
-    runtimeEvents = [],
-    agentObservabilityMetrics = [],
-    memoryLinkCountsByTarget = {},
-    toolDefinitions = [],
-    onWorkflowChange,
-    onSelectApproval,
-    onSelectAgent,
-    onSelectTool,
-    onSelectMemory,
-    onSelectArtifact,
-    onSelectEdge,
-    onStartEditing,
-    onSaveWorkflow,
-    onRunWorkflow,
-    runtimeControls,
-    saveWorkflowDisabled,
-    runWorkflowDisabled,
-  }: {
+              workflow,
+              workflowValidationIssues = [],
+              runtimeEvents = [],
+              agentObservabilityMetrics = [],
+              memoryLinkCountsByTarget = {},
+              toolDefinitions = [],
+              onWorkflowChange,
+              onSelectApproval,
+              onSelectAgent,
+              onSelectTool,
+              onSelectMemory,
+              onSelectArtifact,
+              onSelectEdge,
+              onStartEditing,
+              onSaveWorkflow,
+              onRunWorkflow,
+              runtimeControls,
+              saveWorkflowDisabled,
+              runWorkflowDisabled,
+            }: {
     workflow: WorkflowDefinition;
     workflowValidationIssues?: string[];
     runtimeEvents?: GraphRuntimeEvent[];
@@ -352,9 +332,9 @@ vi.mock('@/components/workflow/WorkflowGraphCanvas', () => ({
       {(() => {
         const workflowGraphToolNodes = Array.isArray(workflow.metadata?.workflow_graph_tool_nodes)
           ? (workflow.metadata.workflow_graph_tool_nodes as Array<{
-              id?: string;
-              toolIds?: string[];
-            }>)
+            id?: string;
+            toolIds?: string[];
+          }>)
           : [];
         const firstWorkflowToolNode = workflowGraphToolNodes[0];
         const selectedToolIds =
@@ -410,11 +390,11 @@ vi.mock('@/components/workflow/WorkflowGraphCanvas', () => ({
                   task_definitions: (workflow.task_definitions ?? []).map((task) =>
                     task.id === 'task-b'
                       ? {
-                          ...task,
-                          name: 'Graph Edited Task',
-                          description: 'Edited from graph.',
-                          depends_on_task_ids: [],
-                        }
+                        ...task,
+                        name: 'Graph Edited Task',
+                        description: 'Edited from graph.',
+                        depends_on_task_ids: [],
+                      }
                       : task
                   ),
                   edges: [],
@@ -563,7 +543,7 @@ vi.mock('@/components/workflow/WorkflowGraphCanvas', () => ({
             {runtimeControls?.canRequestSteering && runtimeControls.onRequestSteering ? (
               <button
                 type="button"
-                onClick={() => runtimeControls.onRequestSteering?.({ taskId: 'task-b' })}
+                onClick={() => runtimeControls.onRequestSteering?.({taskId: 'task-b'})}
               >
                 Graph Steer Task
               </button>
@@ -640,15 +620,11 @@ vi.mock('@/components/workflow/WorkflowGraphCanvas', () => ({
   ),
 }));
 
-vi.mock('@/components/workflow/WorkflowRunsPanel', () => ({
-  default: () => <div>Runs Panel</div>,
-}));
-
 vi.mock('@/components/workflow/WorkflowTaskFocusPanel', () => ({
   default: ({
-    selectedTask,
-    memoryDefinitions = [],
-  }: {
+              selectedTask,
+              memoryDefinitions = [],
+            }: {
     selectedTask: { name: string };
     memoryDefinitions?: Array<{ id: string }>;
   }) => (
@@ -662,41 +638,41 @@ vi.mock('@/components/workflow/WorkflowTaskFocusPanel', () => ({
 const TabsContext = createContext<string>('builder');
 
 vi.mock('@/components/library/shadcn/accordion', () => ({
-  Accordion: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionItem: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  AccordionTrigger: ({ children }: { children: ReactNode }) => (
+  Accordion: ({children}: { children: ReactNode }) => <div>{children}</div>,
+  AccordionContent: ({children}: { children: ReactNode }) => <div>{children}</div>,
+  AccordionItem: ({children}: { children: ReactNode }) => <div>{children}</div>,
+  AccordionTrigger: ({children}: { children: ReactNode }) => (
     <button type="button">{children}</button>
   ),
 }));
 
 vi.mock('@/components/library/shadcn/dropdown-menu', () => ({
-  DropdownMenu: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  DropdownMenuItem: ({ children, onSelect }: { children: ReactNode; onSelect?: () => void }) => (
+  DropdownMenu: ({children}: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuContent: ({children}: { children: ReactNode }) => <div>{children}</div>,
+  DropdownMenuItem: ({children, onSelect}: { children: ReactNode; onSelect?: () => void }) => (
     <button type="button" onClick={onSelect}>
       {children}
     </button>
   ),
-  DropdownMenuSeparator: () => <hr />,
-  DropdownMenuTrigger: ({ children }: { children: ReactNode }) => <>{children}</>,
+  DropdownMenuSeparator: () => <hr/>,
+  DropdownMenuTrigger: ({children}: { children: ReactNode }) => <>{children}</>,
 }));
 
 vi.mock('@/components/library/shadcn/tabs', () => ({
   Tabs: ({
-    value,
-    children,
-  }: {
+           value,
+           children,
+         }: {
     value: string;
     onValueChange?: (value: string) => void;
     children: ReactNode;
   }) => <TabsContext.Provider value={value}>{children}</TabsContext.Provider>,
-  TabsList: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  TabsList: ({children}: { children: ReactNode }) => <div>{children}</div>,
   TabsTrigger: ({
-    children,
-    value,
-    ...props
-  }: {
+                  children,
+                  value,
+                  ...props
+                }: {
     children: ReactNode;
     value: string;
     [key: string]: unknown;
@@ -705,29 +681,33 @@ vi.mock('@/components/library/shadcn/tabs', () => ({
       {children}
     </button>
   ),
-  TabsContent: ({ children, value }: { children: ReactNode; value: string }) => {
+  TabsContent: ({children, value}: { children: ReactNode; value: string }) => {
     const activeValue = useContext(TabsContext);
     return activeValue === value ? <div>{children}</div> : null;
   },
 }));
 
 vi.mock('@/components/library/shadcn/tooltip', () => ({
-  Tooltip: ({ children }: { children: ReactNode }) => <>{children}</>,
-  TooltipContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  TooltipProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
-  TooltipTrigger: ({ children }: { children: ReactNode; asChild?: boolean }) => <>{children}</>,
+  Tooltip: ({children}: { children: ReactNode }) => <>{children}</>,
+  TooltipContent: ({children}: { children: ReactNode }) => <div>{children}</div>,
+  TooltipProvider: ({children}: { children: ReactNode }) => <>{children}</>,
+  TooltipTrigger: ({children}: { children: ReactNode; asChild?: boolean }) => <>{children}</>,
 }));
 
 vi.mock('@/components/library/shadcn/button', () => ({
   buttonVariants: () => '',
   Button: ({
-    children,
-    ...props
-  }: ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => (
-    <button type="button" {...props}>
-      {children}
-    </button>
-  ),
+             children,
+             asChild,
+             ...props
+           }: ButtonHTMLAttributes<HTMLButtonElement> & { asChild?: boolean }) => {
+    if (asChild) return <>{children}</>;
+    return (
+      <button type="button" {...props}>
+        {children}
+      </button>
+    );
+  },
 }));
 
 function createTestQueryClient() {
@@ -743,7 +723,7 @@ function createTestQueryClient() {
 function renderWorkspace(queryClient = createTestQueryClient()) {
   return render(
     <QueryClientProvider client={queryClient}>
-      <WorkflowDetailWorkspace workflowId="workflow-1" />
+      <WorkflowDetailWorkspace workflowId="workflow-1"/>
     </QueryClientProvider>
   );
 }
@@ -800,8 +780,8 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {} },
-        { id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {} },
+        {id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {}},
+        {id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {}},
       ],
       edges: [
         {
@@ -918,39 +898,39 @@ describe('WorkflowDetailWorkspace', () => {
       approval_controls: [],
     });
     runsApi.listRunsForWorkflow.mockResolvedValue([]);
-    schedulesApi.listSchedules.mockResolvedValue({ items: [] });
-    schedulesApi.createSchedule.mockResolvedValue({ id: 'schedule-1', enabled: true });
-    schedulesApi.patchSchedule.mockResolvedValue({ id: 'schedule-1', enabled: true });
-    schedulesApi.deleteSchedule.mockResolvedValue({ id: 'schedule-1' });
-    schedulesApi.enableSchedule.mockResolvedValue({ id: 'schedule-1', enabled: true });
-    schedulesApi.disableSchedule.mockResolvedValue({ id: 'schedule-1', enabled: false });
+    schedulesApi.listSchedules.mockResolvedValue({items: []});
+    schedulesApi.createSchedule.mockResolvedValue({id: 'schedule-1', enabled: true});
+    schedulesApi.patchSchedule.mockResolvedValue({id: 'schedule-1', enabled: true});
+    schedulesApi.deleteSchedule.mockResolvedValue({id: 'schedule-1'});
+    schedulesApi.enableSchedule.mockResolvedValue({id: 'schedule-1', enabled: true});
+    schedulesApi.disableSchedule.mockResolvedValue({id: 'schedule-1', enabled: false});
     schedulesApi.triggerNow.mockResolvedValue({
-      schedule: { id: 'schedule-1', enabled: true },
+      schedule: {id: 'schedule-1', enabled: true},
       execution_id: 'run-schedule-1',
       triggered_at: '2026-05-16T00:00:00Z',
     });
-    logsApi.listRunEvents.mockResolvedValue({ items: [] });
-    memoriesApi.listMemories.mockResolvedValue({ items: [] });
-    memoriesApi.listMemoryCatalog.mockResolvedValue({ groups: [] });
+    logsApi.listRunEvents.mockResolvedValue({items: []});
+    memoriesApi.listMemories.mockResolvedValue({items: []});
+    memoriesApi.listMemoryCatalog.mockResolvedValue({groups: []});
     observabilityApi.getWorkflowMetrics.mockResolvedValue({
       workflow_id: 'workflow-1',
       total_tokens: 0,
       estimated_cost: 0,
-      context_health: { latest: null },
-      budget: { warning_count: 0, exceeded_count: 0 },
-      compaction: { event_count: 0 },
+      context_health: {latest: null},
+      budget: {warning_count: 0, exceeded_count: 0},
+      compaction: {event_count: 0},
     });
-    observabilityApi.getModelUsage.mockResolvedValue({ items: [] });
+    observabilityApi.getModelUsage.mockResolvedValue({items: []});
     observabilityApi.getAgentMetrics.mockImplementation(async (agentId: string) => ({
       agent_id: agentId,
       total_tokens: 0,
-      context_health: { latest: null },
+      context_health: {latest: null},
     }));
     behaviorProfilesApi.listProfiles.mockResolvedValue([]);
-    agentsApi.listAgents.mockResolvedValue({ items: [] });
-    toolsApi.listTools.mockResolvedValue({ items: [] });
-    credentialsApi.listCredentials.mockResolvedValue({ items: [] });
-    credentialsApi.getConnectorCredentialCapabilities.mockResolvedValue({ connectors: {} });
+    agentsApi.listAgents.mockResolvedValue({items: []});
+    toolsApi.listTools.mockResolvedValue({items: []});
+    credentialsApi.listCredentials.mockResolvedValue({items: []});
+    credentialsApi.getConnectorCredentialCapabilities.mockResolvedValue({connectors: {}});
     runtimeAdaptersApi.listRuntimeAdapters.mockResolvedValue({
       items: [
         {
@@ -986,23 +966,23 @@ describe('WorkflowDetailWorkspace', () => {
     });
     workflowsApi.createWorkflowSteeringApproval.mockResolvedValue({
       workflow_id: 'workflow-1',
-      approval: { id: 'steering-1', target_task_id: 'task-b' },
-      approval_request: { id: 'approval-steering-1' },
+      approval: {id: 'steering-1', target_task_id: 'task-b'},
+      approval_request: {id: 'approval-steering-1'},
       created: true,
     });
-    workflowsApi.listWorkflowVersions.mockResolvedValue({ items: [] });
-    workflowsApi.listWorkflowPersonaVersionNotices.mockResolvedValue({ items: [] });
+    workflowsApi.listWorkflowVersions.mockResolvedValue({items: []});
+    workflowsApi.listWorkflowPersonaVersionNotices.mockResolvedValue({items: []});
     workflowsApi.useLatestPersonaAgent.mockResolvedValue({
-      workflow: { id: 'workflow-1', name: 'Workflow One' },
+      workflow: {id: 'workflow-1', name: 'Workflow One'},
       notice: null,
     });
     workflowsApi.keepCurrentPersonaAgent.mockResolvedValue({
-      workflow: { id: 'workflow-1', name: 'Workflow One' },
+      workflow: {id: 'workflow-1', name: 'Workflow One'},
       notice: null,
     });
     workflowsApi.promoteWorkflowAgent.mockResolvedValue({
-      workflow: { id: 'workflow-1', name: 'Workflow One' },
-      agent: { id: 'catalog-agent-1', name: 'Agent One' },
+      workflow: {id: 'workflow-1', name: 'Workflow One'},
+      agent: {id: 'catalog-agent-1', name: 'Agent One'},
       workflow_updated: true,
       promotion: {
         source_workflow_id: 'workflow-1',
@@ -1026,7 +1006,7 @@ describe('WorkflowDetailWorkspace', () => {
       items: [],
     });
     workflowsApi.addWorkflowMemoryLink.mockResolvedValue({
-      workflow: { id: 'workflow-1', name: 'Workflow One' },
+      workflow: {id: 'workflow-1', name: 'Workflow One'},
       link: {
         id: 'link-1',
         workflowId: 'workflow-1',
@@ -1140,14 +1120,14 @@ describe('WorkflowDetailWorkspace', () => {
 
     expect(screen.getByText('Metadata Editor')).toBeInTheDocument();
     expect(screen.getByText('Graph Canvas: Workflow One')).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Builder' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Runs' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', {name: 'Builder'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', {name: 'Runs'})).not.toBeInTheDocument();
     expect(screen.getByText('Task Focus: Task B')).toBeInTheDocument();
   });
 
   it('does not read raw agent list response cache as workflow agent definitions', async () => {
     const queryClient = createTestQueryClient();
-    queryClient.setQueryData(queryKeys.backendAgents(), { items: [] });
+    queryClient.setQueryData(queryKeys.backendAgents(), {items: []});
 
     renderWorkspace(queryClient);
 
@@ -1204,7 +1184,7 @@ describe('WorkflowDetailWorkspace', () => {
           human_approval_required: false,
         },
       ],
-      nodes: [{ id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b' }],
+      nodes: [{id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b'}],
       edges: [],
       tool_definitions: [],
       versioning: {
@@ -1289,17 +1269,17 @@ describe('WorkflowDetailWorkspace', () => {
       expect(screen.getByText('Header: Workflow One')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Agent' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Promote to global' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Agent'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Promote to global'}));
 
     const globalAgentIdInput = await screen.findByLabelText('Global agent ID');
-    fireEvent.change(globalAgentIdInput, { target: { value: 'catalog-agent-1' } });
+    fireEvent.change(globalAgentIdInput, {target: {value: 'catalog-agent-1'}});
     fireEvent.click(
       screen.getByLabelText(
         'Replace this workflow agent with the promoted global agent identity after promotion.'
       )
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Promote and replace' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Promote and replace'}));
 
     await waitFor(() => {
       expect(workflowsApi.promoteWorkflowAgent).toHaveBeenCalledWith('workflow-1', 'agent-1', {
@@ -1321,8 +1301,8 @@ describe('WorkflowDetailWorkspace', () => {
     expect(screen.getByText('Graph Canvas: Workflow One')).toBeInTheDocument();
     expect(screen.queryByText('Builder Panel: task-b')).not.toBeInTheDocument();
     expect(screen.queryByText('Runs Panel')).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Builder' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Runs' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', {name: 'Builder'})).not.toBeInTheDocument();
+    expect(screen.queryByRole('tab', {name: 'Runs'})).not.toBeInTheDocument();
   });
 
   it('can enter edit mode from the graph tab', async () => {
@@ -1331,7 +1311,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Edit Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Edit Workflow'}));
 
     await waitFor(() => {
       expect(replaceMock).toHaveBeenCalledWith('/workflows/workflow-1?mode=edit', {
@@ -1349,7 +1329,7 @@ describe('WorkflowDetailWorkspace', () => {
     expect(screen.getByText('Draft Change Summary')).toBeInTheDocument();
     expect(screen.getByText('No draft changes since the last saved workflow.')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Graph Edit' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Apply Graph Edit'}));
 
     await waitFor(() => {
       expect(screen.getByText('Changed task "Graph Edited Task".')).toBeInTheDocument();
@@ -1386,7 +1366,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Agent'}));
 
     const personaSourceSelect = await screen.findByLabelText('Persona source');
     await waitFor(() => {
@@ -1396,21 +1376,21 @@ describe('WorkflowDetailWorkspace', () => {
         )
       ).toBe(true);
     });
-    fireEvent.change(personaSourceSelect, { target: { value: 'persona-agent-1' } });
+    fireEvent.change(personaSourceSelect, {target: {value: 'persona-agent-1'}});
 
     await waitFor(() => {
       expect(screen.getByText('Graph agents: Mentor Persona Agent')).toBeInTheDocument();
     });
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Mentor Persona Agent' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', {name: 'Mentor Persona Agent'})).toBeInTheDocument();
     });
     expect(screen.getByLabelText('Role')).toHaveValue('mentor');
     expect(screen.getAllByText('From persona').length).toBeGreaterThan(0);
 
     const descriptionFields = screen.getAllByLabelText('Description');
     fireEvent.change(descriptionFields[descriptionFields.length - 1], {
-      target: { value: 'Workflow-specific mentor description.' },
+      target: {value: 'Workflow-specific mentor description.'},
     });
 
     await waitFor(() => {
@@ -1475,7 +1455,7 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {} },
+        {id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {}},
       ],
       edges: [],
       tool_definitions: [],
@@ -1536,13 +1516,13 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Agent'}));
 
-    await screen.findByRole('heading', { name: 'Mentor Snapshot' });
-    fireEvent.click(screen.getByRole('button', { name: 'Use latest persona' }));
+    await screen.findByRole('heading', {name: 'Mentor Snapshot'});
+    fireEvent.click(screen.getByRole('button', {name: 'Use latest persona'}));
 
     await waitFor(() => {
-      expect(screen.getByRole('heading', { name: 'Mentor Latest' })).toBeInTheDocument();
+      expect(screen.getByRole('heading', {name: 'Mentor Latest'})).toBeInTheDocument();
     });
     expect(screen.getByLabelText('Role')).toHaveValue('latest mentor');
     const preservedDescriptionFields = screen.getAllByLabelText('Description');
@@ -1550,7 +1530,7 @@ describe('WorkflowDetailWorkspace', () => {
       'Workflow-specific mentor description.'
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Replace all fields' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Replace all fields'}));
 
     await waitFor(() => {
       const replacedDescriptionFields = screen.getAllByLabelText('Description');
@@ -1588,13 +1568,13 @@ describe('WorkflowDetailWorkspace', () => {
 
     await screen.findByText('Graph Canvas: Workflow One');
     const personaCreateSelect = await screen.findByLabelText('Persona agent');
-    fireEvent.change(personaCreateSelect, { target: { value: 'persona-agent-1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Add Persona Agent' }));
+    fireEvent.change(personaCreateSelect, {target: {value: 'persona-agent-1'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Add Persona Agent'}));
 
     await waitFor(() => {
       expect(screen.getByText('Graph agents: Agent One, Mentor Persona Agent')).toBeInTheDocument();
     });
-    expect(screen.getByRole('heading', { name: 'Mentor Persona Agent' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Mentor Persona Agent'})).toBeInTheDocument();
   });
 
   it('passes edit validation issues into the graph tab and blocks running invalid drafts', async () => {
@@ -1635,7 +1615,7 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {} },
+        {id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {}},
       ],
       edges: [],
       tool_definitions: [],
@@ -1652,7 +1632,7 @@ describe('WorkflowDetailWorkspace', () => {
     await screen.findByText('Header: Workflow One');
     expect(screen.getByText('Graph validation issues: 1')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Run Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Run Workflow'}));
 
     expect(runsApi.executeWorkflow).not.toHaveBeenCalled();
   });
@@ -1706,8 +1686,8 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {} },
-        { id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {} },
+        {id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {}},
+        {id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {}},
       ],
       edges: [
         {
@@ -1787,8 +1767,8 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {} },
-        { id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {} },
+        {id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {}},
+        {id: 'node-task-b', name: 'Task B', node_type: 'task', task_id: 'task-b', metadata: {}},
       ],
       edges: [
         {
@@ -1834,10 +1814,10 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Header: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Approval Gate' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Approval Gate'}));
 
     expect(
-      await screen.findByRole('dialog', { name: 'Selected Approval Gate' })
+      await screen.findByRole('dialog', {name: 'Selected Approval Gate'})
     ).toBeInTheDocument();
     expect(screen.getByText('Approval node')).toBeInTheDocument();
     expect(screen.getByText('Linked to Task B')).toBeInTheDocument();
@@ -1849,9 +1829,9 @@ describe('WorkflowDetailWorkspace', () => {
     expect(screen.getByText('Task Focus: Task B')).toBeInTheDocument();
 
     currentSearch = 'tab=graph&task=task-b';
-    fireEvent.click(screen.getByRole('button', { name: 'Focus linked task' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Focus linked task'}));
 
-    expect(await screen.findByRole('dialog', { name: 'Selected Task' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', {name: 'Selected Task'})).toBeInTheDocument();
     expect(screen.getByText('No approval gate')).toBeInTheDocument();
   });
 
@@ -1863,14 +1843,14 @@ describe('WorkflowDetailWorkspace', () => {
       return {
         ...workflow,
         task_definitions: (workflow.task_definitions ?? []).map((task) =>
-          task.id === 'task-b' ? { ...task, human_approval_required: true } : task
+          task.id === 'task-b' ? {...task, human_approval_required: true} : task
         ),
       };
     });
 
     renderWorkspace();
 
-    expect(await screen.findByRole('dialog', { name: 'Selected Task' })).toBeInTheDocument();
+    expect(await screen.findByRole('dialog', {name: 'Selected Task'})).toBeInTheDocument();
     expect(screen.getByText('Requires human approval')).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -1878,10 +1858,10 @@ describe('WorkflowDetailWorkspace', () => {
       )
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Focus approval gate' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Focus approval gate'}));
 
     expect(
-      await screen.findByRole('dialog', { name: 'Selected Approval Gate' })
+      await screen.findByRole('dialog', {name: 'Selected Approval Gate'})
     ).toBeInTheDocument();
     expect(screen.getByText('Linked to Task B')).toBeInTheDocument();
   });
@@ -1900,7 +1880,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Graph Resume Run' }));
+    fireEvent.click(await screen.findByRole('button', {name: 'Graph Resume Run'}));
 
     await waitFor(() => {
       expect(runsApi.resumeRun).toHaveBeenCalledWith('run-paused-1');
@@ -1938,7 +1918,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Graph Retry Task' }));
+    fireEvent.click(await screen.findByRole('button', {name: 'Graph Retry Task'}));
 
     await waitFor(() => {
       expect(runsApi.retryTask).toHaveBeenCalledWith(
@@ -1968,7 +1948,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Graph Resume Checkpoint' }));
+    fireEvent.click(await screen.findByRole('button', {name: 'Graph Resume Checkpoint'}));
 
     await waitFor(() => {
       expect(runsApi.resumeFromCheckpoint).toHaveBeenCalledWith(
@@ -1986,8 +1966,8 @@ describe('WorkflowDetailWorkspace', () => {
     await screen.findByText('Header: Workflow One');
     expect(screen.getByText('Graph tasks: Task A, Task B')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Graph Edit' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Apply Graph Edit'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -2014,9 +1994,9 @@ describe('WorkflowDetailWorkspace', () => {
 
     await screen.findByText('Graph Canvas: Workflow One');
     fireEvent.change(screen.getByLabelText('Review Note'), {
-      target: { value: 'Needs SME review before saving.' },
+      target: {value: 'Needs SME review before saving.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -2052,8 +2032,8 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Full Graph Workflow Edit' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Apply Full Graph Workflow Edit'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     let savedWorkflow: WorkflowDefinition | undefined;
     await waitFor(() => {
@@ -2166,7 +2146,7 @@ describe('WorkflowDetailWorkspace', () => {
         },
       },
       findings: [
-        { id: 'monitoring-finding-separate-1', summary: 'Keep monitoring data separate.' },
+        {id: 'monitoring-finding-separate-1', summary: 'Keep monitoring data separate.'},
       ],
       proposals: [],
       evaluations: [],
@@ -2220,9 +2200,9 @@ describe('WorkflowDetailWorkspace', () => {
     expect(observabilityApi.getWorkflowMetrics).toHaveBeenCalledWith('workflow-1');
     expect(workflowsApi.listWorkflowMonitoringEvents).toHaveBeenCalledWith('workflow-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Edit Workflow' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Apply Graph Edit' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Edit Workflow'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Apply Graph Edit'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalled();
@@ -2269,12 +2249,12 @@ describe('WorkflowDetailWorkspace', () => {
           name: 'Discord Send Message',
           description: 'Send a message to Discord.',
           tool_type: 'python_function',
-          input_schema: { type: 'object' },
-          output_schema: { type: 'object' },
+          input_schema: {type: 'object'},
+          output_schema: {type: 'object'},
           implementation: {
             target: 'app.tools.discord',
             callable_name: 'send_message',
-            config: { provider: 'discord' },
+            config: {provider: 'discord'},
           },
           security: {},
           tags: ['connector'],
@@ -2284,8 +2264,8 @@ describe('WorkflowDetailWorkspace', () => {
           name: 'Format Summary',
           description: 'Format a summary for handoff.',
           tool_type: 'python_function',
-          input_schema: { type: 'object' },
-          output_schema: { type: 'object' },
+          input_schema: {type: 'object'},
+          output_schema: {type: 'object'},
           implementation: {
             target: 'app.tools.formatter',
             callable_name: 'format_summary',
@@ -2324,14 +2304,14 @@ describe('WorkflowDetailWorkspace', () => {
           backendKey: 'discord-bot',
           displayName: 'Discord',
           targetScopeMetadata: [
-            { key: 'guild_id', label: 'Guild ID', required: false },
-            { key: 'channel_id', label: 'Channel ID', required: true },
+            {key: 'guild_id', label: 'Guild ID', required: false},
+            {key: 'channel_id', label: 'Channel ID', required: true},
           ],
         },
         'telegram-bot': {
           backendKey: 'telegram-bot',
           displayName: 'Telegram',
-          targetScopeMetadata: [{ key: 'chat_id', label: 'Chat ID', required: true }],
+          targetScopeMetadata: [{key: 'chat_id', label: 'Chat ID', required: true}],
         },
       },
     });
@@ -2339,7 +2319,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
     await screen.findByText('Discord Send Message');
     await screen.findByText('Format Summary');
@@ -2352,13 +2332,13 @@ describe('WorkflowDetailWorkspace', () => {
     expect(credentialOptions.some((option) => option.includes('Support Discord Bot'))).toBe(true);
     expect(credentialOptions.some((option) => option.includes('Support Telegram Bot'))).toBe(false);
     fireEvent.change(credentialSelect, {
-      target: { value: 'credential-discord-support' },
+      target: {value: 'credential-discord-support'},
     });
     expect(screen.getAllByLabelText('Purpose').at(-1)).toHaveValue('support_delivery');
     expect(screen.getAllByLabelText('Guild ID').at(-1)).toHaveValue('guild-456');
     expect(screen.getAllByLabelText('Channel ID').at(-1)).toHaveValue('channel-123');
-    fireEvent.click(screen.getByRole('button', { name: 'Save binding' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save binding'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -2397,8 +2377,8 @@ describe('WorkflowDetailWorkspace', () => {
           display_name: 'Send HTTP Request',
           description: 'Send an HTTP request.',
           tool_type: 'python_function',
-          input_schema: { type: 'object' },
-          output_schema: { type: 'object' },
+          input_schema: {type: 'object'},
+          output_schema: {type: 'object'},
           implementation: {
             target: 'app.tools.http',
             callable_name: 'send_http_request',
@@ -2412,8 +2392,8 @@ describe('WorkflowDetailWorkspace', () => {
           name: 'Format Summary',
           description: 'Format a summary for handoff.',
           tool_type: 'python_function',
-          input_schema: { type: 'object' },
-          output_schema: { type: 'object' },
+          input_schema: {type: 'object'},
+          output_schema: {type: 'object'},
           implementation: {
             target: 'app.tools.formatter',
             callable_name: 'format_summary',
@@ -2444,8 +2424,8 @@ describe('WorkflowDetailWorkspace', () => {
           backendKey: 'discord-bot',
           displayName: 'Discord',
           targetScopeMetadata: [
-            { key: 'guild_id', label: 'Guild ID', required: false },
-            { key: 'channel_id', label: 'Channel ID', required: true },
+            {key: 'guild_id', label: 'Guild ID', required: false},
+            {key: 'channel_id', label: 'Channel ID', required: true},
           ],
         },
       },
@@ -2454,7 +2434,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
     await screen.findByText('Send HTTP Request');
     expect(screen.getAllByText('Tool connector binding')).toHaveLength(1);
@@ -2462,7 +2442,7 @@ describe('WorkflowDetailWorkspace', () => {
     const providerSelect = screen.getByLabelText('Provider') as HTMLSelectElement;
     expect(providerSelect).toHaveValue('');
     fireEvent.change(providerSelect, {
-      target: { value: 'discord-bot' },
+      target: {value: 'discord-bot'},
     });
 
     const credentialSelect = screen.getByLabelText('Credential') as HTMLSelectElement;
@@ -2472,8 +2452,8 @@ describe('WorkflowDetailWorkspace', () => {
     expect(screen.getByLabelText('Guild ID')).toHaveValue('guild-456');
     expect(screen.getByLabelText('Channel ID')).toHaveValue('channel-123');
     expect(screen.getByLabelText('Purpose')).toHaveValue('request_delivery');
-    fireEvent.click(screen.getByRole('button', { name: 'Save binding' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save binding'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -2507,26 +2487,26 @@ describe('WorkflowDetailWorkspace', () => {
           name: 'Discord Send Message',
           description: 'Send a message to Discord.',
           tool_type: 'python_function',
-          input_schema: { type: 'object' },
-          output_schema: { type: 'object' },
+          input_schema: {type: 'object'},
+          output_schema: {type: 'object'},
           implementation: {
             target: 'app.tools.discord',
             callable_name: 'send_message',
-            config: { provider: 'discord' },
+            config: {provider: 'discord'},
           },
           security: {},
           tags: ['connector'],
         },
       ],
     });
-    credentialsApi.listCredentials.mockResolvedValue({ items: [] });
+    credentialsApi.listCredentials.mockResolvedValue({items: []});
     credentialsApi.getConnectorCredentialCapabilities.mockResolvedValue({
       connectors: {
         'discord-bot': {
           backendKey: 'discord-bot',
           displayName: 'Discord',
           providerAliases: ['discord'],
-          targetScopeMetadata: [{ key: 'channel_id', label: 'Channel ID', required: true }],
+          targetScopeMetadata: [{key: 'channel_id', label: 'Channel ID', required: true}],
         },
       },
     });
@@ -2534,16 +2514,16 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
     await screen.findByText('Discord Send Message');
     expect(screen.getAllByLabelText('Provider').at(-1)).toHaveValue('Discord');
     expect(screen.getByText('No Discord credentials are saved yet.')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Set up Discord' })).toHaveAttribute(
+    expect(screen.getByRole('link', {name: 'Set up Discord'})).toHaveAttribute(
       'href',
       '/integrations?integration-tab=communications&integration-connector=communications-discord'
     );
-    expect(screen.getByRole('button', { name: 'Save binding' })).toBeDisabled();
+    expect(screen.getByRole('button', {name: 'Save binding'})).toBeDisabled();
   });
 
   it('does not render workflow-level connector defaults in metadata', async () => {
@@ -2555,7 +2535,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     expect(screen.queryByText('Workflow Connector Default')).not.toBeInTheDocument();
     expect(screen.queryByText('Workflow Connector Fallback')).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Save workflow default' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', {name: 'Save workflow default'})).not.toBeInTheDocument();
   });
 
   it('runs workflows from the graph tab and replays the latest execution without leaving the graph', async () => {
@@ -2580,7 +2560,7 @@ describe('WorkflowDetailWorkspace', () => {
           timestamp: '2026-05-21T00:00:03.000Z',
           sequence: 1,
           payload: {
-            input: { topic: 'graph run' },
+            input: {topic: 'graph run'},
           },
         },
       ],
@@ -2589,7 +2569,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Header: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Run Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Run Workflow'}));
 
     await waitFor(() => {
       expect(runsApi.executeWorkflow).toHaveBeenCalledWith('workflow-1', 'adapter-a', 'local');
@@ -2618,7 +2598,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Header: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Run Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Run Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.validateWorkflow).toHaveBeenCalled();
@@ -2635,13 +2615,13 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Header: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(screen.getByText(/Failed to save workflow/)).toBeInTheDocument();
     });
     expect(screen.getByText(/Backend save rejected/)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Retry'})).toBeInTheDocument();
   });
 
   it('passes workflow run activity into the graph runtime overlay', async () => {
@@ -2684,7 +2664,7 @@ describe('WorkflowDetailWorkspace', () => {
           timestamp: '2026-05-21T00:00:03.000Z',
           sequence: 3,
           payload: {
-            input: { topic: 'runtime graph' },
+            input: {topic: 'runtime graph'},
           },
         },
       ],
@@ -2701,21 +2681,21 @@ describe('WorkflowDetailWorkspace', () => {
 
   it('opens graph agents in the side drawer and edits profile without tool access controls', async () => {
     currentSearch = 'mode=edit&tab=graph';
-    behaviorProfilesApi.listProfiles.mockResolvedValue([{ id: 'profile-1', name: 'GPT Profile' }]);
+    behaviorProfilesApi.listProfiles.mockResolvedValue([{id: 'profile-1', name: 'GPT Profile'}]);
 
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Agent'}));
 
-    expect(screen.getByRole('heading', { name: 'Agent One' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Agent One'})).toBeInTheDocument();
     expect(screen.queryByText('Tool Access')).not.toBeInTheDocument();
     expect(screen.getByLabelText('Instructions')).toHaveValue('Do work');
     fireEvent.change(screen.getByLabelText('Instructions'), {
-      target: { value: 'Follow the updated graph-mode instructions.' },
+      target: {value: 'Follow the updated graph-mode instructions.'},
     });
-    fireEvent.change(screen.getByLabelText('Model profile'), { target: { value: 'profile-1' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.change(screen.getByLabelText('Model profile'), {target: {value: 'profile-1'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -2740,22 +2720,22 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Agent'}));
 
-    expect(screen.getByRole('heading', { name: 'Agent One' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Agent One'})).toBeInTheDocument();
     expect(
       screen.getByText('No guardrails are configured for this workflow agent.')
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add guardrail' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Add guardrail'}));
     fireEvent.change(screen.getAllByLabelText('Name').at(-1) as HTMLElement, {
-      target: { value: 'Approval boundary' },
+      target: {value: 'Approval boundary'},
     });
-    fireEvent.change(screen.getByLabelText('Mode'), { target: { value: 'tool' } });
+    fireEvent.change(screen.getByLabelText('Mode'), {target: {value: 'tool'}});
     fireEvent.change(screen.getAllByLabelText('Description').at(-1) as HTMLElement, {
-      target: { value: 'Require approval before risky tool use.' },
+      target: {value: 'Require approval before risky tool use.'},
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -2831,13 +2811,13 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Agent' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Agent'}));
 
     expect((await screen.findAllByText('Memory Access')).length).toBeGreaterThan(0);
     expect(screen.getByText('Existing agent memory')).toBeInTheDocument();
     expect(await screen.findByText('Agent handoff pack')).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Add'}));
     await waitFor(() => {
       expect(workflowsApi.addWorkflowMemoryLink).toHaveBeenCalledWith(
         'workflow-1',
@@ -2850,7 +2830,7 @@ describe('WorkflowDetailWorkspace', () => {
       );
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove'}));
     await waitFor(() => {
       expect(workflowsApi.deleteWorkflowMemoryLink).toHaveBeenCalledWith(
         'workflow-1',
@@ -2924,19 +2904,19 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Tool' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Tool'}));
 
-    expect(screen.getByRole('heading', { name: '1 workflow tools' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Equipped tools' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: '1 workflow tools'})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'Equipped tools'})).toBeInTheDocument();
     expect(screen.getByText('Available tools')).toBeInTheDocument();
     expect(screen.getAllByText('Search Tool').length).toBeGreaterThan(0);
     expect(
-      screen.getByRole('button', { name: 'Remove access from Agent One' })
+      screen.getByRole('button', {name: 'Remove access from Agent One'})
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove access from Agent One' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove access from Agent One'}));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -3029,10 +3009,10 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
-    expect(screen.getByRole('heading', { name: 'Agent One tools' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: 'Equipped tools' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Agent One tools'})).toBeInTheDocument();
+    expect(screen.getByRole('region', {name: 'Equipped tools'})).toBeInTheDocument();
     expect(screen.getByText('Available tools')).toBeInTheDocument();
     expect(
       screen.getByText(/Graph available tools: Run Command, Analyze Screenshot/)
@@ -3040,10 +3020,10 @@ describe('WorkflowDetailWorkspace', () => {
     expect(screen.getByText('Run Command')).toBeInTheDocument();
     expect(screen.getByText('shell command')).toBeInTheDocument();
     expect(screen.getByText('python function')).toBeInTheDocument();
-    expect(screen.getAllByRole('button', { name: 'Add to Agent One' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', {name: 'Add to Agent One'})).toHaveLength(2);
 
-    fireEvent.change(screen.getByRole('textbox', { name: 'Search tools' }), {
-      target: { value: 'shell' },
+    fireEvent.change(screen.getByRole('textbox', {name: 'Search tools'}), {
+      target: {value: 'shell'},
     });
 
     expect(screen.getByText('Run Command')).toBeInTheDocument();
@@ -3136,15 +3116,15 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
     expect(
-      screen.getByRole('button', { name: 'Remove access from Agent One' })
+      screen.getByRole('button', {name: 'Remove access from Agent One'})
     ).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Remove access from Agent One' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove access from Agent One'}));
 
-    expect(screen.getByRole('button', { name: 'Add to Agent One' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    expect(screen.getByRole('button', {name: 'Add to Agent One'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -3274,16 +3254,16 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
-    fireEvent.change(screen.getByRole('textbox', { name: /url \*/i }), {
-      target: { value: 'https://example.com/hooks/release' },
+    fireEvent.change(screen.getByRole('textbox', {name: /url \*/i}), {
+      target: {value: 'https://example.com/hooks/release'},
     });
-    fireEvent.change(screen.getByRole('spinbutton', { name: /timeout/i }), {
-      target: { value: '30' },
+    fireEvent.change(screen.getByRole('spinbutton', {name: /timeout/i}), {
+      target: {value: '30'},
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save parameters' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save parameters'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -3426,7 +3406,7 @@ describe('WorkflowDetailWorkspace', () => {
         'discord-bot': {
           backendKey: 'discord-bot',
           displayName: 'Discord',
-          targetScopeMetadata: [{ key: 'channel_id', label: 'Channel ID', required: true }],
+          targetScopeMetadata: [{key: 'channel_id', label: 'Channel ID', required: true}],
         },
       },
     });
@@ -3434,24 +3414,24 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
-    expect(screen.getByRole('button', { name: 'Fill tool parameters' })).toBeInTheDocument();
-    expect(screen.getByRole('textbox', { name: /url \*/i })).toHaveValue('https://old.example.com');
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
+    expect(screen.getByRole('button', {name: 'Fill tool parameters'})).toBeInTheDocument();
+    expect(screen.getByRole('textbox', {name: /url \*/i})).toHaveValue('https://old.example.com');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Use webhook credentials' }));
-    expect(screen.queryByRole('textbox', { name: /url \*/i })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Use webhook credentials'}));
+    expect(screen.queryByRole('textbox', {name: /url \*/i})).not.toBeInTheDocument();
     expect(screen.getByText('Filled by agent at runtime')).toBeInTheDocument();
     expect(screen.getByText(/these values are expected from the agent/i)).toBeInTheDocument();
     expect(screen.getByLabelText('Provider')).toBeInTheDocument();
 
     fireEvent.change(screen.getByLabelText('Provider'), {
-      target: { value: 'discord-bot' },
+      target: {value: 'discord-bot'},
     });
     await waitFor(() => {
       expect(screen.getByLabelText('Purpose')).toHaveValue('request_delivery');
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save binding' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save binding'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -3505,10 +3485,10 @@ describe('WorkflowDetailWorkspace', () => {
           input_schema: {
             type: 'object',
             properties: {
-              base_folder: { type: 'string', 'x-agency-filled-by': 'user' },
-              filename: { type: 'string', 'x-agency-filled-by': 'agent' },
-              content: { type: 'string', 'x-agency-filled-by': 'agent' },
-              mode: { type: 'string', 'x-agency-filled-by': 'agent' },
+              base_folder: {type: 'string', 'x-agency-filled-by': 'user'},
+              filename: {type: 'string', 'x-agency-filled-by': 'agent'},
+              content: {type: 'string', 'x-agency-filled-by': 'agent'},
+              mode: {type: 'string', 'x-agency-filled-by': 'agent'},
             },
           },
         },
@@ -3539,10 +3519,10 @@ describe('WorkflowDetailWorkspace', () => {
           input_schema: {
             type: 'object',
             properties: {
-              base_folder: { type: 'string', 'x-agency-filled-by': 'user' },
-              filename: { type: 'string', 'x-agency-filled-by': 'agent' },
-              content: { type: 'string', 'x-agency-filled-by': 'agent' },
-              mode: { type: 'string', 'x-agency-filled-by': 'agent' },
+              base_folder: {type: 'string', 'x-agency-filled-by': 'user'},
+              filename: {type: 'string', 'x-agency-filled-by': 'agent'},
+              content: {type: 'string', 'x-agency-filled-by': 'agent'},
+              mode: {type: 'string', 'x-agency-filled-by': 'agent'},
             },
           },
         },
@@ -3552,14 +3532,14 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Open Graph Tool List' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Open Graph Tool List'}));
 
     expect(screen.getByText(/base_folder/i)).toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: /filename/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: /content/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('textbox', { name: /mode/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', {name: /filename/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', {name: /content/i})).not.toBeInTheDocument();
+    expect(screen.queryByRole('textbox', {name: /mode/i})).not.toBeInTheDocument();
     expect(screen.getByText('Filled by agent at runtime')).toBeInTheDocument();
-    expect(screen.getByText(/content/i)).toBeInTheDocument();
+    expect(screen.getByText('content', {exact: true})).toBeInTheDocument();
     expect(
       screen.getByText((content, element) => content === 'mode' && element?.tagName === 'P')
     ).toBeInTheDocument();
@@ -3624,12 +3604,12 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Memory' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Memory'}));
 
-    expect(screen.getByRole('heading', { name: 'Memory List' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Memory List'})).toBeInTheDocument();
     expect(screen.getByText('Current Selection')).toBeInTheDocument();
     expect(screen.getAllByText('Research Memory').length).toBeGreaterThan(0);
-    expect(screen.getByRole('heading', { name: 'Upload file' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Upload file'})).toBeInTheDocument();
     expect(screen.queryByText('Linked Agents')).not.toBeInTheDocument();
     expect(screen.queryByText('Linked Tasks')).not.toBeInTheDocument();
   });
@@ -3726,12 +3706,12 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Memory' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Memory'}));
 
     expect(await screen.findByText('Access Targets')).toBeInTheDocument();
     expect(screen.getAllByText('Workflow One').length).toBeGreaterThan(0);
 
-    const selectedMemoryDialog = screen.getByRole('dialog', { name: 'Selected Memory' });
+    const selectedMemoryDialog = screen.getByRole('dialog', {name: 'Selected Memory'});
     const agentAccessTargetButton = within(selectedMemoryDialog)
       .getByText('Agent One')
       .closest('button');
@@ -3750,7 +3730,7 @@ describe('WorkflowDetailWorkspace', () => {
       );
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove access' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove access'}));
     await waitFor(() => {
       expect(workflowsApi.deleteWorkflowMemoryLink).toHaveBeenCalledWith(
         'workflow-1',
@@ -3804,9 +3784,9 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Artifact' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Artifact'}));
 
-    expect(screen.getByRole('heading', { name: 'Artifact Output' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Artifact Output'})).toBeInTheDocument();
     expect(screen.getByLabelText('Name')).toHaveValue('Final report');
     expect(screen.getByLabelText('Type')).toHaveValue('report');
     expect(screen.getByLabelText('Media Type')).toHaveValue('text/markdown');
@@ -3890,20 +3870,20 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Memory' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Memory'}));
 
-    expect(await screen.findByRole('heading', { name: 'Memory List' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', {name: 'Memory List'})).toBeInTheDocument();
     expect(await screen.findByText('Customer preference')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'All 1' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Preferences 1' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Task Commitments 1' })).toHaveAttribute(
+    expect(screen.getByRole('button', {name: 'All 1'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Preferences 1'})).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Task Commitments 1'})).toHaveAttribute(
       'title',
       'Obligations, promised actions, or task cues that should influence future execution.'
     );
-    expect(screen.getByRole('button', { name: 'Files 0' })).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Files 0'})).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Select' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
         'workflow-1',
@@ -3933,19 +3913,19 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Graph Edge' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Graph Edge'}));
 
-    expect(screen.getByRole('heading', { name: 'Selected connection' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Make conditional' }));
+    expect(screen.getByRole('heading', {name: 'Selected connection'})).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Make conditional'}));
 
     const conditionInput = await screen.findByLabelText('Condition');
     await waitFor(() => {
       expect(conditionInput).toHaveFocus();
     });
     fireEvent.change(conditionInput, {
-      target: { value: 'taskA.completed === true' },
+      target: {value: 'taskA.completed === true'},
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -3970,13 +3950,13 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Assignment Edge' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Assignment Edge'}));
 
-    expect(screen.getByRole('heading', { name: 'Selected connection' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Selected connection'})).toBeInTheDocument();
     expect(screen.getByLabelText('Assigned agent')).toHaveValue('agent-1');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Remove assignment' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Graph Save Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove assignment'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Graph Save Workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -3999,9 +3979,9 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Graph Canvas: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Select Assignment Edge' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Select Assignment Edge'}));
 
-    expect(screen.getByRole('heading', { name: 'Selected connection' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', {name: 'Selected connection'})).toBeInTheDocument();
     expect(screen.getByLabelText('Assigned agent')).toHaveValue('agent-1');
     expect(screen.queryByLabelText('Task name')).not.toBeInTheDocument();
   });
@@ -4025,10 +4005,10 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Metadata Editor');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Metadata Active run behavior' }), {
-      target: { value: 'restart' },
+    fireEvent.change(screen.getByRole('combobox', {name: 'Metadata Active run behavior'}), {
+      target: {value: 'restart'},
     });
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Save Changes'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -4042,6 +4022,27 @@ describe('WorkflowDetailWorkspace', () => {
     });
   });
 
+  it('pauses autosave after a rejected save and allows an explicit retry', async () => {
+    currentSearch = 'mode=edit';
+    workflowsApi.updateWorkflow.mockRejectedValue(
+      new Error('Workflow changed; reload before saving.')
+    );
+    renderWorkspace();
+    await screen.findByText('Metadata Editor');
+    fireEvent.change(screen.getByRole('combobox', {name: 'Metadata Active run behavior'}), {
+      target: {value: 'restart'},
+    });
+    await waitFor(() => expect(workflowsApi.updateWorkflow).toHaveBeenCalledTimes(1), {
+      timeout: 2500,
+    });
+    // Wait across multiple debounce periods: a failed mutation must not resubmit
+    // the stale draft just because its wrapper or query state rerendered.
+    await new Promise((resolve) => setTimeout(resolve, 2800));
+    expect(workflowsApi.updateWorkflow).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole('button', {name: 'Save Changes'}));
+    await waitFor(() => expect(workflowsApi.updateWorkflow).toHaveBeenCalledTimes(2));
+  }, 10000);
+
   it('autosaves workflow settings in edit mode', async () => {
     currentSearch = 'mode=edit';
     workflowsApi.updateWorkflow.mockImplementation(async (_workflowId, nextWorkflow) => {
@@ -4049,14 +4050,14 @@ describe('WorkflowDetailWorkspace', () => {
         ...(nextWorkflow as WorkflowDefinition),
         agent_definitions: ((nextWorkflow as WorkflowDefinition).agent_definitions ?? []).map(
           (agent) => {
-            const savedAgent = { ...agent };
+            const savedAgent = {...agent};
             delete savedAgent.memory_ids;
             return savedAgent;
           }
         ),
         task_definitions: ((nextWorkflow as WorkflowDefinition).task_definitions ?? []).map(
           (task) => {
-            const savedTask = { ...task };
+            const savedTask = {...task};
             delete savedTask.memory_ids;
             return savedTask;
           }
@@ -4069,8 +4070,8 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Metadata Editor');
-    fireEvent.change(screen.getByRole('combobox', { name: 'Metadata Active run behavior' }), {
-      target: { value: 'restart' },
+    fireEvent.change(screen.getByRole('combobox', {name: 'Metadata Active run behavior'}), {
+      target: {value: 'restart'},
     });
 
     expect(workflowsApi.updateWorkflow).not.toHaveBeenCalled();
@@ -4086,7 +4087,7 @@ describe('WorkflowDetailWorkspace', () => {
           })
         );
       },
-      { timeout: 2500 }
+      {timeout: 2500}
     );
 
     await new Promise((resolve) => window.setTimeout(resolve, 1700));
@@ -4130,7 +4131,7 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {} },
+        {id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {}},
       ],
       edges: [],
       tool_definitions: [],
@@ -4149,8 +4150,8 @@ describe('WorkflowDetailWorkspace', () => {
     expect(select).toHaveValue('native');
     expect(screen.getByText('Graph Canvas: Workflow One')).toBeInTheDocument();
 
-    expect(screen.queryByRole('button', { name: 'Save Runtime Settings' })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(screen.queryByRole('button', {name: 'Save Runtime Settings'})).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', {name: 'Save Changes'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflow).toHaveBeenCalledWith(
@@ -4169,7 +4170,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Main agent monitoring');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Monitor this main-agent workflow' }));
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Monitor this main-agent workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflowMonitoring).toHaveBeenCalledWith('workflow-1', {
@@ -4185,7 +4186,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     const runTokenLimit = await screen.findByLabelText('Run token limit');
-    fireEvent.change(runTokenLimit, { target: { value: '1200' } });
+    fireEvent.change(runTokenLimit, {target: {value: '1200'}});
     fireEvent.blur(runTokenLimit);
 
     await waitFor(() => {
@@ -4196,7 +4197,7 @@ describe('WorkflowDetailWorkspace', () => {
       });
     });
 
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Persist context pack' }));
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Persist context pack'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflowRuntimeGovernance).toHaveBeenCalledWith('workflow-1', {
@@ -4207,7 +4208,7 @@ describe('WorkflowDetailWorkspace', () => {
     });
 
     const maxRetries = screen.getByLabelText('Max retries');
-    fireEvent.change(maxRetries, { target: { value: '2' } });
+    fireEvent.change(maxRetries, {target: {value: '2'}});
     fireEvent.blur(maxRetries);
 
     await waitFor(() => {
@@ -4251,7 +4252,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     const preserveRecent = await screen.findByLabelText('Preserve recent');
-    fireEvent.change(preserveRecent, { target: { value: '' } });
+    fireEvent.change(preserveRecent, {target: {value: ''}});
     fireEvent.blur(preserveRecent);
 
     await waitFor(() => {
@@ -4311,7 +4312,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     expect(await screen.findByText('Governance observability')).toBeInTheDocument();
     expect(observabilityApi.getWorkflowMetrics).toHaveBeenCalledWith('workflow-1');
-    expect(observabilityApi.getModelUsage).toHaveBeenCalledWith({ workflowId: 'workflow-1' });
+    expect(observabilityApi.getModelUsage).toHaveBeenCalledWith({workflowId: 'workflow-1'});
     expect(observabilityApi.getAgentMetrics).toHaveBeenCalledWith('agent-1');
     expect(screen.getByText('gpt-4.1-mini')).toBeInTheDocument();
     expect(screen.getByText('agent-1')).toBeInTheDocument();
@@ -4366,7 +4367,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     await screen.findByText('Main agent monitoring');
     expect(
-      screen.queryByRole('checkbox', { name: 'Monitor this main-agent workflow' })
+      screen.queryByRole('checkbox', {name: 'Monitor this main-agent workflow'})
     ).not.toBeInTheDocument();
   });
 
@@ -4376,7 +4377,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Main agent monitoring');
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Monitor this workflow' }));
+    fireEvent.click(screen.getByRole('checkbox', {name: 'Monitor this workflow'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflowMonitoring).toHaveBeenCalledWith('workflow-1', {
@@ -4394,7 +4395,7 @@ describe('WorkflowDetailWorkspace', () => {
     await screen.findByText('Main agent monitoring');
     expect(screen.getByText('Monitor workflow')).toBeInTheDocument();
     expect(
-      screen.queryByRole('checkbox', { name: 'Monitor this workflow' })
+      screen.queryByRole('checkbox', {name: 'Monitor this workflow'})
     ).not.toBeInTheDocument();
     expect(workflowsApi.updateWorkflowMonitoring).not.toHaveBeenCalled();
   });
@@ -4448,8 +4449,8 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     const reasonInput = await screen.findByLabelText('Exemption reason');
-    fireEvent.change(reasonInput, { target: { value: 'Human managed during launch' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save reason' }));
+    fireEvent.change(reasonInput, {target: {value: 'Human managed during launch'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Save reason'}));
 
     await waitFor(() => {
       expect(workflowsApi.updateWorkflowMonitoring).toHaveBeenCalledWith('workflow-1', {
@@ -4498,7 +4499,7 @@ describe('WorkflowDetailWorkspace', () => {
               summary: 'Require validation evidence in the final task.',
             },
             finding: {
-              evidence: [{ execution_id: 'execution-1', event_id: 'finding-1' }],
+              evidence: [{execution_id: 'execution-1', event_id: 'finding-1'}],
             },
             risk: 'Low',
           },
@@ -4515,7 +4516,7 @@ describe('WorkflowDetailWorkspace', () => {
               summary: 'Require validation evidence in the final task.',
               diff_summary: 'Update the final task expected output.',
               proposed_payload: {},
-              metadata: { source: 'main_agent_monitor' },
+              metadata: {source: 'main_agent_monitor'},
               created_at: '2026-05-18T00:00:00Z',
               updated_at: '2026-05-18T00:00:00Z',
             },
@@ -4531,7 +4532,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Require validation evidence in the final task.');
-    fireEvent.click(screen.getByRole('button', { name: 'Approve' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Approve'}));
 
     await waitFor(() => {
       expect(conversationsApi.approveApprovalRequest).toHaveBeenCalledWith('approval-monitor-1', {
@@ -4546,7 +4547,7 @@ describe('WorkflowDetailWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Graph Steer Task' }));
+    fireEvent.click(await screen.findByRole('button', {name: 'Graph Steer Task'}));
 
     await waitFor(() => {
       expect(workflowsApi.createWorkflowSteeringApproval).toHaveBeenCalledWith(
@@ -4605,7 +4606,7 @@ describe('WorkflowDetailWorkspace', () => {
         },
       ],
       nodes: [
-        { id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {} },
+        {id: 'node-task-a', name: 'Task A', node_type: 'task', task_id: 'task-a', metadata: {}},
       ],
       edges: [],
       tool_definitions: [],
@@ -4621,7 +4622,7 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('Header: Workflow One');
-    fireEvent.click(screen.getByRole('button', { name: 'Run Workflow' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Run Workflow'}));
 
     await waitFor(() => {
       expect(runsApi.executeWorkflow).toHaveBeenCalledWith('workflow-1', 'native', 'local');
@@ -4640,7 +4641,7 @@ describe('WorkflowDetailWorkspace', () => {
           workflow_id: 'workflow-1',
           enabled: true,
           trigger_type: 'cron',
-          trigger_config: { cron: '0 7 * * *' },
+          trigger_config: {cron: '0 7 * * *'},
           timezone: 'Asia/Singapore',
           max_concurrent_executions: 1,
           next_fire_at: '2026-05-16T23:00:00Z',
@@ -4653,14 +4654,14 @@ describe('WorkflowDetailWorkspace', () => {
 
     await screen.findByText('cron 0 7 * * *');
     expect(screen.queryByText('Morning Review')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: 'Edit cron' }));
-    fireEvent.change(screen.getByLabelText('Cron expression'), { target: { value: '30 8 * * *' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Save cron' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Edit cron'}));
+    fireEvent.change(screen.getByLabelText('Cron expression'), {target: {value: '30 8 * * *'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Save cron'}));
 
     await waitFor(() => {
       expect(schedulesApi.patchSchedule).toHaveBeenCalledWith('schedule-1', {
         trigger_type: 'cron',
-        trigger_config: { cron: '30 8 * * *' },
+        trigger_config: {cron: '30 8 * * *'},
       });
     });
   });
@@ -4673,9 +4674,9 @@ describe('WorkflowDetailWorkspace', () => {
     await screen.findByText(
       'No schedules are attached to this workflow. Use Set schedule to create one.'
     );
-    fireEvent.click(screen.getByRole('button', { name: 'Set schedule' }));
-    fireEvent.change(screen.getByLabelText('Cron expression'), { target: { value: '15 9 * * *' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create schedule' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Set schedule'}));
+    fireEvent.change(screen.getByLabelText('Cron expression'), {target: {value: '15 9 * * *'}});
+    fireEvent.click(screen.getByRole('button', {name: 'Create schedule'}));
 
     await waitFor(() => {
       expect(schedulesApi.createSchedule).toHaveBeenCalledWith(
@@ -4683,7 +4684,7 @@ describe('WorkflowDetailWorkspace', () => {
           workflow_id: 'workflow-1',
           enabled: true,
           trigger_type: 'cron',
-          trigger_config: { cron: '15 9 * * *' },
+          trigger_config: {cron: '15 9 * * *'},
         })
       );
     });
@@ -4699,7 +4700,7 @@ describe('WorkflowDetailWorkspace', () => {
           workflow_id: 'workflow-1',
           enabled: true,
           trigger_type: 'cron',
-          trigger_config: { cron: '0 7 * * *' },
+          trigger_config: {cron: '0 7 * * *'},
           timezone: 'Asia/Singapore',
           max_concurrent_executions: 1,
           next_fire_at: '2026-05-16T23:00:00Z',
@@ -4711,8 +4712,8 @@ describe('WorkflowDetailWorkspace', () => {
     renderWorkspace();
 
     await screen.findByText('cron 0 7 * * *');
-    fireEvent.click(screen.getByRole('button', { name: 'Remove schedule' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove schedule'}));
+    fireEvent.click(screen.getByRole('button', {name: 'Remove'}));
 
     await waitFor(() => {
       expect(schedulesApi.deleteSchedule).toHaveBeenCalledWith('schedule-1');
@@ -4731,7 +4732,7 @@ describe('WorkflowDetailWorkspace', () => {
       screen.getByText('Running executions continue unchanged. Future runs use the saved workflow.')
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('button', { name: /Update active run behavior/i })
+      screen.queryByRole('button', {name: /Update active run behavior/i})
     ).not.toBeInTheDocument();
   });
 });

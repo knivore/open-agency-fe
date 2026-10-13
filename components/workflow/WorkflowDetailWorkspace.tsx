@@ -1,25 +1,27 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import Link from 'next/link';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSession } from 'next-auth/react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
-import { agentsApi } from '@/lib/api/backend/agents';
-import { behaviorProfilesApi } from '@/lib/api/backend/behaviorProfiles';
-import { conversationsApi } from '@/lib/api/backend/conversations';
-import { credentialsApi } from '@/lib/api/backend/credentials';
-import { logsApi } from '@/lib/api/backend/logs';
-import { memoriesApi } from '@/lib/api/backend/memory';
-import { observabilityApi } from '@/lib/api/backend/observability';
-import { runsApi } from '@/lib/api/backend/runs';
-import { runtimeAdaptersApi } from '@/lib/api/backend/runtimeAdapters';
-import { schedulesApi } from '@/lib/api/backend/schedules';
-import { toolsApi } from '@/lib/api/backend/tools';
-import { workflowsApi } from '@/lib/api/backend/workflows';
-import { queryKeys } from '@/lib/react-query/queryKeys';
-import { integrationConnectorHrefForProviderKey } from '@/lib/integrations/connectorNavigation';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useSession} from 'next-auth/react';
+import {usePathname, useRouter, useSearchParams} from 'next/navigation';
+import {useMutation, useQueries, useQuery, useQueryClient} from '@tanstack/react-query';
+import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
+import {agentsApi} from '@/lib/api/backend/agents';
+import {behaviorProfilesApi} from '@/lib/api/backend/behaviorProfiles';
+import {conversationsApi} from '@/lib/api/backend/conversations';
+import {credentialsApi} from '@/lib/api/backend/credentials';
+import {logsApi} from '@/lib/api/backend/logs';
+import {memoriesApi} from '@/lib/api/backend/memory';
+import type {ObservabilityAgentMetrics} from '@/lib/api/backend/observability';
+import {observabilityApi} from '@/lib/api/backend/observability';
+import {runsApi} from '@/lib/api/backend/runs';
+import {runtimeAdaptersApi} from '@/lib/api/backend/runtimeAdapters';
+import {schedulesApi} from '@/lib/api/backend/schedules';
+import {toolsApi} from '@/lib/api/backend/tools';
+import {workflowsApi} from '@/lib/api/backend/workflows';
+import {queryKeys} from '@/lib/react-query/queryKeys';
+import {integrationConnectorHrefForProviderKey} from '@/lib/integrations/connectorNavigation';
 import {
   readWorkflowCapabilityTags,
   WORKFLOW_CAPABILITY_OPTIONS,
@@ -34,8 +36,8 @@ import {
   sortToolsForWorkflowCapabilities,
   toolsRecommendedForWorkflowCapabilities,
 } from '@/lib/workflows/capabilityTooling';
-import { cn } from '@/lib/utils';
-import { useWorkflowRunLauncher } from '@/lib/workflows/useWorkflowRunLauncher';
+import {cn} from '@/lib/utils';
+import {useWorkflowRunLauncher} from '@/lib/workflows/useWorkflowRunLauncher';
 import {
   createWorkflowChangeSummary,
   type WorkflowChangeSummary,
@@ -44,8 +46,8 @@ import {
   normalizeWorkflowAgentDefinition,
   resolveWorkflowExecutionHost,
 } from '@/lib/workflows/executionPayload';
-import { toolDisplayName } from '@/lib/tools/displayName';
-import { rebuildWorkflowGraph } from '@/lib/workflows/workflowDefinitionMutations';
+import {toolDisplayName} from '@/lib/tools/displayName';
+import {rebuildWorkflowGraph} from '@/lib/workflows/workflowDefinitionMutations';
 import {
   applyPersonaAgentSnapshot,
   findPersonaSourceAgent,
@@ -53,10 +55,10 @@ import {
   isPersonaAgentFieldOverridden,
   markPersonaAgentFieldOverrides,
   normalizeBackendPersonaVersionNotices,
-  personaAgentSnapshotFields,
-  shortPersonaVersionId,
   type PersonaAgentSnapshotField,
+  personaAgentSnapshotFields,
   type PersonaAgentVersionNotice,
+  shortPersonaVersionId,
 } from '@/lib/workflows/personaVersioning';
 import {
   createWorkflowGraphDraftAgentDefinition,
@@ -69,7 +71,7 @@ import {
   workflowGraphToolListSelectionId,
   type WorkflowGraphValidationIssue,
 } from '@/lib/workflows/workflowGraphAdapter';
-import { downloadWorkflowExportPackage } from '@/lib/workflows/workflowExport';
+import {downloadWorkflowExportPackage} from '@/lib/workflows/workflowExport';
 import {
   applyEdgeDraftMetadata,
   labelForEntrypointTask,
@@ -85,9 +87,10 @@ import WorkflowGraphCanvas from '@/components/workflow/WorkflowGraphCanvas';
 import WorkflowMetadataEditor from '@/components/workflow/WorkflowMetadataEditor';
 import WorkflowMonitoringControls from '@/components/workflow/WorkflowMonitoringControls';
 import WorkflowMonitoringProposals from '@/components/workflow/WorkflowMonitoringProposals';
-import WorkflowGovernancePanel from '@/components/workflow/WorkflowGovernancePanel';
+import WorkflowGovernancePanel, { WorkflowVersionHistory } from '@/components/workflow/WorkflowGovernancePanel';
 import WorkflowObservabilitySummary from '@/components/workflow/WorkflowObservabilitySummary';
-import WorkflowRuntimeGovernanceControls from '@/components/workflow/WorkflowRuntimeGovernanceControls';
+import WorkflowRuntimeGovernanceControls
+  from '@/components/workflow/WorkflowRuntimeGovernanceControls';
 import WorkflowSchedulesPanel from '@/components/workflow/WorkflowSchedulesPanel';
 import {
   WorkflowReadOnlySummaryField,
@@ -107,37 +110,36 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '../library/shadcn/accordion';
-import { Tabs, TabsList, TabsTrigger } from '../library/shadcn/tabs';
-import { Badge } from '../library/shadcn/badge';
-import { Button } from '../library/shadcn/button';
-import { Input } from '../library/shadcn/input';
-import { Label } from '../library/shadcn/label';
-import { Textarea } from '../library/shadcn/textarea';
+import {Tabs, TabsList, TabsTrigger} from '../library/shadcn/tabs';
+import {Badge} from '../library/shadcn/badge';
+import {Button} from '../library/shadcn/button';
+import {Input} from '../library/shadcn/input';
+import {Label} from '../library/shadcn/label';
+import {Textarea} from '../library/shadcn/textarea';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/library/shadcn/tooltip';
-import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
-import { toast } from 'sonner';
-import type { AgentDefinition } from '@/types/agents';
-import type { JsonObject, JsonValue } from '@/types/api';
-import type { AuthUser } from '@/types/auth';
-import type { ExecutionEventRecord, WorkflowRun } from '@/types/runtime';
-import type { ConnectorBindingDefinition, ToolDefinition } from '@/types/tools';
+import {EmptyCard, ErrorAlert, LoadingCard} from '@/components/agent-app/StatePanels';
+import {toast} from 'sonner';
+import type {AgentDefinition} from '@/types/agents';
+import type {JsonObject, JsonValue} from '@/types/api';
+import type {AuthUser} from '@/types/auth';
+import type {ExecutionEventRecord, WorkflowRun} from '@/types/runtime';
+import type {ConnectorBindingDefinition, ToolDefinition} from '@/types/tools';
 import type {
   ConnectorCapabilitiesPayload,
   ConnectorCapabilityDefinition,
   ConnectorMetadataRequirementDefinition,
   CredentialDefinition,
 } from '@/types/integrations';
-import type { ObservabilityAgentMetrics } from '@/lib/api/backend/observability';
 import type {
-  WorkflowDefinition,
   WorkflowAgentToolConfig,
   WorkflowArtifactDefinition,
   WorkflowCapabilityTag,
+  WorkflowDefinition,
   WorkflowMemoryDefinition,
   WorkflowMonitoringOperatorPayload,
   WorkflowRuntimeGovernanceOperatorPayload,
@@ -147,8 +149,7 @@ import {
   workflowArtifactDefinitionsMetadataKey,
   workflowMemoryDefinitionsFor,
 } from '@/types/workflows';
-import type { GraphEdge, GraphRuntimeEvent } from '@/modules/react-flow-graph/types';
-import { MEMORY_TYPE_TABS, memoryTypeLabel } from '@/types/memory';
+import type {GraphEdge, GraphRuntimeEvent} from '@/modules/react-flow-graph/types';
 import type {
   MemoryCatalogGroupKey,
   MemoryCatalogItem,
@@ -156,6 +157,7 @@ import type {
   MemoryTypeTabId,
   WorkflowMemoryLinkTargetType,
 } from '@/types/memory';
+import {MEMORY_TYPE_TABS, memoryTypeLabel} from '@/types/memory';
 
 type WorkflowExecutionHost = 'local' | 'docker';
 type WorkflowAutoSaveStatus = 'idle' | 'saving' | 'saved' | 'blocked' | 'error';
@@ -166,11 +168,13 @@ type WorkflowScopedState<T> = {
   workflowId: string;
   value: T;
 };
+
 interface WorkflowGraphReviewTarget {
   type: WorkflowGraphReviewTargetType;
   id: string;
   label: string;
 }
+
 interface WorkflowGraphReviewNote extends JsonObject {
   target_type: WorkflowGraphReviewTargetType;
   target_id: string;
@@ -178,6 +182,7 @@ interface WorkflowGraphReviewNote extends JsonObject {
   updated_at: string;
   updated_by?: string | null;
 }
+
 interface ToolParameterField {
   name: string;
   type: ToolParameterFieldType;
@@ -188,6 +193,7 @@ interface ToolParameterField {
   filledBy: ToolParameterFieldFilledBy;
   userVisible: boolean;
 }
+
 interface SelectedGraphEdgeReference {
   id: string;
   agentId: string | null;
@@ -198,6 +204,7 @@ interface SelectedGraphEdgeReference {
   sourceTaskId: string | null;
   targetTaskId: string | null;
 }
+
 interface WorkflowUpdateOverrides {
   defaultRuntimeAdapterId?: string;
   allowedRuntimeAdapterIds?: string[];
@@ -277,7 +284,7 @@ function parseConnectorTargetScopeForm(
   }
 
   const fieldKeys = new Set(targetFields.map((field) => field.key));
-  const nextTargetScope: JsonObject = { ...previousTargetScope };
+  const nextTargetScope: JsonObject = {...previousTargetScope};
   for (const field of targetFields) {
     const rawValue = String(data.get(`target_scope.${field.key}`) ?? '').trim();
     if (rawValue) {
@@ -503,11 +510,11 @@ function parseToolParameterDraftValue(
 ): { parsed?: JsonValue; error?: string } {
   const trimmed = value.trim();
   if (!trimmed) {
-    return { parsed: undefined };
+    return {parsed: undefined};
   }
 
   if (field.enumValues?.length && !field.enumValues.includes(trimmed)) {
-    return { error: `${field.name} must be one of ${field.enumValues.join(', ')}.` };
+    return {error: `${field.name} must be one of ${field.enumValues.join(', ')}.`};
   }
 
   if (field.type === 'number' || field.type === 'integer') {
@@ -517,14 +524,14 @@ function parseToolParameterDraftValue(
         error: `${field.name} must be a valid ${field.type === 'integer' ? 'integer' : 'number'}.`,
       };
     }
-    return { parsed: numericValue };
+    return {parsed: numericValue};
   }
 
   if (field.type === 'boolean') {
     if (trimmed !== 'true' && trimmed !== 'false') {
-      return { error: `${field.name} must be true or false.` };
+      return {error: `${field.name} must be true or false.`};
     }
-    return { parsed: trimmed === 'true' };
+    return {parsed: trimmed === 'true'};
   }
 
   if (field.type === 'object' || field.type === 'array') {
@@ -534,18 +541,18 @@ function parseToolParameterDraftValue(
         field.type === 'object' &&
         (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
       ) {
-        return { error: `${field.name} must be a JSON object.` };
+        return {error: `${field.name} must be a JSON object.`};
       }
       if (field.type === 'array' && !Array.isArray(parsed)) {
-        return { error: `${field.name} must be a JSON array.` };
+        return {error: `${field.name} must be a JSON array.`};
       }
-      return { parsed };
+      return {parsed};
     } catch {
-      return { error: `${field.name} must be valid JSON.` };
+      return {error: `${field.name} must be valid JSON.`};
     }
   }
 
-  return { parsed: trimmed };
+  return {parsed: trimmed};
 }
 
 function runtimeToolConfigsForAgent(agent: AgentDefinition | null): WorkflowAgentToolConfig[] {
@@ -556,12 +563,12 @@ function runtimeToolConfigsForAgent(agent: AgentDefinition | null): WorkflowAgen
   const toolConfigs = (runtimeConfig as Record<string, unknown>).tool_configs;
   return Array.isArray(toolConfigs)
     ? toolConfigs.filter(
-        (value): value is WorkflowAgentToolConfig =>
-          Boolean(value) &&
-          typeof value === 'object' &&
-          !Array.isArray(value) &&
-          typeof (value as { id?: unknown }).id === 'string'
-      )
+      (value): value is WorkflowAgentToolConfig =>
+        Boolean(value) &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        typeof (value as { id?: unknown }).id === 'string'
+    )
     : [];
 }
 
@@ -585,7 +592,7 @@ function withAgentToolRuntimeConfig(
     agent.metadata?.runtime_config &&
     typeof agent.metadata.runtime_config === 'object' &&
     !Array.isArray(agent.metadata.runtime_config)
-      ? { ...(agent.metadata.runtime_config as Record<string, unknown>) }
+      ? {...(agent.metadata.runtime_config as Record<string, unknown>)}
       : {};
 
   return {
@@ -623,7 +630,7 @@ function withoutAgentToolRuntimeConfig(agent: AgentDefinition, toolIds: string[]
     agent.metadata?.runtime_config &&
     typeof agent.metadata.runtime_config === 'object' &&
     !Array.isArray(agent.metadata.runtime_config)
-      ? { ...(agent.metadata.runtime_config as Record<string, unknown>) }
+      ? {...(agent.metadata.runtime_config as Record<string, unknown>)}
       : {};
 
   if (nextConfigs.length === 0) {
@@ -659,9 +666,9 @@ function toolParameterFieldsForEditing(
 }
 
 function ToolParameterRuntimeHints({
-  fields,
-  description,
-}: {
+                                     fields,
+                                     description,
+                                   }: {
   fields: ToolParameterField[];
   description: string;
 }) {
@@ -670,7 +677,8 @@ function ToolParameterRuntimeHints({
   }
 
   return (
-    <div className="space-y-2 rounded-md border border-dashed border-neutral-200 bg-neutral-50/80 p-3">
+    <div
+      className="space-y-2 rounded-md border border-dashed border-neutral-200 bg-neutral-50/80 p-3">
       <div>
         <p className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500">
           Filled by agent at runtime
@@ -695,13 +703,13 @@ function ToolParameterRuntimeHints({
 }
 
 function ToolParameterEditor({
-  tool,
-  agent,
-  isEditing,
-  onSave,
-  onClear,
-  mode = 'default',
-}: {
+                               tool,
+                               agent,
+                               isEditing,
+                               onSave,
+                               onClear,
+                               mode = 'default',
+                             }: {
   tool: ToolDefinition;
   agent: AgentDefinition;
   isEditing: boolean;
@@ -710,7 +718,7 @@ function ToolParameterEditor({
   mode?: 'default' | 'runtime-only';
 }) {
   const fields = useMemo(() => toolParameterFields(tool), [tool]);
-  const { editableFields, runtimeFields } = useMemo(
+  const {editableFields, runtimeFields} = useMemo(
     () => toolParameterFieldsForEditing(fields, mode),
     [fields, mode]
   );
@@ -725,7 +733,8 @@ function ToolParameterEditor({
 
   if (editableFields.length === 0 && runtimeFields.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-neutral-200 bg-white p-3 text-xs text-neutral-500">
+      <div
+        className="rounded-md border border-dashed border-neutral-200 bg-white p-3 text-xs text-neutral-500">
         This tool does not expose configurable input parameters.
       </div>
     );
@@ -795,12 +804,12 @@ function ToolParameterEditor({
               {field.required ? ' *' : ''}
             </span>
             {field.enumValues?.length ? (
-              <select
+              <NativeSelect
                 value={draftValues[field.name] ?? ''}
                 disabled={!isEditing}
                 className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:bg-neutral-100 disabled:text-neutral-500"
                 onChange={(event) =>
-                  setDraftValues((current) => ({ ...current, [field.name]: event.target.value }))
+                  setDraftValues((current) => ({...current, [field.name]: event.target.value}))
                 }
               >
                 <option value="">Select value</option>
@@ -809,7 +818,7 @@ function ToolParameterEditor({
                     {value}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             ) : field.type === 'object' || field.type === 'array' ? (
               <Textarea
                 value={draftValues[field.name] ?? ''}
@@ -817,22 +826,22 @@ function ToolParameterEditor({
                 className="min-h-24 font-mono text-xs"
                 placeholder={field.type === 'object' ? '{\n  \n}' : '[\n  \n]'}
                 onChange={(event) =>
-                  setDraftValues((current) => ({ ...current, [field.name]: event.target.value }))
+                  setDraftValues((current) => ({...current, [field.name]: event.target.value}))
                 }
               />
             ) : field.type === 'boolean' ? (
-              <select
+              <NativeSelect
                 value={draftValues[field.name] ?? ''}
                 disabled={!isEditing}
                 className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:bg-neutral-100 disabled:text-neutral-500"
                 onChange={(event) =>
-                  setDraftValues((current) => ({ ...current, [field.name]: event.target.value }))
+                  setDraftValues((current) => ({...current, [field.name]: event.target.value}))
                 }
               >
                 <option value="">Select value</option>
                 <option value="true">true</option>
                 <option value="false">false</option>
-              </select>
+              </NativeSelect>
             ) : (
               <Input
                 type={field.type === 'number' || field.type === 'integer' ? 'number' : 'text'}
@@ -840,7 +849,7 @@ function ToolParameterEditor({
                 value={draftValues[field.name] ?? ''}
                 disabled={!isEditing}
                 onChange={(event) =>
-                  setDraftValues((current) => ({ ...current, [field.name]: event.target.value }))
+                  setDraftValues((current) => ({...current, [field.name]: event.target.value}))
                 }
               />
             )}
@@ -875,13 +884,13 @@ function integrationSetupHrefForProvider(providerKey: string) {
 }
 
 function ConnectorBindingFields({
-  binding,
-  defaultProvider,
-  connectorCredentials,
-  connectorCapabilities,
-  isEditing,
-  purposePlaceholder,
-}: {
+                                  binding,
+                                  defaultProvider,
+                                  connectorCredentials,
+                                  connectorCapabilities,
+                                  isEditing,
+                                  purposePlaceholder,
+                                }: {
   binding: ConnectorBindingDefinition | null;
   defaultProvider?: string;
   connectorCredentials: CredentialDefinition[];
@@ -934,11 +943,11 @@ function ConnectorBindingFields({
           <span className="text-xs font-medium text-neutral-500">Provider</span>
           {binding?.provider || defaultProvider ? (
             <>
-              <Input aria-label="Provider" value={selectedProviderName} readOnly />
-              <input type="hidden" name="provider" value={selectedProvider} />
+              <Input aria-label="Provider" value={selectedProviderName} readOnly/>
+              <Input type="hidden" name="provider" value={selectedProvider}/>
             </>
           ) : (
-            <select
+            <NativeSelect
               aria-label="Provider"
               name="provider"
               value={draftProvider}
@@ -959,12 +968,12 @@ function ConnectorBindingFields({
                     {capability.displayName ?? capability.backendKey}
                   </option>
                 ))}
-            </select>
+            </NativeSelect>
           )}
         </div>
         <label className="space-y-1">
           <span className="text-xs font-medium text-neutral-500">Credential</span>
-          <select
+          <NativeSelect
             name="credential_id"
             value={preferredCredentialId}
             required
@@ -982,7 +991,7 @@ function ConnectorBindingFields({
                 {credentialBindingLabel(credential)}
               </option>
             ))}
-          </select>
+          </NativeSelect>
           {providerCredentials.length === 0 && setupHref ? (
             <span className="flex flex-wrap items-center gap-2 text-xs text-amber-700">
               <span>No {selectedProviderName} credentials are saved yet.</span>
@@ -1355,7 +1364,7 @@ function nextWorkflowGraphReviewNotes(
   const targetKey = workflowGraphReviewNoteKey(target);
   const retainedNotes = currentNotes.filter(
     (candidate) =>
-      workflowGraphReviewNoteKey({ type: candidate.target_type, id: candidate.target_id }) !==
+      workflowGraphReviewNoteKey({type: candidate.target_type, id: candidate.target_id}) !==
       targetKey
   );
 
@@ -1682,22 +1691,22 @@ function backendValidationIssueMessage(issue: BackendWorkflowValidationIssue) {
 
 function summarizeBackendValidation(value: unknown): BackendWorkflowValidationSummary {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return { errors: [], warnings: [] };
+    return {errors: [], warnings: []};
   }
 
   const payload = value as Record<string, unknown>;
   const errors = Array.isArray(payload.validation_errors)
     ? payload.validation_errors.map((issue) =>
-        backendValidationIssueMessage(issue as BackendWorkflowValidationIssue)
-      )
+      backendValidationIssueMessage(issue as BackendWorkflowValidationIssue)
+    )
     : [];
   const warnings = Array.isArray(payload.validation_warnings)
     ? payload.validation_warnings.map((issue) =>
-        backendValidationIssueMessage(issue as BackendWorkflowValidationIssue)
-      )
+      backendValidationIssueMessage(issue as BackendWorkflowValidationIssue)
+    )
     : [];
 
-  return { errors, warnings };
+  return {errors, warnings};
 }
 
 function runtimeEventSummary(event: GraphRuntimeEvent) {
@@ -1724,8 +1733,8 @@ function runtimeEventSummary(event: GraphRuntimeEvent) {
     : null;
 }
 
-export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: string }) {
-  const { data: session } = useSession();
+export default function WorkflowDetailWorkspace({workflowId}: { workflowId: string }) {
+  const {data: session} = useSession();
   const user = session?.user as AuthUser | undefined;
   const actorUserId = user?.id || user?.email || 'web-user';
   const pathname = usePathname();
@@ -1785,17 +1794,17 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   });
   const workflowModelUsageQuery = useQuery({
     queryKey: queryKeys.backendWorkflowModelUsage(workflowId),
-    queryFn: () => observabilityApi.getModelUsage({ workflowId }),
+    queryFn: () => observabilityApi.getModelUsage({workflowId}),
     refetchInterval: shouldRefreshRuntimeActivity ? 5000 : false,
   });
   const recentWorkflowRuns = useMemo(
     () =>
       shouldRefreshRuntimeActivity
         ? [...(runsQuery.data ?? [])]
-            .sort((left, right) =>
-              workflowRunTimestamp(right).localeCompare(workflowRunTimestamp(left))
-            )
-            .slice(0, workflowGraphRunEventLimit)
+          .sort((left, right) =>
+            workflowRunTimestamp(right).localeCompare(workflowRunTimestamp(left))
+          )
+          .slice(0, workflowGraphRunEventLimit)
         : [],
     [runsQuery.data, shouldRefreshRuntimeActivity]
   );
@@ -1949,7 +1958,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         : (overrides?.allowedRuntimeAdapterIds ?? allowedRuntimeAdapterIds);
       const nextExecutionHost = overrides?.executionHost ?? executionHost;
       const normalizedAgentDefinitions = agentDefinitions.map((agent) => {
-        const agentDefinition = { ...agent };
+        const agentDefinition = {...agent};
         delete agentDefinition.objective;
         return normalizeWorkflowAgentDefinition({
           ...agentDefinition,
@@ -1997,12 +2006,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     },
     onSuccess: async (nextWorkflow, variables) => {
       setAutoSavePhase('idle');
-      setBackendValidationSummary({ errors: [], warnings: [] });
+      setBackendValidationSummary({errors: [], warnings: []});
       queryClient.setQueryData(queryKeys.backendWorkflow(workflowId), nextWorkflow);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowVersions(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowVersions(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowPersonaVersionNotices(workflowId),
         }),
@@ -2013,7 +2022,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       }
       suppressEditModeStartRef.current = true;
       stopEditing();
-      updateWorkflowUrl({ nextMode: null });
+      updateWorkflowUrl({nextMode: null});
     },
     onError: () => {
       setAutoSavePhase('error');
@@ -2026,8 +2035,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     onSuccess: async (response) => {
       queryClient.setQueryData(queryKeys.backendWorkflow(workflowId), response.workflow);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowPersonaVersionNotices(workflowId),
         }),
@@ -2049,8 +2058,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     onSuccess: async (response) => {
       queryClient.setQueryData(queryKeys.backendWorkflow(workflowId), response.workflow);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowPersonaVersionNotices(workflowId),
         }),
@@ -2068,9 +2077,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const promoteWorkflowAgentMutation = useMutation({
     mutationFn: ({
-      agentId,
-      payload,
-    }: {
+                   agentId,
+                   payload,
+                 }: {
       agentId: string;
       payload: {
         global_agent_id?: string | null;
@@ -2080,9 +2089,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     onSuccess: async (response) => {
       queryClient.setQueryData(queryKeys.backendWorkflow(workflowId), response.workflow);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendAgentDefinitions() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendAgentDefinitions()}),
       ]);
       if (response.workflow_updated) {
         applyWorkflowDefinition(response.workflow);
@@ -2111,7 +2120,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     mutationFn: (patch: Record<string, unknown>) =>
       workflowsApi.updateWorkflowMonitoring(workflowId, patch),
     onMutate: async (patch) => {
-      await queryClient.cancelQueries({ queryKey: queryKeys.backendWorkflow(workflowId) });
+      await queryClient.cancelQueries({queryKey: queryKeys.backendWorkflow(workflowId)});
       const previousWorkflow = queryClient.getQueryData<WorkflowDefinition>(
         queryKeys.backendWorkflow(workflowId)
       );
@@ -2129,7 +2138,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         });
       }
 
-      return { previousWorkflow, previousDisplayPatch };
+      return {previousWorkflow, previousDisplayPatch};
     },
     onSuccess: async (response, patch) => {
       queryClient.setQueryData<WorkflowDefinition | undefined>(
@@ -2140,9 +2149,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           if (!previousWorkflow) {
             return responseMonitoring
               ? {
-                  ...response.workflow,
-                  monitoring: applyMonitoringPatch(responseMonitoring, patch),
-                }
+                ...response.workflow,
+                monitoring: applyMonitoringPatch(responseMonitoring, patch),
+              }
               : response.workflow;
           }
 
@@ -2163,7 +2172,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         }
       );
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMonitoringEvents(workflowId),
         }),
@@ -2182,7 +2191,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       workflowsApi.updateWorkflowRuntimeGovernance(workflowId, patch),
     onMutate: async (patch) => {
       await Promise.all([
-        queryClient.cancelQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
+        queryClient.cancelQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
         queryClient.cancelQueries({
           queryKey: queryKeys.backendWorkflowRuntimeGovernance(workflowId),
         }),
@@ -2216,7 +2225,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         }
       }
 
-      return { previousWorkflow, previousRuntimeGovernance, previousDisplayPatch };
+      return {previousWorkflow, previousRuntimeGovernance, previousDisplayPatch};
     },
     onSuccess: async (response, patch) => {
       const responseGovernance =
@@ -2261,7 +2270,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         }
       );
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowRuntimeGovernance(workflowId),
         }),
@@ -2291,8 +2300,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         response.shared_memory
       );
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowSharedMemory(workflowId),
         }),
@@ -2302,11 +2311,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const addWorkflowMemoryLinkMutation = useMutation({
     mutationFn: ({
-      targetType,
-      targetId,
-      refId,
-      refType,
-    }: {
+                   targetType,
+                   targetId,
+                   refId,
+                   refType,
+                 }: {
       targetType: WorkflowMemoryLinkTargetType;
       targetId: string | null;
       refId: string;
@@ -2328,8 +2337,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMemoryLinks(workflowId),
         }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
       ]);
       toast.success('Memory linked.');
     },
@@ -2345,17 +2354,17 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         queryKeys.backendWorkflowMemoryLinks(workflowId),
         workflowMemoryLinksQuery.data
           ? {
-              ...workflowMemoryLinksQuery.data,
-              items: workflowMemoryLinksQuery.data.items.filter((link) => link.id !== linkId),
-            }
+            ...workflowMemoryLinksQuery.data,
+            items: workflowMemoryLinksQuery.data.items.filter((link) => link.id !== linkId),
+          }
           : undefined
       );
       await Promise.all([
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMemoryLinks(workflowId),
         }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
       ]);
       toast.success('Memory link removed.');
     },
@@ -2366,11 +2375,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const monitorApprovalMutation = useMutation({
     mutationFn: async ({
-      approvalRequestId,
-      action,
-      reason,
-      steeringParameters,
-    }: {
+                         approvalRequestId,
+                         action,
+                         reason,
+                         steeringParameters,
+                       }: {
       approvalRequestId: string;
       action: 'approve' | 'reject' | 'request_changes' | 'split';
       reason?: string | null;
@@ -2380,7 +2389,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         return conversationsApi.approveApprovalRequest(approvalRequestId, {
           user_id: actorUserId,
           reason,
-          ...(steeringParameters ? { steering_parameters: steeringParameters } : {}),
+          ...(steeringParameters ? {steering_parameters: steeringParameters} : {}),
         });
       }
       if (action === 'reject') {
@@ -2402,8 +2411,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMonitoringEvents(workflowId),
         }),
@@ -2413,9 +2422,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const dispatchMonitorProposalMutation = useMutation({
     mutationFn: ({
-      proposalEventId,
-      operatorNote,
-    }: {
+                   proposalEventId,
+                   operatorNote,
+                 }: {
       proposalEventId: string;
       operatorNote?: string;
     }) =>
@@ -2454,7 +2463,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   });
 
   const updateScheduleMutation = useMutation({
-    mutationFn: ({ scheduleId, patch }: { scheduleId: string; patch: Record<string, unknown> }) =>
+    mutationFn: ({scheduleId, patch}: { scheduleId: string; patch: Record<string, unknown> }) =>
       schedulesApi.patchSchedule(scheduleId, patch),
     onSuccess: async () => {
       await queryClient.invalidateQueries({
@@ -2476,8 +2485,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     mutationFn: (scheduleId: string) => schedulesApi.triggerNow(scheduleId),
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowSchedules(workflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowRuns(workflowId) }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowSchedules(workflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowRuns(workflowId)}),
       ]);
     },
   });
@@ -2529,7 +2538,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       updateTaskDefinition,
       upsertToolDefinition,
     },
-  } = useWorkflowEditorDraft({ workflow, workflowId });
+  } = useWorkflowEditorDraft({workflow, workflowId});
   const monitoringExemptionReason =
     monitoringExemptionReasonState.workflowId === workflowId
       ? monitoringExemptionReasonState.value
@@ -2540,7 +2549,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     monitoringDisplayPatchState.workflowId === workflowId ? monitoringDisplayPatchState.value : {};
   const setMonitoringExemptionReason = useCallback(
     (value: string) => {
-      setMonitoringExemptionReasonState({ workflowId, value });
+      setMonitoringExemptionReasonState({workflowId, value});
     },
     [workflowId]
   );
@@ -2566,10 +2575,10 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   const displayedRuntimeGovernance =
     (runtimeGovernanceQuery.data ?? workflow?.runtime_governance)
       ? applyRuntimeGovernancePatch(
-          (runtimeGovernanceQuery.data ??
-            workflow?.runtime_governance) as WorkflowRuntimeGovernanceOperatorPayload,
-          runtimeGovernanceDisplayPatch
-        )
+        (runtimeGovernanceQuery.data ??
+          workflow?.runtime_governance) as WorkflowRuntimeGovernanceOperatorPayload,
+        runtimeGovernanceDisplayPatch
+      )
       : null;
   const workflowObservabilityAgentIds = visibleAgentDefinitions
     .map((agent) => agent.id)
@@ -2636,6 +2645,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       !isEditing ||
       !hasUnsavedChanges ||
       draftValidationIssues.length > 0 ||
+      // A rejected save needs an explicit retry, not a replay on every rerender.
+      autoSavePhase === 'error' ||
       updateMutation.isPending
     ) {
       return;
@@ -2644,10 +2655,10 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     const timeout = window.setTimeout(() => {
       setAutoSavePhase('saving');
       updateMutation
-        .mutateAsync({ keepEditing: true })
+        .mutateAsync({keepEditing: true})
         .then(() => {
           setAutoSavePhase('idle');
-          setLastAutoSavedState({ workflowId, value: new Date() });
+          setLastAutoSavedState({workflowId, value: new Date()});
         })
         .catch(() => {
           setAutoSavePhase('error');
@@ -2657,6 +2668,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     return () => window.clearTimeout(timeout);
   }, [
     autoSaveDraftSignature,
+    autoSavePhase,
     draftValidationIssues.length,
     hasUnsavedChanges,
     isEditing,
@@ -2683,9 +2695,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const updateWorkflowUrl = useCallback(
     ({
-      nextMode = activeMode,
-      nextTaskId = requestedTaskId,
-    }: {
+       nextMode = activeMode,
+       nextTaskId = requestedTaskId,
+     }: {
       nextMode?: 'edit' | null;
       nextTaskId?: string | null;
     }) => {
@@ -2708,14 +2720,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       nextSearchParams.delete('edge');
 
       const nextQuery = nextSearchParams.toString();
-      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {scroll: false});
     },
     [activeMode, pathname, requestedTaskId, router, searchParams]
   );
 
   useEffect(() => {
     if (workflowLoaded && requestedTaskId && !selectedTaskStillExists) {
-      updateWorkflowUrl({ nextTaskId: null });
+      updateWorkflowUrl({nextTaskId: null});
     }
   }, [requestedTaskId, selectedTaskStillExists, updateWorkflowUrl, workflowLoaded]);
 
@@ -2737,7 +2749,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   );
   const runtimeAdapters = runtimeAdaptersQuery.data?.items ?? [];
   const defaultExecutionHost = resolveWorkflowExecutionHost(workflow);
-  const { preferredRuntimeAdapterId, launchMutation: executeMutation } = useWorkflowRunLauncher({
+  const {preferredRuntimeAdapterId, launchMutation: executeMutation} = useWorkflowRunLauncher({
     workflowId,
     workflow,
     runtimeAdapters,
@@ -2789,9 +2801,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   }, [runsQuery.data]);
   const graphRuntimeControlApprovalToolId = graphRuntimeControlRun
     ? ([...workflowGraphRuntimeEvents]
-        .reverse()
-        .map((event) => graphRuntimeEventPendingApprovalTool(event, graphRuntimeControlRun.id))
-        .find((toolId): toolId is string => Boolean(toolId)) ?? null)
+      .reverse()
+      .map((event) => graphRuntimeEventPendingApprovalTool(event, graphRuntimeControlRun.id))
+      .find((toolId): toolId is string => Boolean(toolId)) ?? null)
     : null;
   const graphRuntimeControlApprovalLabel = graphRuntimeControlApprovalToolId
     ? toolMap.get(graphRuntimeControlApprovalToolId)
@@ -2803,12 +2815,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     : null;
   const refreshWorkflowRuntimeGraph = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowRuns(workflowId) }),
+      queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowRuns(workflowId)}),
       queryClient.invalidateQueries({
         queryKey: queryKeys.backendWorkflowMonitoringEvents(workflowId),
       }),
       ...recentWorkflowRuns.map((run) =>
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendRunEvents(run.id) })
+        queryClient.invalidateQueries({queryKey: queryKeys.backendRunEvents(run.id)})
       ),
     ]);
   };
@@ -2817,22 +2829,22 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     onSuccess: refreshWorkflowRuntimeGraph,
   });
   const graphRetryTaskMutation = useMutation({
-    mutationFn: ({ runId, taskId, reason }: { runId: string; taskId: string; reason?: string }) =>
+    mutationFn: ({runId, taskId, reason}: { runId: string; taskId: string; reason?: string }) =>
       runsApi.retryTask(runId, taskId, reason),
     onSuccess: refreshWorkflowRuntimeGraph,
   });
   const graphCheckpointResumeMutation = useMutation({
-    mutationFn: ({ runId, reason }: { runId: string; reason?: string }) =>
+    mutationFn: ({runId, reason}: { runId: string; reason?: string }) =>
       runsApi.resumeFromCheckpoint(runId, reason),
     onSuccess: refreshWorkflowRuntimeGraph,
   });
   const graphNativeApprovalDecisionMutation = useMutation({
     mutationFn: ({
-      runId,
-      toolId,
-      action,
-      reason,
-    }: {
+                   runId,
+                   toolId,
+                   action,
+                   reason,
+                 }: {
       runId: string;
       toolId: string;
       action: 'approve' | 'reject';
@@ -2844,7 +2856,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     onSuccess: refreshWorkflowRuntimeGraph,
   });
   const createGraphSteeringApprovalMutation = useMutation({
-    mutationFn: ({ taskId, agentId }: { taskId?: string | null; agentId?: string | null }) => {
+    mutationFn: ({taskId, agentId}: { taskId?: string | null; agentId?: string | null }) => {
       const task = taskId
         ? visibleTaskDefinitions.find((candidate) => candidate.id === taskId)
         : null;
@@ -2886,7 +2898,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         queryClient.setQueryData(queryKeys.backendWorkflow(workflowId), response.workflow);
       }
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(workflowId) }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(workflowId)}),
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMonitoringEvents(workflowId),
         }),
@@ -2937,8 +2949,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     patch:
       | Partial<typeof defaultAgentPromotionState>
       | ((
-          currentState: typeof defaultAgentPromotionState
-        ) => Partial<typeof defaultAgentPromotionState>)
+      currentState: typeof defaultAgentPromotionState
+    ) => Partial<typeof defaultAgentPromotionState>)
   ) => {
     setAgentPromotionState((currentState) => {
       const baseState =
@@ -2959,10 +2971,10 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     }));
   };
   const setAgentPromotionGlobalId = (globalId: string) => {
-    updateAgentPromotionState({ globalId });
+    updateAgentPromotionState({globalId});
   };
   const setAgentPromotionReplaceWorkflowAgent = (replaceWorkflowAgent: boolean) => {
-    updateAgentPromotionState({ replaceWorkflowAgent });
+    updateAgentPromotionState({replaceWorkflowAgent});
   };
   const selectedGraphTool = selectedGraphToolId ? (toolMap.get(selectedGraphToolId) ?? null) : null;
   const selectedGraphToolListOpen =
@@ -2989,48 +3001,48 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       },
       ...(selectedTask
         ? [
-            {
-              type: 'task',
-              id: selectedTask.id,
-              name: selectedTask.name,
-            },
-          ]
+          {
+            type: 'task',
+            id: selectedTask.id,
+            name: selectedTask.name,
+          },
+        ]
         : []),
       ...(selectedTaskAgent
         ? [
-            {
-              type: 'agent',
-              id: selectedTaskAgent.id,
-              name: selectedTaskAgent.name,
-            },
-          ]
+          {
+            type: 'agent',
+            id: selectedTaskAgent.id,
+            name: selectedTaskAgent.name,
+          },
+        ]
         : []),
       ...(selectedGraphAgent
         ? [
-            {
-              type: 'agent',
-              id: selectedGraphAgent.id,
-              name: selectedGraphAgent.name,
-            },
-          ]
+          {
+            type: 'agent',
+            id: selectedGraphAgent.id,
+            name: selectedGraphAgent.name,
+          },
+        ]
         : []),
       ...(selectedGraphTool
         ? [
-            {
-              type: 'tool',
-              id: selectedGraphTool.id,
-              name: toolDisplayName(selectedGraphTool),
-            },
-          ]
+          {
+            type: 'tool',
+            id: selectedGraphTool.id,
+            name: toolDisplayName(selectedGraphTool),
+          },
+        ]
         : []),
       ...(selectedGraphMemory
         ? [
-            {
-              type: 'memory',
-              id: selectedGraphMemory.id,
-              name: selectedGraphMemory.name,
-            },
-          ]
+          {
+            type: 'memory',
+            id: selectedGraphMemory.id,
+            name: selectedGraphMemory.name,
+          },
+        ]
         : []),
     ],
     selection: {
@@ -3080,13 +3092,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       : null;
   const dependencyTasks = selectedTask
     ? visibleTaskDefinitions.filter((task) =>
-        (selectedTask.depends_on_task_ids ?? []).includes(task.id)
-      )
+      (selectedTask.depends_on_task_ids ?? []).includes(task.id)
+    )
     : [];
   const dependentTasks = selectedTask
     ? visibleTaskDefinitions.filter((task) =>
-        (task.depends_on_task_ids ?? []).includes(selectedTask.id)
-      )
+      (task.depends_on_task_ids ?? []).includes(selectedTask.id)
+    )
     : [];
   const dependencyLinks = dependencyTasks.map((task) => ({
     task,
@@ -3118,7 +3130,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           : visibleTaskDefinitions[visibleTaskDefinitions.length - 1];
       if (fallbackTask) {
         setSelectedGraphApprovalTaskId(null);
-        updateWorkflowUrl({ nextTaskId: fallbackTask.id });
+        updateWorkflowUrl({nextTaskId: fallbackTask.id});
       }
       return;
     }
@@ -3126,7 +3138,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     const targetTask = direction === 'previous' ? previousTask : nextTask;
     if (targetTask) {
       setSelectedGraphApprovalTaskId(null);
-      updateWorkflowUrl({ nextTaskId: targetTask.id });
+      updateWorkflowUrl({nextTaskId: targetTask.id});
     }
   };
   const focusSelectedTaskApprovalGate = () => {
@@ -3141,7 +3153,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     setSelectedGraphMemoryId(null);
     setSelectedGraphArtifactId(null);
     setSelectedGraphEdgeRef(null);
-    updateWorkflowUrl({ nextTaskId: selectedTask.id });
+    updateWorkflowUrl({nextTaskId: selectedTask.id});
   };
   const focusSelectedApprovalLinkedTask = () => {
     if (!selectedTask) {
@@ -3149,7 +3161,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     }
 
     setSelectedGraphApprovalTaskId(null);
-    updateWorkflowUrl({ nextTaskId: selectedTask.id });
+    updateWorkflowUrl({nextTaskId: selectedTask.id});
   };
 
   useEffect(() => {
@@ -3174,14 +3186,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           const fallbackTask = visibleTaskDefinitions[visibleTaskDefinitions.length - 1];
           if (fallbackTask) {
             setSelectedGraphApprovalTaskId(null);
-            updateWorkflowUrl({ nextTaskId: fallbackTask.id });
+            updateWorkflowUrl({nextTaskId: fallbackTask.id});
           }
           return;
         }
 
         if (previousTask) {
           setSelectedGraphApprovalTaskId(null);
-          updateWorkflowUrl({ nextTaskId: previousTask.id });
+          updateWorkflowUrl({nextTaskId: previousTask.id});
         }
       }
 
@@ -3191,14 +3203,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           const fallbackTask = visibleTaskDefinitions[0];
           if (fallbackTask) {
             setSelectedGraphApprovalTaskId(null);
-            updateWorkflowUrl({ nextTaskId: fallbackTask.id });
+            updateWorkflowUrl({nextTaskId: fallbackTask.id});
           }
           return;
         }
 
         if (nextTask) {
           setSelectedGraphApprovalTaskId(null);
-          updateWorkflowUrl({ nextTaskId: nextTask.id });
+          updateWorkflowUrl({nextTaskId: nextTask.id});
         }
       }
     };
@@ -3215,7 +3227,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   ]);
 
   if (workflowQuery.isLoading) {
-    return <LoadingCard title="Workflow" description="Native / Container workflow details" />;
+    return <LoadingCard title="Workflow" description="Native / Container workflow details"/>;
   }
 
   if (workflowQuery.isError) {
@@ -3258,7 +3270,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   const workflowGraphReviewNotes = workflowGraphReviewNotesFor(resolvedWorkflowPreview);
   const workflowGraphReviewNoteByKey = new Map(
     workflowGraphReviewNotes.map((note) => [
-      workflowGraphReviewNoteKey({ type: note.target_type, id: note.target_id }),
+      workflowGraphReviewNoteKey({type: note.target_type, id: note.target_id}),
       note,
     ])
   );
@@ -3288,21 +3300,21 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   })();
   const selectedGraphToolNodeAgentId = selectedGraphToolNode
     ? (() => {
-        const edge = workflowGraphDocument.edges.find(
-          (candidate) =>
-            candidate.type === workflowGraphEdgeTypes.tool &&
-            candidate.source === selectedGraphToolNode.id
-        );
-        const edgeAgentId = typeof edge?.data?.agentId === 'string' ? edge.data.agentId : undefined;
-        if (edgeAgentId) {
-          return edgeAgentId;
-        }
+      const edge = workflowGraphDocument.edges.find(
+        (candidate) =>
+          candidate.type === workflowGraphEdgeTypes.tool &&
+          candidate.source === selectedGraphToolNode.id
+      );
+      const edgeAgentId = typeof edge?.data?.agentId === 'string' ? edge.data.agentId : undefined;
+      if (edgeAgentId) {
+        return edgeAgentId;
+      }
 
-        const targetNode = edge
-          ? workflowGraphDocument.nodes.find((node) => node.id === edge.target)
-          : null;
-        return typeof targetNode?.data?.agentId === 'string' ? targetNode.data.agentId : null;
-      })()
+      const targetNode = edge
+        ? workflowGraphDocument.nodes.find((node) => node.id === edge.target)
+        : null;
+      return typeof targetNode?.data?.agentId === 'string' ? targetNode.data.agentId : null;
+    })()
     : null;
   const selectedGraphToolNodeAgent = selectedGraphToolNodeAgentId
     ? (agentMap.get(selectedGraphToolNodeAgentId) ?? null)
@@ -3331,12 +3343,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       tool_definitions: (definition.tool_definitions ?? []).map((tool) =>
         unusedToolIds.includes(tool.id)
           ? {
-              ...tool,
-              security: {
-                ...(tool.security ?? {}),
-                connector_bindings: [],
-              },
-            }
+            ...tool,
+            security: {
+              ...(tool.security ?? {}),
+              connector_bindings: [],
+            },
+          }
           : tool
       ),
     };
@@ -3349,12 +3361,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     tool_definitions: (definition.tool_definitions ?? []).map((tool) =>
       tool.id === toolId
         ? {
-            ...tool,
-            security: {
-              ...(tool.security ?? {}),
-              connector_bindings: [],
-            },
-          }
+          ...tool,
+          security: {
+            ...(tool.security ?? {}),
+            connector_bindings: [],
+          },
+        }
         : tool
     ),
   });
@@ -3407,10 +3419,10 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     (workflowGraphDocument.edges.find((edge) => edge.id === selectedGraphEdgeRef.id) ??
       (selectedGraphEdgeRef.sourceTaskId && selectedGraphEdgeRef.targetTaskId
         ? workflowGraphDocument.edges.find(
-            (edge) =>
-              readGraphEdgeDataString(edge, 'sourceTaskId') === selectedGraphEdgeRef.sourceTaskId &&
-              readGraphEdgeDataString(edge, 'targetTaskId') === selectedGraphEdgeRef.targetTaskId
-          )
+          (edge) =>
+            readGraphEdgeDataString(edge, 'sourceTaskId') === selectedGraphEdgeRef.sourceTaskId &&
+            readGraphEdgeDataString(edge, 'targetTaskId') === selectedGraphEdgeRef.targetTaskId
+        )
         : undefined) ??
       workflowGraphDocument.edges.find(
         (edge) =>
@@ -3423,8 +3435,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           readGraphEdgeDataString(edge, 'agentId') === selectedGraphEdgeRef.agentId &&
           (selectedGraphEdgeRef.toolIds.length > 0
             ? readGraphEdgeDataStringArray(edge, 'toolIds').some((toolId) =>
-                selectedGraphEdgeRef.toolIds.includes(toolId)
-              )
+              selectedGraphEdgeRef.toolIds.includes(toolId)
+            )
             : readGraphEdgeDataString(edge, 'toolId') === selectedGraphEdgeRef.toolId)
       ) ??
       workflowGraphDocument.edges.find(
@@ -3436,28 +3448,28 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       ));
   const selectedTaskGraphNodeId = selectedTask
     ? workflowGraphDocument.nodes.find(
-        (node) =>
-          node.data?.taskId === selectedTask.id &&
-          (!selectedTaskWasOpenedFromApproval || node.type === workflowGraphNodeTypes.approval)
-      )?.id
+      (node) =>
+        node.data?.taskId === selectedTask.id &&
+        (!selectedTaskWasOpenedFromApproval || node.type === workflowGraphNodeTypes.approval)
+    )?.id
     : null;
   const selectedGraphAgentNodeId = selectedGraphAgent
     ? workflowGraphDocument.nodes.find((node) => node.data?.agentId === selectedGraphAgent.id)?.id
     : null;
   const selectedTaskRuntimeEvent = selectedTaskGraphNodeId
     ? [...workflowGraphRuntimeEvents]
-        .reverse()
-        .find((event) => event.nodeId === selectedTaskGraphNodeId)
+      .reverse()
+      .find((event) => event.nodeId === selectedTaskGraphNodeId)
     : null;
   const selectedGraphAgentRuntimeEvent = selectedGraphAgentNodeId
     ? [...workflowGraphRuntimeEvents]
-        .reverse()
-        .find((event) => event.nodeId === selectedGraphAgentNodeId)
+      .reverse()
+      .find((event) => event.nodeId === selectedGraphAgentNodeId)
     : null;
   const selectedGraphEdgeRuntimeEvent = selectedGraphEdge
     ? [...workflowGraphRuntimeEvents]
-        .reverse()
-        .find((event) => event.edgeId === selectedGraphEdge.id)
+      .reverse()
+      .find((event) => event.edgeId === selectedGraphEdge.id)
     : null;
   const workflowDocumentOptions = [
     {
@@ -3499,7 +3511,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const handleSave = async () => {
     if (draftValidationIssues.length > 0) {
-      toast.error('Fix the workflow validation issues before saving.', { position: 'top-right' });
+      toast.error('Fix the workflow validation issues before saving.', {position: 'top-right'});
       return;
     }
 
@@ -3517,7 +3529,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const handleExecute = async () => {
     if (isEditing && draftValidationIssues.length > 0) {
-      toast.error('Fix the workflow validation issues before running.', { position: 'top-right' });
+      toast.error('Fix the workflow validation issues before running.', {position: 'top-right'});
       return;
     }
 
@@ -3605,13 +3617,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   };
 
   const handleGraphSteeringRequest = ({
-    taskId,
-    agentId,
-  }: {
+                                        taskId,
+                                        agentId,
+                                      }: {
     taskId?: string | null;
     agentId?: string | null;
   }) => {
-    void toast.promise(createGraphSteeringApprovalMutation.mutateAsync({ taskId, agentId }), {
+    void toast.promise(createGraphSteeringApprovalMutation.mutateAsync({taskId, agentId}), {
       loading: 'Requesting main-agent steering...',
       success: 'Main-agent steering request sent for approval.',
       error: (error) => errorMessage(error, 'Failed to request main-agent steering.'),
@@ -3621,13 +3633,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const handleMonitoringEnabledChange = (checked: boolean) => {
     const patch = checked
-      ? { enabled: true }
+      ? {enabled: true}
       : {
-          enabled: false,
-          reason:
-            monitoringExemptionReason.trim() ||
-            'Human-managed workflow; do not monitor automatically.',
-        };
+        enabled: false,
+        reason:
+          monitoringExemptionReason.trim() ||
+          'Human-managed workflow; do not monitor automatically.',
+      };
     void toast.promise(updateMonitoringMutation.mutateAsync(patch), {
       loading: 'Updating monitoring controls...',
       success: checked ? 'Workflow monitoring enabled.' : 'Workflow monitoring disabled.',
@@ -3660,8 +3672,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const handleAllowSelfMonitoringChange = (checked: boolean) => {
     const patch = checked
-      ? { enabled: true, allow_self_monitoring: true }
-      : { allow_self_monitoring: false };
+      ? {enabled: true, allow_self_monitoring: true}
+      : {allow_self_monitoring: false};
     void toast.promise(updateMonitoringMutation.mutateAsync(patch), {
       loading: 'Updating monitoring controls...',
       success: checked ? 'Self-monitoring enabled.' : 'Self-monitoring disabled.',
@@ -3672,7 +3684,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   };
 
   const handleMonitorControlChange = (key: string, value: boolean | string | string[]) => {
-    void toast.promise(updateMonitoringMutation.mutateAsync({ [key]: value }), {
+    void toast.promise(updateMonitoringMutation.mutateAsync({[key]: value}), {
       loading: 'Updating monitoring controls...',
       success: 'Monitoring controls updated.',
       error: (error) =>
@@ -3716,13 +3728,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       action === 'approve'
         ? 'Approved from workflow monitoring panel.'
         : window.prompt(
-            action === 'reject'
-              ? 'Reason for rejecting this monitor proposal?'
-              : action === 'request_changes'
-                ? 'What should the main agent revise?'
-                : 'Why split this proposal into separate approval requests?',
-            ''
-          );
+          action === 'reject'
+            ? 'Reason for rejecting this monitor proposal?'
+            : action === 'request_changes'
+              ? 'What should the main agent revise?'
+              : 'Why split this proposal into separate approval requests?',
+          ''
+        );
     if (reason === null) {
       return;
     }
@@ -3754,7 +3766,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const handleSendMonitorProposalToMainAgent = (proposalEventId: string, operatorNote?: string) => {
     void toast.promise(
-      dispatchMonitorProposalMutation.mutateAsync({ proposalEventId, operatorNote }),
+      dispatchMonitorProposalMutation.mutateAsync({proposalEventId, operatorNote}),
       {
         loading: 'Sending proposal to main agent...',
         success: 'Proposal sent to main agent.',
@@ -3769,7 +3781,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     if (isEditing) {
       suppressEditModeStartRef.current = true;
       stopEditing();
-      updateWorkflowUrl({ nextMode: null });
+      updateWorkflowUrl({nextMode: null});
     }
 
     await Promise.all([workflowQuery.refetch(), runsQuery.refetch(), schedulesQuery.refetch()]);
@@ -3786,12 +3798,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   const handleGraphValidationIssues = (issues: Array<{ severity: string; message?: string }>) => {
     const errorCount = issues.filter((issue) => issue.severity === 'error').length;
     if (issues.length === 0) {
-      toast.success('Workflow graph looks valid.', { position: 'top-right' });
+      toast.success('Workflow graph looks valid.', {position: 'top-right'});
       return;
     }
 
     if (issues.length === 1 && issues[0]?.message) {
-      toast.error(issues[0].message, { position: 'top-right' });
+      toast.error(issues[0].message, {position: 'top-right'});
       return;
     }
 
@@ -3799,7 +3811,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       `${issues.length} graph issue${issues.length === 1 ? '' : 's'} found${
         errorCount > 0 ? `, including ${errorCount} error${errorCount === 1 ? '' : 's'}` : ''
       }.`,
-      { position: 'top-right' }
+      {position: 'top-right'}
     );
   };
 
@@ -3813,7 +3825,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const renderResourceWarnings = (issues: WorkflowGraphValidationIssue[]) =>
     issues.length > 0 ? (
-      <div className="rounded-md border border-amber-200 bg-amber-50/85 p-3 text-sm text-amber-950 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
+      <div
+        className="rounded-md border border-amber-200 bg-amber-50/85 p-3 text-sm text-amber-950 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
         <p className="font-medium">Resource warnings</p>
         <div className="mt-2 space-y-1">
           {issues.slice(0, 5).map((issue) => (
@@ -3859,7 +3872,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     const note = workflowGraphReviewNoteByKey.get(workflowGraphReviewNoteKey(target));
 
     return (
-      <div className="workflow-drawer-fieldset space-y-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/70 p-3 text-sm dark:border-fuchsia-300/20 dark:bg-fuchsia-500/10">
+      <div
+        className="workflow-drawer-fieldset space-y-3 rounded-xl border border-fuchsia-200 bg-fuchsia-50/70 p-3 text-sm dark:border-fuchsia-300/20 dark:bg-fuchsia-500/10">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <Label
@@ -3902,7 +3916,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     const summary = runtimeEventSummary(event);
 
     return (
-      <div className="workflow-drawer-fieldset rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-sm dark:border-sky-300/20 dark:bg-sky-500/10 dark:text-slate-200">
+      <div
+        className="workflow-drawer-fieldset rounded-xl border border-sky-200 bg-sky-50/70 p-3 text-sm dark:border-sky-300/20 dark:bg-sky-500/10 dark:text-slate-200">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="font-medium text-sky-950 dark:text-sky-100">Latest runtime event</p>
@@ -3930,21 +3945,27 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           ) : null}
         </dl>
         {payloadJson ? (
-          <details className="mt-2 rounded border border-sky-200 bg-white dark:border-sky-300/15 dark:bg-slate-950/80">
-            <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-sky-800 dark:text-sky-100">
+          <details
+            className="mt-2 rounded border border-sky-200 bg-white dark:border-sky-300/15 dark:bg-slate-950/80">
+            <summary
+              className="cursor-pointer px-2 py-1 text-xs font-medium text-sky-800 dark:text-sky-100">
               Payload
             </summary>
-            <pre className="max-h-40 overflow-auto border-t border-sky-100 p-2 text-[11px] leading-4 text-neutral-700 dark:border-sky-300/10 dark:text-slate-300">
+            <pre
+              className="max-h-40 overflow-auto border-t border-sky-100 p-2 text-[11px] leading-4 text-neutral-700 dark:border-sky-300/10 dark:text-slate-300">
               {payloadJson}
             </pre>
           </details>
         ) : null}
         {metadataJson ? (
-          <details className="mt-2 rounded border border-sky-200 bg-white dark:border-sky-300/15 dark:bg-slate-950/80">
-            <summary className="cursor-pointer px-2 py-1 text-xs font-medium text-sky-800 dark:text-sky-100">
+          <details
+            className="mt-2 rounded border border-sky-200 bg-white dark:border-sky-300/15 dark:bg-slate-950/80">
+            <summary
+              className="cursor-pointer px-2 py-1 text-xs font-medium text-sky-800 dark:text-sky-100">
               Metadata
             </summary>
-            <pre className="max-h-40 overflow-auto border-t border-sky-100 p-2 text-[11px] leading-4 text-neutral-700 dark:border-sky-300/10 dark:text-slate-300">
+            <pre
+              className="max-h-40 overflow-auto border-t border-sky-100 p-2 text-[11px] leading-4 text-neutral-700 dark:border-sky-300/10 dark:text-slate-300">
               {metadataJson}
             </pre>
           </details>
@@ -3974,9 +3995,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     const linkedMemoryIds = memoryIdsForGraphTarget(targetKind, targetId);
 
     return (
-      <div className="space-y-2 rounded-md border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-300/20 dark:bg-teal-500/10">
+      <div
+        className="space-y-2 rounded-md border border-teal-200 bg-teal-50/50 p-3 dark:border-teal-300/20 dark:bg-teal-500/10">
         <div className="flex items-center justify-between gap-3">
-          <Label className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
+          <Label
+            className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
             Memory Access
           </Label>
           <Badge variant="outline">{linkedMemoryIds.length} linked</Badge>
@@ -4020,7 +4043,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     selectedTask ? (
       <div className="space-y-4">
         {selectedTaskWasOpenedFromApproval ? (
-          <div className="workflow-drawer-fieldset rounded-xl border border-sky-200 bg-sky-50/80 p-3 text-sm text-sky-950 dark:border-sky-300/20 dark:bg-sky-400/10 dark:text-sky-100">
+          <div
+            className="workflow-drawer-fieldset rounded-xl border border-sky-200 bg-sky-50/80 p-3 text-sm text-sky-950 dark:border-sky-300/20 dark:bg-sky-400/10 dark:text-sky-100">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -4130,7 +4154,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           isEditing={isEditing}
           onClearSelection={() => {
             setSelectedGraphApprovalTaskId(null);
-            updateWorkflowUrl({ nextTaskId: null });
+            updateWorkflowUrl({nextTaskId: null});
           }}
           onUpdateTask={(updates) => {
             if (selectedTaskIndex >= 0) {
@@ -4138,44 +4162,44 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             }
           }}
           onDependencyEdgeTypeChange={(taskId, edgeType) =>
-            updateEdgeMetadata(taskId, selectedTask.id, { edgeType })
+            updateEdgeMetadata(taskId, selectedTask.id, {edgeType})
           }
           onDependencyConditionChange={(taskId, condition) =>
-            updateEdgeMetadata(taskId, selectedTask.id, { condition })
+            updateEdgeMetadata(taskId, selectedTask.id, {condition})
           }
           onDependencyMetadataChange={(taskId, metadataJson) =>
-            updateEdgeMetadata(taskId, selectedTask.id, { metadataJson })
+            updateEdgeMetadata(taskId, selectedTask.id, {metadataJson})
           }
           onDependentEdgeTypeChange={(taskId, edgeType) =>
-            updateEdgeMetadata(selectedTask.id, taskId, { edgeType })
+            updateEdgeMetadata(selectedTask.id, taskId, {edgeType})
           }
           onDependentConditionChange={(taskId, condition) =>
-            updateEdgeMetadata(selectedTask.id, taskId, { condition })
+            updateEdgeMetadata(selectedTask.id, taskId, {condition})
           }
           onDependentMetadataChange={(taskId, metadataJson) =>
-            updateEdgeMetadata(selectedTask.id, taskId, { metadataJson })
+            updateEdgeMetadata(selectedTask.id, taskId, {metadataJson})
           }
           onSelectDependencyTask={(taskId) => {
             setSelectedGraphApprovalTaskId(null);
-            updateWorkflowUrl({ nextTaskId: taskId });
+            updateWorkflowUrl({nextTaskId: taskId});
           }}
           onSelectDependentTask={(taskId) => {
             setSelectedGraphApprovalTaskId(null);
-            updateWorkflowUrl({ nextTaskId: taskId });
+            updateWorkflowUrl({nextTaskId: taskId});
           }}
           onSelectPreviousTask={() => selectAdjacentTask('previous')}
           onSelectNextTask={() => selectAdjacentTask('next')}
         />
         {activeTab === 'graph'
           ? renderMemoryAccessSummary('task', selectedTask.id, (memoryId) => {
-              if (selectedTaskIndex >= 0) {
-                updateTaskDefinition(selectedTaskIndex, {
-                  memory_ids: (selectedTask.memory_ids ?? []).filter(
-                    (candidateId) => candidateId !== memoryId
-                  ),
-                });
-              }
-            })
+            if (selectedTaskIndex >= 0) {
+              updateTaskDefinition(selectedTaskIndex, {
+                memory_ids: (selectedTask.memory_ids ?? []).filter(
+                  (candidateId) => candidateId !== memoryId
+                ),
+              });
+            }
+          })
           : null}
         {activeTab === 'graph' ? renderRuntimeEventPanel(selectedTaskRuntimeEvent) : null}
       </div>
@@ -4229,7 +4253,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         options.replaceAll
           ? 'Replaced workflow agent fields from the latest persona.'
           : 'Updated persona fields and preserved workflow overrides.',
-        { position: 'top-right' }
+        {position: 'top-right'}
       );
       return;
     }
@@ -4256,7 +4280,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     });
     setSelectedGraphAgentId(nextAgent.id);
     setPersonaQuickCreateAgentId('');
-    toast.success('Added persona agent to the workflow graph.', { position: 'top-right' });
+    toast.success('Added persona agent to the workflow graph.', {position: 'top-right'});
   };
 
   const renderSelectedAgentPanel = () => {
@@ -4306,7 +4330,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     );
     const selectedAgentGuardrails = normalizeWorkflowAgentGuardrails(selectedGraphAgent.guardrails);
     const updateSelectedAgentGuardrails = (nextGuardrails: typeof selectedAgentGuardrails) => {
-      updateSelectedGraphAgentFields({ guardrails: nextGuardrails }, ['guardrails']);
+      updateSelectedGraphAgentFields({guardrails: nextGuardrails}, ['guardrails']);
     };
     const updateSelectedAgentGuardrail = (
       guardrailId: string,
@@ -4314,7 +4338,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     ) => {
       updateSelectedAgentGuardrails(
         selectedAgentGuardrails.map((guardrail) =>
-          guardrail.id === guardrailId ? { ...guardrail, ...updates } : guardrail
+          guardrail.id === guardrailId ? {...guardrail, ...updates} : guardrail
         )
       );
     };
@@ -4414,7 +4438,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                     !isEditing || personaActionPending || !selectedPersonaNotice.publishedAgentId
                   }
                   onClick={() =>
-                    handleUseLatestPersonaAgent(selectedPersonaNotice, { replaceAll: true })
+                    handleUseLatestPersonaAgent(selectedPersonaNotice, {replaceAll: true})
                   }
                 >
                   Replace all fields
@@ -4436,12 +4460,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           </div>
         ) : null}
 
-        <div className="workflow-drawer-fieldset workflow-drawer-section-agent-catalog rounded-xl border border-agent-200/60 bg-agent-50/60 p-3 text-sm dark:border-agent-300/16 dark:bg-agent-500/10">
+        <div
+          className="workflow-drawer-fieldset workflow-drawer-section-agent-catalog rounded-xl border border-agent-200/60 bg-agent-50/60 p-3 text-sm dark:border-agent-300/16 dark:bg-agent-500/10">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 shadow-sm" />
-                <p className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600 dark:text-slate-300">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-cyan-500 shadow-sm"/>
+                <p
+                  className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600 dark:text-slate-300">
                   Global agent catalog
                 </p>
                 <Badge variant="outline" className="shrink-0">
@@ -4483,8 +4509,9 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                   Keep the current ID to create or refresh the matching catalog record.
                 </p>
               </div>
-              <label className="flex cursor-pointer items-start gap-2 text-xs text-neutral-700 has-disabled:cursor-not-allowed dark:text-slate-300">
-                <input
+              <label
+                className="flex cursor-pointer items-start gap-2 text-xs text-neutral-700 has-disabled:cursor-not-allowed dark:text-slate-300">
+                <Input
                   type="checkbox"
                   className="mt-0.5 cursor-pointer disabled:cursor-not-allowed"
                   checked={agentPromotionReplaceWorkflowAgent}
@@ -4536,10 +4563,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         </div>
 
         <div className="grid gap-3">
-          <div className="workflow-drawer-fieldset workflow-drawer-section-agent-persona space-y-2 rounded-xl border border-agent-200/60 bg-agent-50/50 p-3 dark:border-agent-300/15 dark:bg-agent-500/10">
+          <div
+            className="workflow-drawer-fieldset workflow-drawer-section-agent-persona space-y-2 rounded-xl border border-agent-200/60 bg-agent-50/50 p-3 dark:border-agent-300/15 dark:bg-agent-500/10">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-2">
-                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 shadow-sm" />
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-violet-500 shadow-sm"/>
                 <Label
                   htmlFor={`graph-agent-persona-${selectedGraphAgent.id}`}
                   className="truncate text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600 dark:text-slate-300"
@@ -4551,7 +4579,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 {selectedPersonaSourceAgent ? 'Linked' : 'None'}
               </Badge>
             </div>
-            <select
+            <NativeSelect
               id={`graph-agent-persona-${selectedGraphAgent.id}`}
               value={selectedPersonaSourceAgent?.id ?? ''}
               disabled={!isEditing || personaAgentDefinitions.length === 0}
@@ -4582,7 +4610,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                   )}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
             <p className="text-xs text-neutral-500 dark:text-slate-400">
               Selecting a persona fills this agent&apos;s identity and capability fields while
               keeping graph links and task assignments intact.
@@ -4608,7 +4636,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               value={selectedGraphAgent.name}
               disabled={!isEditing}
               onChange={(event) =>
-                updateSelectedGraphAgentFields({ name: event.target.value }, ['name'])
+                updateSelectedGraphAgentFields({name: event.target.value}, ['name'])
               }
             />
           </div>
@@ -4680,11 +4708,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             />
           </div>
 
-          <div className="workflow-drawer-fieldset workflow-drawer-section-agent-guardrails space-y-3 rounded-xl border border-amber-200/70 bg-amber-50/55 p-3 dark:border-amber-300/16 dark:bg-amber-400/10">
+          <div
+            className="workflow-drawer-fieldset workflow-drawer-section-agent-guardrails space-y-3 rounded-xl border border-amber-200/70 bg-amber-50/55 p-3 dark:border-amber-300/16 dark:bg-amber-400/10">
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <Label className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600 dark:text-slate-300">
+                  <Label
+                    className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-600 dark:text-slate-300">
                     Guardrails
                   </Label>
                   {personaFieldBadge('guardrails')}
@@ -4754,7 +4784,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor={`graph-agent-guardrail-mode-${guardrail.id}`}>Mode</Label>
-                        <select
+                        <NativeSelect
                           id={`graph-agent-guardrail-mode-${guardrail.id}`}
                           value={guardrail.mode ?? 'policy'}
                           disabled={!isEditing}
@@ -4770,7 +4800,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                               {mode}
                             </option>
                           ))}
-                        </select>
+                        </NativeSelect>
                       </div>
                     </div>
                     <div className="space-y-1.5">
@@ -4802,7 +4832,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               </Label>
               {personaFieldBadge('model_profile_id')}
             </div>
-            <select
+            <NativeSelect
               id={`graph-agent-model-profile-${selectedGraphAgent.id}`}
               value={selectedProfileId || noModelProfileValue}
               disabled={!isEditing}
@@ -4828,7 +4858,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                   {profile.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
 
           {renderMemoryAccessSummary('agent', selectedGraphAgent.id, (memoryId) =>
@@ -4842,10 +4872,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             )
           )}
 
-          <div className="space-y-3 rounded-md border border-teal-200/60 bg-teal-50/55 p-3 dark:border-teal-300/16 dark:bg-teal-500/10">
+          <div
+            className="space-y-3 rounded-md border border-teal-200/60 bg-teal-50/55 p-3 dark:border-teal-300/16 dark:bg-teal-500/10">
             <div className="flex items-center justify-between gap-3">
               <div>
-                <Label className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
+                <Label
+                  className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
                   Memory Access
                 </Label>
                 <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
@@ -4871,10 +4903,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                     className="flex items-start justify-between gap-3 rounded-md border border-teal-200/50 bg-white/90 px-3 py-2 dark:border-teal-300/14 dark:bg-slate-950/76"
                   >
                     <div className="min-w-0 space-y-1">
-                      <div className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
+                      <div
+                        className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
                         {link.label || link.refId}
                       </div>
-                      <div className="flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-slate-400">
+                      <div
+                        className="flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-slate-400">
                         <Badge variant="secondary">{readableMemoryValue(link.refType)}</Badge>
                         <Badge variant="outline">{readableMemoryValue(link.accessMode)}</Badge>
                         <span>{link.memoryIds.length} records</span>
@@ -4896,7 +4930,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-3">
-                <Label className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
+                <Label
+                  className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
                   Add From Catalog
                 </Label>
                 {agentMemoryCatalogQuery.isFetching ? (
@@ -4915,7 +4950,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 </p>
               ) : (
                 <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
-                  {agentCatalogItems.map(({ groupLabel, item }) => {
+                  {agentCatalogItems.map(({groupLabel, item}) => {
                     const catalogKey = memoryCatalogItemKey(item);
                     const alreadyLinked = agentBackendLinkKeys.has(catalogKey);
                     const blocked = !item.canLink || alreadyLinked;
@@ -4929,7 +4964,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                       >
                         <div className="min-w-0 space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <span className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
+                            <span
+                              className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
                               {item.label}
                             </span>
                             <Badge variant="secondary">{groupLabel}</Badge>
@@ -4938,7 +4974,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                           <p className="line-clamp-2 text-xs text-neutral-500 dark:text-slate-400">
                             {item.summary || item.preview}
                           </p>
-                          <div className="flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-slate-400">
+                          <div
+                            className="flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-slate-400">
                             <Badge variant="outline">{readableMemoryValue(item.scope)}</Badge>
                             <Badge variant="outline">{readableMemoryValue(item.memoryType)}</Badge>
                             {item.mode ? (
@@ -4990,8 +5027,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       : selectedGraphToolNode
         ? Array.isArray(selectedGraphToolNode.data?.toolIds)
           ? selectedGraphToolNode.data.toolIds.filter(
-              (toolId): toolId is string => typeof toolId === 'string'
-            )
+            (toolId): toolId is string => typeof toolId === 'string'
+          )
           : []
         : selectedGraphToolIds.length > 0
           ? selectedGraphToolIds
@@ -5032,36 +5069,36 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           agent.id === selectedGraphToolNodeAgentId
             ? removing
               ? withoutAgentToolRuntimeConfig(
-                  {
-                    ...agent,
-                    tool_ids: (agent.tool_ids ?? agent.toolIds ?? []).filter(
-                      (candidateId) => candidateId !== changedToolId
-                    ),
-                  },
-                  [changedToolId]
-                )
-              : {
+                {
                   ...agent,
-                  tool_ids: Array.from(
-                    new Set([...(agent.tool_ids ?? agent.toolIds ?? []), changedToolId])
+                  tool_ids: (agent.tool_ids ?? agent.toolIds ?? []).filter(
+                    (candidateId) => candidateId !== changedToolId
                   ),
-                }
+                },
+                [changedToolId]
+              )
+              : {
+                ...agent,
+                tool_ids: Array.from(
+                  new Set([...(agent.tool_ids ?? agent.toolIds ?? []), changedToolId])
+                ),
+              }
             : agent
         ),
         task_definitions: removing
           ? (definition.task_definitions ?? []).map((task) =>
-              task.agent_id === selectedGraphToolNodeAgentId
-                ? {
-                    ...task,
-                    // The tool node represents the linked agent's usable tool surface. When a
-                    // tool is removed here, task-level assignments for the same agent must also
-                    // drop it or the graph adapter will re-derive the tool back into the node.
-                    tool_ids: (task.tool_ids ?? []).filter(
-                      (candidateId) => candidateId !== changedToolId
-                    ),
-                  }
-                : task
-            )
+            task.agent_id === selectedGraphToolNodeAgentId
+              ? {
+                ...task,
+                // The tool node represents the linked agent's usable tool surface. When a
+                // tool is removed here, task-level assignments for the same agent must also
+                // drop it or the graph adapter will re-derive the tool back into the node.
+                tool_ids: (task.tool_ids ?? []).filter(
+                  (candidateId) => candidateId !== changedToolId
+                ),
+              }
+              : task
+          )
           : definition.task_definitions,
       };
     };
@@ -5081,32 +5118,32 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         definition.metadata &&
         typeof definition.metadata === 'object' &&
         !Array.isArray(definition.metadata)
-          ? { ...(definition.metadata as Record<string, unknown>) }
+          ? {...(definition.metadata as Record<string, unknown>)}
           : {};
       const storedRecords = Array.isArray(metadata.workflow_graph_tool_nodes)
         ? metadata.workflow_graph_tool_nodes.filter(
-            (record): record is Record<string, unknown> =>
-              Boolean(record) && typeof record === 'object' && !Array.isArray(record)
-          )
+          (record): record is Record<string, unknown> =>
+            Boolean(record) && typeof record === 'object' && !Array.isArray(record)
+        )
         : [];
       const nextRecord = {
         id: toolNodeRecordId,
         toolIds: nextToolIds,
         ...(nextToolIds.length > 0
           ? {
-              toolNames: nextToolIds.map(
-                (nextToolId) => toolMap.get(nextToolId)?.display_name ?? nextToolId
-              ),
-            }
+            toolNames: nextToolIds.map(
+              (nextToolId) => toolMap.get(nextToolId)?.display_name ?? nextToolId
+            ),
+          }
           : {}),
         agentId: selectedGraphToolNodeAgentId ?? null,
         ...(selectedGraphToolNode?.position
           ? {
-              position: {
-                x: selectedGraphToolNode.position.x,
-                y: selectedGraphToolNode.position.y,
-              },
-            }
+            position: {
+              x: selectedGraphToolNode.position.x,
+              y: selectedGraphToolNode.position.y,
+            },
+          }
           : {}),
       };
 
@@ -5201,31 +5238,31 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         connector_bindings: remove
           ? remainingBindings
           : (() => {
-              const data = new FormData(form);
-              const provider = String(data.get('provider') ?? '').trim();
-              const credentialId = String(data.get('credential_id') ?? '').trim();
-              const purpose = String(data.get('purpose') ?? '').trim();
-              if (!provider || !credentialId) {
-                throw new Error('Provider and credential are required.');
-              }
-              const credential = connectorCredentials.find((item) => item.id === credentialId);
-              const previousTargetScope =
-                existingBinding?.provider === provider ? (existingBinding.target_scope ?? {}) : {};
-              const targetScope = parseConnectorTargetScopeForm(
-                data,
-                provider,
-                connectorCapabilities,
-                previousTargetScope
-              );
-              const binding: ConnectorBindingDefinition = {
-                provider,
-                credential_id: credentialId,
-                purpose: purpose || null,
-                target_scope: targetScope,
-                identity_summary: credential ? credentialBindingLabel(credential) : null,
-              };
-              return [binding, ...remainingBindings];
-            })(),
+            const data = new FormData(form);
+            const provider = String(data.get('provider') ?? '').trim();
+            const credentialId = String(data.get('credential_id') ?? '').trim();
+            const purpose = String(data.get('purpose') ?? '').trim();
+            if (!provider || !credentialId) {
+              throw new Error('Provider and credential are required.');
+            }
+            const credential = connectorCredentials.find((item) => item.id === credentialId);
+            const previousTargetScope =
+              existingBinding?.provider === provider ? (existingBinding.target_scope ?? {}) : {};
+            const targetScope = parseConnectorTargetScopeForm(
+              data,
+              provider,
+              connectorCapabilities,
+              previousTargetScope
+            );
+            const binding: ConnectorBindingDefinition = {
+              provider,
+              credential_id: credentialId,
+              purpose: purpose || null,
+              target_scope: targetScope,
+              identity_summary: credential ? credentialBindingLabel(credential) : null,
+            };
+            return [binding, ...remainingBindings];
+          })(),
       };
       const nextToolDefinition = {
         ...tool,
@@ -5336,7 +5373,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-300/80 bg-orange-50/80 p-3 shadow-sm dark:border-orange-300/25 dark:bg-orange-500/12"
         >
           <div className="flex items-center justify-between gap-3">
-            <Label className="text-xs font-semibold uppercase tracking-[0.12em] text-orange-800 dark:text-orange-100">
+            <Label
+              className="text-xs font-semibold uppercase tracking-[0.12em] text-orange-800 dark:text-orange-100">
               Equipped tools
             </Label>
             <Badge variant="secondary">{selectedToolIds.length}</Badge>
@@ -5347,7 +5385,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             </p>
           ) : (
             <div className="space-y-2">
-              {equippedToolDefinitions.map(({ id, tool }) => (
+              {equippedToolDefinitions.map(({id, tool}) => (
                 <div
                   key={id}
                   className="rounded-lg border border-orange-200/80 bg-white/90 px-3 py-2.5 dark:border-orange-300/15 dark:bg-slate-950/70"
@@ -5361,7 +5399,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                     ) : null}
                   </div>
                   {tool?.description ? (
-                    <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                    <p
+                      className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
                       {tool.description}
                     </p>
                   ) : null}
@@ -5372,9 +5411,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         </section>
 
         {isEditing ? (
-          <div className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-200 bg-orange-50/45 p-3 dark:border-orange-400/20 dark:bg-orange-500/10">
+          <div
+            className="workflow-drawer-fieldset space-y-3 rounded-xl border border-orange-200 bg-orange-50/45 p-3 dark:border-orange-400/20 dark:bg-orange-500/10">
             <div className="flex items-center justify-between gap-3">
-              <Label className="text-xs font-medium uppercase tracking-[0.12em] text-orange-700 dark:text-orange-200">
+              <Label
+                className="text-xs font-medium uppercase tracking-[0.12em] text-orange-700 dark:text-orange-200">
                 Available tools
               </Label>
               <Badge variant="outline">
@@ -5413,7 +5454,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                     >
                       <AccordionTrigger className="py-3 text-left hover:no-underline">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="truncate text-sm font-semibold capitalize text-neutral-900 dark:text-slate-100">
+                          <span
+                            className="truncate text-sm font-semibold capitalize text-neutral-900 dark:text-slate-100">
                             {readableToolGroupName(groupName)}
                           </span>
                           <Badge variant="secondary">
@@ -5443,8 +5485,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                             (binding ? 'binding' : hasRuntimeParameters ? 'parameters' : 'binding');
                           const bindingProviderCredentialCount = bindingProvider
                             ? connectorCredentials.filter(
-                                (credential) => credential.provider === bindingProvider
-                              ).length
+                              (credential) => credential.provider === bindingProvider
+                            ).length
                             : 0;
                           return (
                             <div
@@ -5453,7 +5495,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                             >
                               <div className="min-w-0">
                                 <div className="flex min-w-0 flex-wrap items-center gap-2">
-                                  <span className="truncate font-medium text-neutral-900 dark:text-slate-100">
+                                  <span
+                                    className="truncate font-medium text-neutral-900 dark:text-slate-100">
                                     {toolDisplayName(tool)}
                                   </span>
                                   {selected ? <Badge variant="secondary">In node</Badge> : null}
@@ -5461,7 +5504,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                                     <Badge variant="outline">Recommended</Badge>
                                   ) : null}
                                 </div>
-                                <p className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500 dark:text-slate-400">
+                                <p
+                                  className="mt-1 line-clamp-2 text-xs leading-5 text-neutral-500 dark:text-slate-400">
                                   {tool.description || tool.id}
                                 </p>
                               </div>
@@ -5575,17 +5619,20 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                                         error instanceof Error
                                           ? error.message
                                           : 'Failed to save connector binding.',
-                                        { position: 'top-right' }
+                                        {position: 'top-right'}
                                       );
                                     }
                                   }}
                                 >
-                                  <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div
+                                    className="flex flex-wrap items-center justify-between gap-2">
                                     <div>
-                                      <p className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
+                                      <p
+                                        className="text-xs font-medium uppercase tracking-[0.12em] text-neutral-500 dark:text-slate-400">
                                         Tool connector binding
                                       </p>
-                                      <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
+                                      <p
+                                        className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
                                         Select the credential and target fields used by{' '}
                                         {toolDisplayName(tool)}.
                                       </p>
@@ -5638,7 +5685,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                                   </div>
                                 </form>
                               ) : hasConnectorSignal ? (
-                                <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
+                                <div
+                                  className="rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-300/20 dark:bg-amber-500/10 dark:text-amber-100">
                                   This connector tool needs a configured provider before credentials
                                   and delivery targets can be assigned.
                                 </div>
@@ -5741,10 +5789,10 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     const selectedMemoryBackendLinks =
       selectedGraphCatalogRefType && selectedGraphCatalogRefId
         ? (workflowMemoryLinksQuery.data?.items ?? []).filter(
-            (link) =>
-              link.refType === selectedGraphCatalogRefType &&
-              link.refId === selectedGraphCatalogRefId
-          )
+          (link) =>
+            link.refType === selectedGraphCatalogRefType &&
+            link.refId === selectedGraphCatalogRefId
+        )
         : [];
     const selectedMemoryLinkedTargetKeys = new Set(
       selectedMemoryBackendLinks.map((link) =>
@@ -5825,13 +5873,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         item,
       }))
     );
-    const visibleCatalogItems = catalogItems.filter(({ groupKey, item }) =>
+    const visibleCatalogItems = catalogItems.filter(({groupKey, item}) =>
       memoryCatalogItemMatchesTab(item, groupKey, selectedMemoryTypeTab)
     );
     const memoryTypeTabCounts = new Map<MemoryTypeTabId, number>(
       MEMORY_TYPE_TABS.map((tab) => [
         tab.id,
-        catalogItems.filter(({ groupKey, item }) =>
+        catalogItems.filter(({groupKey, item}) =>
           memoryCatalogItemMatchesTab(item, groupKey, tab.id)
         ).length,
       ])
@@ -5848,16 +5896,16 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         memory_definitions: workflowMemoryDefinitions.map((memory) =>
           memory.id === selectedGraphMemoryId
             ? {
-                ...memory,
-                name: item.label || memory.name,
-                description: item.summary || item.preview || memory.description || '',
-                memory_type: item.memoryType || memory.memory_type || 'workflow',
-                scope: item.scope || memory.scope || 'workflow',
-                metadata: {
-                  ...(memory.metadata ?? {}),
-                  ...memoryCatalogNodeMetadata(item),
-                },
-              }
+              ...memory,
+              name: item.label || memory.name,
+              description: item.summary || item.preview || memory.description || '',
+              memory_type: item.memoryType || memory.memory_type || 'workflow',
+              scope: item.scope || memory.scope || 'workflow',
+              metadata: {
+                ...(memory.metadata ?? {}),
+                ...memoryCatalogNodeMetadata(item),
+              },
+            }
             : memory
         ),
       });
@@ -5872,23 +5920,23 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         memory_definitions: workflowMemoryDefinitions.map((memory) =>
           memory.id === selectedGraphMemoryId
             ? {
-                ...memory,
-                name: result.filename || memory.name,
-                description: `${result.chunks_created} memory chunk${
-                  result.chunks_created === 1 ? '' : 's'
-                } uploaded from ${result.filename}.`,
-                memory_type: 'archive',
-                scope: memory.scope || 'workflow',
-                metadata: {
-                  ...(memory.metadata ?? {}),
-                  catalog_ref_type: 'memory_collection',
-                  catalog_ref_id: result.document_id,
-                  catalog_memory_type: 'archive',
-                  catalog_embedded: true,
-                  catalog_document_id: result.document_id,
-                  catalog_filename: result.filename,
-                },
-              }
+              ...memory,
+              name: result.filename || memory.name,
+              description: `${result.chunks_created} memory chunk${
+                result.chunks_created === 1 ? '' : 's'
+              } uploaded from ${result.filename}.`,
+              memory_type: 'archive',
+              scope: memory.scope || 'workflow',
+              metadata: {
+                ...(memory.metadata ?? {}),
+                catalog_ref_type: 'memory_collection',
+                catalog_ref_id: result.document_id,
+                catalog_memory_type: 'archive',
+                catalog_embedded: true,
+                catalog_document_id: result.document_id,
+                catalog_filename: result.filename,
+              },
+            }
             : memory
         ),
       });
@@ -5904,14 +5952,17 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           </p>
         </div>
 
-        <div className="space-y-3 rounded-md border border-teal-200 bg-teal-50/45 p-3 dark:border-teal-300/20 dark:bg-teal-500/10">
+        <div
+          className="space-y-3 rounded-md border border-teal-200 bg-teal-50/45 p-3 dark:border-teal-300/20 dark:bg-teal-500/10">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <Label className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
+            <Label
+              className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
               Current Selection
             </Label>
             <Badge variant="outline">{catalogItems.length} available</Badge>
           </div>
-          <div className="rounded-md border border-teal-200/50 bg-white/90 px-3 py-2 dark:border-teal-300/14 dark:bg-slate-950/76">
+          <div
+            className="rounded-md border border-teal-200/50 bg-white/90 px-3 py-2 dark:border-teal-300/14 dark:bg-slate-950/76">
             <div className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
               {memoryDisplayName(selectedGraphMemory)}
             </div>
@@ -5922,7 +5973,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <Label className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
+              <Label
+                className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
                 Memory List
               </Label>
               {memoryCatalogQuery.isFetching ? (
@@ -5942,7 +5994,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 value={selectedMemoryTypeTab}
                 onValueChange={(value) => setSelectedMemoryTypeTab(value as MemoryTypeTabId)}
               >
-                <TabsList className="flex h-auto flex-wrap justify-start gap-1 bg-white p-1 dark:bg-slate-950/78">
+                <TabsList
+                  className="flex h-auto flex-wrap justify-start gap-1 bg-white p-1 dark:bg-slate-950/78">
                   <TooltipProvider delayDuration={150}>
                     {MEMORY_TYPE_TABS.map((tab) => {
                       const count = memoryTypeTabCounts.get(tab.id) ?? 0;
@@ -5956,7 +6009,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                               title={tab.description}
                             >
                               {tab.label}
-                              <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">
+                              <span
+                                className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] text-neutral-500">
                                 {count}
                               </span>
                             </TabsTrigger>
@@ -5974,13 +6028,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 </p>
                 <div className="mt-3 max-h-128 overflow-y-auto pr-1">
                   {visibleCatalogItems.length === 0 ? (
-                    <p className="rounded-md border border-teal-200/50 bg-white/90 p-3 text-sm text-neutral-500 dark:border-teal-300/14 dark:bg-slate-950/76 dark:text-slate-400">
+                    <p
+                      className="rounded-md border border-teal-200/50 bg-white/90 p-3 text-sm text-neutral-500 dark:border-teal-300/14 dark:bg-slate-950/76 dark:text-slate-400">
                       No {selectedMemoryTypeTabDefinition.label.toLowerCase()} memories are
                       available for this workflow.
                     </p>
                   ) : (
                     <div className="space-y-2">
-                      {visibleCatalogItems.map(({ groupLabel, item }) => {
+                      {visibleCatalogItems.map(({groupLabel, item}) => {
                         const catalogKey = memoryCatalogItemKey(item);
                         const isSelectedSource = selectedGraphCatalogKey === catalogKey;
                         return (
@@ -6037,10 +6092,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           </div>
         </div>
 
-        <div className="space-y-3 rounded-md border border-teal-200 bg-teal-50/45 p-3 dark:border-teal-300/20 dark:bg-teal-500/10">
+        <div
+          className="space-y-3 rounded-md border border-teal-200 bg-teal-50/45 p-3 dark:border-teal-300/20 dark:bg-teal-500/10">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <Label className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
+              <Label
+                className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
                 Access Targets
               </Label>
               <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
@@ -6051,7 +6108,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           </div>
 
           {!selectedGraphCatalogRefType || !selectedGraphCatalogRefId ? (
-            <p className="rounded-md border border-teal-200/50 bg-white/90 p-3 text-sm text-neutral-500 dark:border-teal-300/14 dark:bg-slate-950/76 dark:text-slate-400">
+            <p
+              className="rounded-md border border-teal-200/50 bg-white/90 p-3 text-sm text-neutral-500 dark:border-teal-300/14 dark:bg-slate-950/76 dark:text-slate-400">
               Select a memory source above before assigning access targets.
             </p>
           ) : workflowMemoryLinksQuery.isLoading ? (
@@ -6068,10 +6126,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                       className="flex items-start justify-between gap-3 rounded-md border border-teal-200/50 bg-white/90 px-3 py-2 dark:border-teal-300/14 dark:bg-slate-950/76"
                     >
                       <div className="min-w-0 space-y-1">
-                        <div className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
+                        <div
+                          className="truncate text-sm font-medium text-neutral-900 dark:text-slate-100">
                           {memoryAccessTargetLabel(link.targetType, link.targetId)}
                         </div>
-                        <div className="flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-slate-400">
+                        <div
+                          className="flex flex-wrap gap-1 text-xs text-neutral-500 dark:text-slate-400">
                           <Badge variant="secondary">{readableMemoryValue(link.targetType)}</Badge>
                           <Badge variant="outline">{readableMemoryValue(link.accessMode)}</Badge>
                           <span>{link.memoryIds.length} records</span>
@@ -6096,7 +6156,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               )}
 
               <div className="space-y-2">
-                <Label className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
+                <Label
+                  className="text-xs font-medium uppercase tracking-[0.12em] text-teal-700 dark:text-teal-200">
                   Add Access
                 </Label>
                 <div className="grid gap-2 sm:grid-cols-2">
@@ -6175,7 +6236,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         metadata: {
           ...(resolvedWorkflowPreview.metadata ?? {}),
           [workflowArtifactDefinitionsMetadataKey]: workflowArtifactDefinitions.map((artifact) =>
-            artifact.id === selectedGraphArtifactId ? { ...artifact, ...updates } : artifact
+            artifact.id === selectedGraphArtifactId ? {...artifact, ...updates} : artifact
           ),
         },
       });
@@ -6193,7 +6254,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           </p>
         </div>
 
-        <div className="space-y-4 rounded-md border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-300/20 dark:bg-amber-500/10">
+        <div
+          className="space-y-4 rounded-md border border-amber-200 bg-amber-50/50 p-3 dark:border-amber-300/20 dark:bg-amber-500/10">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{selectedGraphArtifact.artifact_type || 'output'}</Badge>
             {selectedGraphArtifact.media_type ? (
@@ -6217,7 +6279,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 id={`workflow-artifact-name-${selectedGraphArtifactId}`}
                 value={selectedGraphArtifact.name}
                 disabled={!isEditing}
-                onChange={(event) => updateSelectedArtifact({ name: event.target.value })}
+                onChange={(event) => updateSelectedArtifact({name: event.target.value})}
               />
             </div>
             <div className="space-y-2">
@@ -6228,7 +6290,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 placeholder="output"
                 disabled={!isEditing}
                 onChange={(event) =>
-                  updateSelectedArtifact({ artifact_type: event.target.value.trim() || null })
+                  updateSelectedArtifact({artifact_type: event.target.value.trim() || null})
                 }
               />
             </div>
@@ -6243,7 +6305,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               value={selectedGraphArtifact.description ?? ''}
               disabled={!isEditing}
               rows={3}
-              onChange={(event) => updateSelectedArtifact({ description: event.target.value })}
+              onChange={(event) => updateSelectedArtifact({description: event.target.value})}
             />
           </div>
 
@@ -6258,7 +6320,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 placeholder="text/markdown"
                 disabled={!isEditing}
                 onChange={(event) =>
-                  updateSelectedArtifact({ media_type: event.target.value.trim() || null })
+                  updateSelectedArtifact({media_type: event.target.value.trim() || null})
                 }
               />
             </div>
@@ -6266,13 +6328,13 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               <Label htmlFor={`workflow-artifact-producer-${selectedGraphArtifactId}`}>
                 Producer Task
               </Label>
-              <select
+              <NativeSelect
                 id={`workflow-artifact-producer-${selectedGraphArtifactId}`}
                 value={selectedGraphArtifact.producer_task_id ?? ''}
                 disabled={!isEditing}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-neutral-900 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-slate-950 dark:text-slate-100"
                 onChange={(event) =>
-                  updateSelectedArtifact({ producer_task_id: event.target.value || null })
+                  updateSelectedArtifact({producer_task_id: event.target.value || null})
                 }
               >
                 <option value="">No producer task</option>
@@ -6281,7 +6343,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                     {task.name || task.id}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
         </div>
@@ -6414,7 +6476,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       }, 0);
     };
     const makeSelectedEdgeConditional = () => {
-      updateSelectedEdgeMetadata({ edgeType: 'conditional' });
+      updateSelectedEdgeMetadata({edgeType: 'conditional'});
       focusConditionInput();
     };
 
@@ -6434,8 +6496,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                   ? `${toolAccessToolIds.length === 1 ? (toolAccessTool ? toolDisplayName(toolAccessTool) : toolAccessToolIds[0]) : `${toolAccessToolIds.length} tools`} -> ${assignmentAgent.name}`
                   : memoryAccessMemoryId && (assignmentAgent || assignmentTask)
                     ? `${memoryAccessMemory ? memoryDisplayName(memoryAccessMemory) : memoryAccessMemoryId} -> ${
-                        assignmentAgent?.name || assignmentTask?.name
-                      }`
+                      assignmentAgent?.name || assignmentTask?.name
+                    }`
                     : `${selectedGraphEdge.source} -> ${selectedGraphEdge.target}`}
           </p>
           <p className="text-sm text-neutral-500 dark:text-slate-300">{edgeDescription}</p>
@@ -6444,7 +6506,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         {renderRuntimeEventPanel(selectedGraphEdgeRuntimeEvent)}
 
         {sourceTask && targetTask ? (
-          <div className="grid gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-3 text-sm dark:border-slate-400/20 dark:bg-slate-400/10">
+          <div
+            className="grid gap-2 rounded-md border border-slate-200 bg-slate-50/60 p-3 text-sm dark:border-slate-400/20 dark:bg-slate-400/10">
             <div className="flex justify-between gap-3">
               <span className="text-neutral-500 dark:text-slate-400">From</span>
               <span className="truncate font-medium text-neutral-900 dark:text-slate-100">
@@ -6459,7 +6522,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             </div>
           </div>
         ) : assignmentAgent && assignmentTask ? (
-          <div className="grid gap-2 rounded-md border border-agent-200 bg-agent-50/60 p-3 text-sm dark:border-agent-400/20 dark:bg-agent-500/10">
+          <div
+            className="grid gap-2 rounded-md border border-agent-200 bg-agent-50/60 p-3 text-sm dark:border-agent-400/20 dark:bg-agent-500/10">
             <div className="flex justify-between gap-3">
               <span className="text-neutral-500 dark:text-slate-400">Agent</span>
               <span className="truncate font-medium text-neutral-900 dark:text-slate-100">
@@ -6474,7 +6538,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             </div>
           </div>
         ) : assignmentAgent && toolAccessToolIds.length > 0 ? (
-          <div className="grid gap-2 rounded-md border border-orange-200 bg-orange-50/60 p-3 text-sm dark:border-orange-400/20 dark:bg-orange-500/10">
+          <div
+            className="grid gap-2 rounded-md border border-orange-200 bg-orange-50/60 p-3 text-sm dark:border-orange-400/20 dark:bg-orange-500/10">
             {toolAccessToolIds.length === 1 ? (
               <div className="flex justify-between gap-3">
                 <span className="text-neutral-500 dark:text-slate-400">Tool</span>
@@ -6510,7 +6575,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             </div>
           </div>
         ) : memoryAccessMemoryId && (assignmentAgent || assignmentTask) ? (
-          <div className="grid gap-2 rounded-md border border-teal-200 bg-teal-50/60 p-3 text-sm dark:border-teal-300/20 dark:bg-teal-500/10">
+          <div
+            className="grid gap-2 rounded-md border border-teal-200 bg-teal-50/60 p-3 text-sm dark:border-teal-300/20 dark:bg-teal-500/10">
             <div className="flex justify-between gap-3">
               <span className="text-neutral-500 dark:text-slate-400">Memory</span>
               <span className="truncate font-medium text-neutral-900 dark:text-slate-100">
@@ -6541,7 +6607,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             </div>
           </div>
         ) : (
-          <p className="rounded-md border border-neutral-200 bg-neutral-50/60 p-3 text-sm text-neutral-500 dark:border-white/10 dark:bg-white/4 dark:text-slate-400">
+          <p
+            className="rounded-md border border-neutral-200 bg-neutral-50/60 p-3 text-sm text-neutral-500 dark:border-white/10 dark:bg-white/4 dark:text-slate-400">
             This connection is derived from agent or tool assignment data. Edit it through the
             related task or agent drawer.
           </p>
@@ -6553,7 +6620,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               <Label htmlFor={`graph-assignment-agent-${selectedGraphEdge.id}`}>
                 Assigned agent
               </Label>
-              <select
+              <NativeSelect
                 id={`graph-assignment-agent-${selectedGraphEdge.id}`}
                 value={assignmentTask?.agent_id ?? noGraphEdgeAgentValue}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -6570,7 +6637,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                     {agent.name || agent.id}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               <p className="text-xs text-neutral-500">
                 A task can have one assigned agent. Changing this replaces the assignment edge.
               </p>
@@ -6580,7 +6647,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               type="button"
               variant="outline"
               disabled={!assignmentTask?.agent_id}
-              onClick={() => updateTaskDefinition(assignmentTaskIndex, { agent_id: null })}
+              onClick={() => updateTaskDefinition(assignmentTaskIndex, {agent_id: null})}
             >
               Remove assignment
             </Button>
@@ -6660,7 +6727,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
             <div className="space-y-1.5">
               <Label htmlFor={`graph-edge-type-${selectedGraphEdge.id}`}>Edge Type</Label>
-              <select
+              <NativeSelect
                 id={`graph-edge-type-${selectedGraphEdge.id}`}
                 value={edgeType}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -6677,7 +6744,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 <option value="conditional">conditional</option>
                 <option value="success">success</option>
                 <option value="failure">failure</option>
-              </select>
+              </NativeSelect>
               <p className="text-xs text-neutral-500">
                 Use `conditional` when this path should run only if the condition is true. Success
                 and failure mark outcome-specific paths.
@@ -6879,7 +6946,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         />
       </div>
 
-      <WorkflowGovernancePanel workflowId={workflowId} editable={isEditing} />
+      <WorkflowGovernancePanel workflowId={workflowId} editable={isEditing}/>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
         <WorkflowSharedMemoryControls
@@ -6984,12 +7051,14 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       className="relative mt-3 max-h-40 overflow-hidden border-t border-primary-100/70 px-1 pt-3 group-data-[state=open]:hidden after:pointer-events-none after:absolute after:inset-x-0 after:bottom-0 after:h-25 after:bg-linear-to-b after:from-white/0 after:via-white/30 after:to-white/95 dark:border-sky-400/10 dark:after:from-slate-950/0 dark:after:via-slate-950/35 dark:after:to-slate-950"
     >
       <div className="space-y-3 pb-32">
-        <div className="grid gap-2 text-xs text-neutral-600 dark:text-slate-300 sm:grid-cols-2 xl:grid-cols-5">
-          <div className="space-y-1 rounded-lg border border-violet-100 bg-white/80 px-3 py-2 shadow-sm shadow-violet-100/30 dark:border-violet-400/20 dark:bg-violet-500/8 dark:shadow-none">
+        <div
+          className="grid gap-2 text-xs text-neutral-600 dark:text-slate-300 sm:grid-cols-2 xl:grid-cols-5">
+          <div
+            className="space-y-1 rounded-lg border border-violet-100 bg-white/80 px-3 py-2 shadow-sm shadow-violet-100/30 dark:border-violet-400/20 dark:bg-violet-500/8 dark:shadow-none">
             <div className="font-medium text-neutral-900 dark:text-slate-100">Identity</div>
             <div className="truncate text-neutral-600 dark:text-slate-300">{previewEntrypoint}</div>
             <div className="flex items-center gap-1.5 text-neutral-500 dark:text-slate-400">
-              <WorkflowToneDot tone={effectiveRestartActiveExecutions ? 'amber' : 'emerald'} />
+              <WorkflowToneDot tone={effectiveRestartActiveExecutions ? 'amber' : 'emerald'}/>
               <span className="truncate">{activeRunsBehaviorLabel}</span>
             </div>
             <div className="truncate text-neutral-500 dark:text-slate-400">
@@ -6998,7 +7067,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 : 'No capabilities'}
             </div>
           </div>
-          <div className="space-y-1 rounded-lg border border-sky-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-sky-400/18 dark:bg-sky-500/8 dark:shadow-none">
+          <div
+            className="space-y-1 rounded-lg border border-sky-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-sky-400/18 dark:bg-sky-500/8 dark:shadow-none">
             <div className="font-medium text-neutral-900 dark:text-slate-100">Execution</div>
             <div className="truncate text-neutral-600 dark:text-slate-300">
               {previewRuntimeAdapter}
@@ -7007,7 +7077,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               {selectedExecutionHost} · {workflow.allowed_runtime_adapter_ids?.length ?? 0} allowed
             </div>
           </div>
-          <div className="space-y-1 rounded-lg border border-amber-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-amber-300/18 dark:bg-amber-400/8 dark:shadow-none">
+          <div
+            className="space-y-1 rounded-lg border border-amber-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-amber-300/18 dark:bg-amber-400/8 dark:shadow-none">
             <div className="font-medium text-neutral-900 dark:text-slate-100">Schedules</div>
             <div className="text-neutral-600 dark:text-slate-300">
               {previewScheduleCount} configured
@@ -7016,14 +7087,16 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               {formatPreviewDate(previewNextSchedule)}
             </div>
           </div>
-          <div className="space-y-1 rounded-lg border border-emerald-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-emerald-300/18 dark:bg-emerald-500/8 dark:shadow-none">
+          <div
+            className="space-y-1 rounded-lg border border-emerald-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-emerald-300/18 dark:bg-emerald-500/8 dark:shadow-none">
             <div className="font-medium text-neutral-900 dark:text-slate-100">Monitoring</div>
             <div className="truncate text-neutral-600 dark:text-slate-300">{previewMonitoring}</div>
             <div className="text-neutral-500 dark:text-slate-400">
               {previewPendingProposals} pending proposals
             </div>
           </div>
-          <div className="space-y-1 rounded-lg border border-cyan-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-cyan-300/18 dark:bg-cyan-500/8 dark:shadow-none">
+          <div
+            className="space-y-1 rounded-lg border border-cyan-100 bg-white/80 px-3 py-2 shadow-sm shadow-neutral-100/70 dark:border-cyan-300/18 dark:bg-cyan-500/8 dark:shadow-none">
             <div className="font-medium text-neutral-900 dark:text-slate-100">Knowledge</div>
             <div className="text-neutral-600 dark:text-slate-300">
               {previewMemoryEnabled ? 'Memory on' : 'Memory off'}
@@ -7033,16 +7106,19 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             </div>
           </div>
         </div>
-        <div className="grid gap-2 text-xs text-neutral-600 dark:text-slate-300 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+        <div
+          className="grid gap-2 text-xs text-neutral-600 dark:text-slate-300 md:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
           <div className="space-y-1.5">
             <div className="font-medium text-neutral-700 dark:text-slate-200">Name</div>
-            <div className="truncate rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-500 shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300 dark:shadow-none">
+            <div
+              className="truncate rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-500 shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300 dark:shadow-none">
               {name || workflow.name || 'Untitled workflow'}
             </div>
           </div>
           <div className="space-y-1.5">
             <div className="font-medium text-neutral-700 dark:text-slate-200">Description</div>
-            <div className="truncate rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-500 shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300 dark:shadow-none">
+            <div
+              className="truncate rounded-md border border-neutral-200 bg-white px-3 py-2 text-neutral-500 shadow-sm dark:border-white/10 dark:bg-slate-900/80 dark:text-slate-300 dark:shadow-none">
               {description || workflow.description || 'No description'}
             </div>
           </div>
@@ -7101,7 +7177,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         <WorkflowReadOnlySummaryField label="Active run behavior" className="md:col-span-2">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <WorkflowToneDot tone={effectiveRestartActiveExecutions ? 'amber' : 'emerald'} />
+              <WorkflowToneDot tone={effectiveRestartActiveExecutions ? 'amber' : 'emerald'}/>
               <WorkflowStateValue>{activeRunsBehaviorLabel}</WorkflowStateValue>
             </div>
             <p className="text-xs text-neutral-500 dark:text-slate-400">
@@ -7155,7 +7231,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
                   {group.added} added, {group.changed} changed, {group.removed} removed
                 </p>
-                <ul className="mt-2 space-y-1 text-xs leading-5 text-neutral-700 dark:text-slate-300">
+                <ul
+                  className="mt-2 space-y-1 text-xs leading-5 text-neutral-700 dark:text-slate-300">
                   {visibleDetails.map((detail) => (
                     <li key={detail}>{detail}</li>
                   ))}
@@ -7213,6 +7290,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         </AccordionTrigger>
         <AccordionContent className="space-y-5 px-1 pb-4 pt-2">
           {renderWorkflowMetadataPreview()}
+          <WorkflowVersionHistory workflowId={workflowId}/>
           {renderDraftChangeSummary()}
           {isEditing ? (
             <WorkflowMetadataEditor
@@ -7251,10 +7329,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             renderReadOnlyWorkflowMetadata()
           )}
 
-          <WorkflowApiAccessPanel workflowId={workflowId} />
-          <WorkflowWebhooksPanel workflowId={workflowId} />
+          <WorkflowApiAccessPanel workflowId={workflowId}/>
+          <WorkflowWebhooksPanel workflowId={workflowId}/>
 
-          <section className="rounded-xl border border-neutral-200 bg-neutral-50/65 dark:border-white/10 dark:bg-white/3">
+          <section
+            className="rounded-xl border border-neutral-200 bg-neutral-50/65 dark:border-white/10 dark:bg-white/3">
             <div className="flex items-start justify-between gap-4 rounded-xl px-4 py-3">
               <div>
                 <div className="font-semibold text-neutral-900 dark:text-slate-100">
@@ -7268,7 +7347,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 Optional
               </Badge>
             </div>
-            <div className="space-y-5 border-t border-neutral-200 px-3 pb-4 pt-4 dark:border-white/10">
+            <div
+              className="space-y-5 border-t border-neutral-200 px-3 pb-4 pt-4 dark:border-white/10">
               {renderRunConfigurationSections()}
             </div>
           </section>
@@ -7283,10 +7363,11 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
     }
 
     return (
-      <div className="flex flex-col gap-3 rounded-md border border-sky-100 bg-sky-50/60 p-3 text-sm sm:flex-row sm:items-end">
+      <div
+        className="flex flex-col gap-3 rounded-md border border-sky-100 bg-sky-50/60 p-3 text-sm sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1 space-y-1.5">
           <Label htmlFor="workflow-persona-agent-create">Persona agent</Label>
-          <select
+          <NativeSelect
             id="workflow-persona-agent-create"
             value={personaQuickCreateAgentId}
             className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -7301,7 +7382,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 )}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
         <Button
           type="button"
@@ -7317,7 +7398,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
 
   const closeSelectedGraphDrawer = () => {
     if (selectedTask) {
-      updateWorkflowUrl({ nextTaskId: null });
+      updateWorkflowUrl({nextTaskId: null});
     }
     setSelectedGraphApprovalTaskId(null);
 
@@ -7416,52 +7497,52 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       ? null
       : selectedGraphAgent
         ? {
-            type: 'agent',
-            id: selectedGraphAgent.id,
-            label: selectedGraphAgent.name || selectedGraphAgent.id,
-          }
+          type: 'agent',
+          id: selectedGraphAgent.id,
+          label: selectedGraphAgent.name || selectedGraphAgent.id,
+        }
         : selectedGraphTool || selectedGraphToolListOpen
           ? selectedGraphTool
             ? {
-                type: 'tool',
-                id: selectedGraphTool.id,
-                label:
-                  selectedGraphTool.display_name || selectedGraphTool.name || selectedGraphTool.id,
-              }
+              type: 'tool',
+              id: selectedGraphTool.id,
+              label:
+                selectedGraphTool.display_name || selectedGraphTool.name || selectedGraphTool.id,
+            }
             : selectedGraphToolNode
               ? {
-                  type: 'tool',
-                  id: selectedGraphToolNode.id,
-                  label:
-                    typeof selectedGraphToolNode.data?.label === 'string'
-                      ? selectedGraphToolNode.data.label
-                      : selectedGraphToolNode.id,
-                }
+                type: 'tool',
+                id: selectedGraphToolNode.id,
+                label:
+                  typeof selectedGraphToolNode.data?.label === 'string'
+                    ? selectedGraphToolNode.data.label
+                    : selectedGraphToolNode.id,
+              }
               : null
           : selectedGraphMemory && selectedGraphMemoryId
             ? {
-                type: 'memory',
-                id: selectedGraphMemoryId,
-                label: memoryDisplayName(selectedGraphMemory),
-              }
+              type: 'memory',
+              id: selectedGraphMemoryId,
+              label: memoryDisplayName(selectedGraphMemory),
+            }
             : selectedGraphArtifact && selectedGraphArtifactId
               ? {
-                  type: 'artifact',
-                  id: selectedGraphArtifactId,
-                  label: selectedGraphArtifact.name || selectedGraphArtifactId,
-                }
+                type: 'artifact',
+                id: selectedGraphArtifactId,
+                label: selectedGraphArtifact.name || selectedGraphArtifactId,
+              }
               : selectedTaskWasOpenedFromApproval && selectedTask
                 ? {
-                    type: 'approval',
-                    id: selectedTask.id,
-                    label: `Approval gate for ${selectedTask.name || selectedTask.id}`,
-                  }
+                  type: 'approval',
+                  id: selectedTask.id,
+                  label: `Approval gate for ${selectedTask.name || selectedTask.id}`,
+                }
                 : selectedTask
                   ? {
-                      type: 'task',
-                      id: selectedTask.id,
-                      label: selectedTask.name || selectedTask.id,
-                    }
+                    type: 'task',
+                    id: selectedTask.id,
+                    label: selectedTask.name || selectedTask.id,
+                  }
                   : null;
 
     return (
@@ -7482,7 +7563,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             drawerShellClassName
           )}
         >
-          <div className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/82 px-4 py-4 shadow-[0_14px_32px_rgba(2,8,23,0.35)] backdrop-blur-md">
+          <div
+            className="sticky top-0 z-20 border-b border-white/10 bg-slate-950/82 px-4 py-4 shadow-[0_14px_32px_rgba(2,8,23,0.35)] backdrop-blur-md">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
@@ -7531,39 +7613,39 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
   const graphRuntimeControls =
     canRequestGraphSteering || (!isEditing && graphRuntimeControlRun)
       ? {
-          runId: !isEditing && graphRuntimeControlRun ? graphRuntimeControlRun.id : undefined,
-          status: !isEditing && graphRuntimeControlRun ? graphRuntimeControlRun.status : undefined,
-          approvalToolId:
-            !isEditing && graphRuntimeControlRun ? graphRuntimeControlApprovalToolId : undefined,
-          approvalLabel:
-            !isEditing && graphRuntimeControlRun ? graphRuntimeControlApprovalLabel : undefined,
-          checkpointResumeTaskId:
-            !isEditing && graphRuntimeControlRun ? graphRuntimeControlCheckpointTaskId : undefined,
-          canRequestSteering: canRequestGraphSteering,
-          isPending:
-            graphResumeRunMutation.isPending ||
-            graphRetryTaskMutation.isPending ||
-            graphCheckpointResumeMutation.isPending ||
-            graphNativeApprovalDecisionMutation.isPending ||
-            createGraphSteeringApprovalMutation.isPending,
-          onRequestSteering: canRequestGraphSteering ? handleGraphSteeringRequest : undefined,
-          onResumeRun: !isEditing && graphRuntimeControlRun ? handleGraphResumeRun : undefined,
-          onRetryTask: !isEditing && graphRuntimeControlRun ? handleGraphRetryTask : undefined,
-          onResumeFromCheckpoint:
-            !isEditing && graphRuntimeControlRun && graphRuntimeControlCheckpointTaskId
-              ? handleGraphResumeFromCheckpoint
-              : undefined,
-          onApproveTool:
-            !isEditing && graphRuntimeControlRun
-              ? (runId: string, toolId: string) =>
-                  handleGraphNativeApprovalDecision(runId, toolId, 'approve')
-              : undefined,
-          onRejectTool:
-            !isEditing && graphRuntimeControlRun
-              ? (runId: string, toolId: string) =>
-                  handleGraphNativeApprovalDecision(runId, toolId, 'reject')
-              : undefined,
-        }
+        runId: !isEditing && graphRuntimeControlRun ? graphRuntimeControlRun.id : undefined,
+        status: !isEditing && graphRuntimeControlRun ? graphRuntimeControlRun.status : undefined,
+        approvalToolId:
+          !isEditing && graphRuntimeControlRun ? graphRuntimeControlApprovalToolId : undefined,
+        approvalLabel:
+          !isEditing && graphRuntimeControlRun ? graphRuntimeControlApprovalLabel : undefined,
+        checkpointResumeTaskId:
+          !isEditing && graphRuntimeControlRun ? graphRuntimeControlCheckpointTaskId : undefined,
+        canRequestSteering: canRequestGraphSteering,
+        isPending:
+          graphResumeRunMutation.isPending ||
+          graphRetryTaskMutation.isPending ||
+          graphCheckpointResumeMutation.isPending ||
+          graphNativeApprovalDecisionMutation.isPending ||
+          createGraphSteeringApprovalMutation.isPending,
+        onRequestSteering: canRequestGraphSteering ? handleGraphSteeringRequest : undefined,
+        onResumeRun: !isEditing && graphRuntimeControlRun ? handleGraphResumeRun : undefined,
+        onRetryTask: !isEditing && graphRuntimeControlRun ? handleGraphRetryTask : undefined,
+        onResumeFromCheckpoint:
+          !isEditing && graphRuntimeControlRun && graphRuntimeControlCheckpointTaskId
+            ? handleGraphResumeFromCheckpoint
+            : undefined,
+        onApproveTool:
+          !isEditing && graphRuntimeControlRun
+            ? (runId: string, toolId: string) =>
+              handleGraphNativeApprovalDecision(runId, toolId, 'approve')
+            : undefined,
+        onRejectTool:
+          !isEditing && graphRuntimeControlRun
+            ? (runId: string, toolId: string) =>
+              handleGraphNativeApprovalDecision(runId, toolId, 'reject')
+            : undefined,
+      }
       : undefined;
 
   return (
@@ -7571,6 +7653,8 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
       <WorkflowDetailHeader
         workflowId={workflow.id}
         workflowName={resolvedWorkflowPreview.name}
+        savedRevision={workflow.versioning?.revision}
+        savedVersion={workflow.versioning?.version}
         workflowDescription={resolvedWorkflowPreview.description ?? undefined}
         isEditing={isEditing}
         hasUnsavedChanges={hasUnsavedChanges}
@@ -7579,12 +7663,12 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
         onStartEditing={() => {
           suppressEditModeStartRef.current = false;
           startEditing();
-          updateWorkflowUrl({ nextMode: 'edit' });
+          updateWorkflowUrl({nextMode: 'edit'});
         }}
         onCancelEditing={() => {
           suppressEditModeStartRef.current = true;
           stopEditing();
-          updateWorkflowUrl({ nextMode: null, nextTaskId: null });
+          updateWorkflowUrl({nextMode: null, nextTaskId: null});
         }}
         onExecute={handleExecute}
         onExportWorkflow={handleExportWorkflow}
@@ -7634,7 +7718,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
                 onClick={() => {
                   suppressEditModeStartRef.current = false;
                   startEditing();
-                  updateWorkflowUrl({ nextMode: 'edit' });
+                  updateWorkflowUrl({nextMode: 'edit'});
                 }}
               >
                 Review in editor
@@ -7722,7 +7806,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             setSelectedGraphMemoryId(null);
             setSelectedGraphArtifactId(null);
             setSelectedGraphEdgeRef(null);
-            updateWorkflowUrl({ nextTaskId: taskId });
+            updateWorkflowUrl({nextTaskId: taskId});
           }}
           onSelectApproval={(taskId) => {
             setSelectedGraphApprovalTaskId(taskId);
@@ -7733,7 +7817,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             setSelectedGraphMemoryId(null);
             setSelectedGraphArtifactId(null);
             setSelectedGraphEdgeRef(null);
-            updateWorkflowUrl({ nextTaskId: taskId });
+            updateWorkflowUrl({nextTaskId: taskId});
           }}
           onSelectAgent={(agentId) => {
             setSelectedGraphApprovalTaskId(null);
@@ -7745,7 +7829,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             setSelectedGraphArtifactId(null);
             setSelectedGraphEdgeRef(null);
             if (requestedTaskId) {
-              updateWorkflowUrl({ nextTaskId: null });
+              updateWorkflowUrl({nextTaskId: null});
             }
           }}
           onSelectTool={(toolId, toolIds = toolId ? [toolId] : [], toolNodeId = null) => {
@@ -7759,7 +7843,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             setSelectedGraphArtifactId(null);
             setSelectedGraphEdgeRef(null);
             if (requestedTaskId) {
-              updateWorkflowUrl({ nextTaskId: null });
+              updateWorkflowUrl({nextTaskId: null});
             }
           }}
           onSelectMemory={(memoryId) => {
@@ -7773,7 +7857,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             setSelectedGraphArtifactId(null);
             setSelectedGraphEdgeRef(null);
             if (requestedTaskId) {
-              updateWorkflowUrl({ nextTaskId: null });
+              updateWorkflowUrl({nextTaskId: null});
             }
           }}
           onSelectArtifact={(artifactId) => {
@@ -7786,7 +7870,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
             setSelectedGraphMemoryId(null);
             setSelectedGraphEdgeRef(null);
             if (requestedTaskId) {
-              updateWorkflowUrl({ nextTaskId: null });
+              updateWorkflowUrl({nextTaskId: null});
             }
           }}
           onSelectEdge={(edge) => {
@@ -7800,7 +7884,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
               setSelectedGraphMemoryId(null);
               setSelectedGraphArtifactId(null);
               if (requestedTaskId) {
-                updateWorkflowUrl({ nextTaskId: null });
+                updateWorkflowUrl({nextTaskId: null});
               }
             }
           }}
@@ -7808,7 +7892,7 @@ export default function WorkflowDetailWorkspace({ workflowId }: { workflowId: st
           onStartEditing={() => {
             suppressEditModeStartRef.current = false;
             startEditing();
-            updateWorkflowUrl({ nextMode: 'edit' });
+            updateWorkflowUrl({nextMode: 'edit'});
           }}
           onSaveWorkflow={() => {
             void handleSave();

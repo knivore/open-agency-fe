@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { useQueries, useQuery } from '@tanstack/react-query';
 import type {
   ExecutionEventRecord,
@@ -14,29 +15,11 @@ import { workflowsApi } from '@/lib/api/backend/workflows';
 import { queryKeys } from '@/lib/react-query/queryKeys';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
-import { Input } from '@/components/library/shadcn/input';
-import {
-  type LucideIcon,
-  ActivitySquare,
-  CircleAlert,
-  Clock3,
-  Cpu,
-  List,
-  PlayCircle,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-  X,
-} from 'lucide-react';
+import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
+import WorkspaceMetrics from '@/components/app-shell/WorkspaceMetrics';
+import { ActivitySquare, List, RefreshCw } from 'lucide-react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/library/shadcn/select';
+import { NativeSelect } from '@/components/library/shadcn/select';
 import PageHeader from '@/components/app-shell/PageHeader';
 import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import {
@@ -61,67 +44,6 @@ import {
 } from '@/modules/observatory/runtime/agentVisibility';
 
 type RunsVisibleViewMode = RunViewMode | 'observatory';
-
-function RunHealthMetric({
-  description,
-  icon: Icon,
-  label,
-  tone,
-  value,
-  onSelect,
-  selected = false,
-}: {
-  description: string;
-  icon: LucideIcon;
-  label: string;
-  tone: 'active' | 'failed' | 'runtime' | 'waiting';
-  value: number;
-  onSelect?: () => void;
-  selected?: boolean;
-}) {
-  const content = (
-    <>
-      <span className="agency-run-metric-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
-        <Icon className="size-[1.05rem] stroke-[1.75]" aria-hidden="true" />
-      </span>
-      <div className="min-w-0">
-        <div className="flex items-baseline gap-2">
-          <p className="text-xl font-semibold tracking-[-0.03em] text-(--agency-shell-text)">
-            {value}
-          </p>
-          <p className="text-sm font-semibold text-(--agency-shell-text)">{label}</p>
-        </div>
-        <p className="truncate text-xs text-(--agency-shell-muted)" title={description}>
-          {description}
-        </p>
-      </div>
-    </>
-  );
-  const className =
-    'agency-run-metric relative flex min-w-0 items-center gap-3 overflow-hidden rounded-lg border px-3 py-3 text-left sm:px-4';
-
-  if (onSelect) {
-    return (
-      <button
-        type="button"
-        className={className}
-        data-tone={tone}
-        data-selected={selected ? 'true' : undefined}
-        aria-pressed={selected}
-        onClick={onSelect}
-        title={`Filter runs: ${label}`}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <div className={className} data-tone={tone}>
-      {content}
-    </div>
-  );
-}
 
 const OBSERVATORY_WORKING_RUN_STATUSES = new Set([
   'created',
@@ -153,7 +75,7 @@ export default function RunsWorkspace() {
   const {
     runsQuery,
     runs,
-    filteredRuns,
+    filteredRuns: baseFilteredRuns,
     activeCount,
     waitingCount,
     failedCount,
@@ -166,6 +88,15 @@ export default function RunsWorkspace() {
     setViewMode,
     statusFilters,
   } = useRunsWorkspace({ workflowNamesById });
+  const searchParams = useSearchParams();
+  const [workflowFilter, setWorkflowFilter] = useState(() => searchParams.get('workflowId') || 'all');
+  const [dateFilter, setDateFilter] = useState('all');
+  const filteredRuns = useMemo(() => {
+    const cutoff = dateFilter === 'all' ? 0 : runsQuery.dataUpdatedAt - Number(dateFilter) * 86_400_000;
+    return baseFilteredRuns.filter(run => (workflowFilter === 'all' || run.workflowId === workflowFilter) &&
+      (!cutoff || Date.parse(run.startedAt || run.createdAt || '') >= cutoff));
+  }, [baseFilteredRuns, workflowFilter, dateFilter, runsQuery.dataUpdatedAt]);
+  const clearFilters = () => { setSearch(''); setStatusFilter('all'); setWorkflowFilter('all'); setDateFilter('all'); };
   const [visibleViewMode, setVisibleViewMode] = useState<RunsVisibleViewMode>(viewMode);
   const [observatoryHasMounted, setObservatoryHasMounted] = useState(false);
   const [observatoryAgentVisibilityMode, setObservatoryAgentVisibilityMode] =
@@ -306,7 +237,7 @@ export default function RunsWorkspace() {
   const focusedWorkflowName = focusedWorkflowId
     ? (workflowNamesById.get(focusedWorkflowId) ?? focusedWorkflowId)
     : null;
-  const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all';
+  const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all' || workflowFilter !== 'all' || dateFilter !== 'all';
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
     runs.forEach((run) => counts.set(run.status, (counts.get(run.status) ?? 0) + 1));
@@ -520,128 +451,114 @@ export default function RunsWorkspace() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Run health summary">
-        <RunHealthMetric
-          label="Active"
-          description="Still executing or queued"
-          value={activeCount}
-          icon={PlayCircle}
-          tone="active"
-          selected={statusFilter === 'active'}
-          onSelect={() => setStatusFilter(statusFilter === 'active' ? 'all' : 'active')}
-        />
-        <RunHealthMetric
-          label="Waiting"
-          description="Needs approval or input"
-          value={waitingCount}
-          icon={Clock3}
-          tone="waiting"
-          selected={statusFilter === 'waiting'}
-          onSelect={() => setStatusFilter(statusFilter === 'waiting' ? 'all' : 'waiting')}
-        />
-        <RunHealthMetric
-          label="Failed"
-          description="Needs investigation"
-          value={failedCount}
-          icon={CircleAlert}
-          tone="failed"
-          selected={statusFilter === 'failed'}
-          onSelect={() => setStatusFilter(statusFilter === 'failed' ? 'all' : 'failed')}
-        />
-        <RunHealthMetric
-          label="Runtimes"
-          description="Distinct adapters in use"
-          value={runtimeCount}
-          icon={Cpu}
-          tone="runtime"
-        />
-      </div>
+      <WorkspaceMetrics
+        label="Run health summary"
+        items={[
+          {
+            label: 'Active',
+            value: activeCount,
+            description: 'Executing or queued',
+            selected: statusFilter === 'active',
+            onSelect: () => setStatusFilter(statusFilter === 'active' ? 'all' : 'active'),
+          },
+          {
+            label: 'Waiting',
+            value: waitingCount,
+            description: 'Approval, input, or event',
+            selected: statusFilter === 'waiting',
+            onSelect: () => setStatusFilter(statusFilter === 'waiting' ? 'all' : 'waiting'),
+          },
+          {
+            label: 'Failed',
+            value: failedCount,
+            description: 'Inspect retained evidence',
+            selected: statusFilter === 'failed',
+            onSelect: () => setStatusFilter(statusFilter === 'failed' ? 'all' : 'failed'),
+          },
+          { label: 'Runtimes', value: runtimeCount, description: 'Distinct adapters in use' },
+        ]}
+      />
 
       <Tabs value={visibleViewMode} onValueChange={handleViewModeChange}>
         <TabsContent value="list" className="mt-0">
           <div className="space-y-4">
-            <section
-              aria-label="Filter execution runs"
-              className="rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel) p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]"
+            <WorkspaceToolbar
+              label="Filter execution runs"
+              search={{
+                label: 'Search runs',
+                placeholder: 'Workflow, run ID, runtime, or error',
+                value: search,
+                onChange: setSearch,
+              }}
+              summary={`${filteredRuns.length} of ${runs.length} runs`}
+              onReset={hasActiveFilters ? clearFilters : undefined}
             >
-              <div className="grid gap-3 lg:grid-cols-[minmax(18rem,1fr)_15rem_auto] lg:items-end">
-                <label className="space-y-1.5">
-                  <span className="text-xs font-semibold text-(--agency-shell-text)">
-                    Search runs
-                  </span>
-                  <span className="relative block">
-                    <Search
-                      className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)"
-                      aria-hidden="true"
-                    />
-                    <Input
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Workflow, run ID, runtime, or error"
-                      className="pl-9"
-                    />
-                  </span>
-                </label>
-                <label className="space-y-1.5">
-                  <span className="text-xs font-semibold text-(--agency-shell-text)">Status</span>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(value) => setStatusFilter(value as RunsStatusFilter)}
-                  >
-                    <SelectTrigger aria-label="Filter runs by status">
-                      <SlidersHorizontal className="mr-2 size-4 text-(--agency-shell-muted)" />
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        {statusFilters.map((filter) => (
-                          <SelectItem key={filter} value={filter}>
-                            {filter === 'all'
-                              ? `All statuses (${runs.length})`
-                              : `${formatRunStatus(filter)} (${statusCounts.get(filter) ?? 0})`}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </label>
-                <div className="flex min-h-10 flex-wrap items-center justify-between gap-2 lg:justify-end">
-                  <span className="text-sm text-(--agency-shell-muted)" aria-live="polite">
-                    {filteredRuns.length} {filteredRuns.length === 1 ? 'run' : 'runs'}
-                  </span>
-                  <RunsSavedViews
-                    search={search}
-                    status={statusFilter}
-                    onApply={(view) => {
-                      setSearch(view.search);
-                      setStatusFilter(view.status);
-                    }}
-                  />
-                  {hasActiveFilters ? (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSearch('');
-                        setStatusFilter('all');
-                      }}
-                    >
-                      <X data-icon="inline-start" className="size-4" aria-hidden="true" />
-                      Clear
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
-            </section>
+              <NativeSelect
+                aria-label="Filter runs by status"
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value as RunsStatusFilter)}
+                className="w-full sm:w-48"
+              >
+                {statusFilters.map((filter) => (
+                  <option key={filter} value={filter}>
+                    {filter === 'all'
+                      ? `All statuses (${runs.length})`
+                      : `${formatRunStatus(filter)} (${statusCounts.get(filter) ?? 0})`}
+                  </option>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Filter runs by workflow"
+                value={workflowFilter}
+                onChange={(event) => setWorkflowFilter(event.target.value)}
+                className="w-full sm:w-56"
+              >
+                <option value="all">All workflows</option>
+                {[
+                  ...new Set([
+                    ...allWorkflowDefinitions.map((workflow) => workflow.id),
+                    ...runs.flatMap((run) => (run.workflowId ? [run.workflowId] : [])),
+                    ...(workflowFilter !== 'all' ? [workflowFilter] : []),
+                  ]),
+                ].map((id) => (
+                  <option key={id} value={id}>
+                    {workflowNamesById.get(id) || id}
+                  </option>
+                ))}
+              </NativeSelect>
+              <NativeSelect
+                aria-label="Filter runs by date"
+                value={dateFilter}
+                onChange={(event) => setDateFilter(event.target.value)}
+                className="w-full sm:w-40"
+              >
+                <option value="all">All dates</option>
+                <option value="1">Last 24 hours</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+              </NativeSelect>
+              <RunsSavedViews
+                search={search}
+                status={statusFilter}
+                workflowId={workflowFilter}
+                dateRange={dateFilter}
+                workflowLabel={workflowNamesById.get(workflowFilter)}
+                onApply={(view) => {
+                  setSearch(view.search);
+                  setStatusFilter(view.status);
+                  setWorkflowFilter(view.workflowId || 'all');
+                  setDateFilter(view.dateRange || 'all');
+                }}
+              />
+            </WorkspaceToolbar>
+
             {filteredRuns.length === 0 ? (
               <RunsEmptyCard
                 title="No matching runs"
-                description="Adjust the current search or status filter to see more execution records."
+                description="Adjust the search, workflow, status, or date filters to see more execution records."
                 actionLabel="Clear filters"
                 onAction={() => {
-                  setSearch('');
-                  setStatusFilter('all');
+                  clearFilters();
                 }}
               />
             ) : (

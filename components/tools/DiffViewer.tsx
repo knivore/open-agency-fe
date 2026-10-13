@@ -1,5 +1,7 @@
 'use client';
 
+import { cn } from '@/lib/utils';
+
 function lineClassName(line: string) {
   if (line.startsWith('+++') || line.startsWith('---')) {
     return 'text-sky-500';
@@ -16,13 +18,26 @@ function lineClassName(line: string) {
   return 'text-(--agency-shell-muted)';
 }
 
-export default function DiffViewer({ patch }: { patch?: string | null }) {
+export default function DiffViewer({
+  patch,
+  emptyMessage = 'No patch returned.',
+  className,
+}: {
+  patch?: string | null;
+  emptyMessage?: string;
+  className?: string;
+}) {
   if (!patch) {
-    return <p className="text-sm text-(--agency-shell-muted)">No patch returned.</p>;
+    return <p className="text-sm text-(--agency-shell-muted)">{emptyMessage}</p>;
   }
 
   return (
-    <pre className="max-h-105 overflow-auto rounded-xl border border-(--agency-shell-border) bg-background p-4 text-xs leading-6 shadow-inner">
+    <pre
+      className={cn(
+        'max-h-105 overflow-auto rounded-xl border border-(--agency-shell-border) bg-background p-4 text-xs leading-6',
+        className
+      )}
+    >
       {patch.split('\n').map((line, index) => (
         <div
           key={`${index}-${line}`}

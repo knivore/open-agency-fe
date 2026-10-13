@@ -1,5 +1,7 @@
 'use client';
 
+import { Input } from '@/components/library/shadcn/input';
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bot,
@@ -3563,7 +3565,7 @@ function WorkflowGraphJumpControl({
       <span className="hidden shrink-0 text-xs font-semibold text-neutral-500 dark:text-slate-400 sm:inline">
         Jump
       </span>
-      <select
+      <NativeSelect
         aria-label="Jump to workflow graph node"
         value={selectedNodeId}
         disabled={disabled}
@@ -3583,7 +3585,7 @@ function WorkflowGraphJumpControl({
             {workflowGraphNodeTypeLabel(node)}: {node.label}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       <button
         type="button"
         disabled={!selectedNodeId}
@@ -4981,7 +4983,7 @@ export default function WorkflowGraphCanvas({
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <label className="flex min-w-0 items-center gap-1.5 text-neutral-600 dark:text-slate-300">
                     <span className="shrink-0">Type</span>
-                    <select
+                    <NativeSelect
                       aria-label="Runtime event type filter"
                       value={effectiveSelectedRuntimeDirection}
                       className="h-8 max-w-40 rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-800 shadow-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100 dark:shadow-none"
@@ -4993,10 +4995,10 @@ export default function WorkflowGraphCanvas({
                           {direction}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </label>
                   <label className="flex h-8 cursor-pointer items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2 text-neutral-600 shadow-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-300 dark:shadow-none">
-                    <input
+                    <Input
                       type="checkbox"
                       aria-label="Hide projected runtime events"
                       checked={hideProjectedRuntimeEvents}
@@ -5008,7 +5010,7 @@ export default function WorkflowGraphCanvas({
                   {hideRuntimeRunFilter ? null : (
                     <label className="flex min-w-0 items-center gap-1.5 text-neutral-600 dark:text-slate-300">
                       <span className="shrink-0">Run</span>
-                      <select
+                      <NativeSelect
                         aria-label="Runtime run filter"
                         value={effectiveSelectedRuntimeRunId}
                         className="h-8 max-w-65 rounded-md border border-neutral-200 bg-white px-2 text-xs text-neutral-800 shadow-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100 dark:shadow-none"
@@ -5023,7 +5025,7 @@ export default function WorkflowGraphCanvas({
                             {runtimeRunOptionLabels.get(runId) ?? `Run ${shortRuntimeRunId(runId)}`}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </label>
                   )}
                 </div>

@@ -94,7 +94,5 @@ export const queryKeys = {
   backendRunLogs: (runId: string) => ['backendRunLogs', runId] as const,
   backendRunConversation: (runId: string) => ['backendRunConversation', runId] as const,
   backendActiveRunSessions: () => ['backendActiveRunSessions'] as const,
-  toolContracts: () => ['toolContracts'] as const,
-  toolContract: (toolName: string) => ['toolContract', toolName] as const,
   tools: () => ['tools'] as const,
 } as const;

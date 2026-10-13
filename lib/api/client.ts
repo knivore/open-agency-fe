@@ -1,5 +1,5 @@
-import { getApiClientAuthToken, getApiClientIdentityHeaders } from '@/lib/api/auth';
-import { ApiError } from '@/lib/api/errors';
+import {getApiClientAuthToken, getApiClientIdentityHeaders} from '@/lib/api/auth';
+import {ApiError} from '@/lib/api/errors';
 
 type QueryValue = string | number | boolean | null | undefined;
 type QueryParams = Record<string, QueryValue | QueryValue[]>;
@@ -68,7 +68,7 @@ function mergeAbortSignals(signal: AbortSignal | null | undefined, timeoutMs: nu
     if (signal.aborted) {
       controller.abort(signal.reason);
     } else {
-      signal.addEventListener('abort', () => controller.abort(signal.reason), { once: true });
+      signal.addEventListener('abort', () => controller.abort(signal.reason), {once: true});
     }
   }
 
@@ -105,6 +105,15 @@ async function parseResponseBody(response: Response, responseType: ResponseType)
   try {
     return JSON.parse(text);
   } catch {
+    if (response.ok) {
+      // A successful HTML login redirect must never become typed API state.
+      // Do not include the page body: it may contain private server details.
+      throw new ApiError({
+        status: 502,
+        code: 'INVALID_RESPONSE',
+        message: 'The server returned an unexpected response. Sign in again if your session has expired.',
+      });
+    }
     return text;
   }
 }
@@ -274,14 +283,14 @@ export function createApiClient(options: ApiClientOptions = {}) {
   return {
     request,
     get: <T>(path: string, options?: ApiRequestOptions) =>
-      request<T>(path, { ...options, method: 'GET' }),
+      request<T>(path, {...options, method: 'GET'}),
     post: <T>(path: string, body?: ApiRequestOptions['body'], options?: ApiRequestOptions) =>
-      request<T>(path, { ...options, method: 'POST', body }),
+      request<T>(path, {...options, method: 'POST', body}),
     put: <T>(path: string, body?: ApiRequestOptions['body'], options?: ApiRequestOptions) =>
-      request<T>(path, { ...options, method: 'PUT', body }),
+      request<T>(path, {...options, method: 'PUT', body}),
     patch: <T>(path: string, body?: ApiRequestOptions['body'], options?: ApiRequestOptions) =>
-      request<T>(path, { ...options, method: 'PATCH', body }),
+      request<T>(path, {...options, method: 'PATCH', body}),
     delete: <T>(path: string, options?: ApiRequestOptions) =>
-      request<T>(path, { ...options, method: 'DELETE' }),
+      request<T>(path, {...options, method: 'DELETE'}),
   };
 }

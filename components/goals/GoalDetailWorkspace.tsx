@@ -18,6 +18,8 @@ import {
 import { toast } from 'sonner';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import PageHeader from '@/components/app-shell/PageHeader';
+import ActivityTimeline from '@/components/app-shell/ActivityTimeline';
+import WorkspaceMetrics from '@/components/app-shell/WorkspaceMetrics';
 import { Badge } from '@/components/library/shadcn/badge';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
@@ -142,14 +144,17 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
         }
       />
 
-      <section className="grid divide-y border-y border-(--agency-shell-border) sm:grid-cols-3 sm:divide-x sm:divide-y-0 xl:grid-cols-6">
-        <Metric label="Status" value={detail.status_label} />
-        <Metric label="Priority" value={goal.priority} />
-        <Metric label="Autonomy" value={autonomy} />
-        <Metric label="Active runs" value={detail.active_execution_count} />
-        <Metric label="Evidence" value={goal.evidence.length + artifactCount} />
-        <Metric label="Deadline" value={formatDate(goal.deadline_at)} />
-      </section>
+      <WorkspaceMetrics
+        label="Goal summary"
+        items={[
+          { label: 'Status', value: detail.status_label },
+          { label: 'Priority', value: goal.priority },
+          { label: 'Autonomy', value: autonomy },
+          { label: 'Active runs', value: detail.active_execution_count },
+          { label: 'Evidence', value: goal.evidence.length + artifactCount },
+          { label: 'Deadline', value: formatDate(goal.deadline_at) },
+        ]}
+      />
 
       <div className="flex flex-wrap gap-2 border-b border-(--agency-shell-border) pb-5">
         {actions.pause ? (
@@ -235,7 +240,7 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
         <TabsContent value="work" className="space-y-7 pt-4">
           <Section title="Current plan" detail={`Version ${detail.active_plan_version ?? '—'}`}>
             {Object.keys(plan).length ? (
-              <JsonBlock value={plan} />
+              <ReadableRecord value={plan} />
             ) : (
               <Empty text="No active plan is recorded." />
             )}
@@ -281,7 +286,7 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
           </Section>
           <Section title="Evaluation" detail={text(detail.evaluation?.status, 'Not evaluated')}>
             {detail.evaluation ? (
-              <JsonBlock value={detail.evaluation} />
+              <ReadableRecord value={detail.evaluation} />
             ) : (
               <Empty text="Evaluate the evidence to record sufficiency and missing proof." />
             )}
@@ -318,25 +323,15 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
         <TabsContent value="timeline" className="pt-4">
           <Section title="Audit timeline" detail={`${detail.timeline.length} recent record(s)`}>
             {detail.timeline.length ? (
-              <ol className="border-l border-(--agency-shell-border) pl-6">
-                {detail.timeline.map((item, index) => (
-                  <li
-                    key={`${text(item.timestamp)}-${index}`}
-                    className="relative border-b border-(--agency-shell-border) py-4 last:border-b-0"
-                  >
-                    <span className="absolute -left-[1.78rem] top-5 size-3 rounded-full border-2 border-background bg-(--agency-page-tone)" />
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="outline">{text(item.type, 'event')}</Badge>
-                      <span className="text-xs text-(--agency-shell-muted)">
-                        {formatDate(item.timestamp)}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm">
-                      {text(item.summary, text(item.event, 'Recorded event'))}
-                    </p>
-                  </li>
-                ))}
-              </ol>
+              <ActivityTimeline
+                items={detail.timeline.map((item, index) => ({
+                  id: `${text(item.timestamp)}-${index}`,
+                  title: text(item.summary, text(item.event, 'Recorded event')),
+                  timestamp: formatDate(item.timestamp),
+                  meta: <Badge variant="outline">{text(item.type, 'event').replaceAll('_', ' ')}</Badge>,
+                }))}
+              />
+
             ) : (
               <Empty text="No timeline events recorded." />
             )}
@@ -671,14 +666,6 @@ function GoalRunControl({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
-  return (
-    <div className="px-4 py-4">
-      <p className="text-xs uppercase tracking-[0.1em] text-(--agency-shell-muted)">{label}</p>
-      <p className="mt-2 font-semibold">{value}</p>
-    </div>
-  );
-}
 function Section({
   title,
   detail,
@@ -706,6 +693,54 @@ function JsonBlock({ value }: { value: unknown }) {
     <pre className="max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-neutral-950 p-4 text-xs leading-5 text-neutral-100">
       {json(value)}
     </pre>
+  );
+}
+/** Keep complete evidence inspectable while leading with human-readable plan fields. */
+function ReadableRecord({ value }: { value: JsonObject }) {
+  const entries = Object.entries(value).filter(
+    ([key, entry]) => !['id', 'metadata'].includes(key) && entry !== null,
+  );
+  return (
+    <div className="flex flex-col gap-4">
+      <dl className="grid gap-4 sm:grid-cols-2">
+        {entries
+          .filter(([, entry]) => typeof entry !== 'object')
+          .map(([key, entry]) => (
+            <div key={key}>
+              <dt className="text-xs font-medium capitalize text-muted-foreground">
+                {key.replaceAll('_', ' ')}
+              </dt>
+              <dd className="mt-1 break-words text-sm">{String(entry)}</dd>
+            </div>
+          ))}
+      </dl>
+      {entries
+        .filter(([, entry]) => Array.isArray(entry))
+        .map(([key, entry]) => (
+          <div key={key}>
+            <h3 className="mb-2 text-sm font-medium capitalize">{key.replaceAll('_', ' ')}</h3>
+            <ol className="flex flex-col gap-2">
+              {(entry as unknown[]).map((step, index) => (
+                <li key={index} className="rounded-lg border p-3 text-sm">
+                  {typeof step === 'object' && step !== null ? (
+                    <ReadableRecord value={step as JsonObject} />
+                  ) : (
+                    String(step)
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        ))}
+      <details>
+        <summary className="cursor-pointer text-xs text-muted-foreground">
+          Inspect full record
+        </summary>
+        <div className="mt-3">
+          <JsonBlock value={value} />
+        </div>
+      </details>
+    </div>
   );
 }
 function RecordList({ items, empty }: { items: JsonObject[]; empty: string }) {

@@ -1,18 +1,20 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { useMemo, useState, useTransition } from 'react';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {useRouter} from 'next/navigation';
+import {useMemo, useState} from 'react';
+import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
 import {
-  BrainCircuit,
-  Bookmark,
-  CalendarRange,
   Ban,
+  Bookmark,
+  BrainCircuit,
+  CalendarRange,
   Copy,
   DatabaseZap,
   ExternalLink,
   Eye,
+  MoreHorizontal,
   FileText,
   RefreshCw,
   Save,
@@ -22,22 +24,41 @@ import {
   Trash2,
 } from 'lucide-react';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
-import { AppDrawer } from '@/components/app-shell/AppOverlay';
-import { Checkbox } from '@/components/library/shadcn/checkbox';
-import { appFeedback } from '@/lib/appFeedback';
-import { agentsApi } from '@/lib/api/backend/agents';
-import { conversationsApi } from '@/lib/api/backend/conversations';
-import { documentsApi } from '@/lib/api/backend/documents';
-import { memoriesApi } from '@/lib/api/backend/memory';
-import { usersApi } from '@/lib/api/backend/users';
-import { workflowsApi } from '@/lib/api/backend/workflows';
-import { isApiError } from '@/lib/api/errors';
-import { queryKeys } from '@/lib/react-query/queryKeys';
+import {AppDrawer} from '@/components/app-shell/AppOverlay';
+import {Checkbox} from '@/components/library/shadcn/checkbox';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/library/shadcn/dropdown-menu';
+import {appFeedback} from '@/lib/appFeedback';
+import {agentsApi} from '@/lib/api/backend/agents';
+import {conversationsApi} from '@/lib/api/backend/conversations';
+import {documentsApi} from '@/lib/api/backend/documents';
+import {memoriesApi} from '@/lib/api/backend/memory';
+import {usersApi} from '@/lib/api/backend/users';
+import {workflowsApi} from '@/lib/api/backend/workflows';
+import {isApiError} from '@/lib/api/errors';
+import {queryKeys} from '@/lib/react-query/queryKeys';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import PageHeader from '@/components/app-shell/PageHeader';
-import type { AgentDefinition } from '@/types/agents';
-import type { JsonObject } from '@/types/api';
-import { MEMORY_TYPES, memoryTypeDescription, memoryTypeLabel } from '@/types/memory';
+import type {AgentDefinition} from '@/types/agents';
+import type {JsonObject} from '@/types/api';
+import type {
+  CompactBackfillMode,
+  CompactBackfillResult,
+  CompactBackfillSourceRange,
+  CompactBackfillStrategy,
+  DailySummaryBackfillPayload,
+  DailySummaryBackfillResult,
+  DailySummaryRunPayload,
+  DailySummaryRunResult,
+  MemoryCatalogItem,
+  MemoryExclusion,
+  MemoryExclusionTargetType,
+  MemoryRecord,
+  MemoryScope,
+  MemoryStatus,
+  MemoryType,
+  WorkflowMemoryLinkTargetType,
+} from '@/types/memory';
+import {MEMORY_TYPES, memoryTypeDescription, memoryTypeLabel} from '@/types/memory';
 import type {
   Conversation,
   ConversationCompactMode,
@@ -45,28 +66,10 @@ import type {
   ConversationCompactSourceRange,
   ConversationCompactStrategy,
 } from '@/types/conversations';
-import type {
-  CompactBackfillMode,
-  CompactBackfillResult,
-  CompactBackfillSourceRange,
-  CompactBackfillStrategy,
-  DailySummaryBackfillResult,
-  DailySummaryBackfillPayload,
-  DailySummaryRunResult,
-  DailySummaryRunPayload,
-  MemoryExclusion,
-  MemoryExclusionTargetType,
-  MemoryCatalogItem,
-  MemoryType,
-  MemoryRecord,
-  MemoryScope,
-  MemoryStatus,
-  WorkflowMemoryLinkTargetType,
-} from '@/types/memory';
-import type { WorkflowDefinition } from '@/types/workflows';
-import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
-import { Badge } from '@/components/library/shadcn/badge';
-import { Button } from '@/components/library/shadcn/button';
+import type {WorkflowDefinition} from '@/types/workflows';
+import {EmptyCard, ErrorAlert, LoadingCard} from '@/components/agent-app/StatePanels';
+import {Badge} from '@/components/library/shadcn/badge';
+import {Button} from '@/components/library/shadcn/button';
 import {
   Card,
   CardContent,
@@ -74,9 +77,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/library/shadcn/card';
-import { Input } from '@/components/library/shadcn/input';
-import { Label } from '@/components/library/shadcn/label';
-import { SheetClose } from '@/components/library/shadcn/sheet';
+import {Input} from '@/components/library/shadcn/input';
+import {Label} from '@/components/library/shadcn/label';
+import {SheetClose} from '@/components/library/shadcn/sheet';
 import {
   Table,
   TableBody,
@@ -85,16 +88,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/library/shadcn/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
-import { Textarea } from '@/components/library/shadcn/textarea';
+import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/library/shadcn/tabs';
+import {Textarea} from '@/components/library/shadcn/textarea';
 
 const scopes: MemoryScope[] = ['user', 'workspace', 'conversation', 'workflow', 'global'];
 const memoryStatuses: MemoryStatus[] = ['active', 'archived', 'superseded'];
 const memoryBrowseViews = [
-  { id: 'all', label: 'All records' },
-  { id: 'missing_embedding', label: 'Needs embedding' },
-  { id: 'sensitive', label: 'Sensitive' },
-  { id: 'archived', label: 'Archived' },
+  {id: 'all', label: 'All records'},
+  {id: 'missing_embedding', label: 'Needs embedding'},
+  {id: 'sensitive', label: 'Sensitive'},
+  {id: 'archived', label: 'Archived'},
 ] as const;
 type MemoryBrowseView = (typeof memoryBrowseViews)[number]['id'];
 const compactModes: CompactBackfillMode[] = [
@@ -173,10 +176,10 @@ const preferenceTemplates = [
   },
 ] as const;
 const workspaceNoteCategories = [
-  { key: 'policy', label: 'Policy note', tags: ['workspace', 'policy'] },
-  { key: 'project', label: 'Project context', tags: ['workspace', 'project'] },
-  { key: 'handoff', label: 'Handoff note', tags: ['workspace', 'handoff'] },
-  { key: 'playbook', label: 'Playbook note', tags: ['workspace', 'playbook'] },
+  {key: 'policy', label: 'Policy note', tags: ['workspace', 'policy']},
+  {key: 'project', label: 'Project context', tags: ['workspace', 'project']},
+  {key: 'handoff', label: 'Handoff note', tags: ['workspace', 'handoff']},
+  {key: 'playbook', label: 'Playbook note', tags: ['workspace', 'playbook']},
 ] as const;
 
 type GuidedAction =
@@ -289,15 +292,16 @@ function parseTagList(value: string) {
 }
 
 function MemoryEmbeddingPanel({
-  memories,
-  onBackfilled,
-  onOpenMemory,
-}: {
+                                memories,
+                                onBackfilled,
+                                onOpenMemory,
+                              }: {
   memories: MemoryRecord[];
   onBackfilled: () => Promise<void> | void;
   onOpenMemory: (memoryId: string) => void;
 }) {
-  const [isPending, startTransition] = useTransition();
+  // Keep forms locked through both the request and its refresh.
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const embeddedCount = memories.filter((memory) =>
     Boolean(memory.embedding_model_profile_id)
@@ -336,25 +340,25 @@ function MemoryEmbeddingPanel({
     )
     .slice(0, 8);
 
-  const runBackfill = (force: boolean) => {
+  const runBackfill = async (force: boolean) => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          const result = await memoriesApi.backfillEmbeddings({ limit: 250, force });
-          await onBackfilled();
-          appFeedback.success(
-            `Embedding backfill updated ${result.updated}, skipped ${result.skipped}, failed ${result.failed}.`
-          );
-        } catch (backfillError) {
-          setError(
-            backfillError instanceof Error
-              ? backfillError.message
-              : 'Failed to backfill embeddings.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      const result = await memoriesApi.backfillEmbeddings({ limit: 250, force });
+      await onBackfilled();
+      appFeedback.success(
+        `Embedding backfill updated ${result.updated}, skipped ${result.skipped}, failed ${result.failed}.`
+      );
+    } catch (backfillError) {
+      setError(
+        backfillError instanceof Error
+          ? backfillError.message
+          : 'Failed to backfill embeddings.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -362,7 +366,7 @@ function MemoryEmbeddingPanel({
       <Card className="border-slate-200 bg-slate-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <DatabaseZap className="h-5 w-5" />
+            <DatabaseZap className="h-5 w-5"/>
             Vector retrieval
           </CardTitle>
           <CardDescription>
@@ -395,7 +399,8 @@ function MemoryEmbeddingPanel({
               </p>
             </div>
           </div>
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <div
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Rebuild all vectors can be slow and replaces existing embedding rows for the loaded
             slice. Prefer backfilling missing vectors for routine maintenance.
           </div>
@@ -454,12 +459,12 @@ function MemoryEmbeddingPanel({
 }
 
 function MaintenanceReviewCard({
-  title,
-  description,
-  memories,
-  emptyLabel,
-  onOpenMemory,
-}: {
+                                 title,
+                                 description,
+                                 memories,
+                                 emptyLabel,
+                                 onOpenMemory,
+                               }: {
   title: string;
   description: string;
   memories: MemoryRecord[];
@@ -474,7 +479,8 @@ function MaintenanceReviewCard({
       </CardHeader>
       <CardContent>
         {memories.length === 0 ? (
-          <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-4 text-sm text-neutral-500">
+          <p
+            className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-4 text-sm text-neutral-500">
             {emptyLabel}
           </p>
         ) : (
@@ -501,7 +507,7 @@ function MaintenanceReviewCard({
                     Updated {formatDateTime(memory.updated_at)}
                   </span>
                   <Button type="button" variant="outline" onClick={() => onOpenMemory(memory.id)}>
-                    <Eye className="mr-2 h-4 w-4" />
+                    <Eye className="mr-2 h-4 w-4"/>
                     Open
                   </Button>
                 </div>
@@ -515,12 +521,12 @@ function MaintenanceReviewCard({
 }
 
 function GuidedMemoryActions({
-  agents,
-  conversations,
-  memories,
-  workflows,
-  onCreated,
-}: {
+                               agents,
+                               conversations,
+                               memories,
+                               workflows,
+                               onCreated,
+                             }: {
   agents: AgentDefinition[];
   conversations: Conversation[];
   memories: MemoryRecord[];
@@ -566,7 +572,7 @@ function GuidedMemoryActions({
   const [correctedContent, setCorrectedContent] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   const selectedPreferenceTemplate =
     preferenceTemplates.find((item) => item.key === preferenceTemplateKey) ??
@@ -594,219 +600,243 @@ function GuidedMemoryActions({
     setCorrectedContent(nextMemory?.content ?? '');
   };
 
-  const handleSavePreference = () => {
+  const handleSavePreference = async () => {
+    if (isPending) return;
     const selectedAgentId = preferenceAgentId.trim();
-    const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null;
+    const selectedAgent =
+      agents.find((agent) => agent.id === selectedAgentId) ?? null;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.createMemory({
-            confirmed,
-            memory: {
-              scope: 'user',
-              memory_type: 'preference',
-              importance: Number(preferenceImportance) || 70,
-              summary: `${selectedPreferenceTemplate.summaryPrefix}: ${preferenceValue.trim()}`,
-              content: `${selectedPreferenceTemplate.contentPrefix} ${preferenceValue.trim()}.`,
-              agent_id: selectedAgentId || undefined,
-              tags: [
-                ...selectedPreferenceTemplate.tags,
-                ...(selectedAgent ? ['agent-preference', `agent:${selectedAgent.id}`] : []),
-              ],
-            },
-          });
-          await onCreated();
-          setPreferenceValue('');
-          setPreferenceAgentId('');
-          resetShared();
-          appFeedback.success('Preference saved.');
-        } catch (createError) {
-          setError(
-            createError instanceof Error ? createError.message : 'Failed to save preference.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.createMemory({
+        confirmed,
+        memory: {
+          scope: 'user',
+          memory_type: 'preference',
+          importance: Number(preferenceImportance) || 70,
+          summary: `${selectedPreferenceTemplate.summaryPrefix}: ${preferenceValue.trim()}`,
+          content: `${selectedPreferenceTemplate.contentPrefix} ${preferenceValue.trim()}.`,
+          agent_id: selectedAgentId || undefined,
+          tags: [
+            ...selectedPreferenceTemplate.tags,
+            ...(selectedAgent
+              ? ['agent-preference', `agent:${selectedAgent.id}`]
+              : []),
+          ],
+        },
+      });
+      await onCreated();
+      setPreferenceValue('');
+      setPreferenceAgentId('');
+      resetShared();
+      appFeedback.success('Preference saved.');
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'Failed to save preference.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleSaveWorkspaceNote = () => {
+  const handleSaveWorkspaceNote = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.createMemory({
-            confirmed,
-            memory: {
-              scope: 'workspace',
-              workspace_id: workspaceId.trim(),
-              memory_type: 'fact',
-              importance: Number(workspaceImportance) || 60,
-              summary: workspaceTitle.trim(),
-              content: workspaceNote.trim(),
-              tags: [...selectedWorkspaceCategory.tags, selectedWorkspaceCategory.key],
-            },
-          });
-          await onCreated();
-          setWorkspaceTitle('');
-          setWorkspaceNote('');
-          setWorkspaceId('');
-          resetShared();
-          appFeedback.success('Workspace note saved.');
-        } catch (createError) {
-          setError(
-            createError instanceof Error ? createError.message : 'Failed to save workspace note.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.createMemory({
+        confirmed,
+        memory: {
+          scope: 'workspace',
+          workspace_id: workspaceId.trim(),
+          memory_type: 'fact',
+          importance: Number(workspaceImportance) || 60,
+          summary: workspaceTitle.trim(),
+          content: workspaceNote.trim(),
+          tags: [
+            ...selectedWorkspaceCategory.tags,
+            selectedWorkspaceCategory.key,
+          ],
+        },
+      });
+      await onCreated();
+      setWorkspaceTitle('');
+      setWorkspaceNote('');
+      setWorkspaceId('');
+      resetShared();
+      appFeedback.success('Workspace note saved.');
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'Failed to save workspace note.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleSaveDecision = () => {
+  const handleSaveDecision = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.createMemory({
-            confirmed,
-            memory: {
-              scope: decisionWorkflowId
-                ? 'workflow'
-                : decisionConversationId
-                  ? 'conversation'
-                  : 'workspace',
-              workflow_id: decisionWorkflowId || undefined,
-              conversation_id: decisionConversationId || undefined,
-              memory_type: 'decision',
-              importance: Number(decisionImportance) || 75,
-              summary: decisionSummary.trim(),
-              content: decisionContent.trim(),
-              tags: ['decision', 'operator-created'],
-            },
-          });
-          await onCreated();
-          setDecisionSummary('');
-          setDecisionContent('');
-          setDecisionWorkflowId('');
-          setDecisionConversationId('');
-          resetShared();
-          appFeedback.success('Decision memory saved.');
-        } catch (createError) {
-          setError(createError instanceof Error ? createError.message : 'Failed to save decision.');
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.createMemory({
+        confirmed,
+        memory: {
+          scope: decisionWorkflowId
+            ? 'workflow'
+            : decisionConversationId
+              ? 'conversation'
+              : 'workspace',
+          workflow_id: decisionWorkflowId || undefined,
+          conversation_id: decisionConversationId || undefined,
+          memory_type: 'decision',
+          importance: Number(decisionImportance) || 75,
+          summary: decisionSummary.trim(),
+          content: decisionContent.trim(),
+          tags: ['decision', 'operator-created'],
+        },
+      });
+      await onCreated();
+      setDecisionSummary('');
+      setDecisionContent('');
+      setDecisionWorkflowId('');
+      setDecisionConversationId('');
+      resetShared();
+      appFeedback.success('Decision memory saved.');
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'Failed to save decision.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleSaveTaskCommitment = () => {
+  const handleSaveTaskCommitment = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.createMemory({
-            confirmed,
-            memory: {
-              scope: taskWorkflowId ? 'workflow' : taskConversationId ? 'conversation' : 'user',
-              workflow_id: taskWorkflowId || undefined,
-              conversation_id: taskConversationId || undefined,
-              agent_id: taskAgentId || undefined,
-              memory_type: 'task_commitment',
-              importance: Number(taskImportance) || 70,
-              summary: taskSummary.trim(),
-              content: taskContent.trim(),
-              tags: ['task_commitment', 'operator-created'],
-              metadata: taskDueDate ? { due_date: taskDueDate } : {},
-            },
-          });
-          await onCreated();
-          setTaskSummary('');
-          setTaskContent('');
-          setTaskDueDate('');
-          setTaskAgentId('');
-          setTaskWorkflowId('');
-          setTaskConversationId('');
-          resetShared();
-          appFeedback.success('Task commitment saved.');
-        } catch (createError) {
-          setError(
-            createError instanceof Error ? createError.message : 'Failed to save task commitment.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.createMemory({
+        confirmed,
+        memory: {
+          scope: taskWorkflowId
+            ? 'workflow'
+            : taskConversationId
+              ? 'conversation'
+              : 'user',
+          workflow_id: taskWorkflowId || undefined,
+          conversation_id: taskConversationId || undefined,
+          agent_id: taskAgentId || undefined,
+          memory_type: 'task_commitment',
+          importance: Number(taskImportance) || 70,
+          summary: taskSummary.trim(),
+          content: taskContent.trim(),
+          tags: ['task_commitment', 'operator-created'],
+          metadata: taskDueDate ? { due_date: taskDueDate } : {},
+        },
+      });
+      await onCreated();
+      setTaskSummary('');
+      setTaskContent('');
+      setTaskDueDate('');
+      setTaskAgentId('');
+      setTaskWorkflowId('');
+      setTaskConversationId('');
+      resetShared();
+      appFeedback.success('Task commitment saved.');
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'Failed to save task commitment.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleSaveCustomMemory = () => {
+  const handleSaveCustomMemory = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.createMemory({
-            confirmed,
-            memory: {
-              scope: customScope,
-              memory_type: customType,
-              importance: Number(customImportance) || 50,
-              summary: customSummary.trim() || null,
-              content: customContent.trim(),
-              sensitive: customSensitive,
-              tags: parseTagList(customTags),
-              agent_id: customAgentId || undefined,
-              workflow_id: customWorkflowId || undefined,
-              conversation_id: customConversationId || undefined,
-            },
-          });
-          await onCreated();
-          setCustomSummary('');
-          setCustomContent('');
-          setCustomTags('');
-          setCustomSensitive(false);
-          setCustomAgentId('');
-          setCustomWorkflowId('');
-          setCustomConversationId('');
-          resetShared();
-          appFeedback.success('Custom memory saved.');
-        } catch (createError) {
-          setError(
-            createError instanceof Error ? createError.message : 'Failed to save custom memory.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.createMemory({
+        confirmed,
+        memory: {
+          scope: customScope,
+          memory_type: customType,
+          importance: Number(customImportance) || 50,
+          summary: customSummary.trim() || null,
+          content: customContent.trim(),
+          sensitive: customSensitive,
+          tags: parseTagList(customTags),
+          agent_id: customAgentId || undefined,
+          workflow_id: customWorkflowId || undefined,
+          conversation_id: customConversationId || undefined,
+        },
+      });
+      await onCreated();
+      setCustomSummary('');
+      setCustomContent('');
+      setCustomTags('');
+      setCustomSensitive(false);
+      setCustomAgentId('');
+      setCustomWorkflowId('');
+      setCustomConversationId('');
+      resetShared();
+      appFeedback.success('Custom memory saved.');
+    } catch (createError) {
+      setError(
+        createError instanceof Error
+          ? createError.message
+          : 'Failed to save custom memory.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleCorrectMemory = () => {
+  const handleCorrectMemory = async () => {
+    if (isPending) return;
     if (!selectedMemory) {
       return;
     }
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.updateMemory(selectedMemory.id, {
-            confirmed,
-            patch: {
-              summary: correctedSummary.trim() || null,
-              content: correctedContent.trim(),
-            },
-          });
-          await onCreated();
-          resetShared();
-          appFeedback.success('Memory corrected.');
-        } catch (updateError) {
-          setError(
-            updateError instanceof Error ? updateError.message : 'Failed to correct memory.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.updateMemory(selectedMemory.id, {
+        confirmed,
+        patch: {
+          summary: correctedSummary.trim() || null,
+          content: correctedContent.trim(),
+        },
+      });
+      await onCreated();
+      resetShared();
+      appFeedback.success('Memory corrected.');
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : 'Failed to correct memory.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
     <Card className="border-dashed border-neutral-300 bg-neutral-50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <BrainCircuit className="h-5 w-5" />
+          <BrainCircuit className="h-5 w-5"/>
           Guided memory actions
         </CardTitle>
         <CardDescription>
@@ -853,7 +883,7 @@ function GuidedMemoryActions({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="preference-template">Preference type</Label>
-                <select
+                <NativeSelect
                   id="preference-template"
                   value={preferenceTemplateKey}
                   onChange={(event) =>
@@ -869,7 +899,7 @@ function GuidedMemoryActions({
                       {item.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="preference-value">Value</Label>
@@ -885,7 +915,7 @@ function GuidedMemoryActions({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="preference-agent-id">Agent binding</Label>
-                <select
+                <NativeSelect
                   id="preference-agent-id"
                   value={preferenceAgentId}
                   onChange={(event) => setPreferenceAgentId(event.target.value)}
@@ -898,7 +928,7 @@ function GuidedMemoryActions({
                       {agentLabel(agent)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="preference-importance">Importance</Label>
@@ -945,7 +975,7 @@ function GuidedMemoryActions({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="workspace-note-category">Category</Label>
-                <select
+                <NativeSelect
                   id="workspace-note-category"
                   value={workspaceCategoryKey}
                   onChange={(event) =>
@@ -961,7 +991,7 @@ function GuidedMemoryActions({
                       {item.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="workspace-note-importance">Importance</Label>
@@ -1020,7 +1050,7 @@ function GuidedMemoryActions({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="decision-workflow">Workflow binding</Label>
-                <select
+                <NativeSelect
                   id="decision-workflow"
                   value={decisionWorkflowId}
                   onChange={(event) => setDecisionWorkflowId(event.target.value)}
@@ -1033,11 +1063,11 @@ function GuidedMemoryActions({
                       {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="decision-conversation">Conversation binding</Label>
-                <select
+                <NativeSelect
                   id="decision-conversation"
                   value={decisionConversationId}
                   onChange={(event) => setDecisionConversationId(event.target.value)}
@@ -1050,7 +1080,7 @@ function GuidedMemoryActions({
                       {conversationLabel(conversation)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="decision-importance">Importance</Label>
@@ -1107,7 +1137,7 @@ function GuidedMemoryActions({
             <div className="grid gap-3 md:grid-cols-4">
               <div className="space-y-1.5">
                 <Label htmlFor="task-agent">Agent binding</Label>
-                <select
+                <NativeSelect
                   id="task-agent"
                   value={taskAgentId}
                   onChange={(event) => setTaskAgentId(event.target.value)}
@@ -1120,11 +1150,11 @@ function GuidedMemoryActions({
                       {agentLabel(agent)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="task-workflow">Workflow binding</Label>
-                <select
+                <NativeSelect
                   id="task-workflow"
                   value={taskWorkflowId}
                   onChange={(event) => setTaskWorkflowId(event.target.value)}
@@ -1137,7 +1167,7 @@ function GuidedMemoryActions({
                       {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="task-due-date">Due date</Label>
@@ -1164,7 +1194,7 @@ function GuidedMemoryActions({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="task-conversation">Conversation binding</Label>
-              <select
+              <NativeSelect
                 id="task-conversation"
                 value={taskConversationId}
                 onChange={(event) => setTaskConversationId(event.target.value)}
@@ -1177,7 +1207,7 @@ function GuidedMemoryActions({
                     {conversationLabel(conversation)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="task-summary">Commitment summary</Label>
@@ -1220,7 +1250,7 @@ function GuidedMemoryActions({
             <div className="grid gap-3 md:grid-cols-4">
               <div className="space-y-1.5">
                 <Label htmlFor="custom-scope">Scope</Label>
-                <select
+                <NativeSelect
                   id="custom-scope"
                   value={customScope}
                   onChange={(event) => setCustomScope(event.target.value as MemoryScope)}
@@ -1232,11 +1262,11 @@ function GuidedMemoryActions({
                       {scopeLabel(item)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custom-type">Memory Type</Label>
-                <select
+                <NativeSelect
                   id="custom-type"
                   value={customType}
                   onChange={(event) => setCustomType(event.target.value as MemoryType)}
@@ -1252,7 +1282,7 @@ function GuidedMemoryActions({
                       {memoryTypeLabel(memoryType)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 <p className="text-xs text-neutral-500">{memoryTypeDescription(customType)}</p>
               </div>
               <div className="space-y-1.5">
@@ -1268,7 +1298,7 @@ function GuidedMemoryActions({
                 />
               </div>
               <label className="flex items-center gap-2 pt-7 text-sm text-neutral-700">
-                <input
+                <Input
                   type="checkbox"
                   checked={customSensitive}
                   onChange={(event) => setCustomSensitive(event.target.checked)}
@@ -1280,7 +1310,7 @@ function GuidedMemoryActions({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="custom-agent">Agent binding</Label>
-                <select
+                <NativeSelect
                   id="custom-agent"
                   value={customAgentId}
                   onChange={(event) => setCustomAgentId(event.target.value)}
@@ -1293,11 +1323,11 @@ function GuidedMemoryActions({
                       {agentLabel(agent)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custom-workflow">Workflow binding</Label>
-                <select
+                <NativeSelect
                   id="custom-workflow"
                   value={customWorkflowId}
                   onChange={(event) => setCustomWorkflowId(event.target.value)}
@@ -1310,11 +1340,11 @@ function GuidedMemoryActions({
                       {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="custom-conversation">Conversation binding</Label>
-                <select
+                <NativeSelect
                   id="custom-conversation"
                   value={customConversationId}
                   onChange={(event) => setCustomConversationId(event.target.value)}
@@ -1327,7 +1357,7 @@ function GuidedMemoryActions({
                       {conversationLabel(conversation)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
             </div>
             <div className="space-y-1.5">
@@ -1380,7 +1410,7 @@ function GuidedMemoryActions({
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="memory-correction-target">Memory to correct</Label>
-              <select
+              <NativeSelect
                 id="memory-correction-target"
                 value={selectedMemoryId}
                 onChange={(event) => handleCorrectionTargetChange(event.target.value)}
@@ -1393,7 +1423,7 @@ function GuidedMemoryActions({
                     {memory.summary || memory.content.slice(0, 80)} ({memory.id})
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="grid gap-3 md:grid-cols-2">
               <div className="space-y-1.5">
@@ -1435,7 +1465,7 @@ function GuidedMemoryActions({
         ) : null}
 
         <label className="flex items-center gap-2 text-sm text-neutral-700">
-          <input
+          <Input
             type="checkbox"
             checked={confirmed}
             onChange={(event) => setConfirmed(event.target.checked)}
@@ -1450,9 +1480,9 @@ function GuidedMemoryActions({
 }
 
 function DailySummaryAdminPanel({
-  isAdmin,
-  onCompleted,
-}: {
+                                  isAdmin,
+                                  onCompleted,
+                                }: {
   isAdmin: boolean;
   onCompleted: () => Promise<void> | void;
 }) {
@@ -1469,7 +1499,7 @@ function DailySummaryAdminPanel({
     conversation_id: '',
     dry_run: true,
   });
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [runResult, setRunResult] = useState<DailySummaryRunResult | null>(null);
   const [backfillResult, setBackfillResult] = useState<DailySummaryBackfillResult | null>(null);
@@ -1478,60 +1508,66 @@ function DailySummaryAdminPanel({
     return null;
   }
 
-  const runSingle = () => {
+  const runSingle = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          const result = await memoriesApi.runDailySummaries({
-            target_date: runPayload.target_date || undefined,
-            timezone: runPayload.timezone || undefined,
-            conversation_id: runPayload.conversation_id || undefined,
-            dry_run: runPayload.dry_run,
-          });
-          setRunResult(result);
-          setBackfillResult(null);
-          await onCompleted();
-          appFeedback.success(
-            `Daily summary run finished with status ${result.status}. Created ${result.created ?? 0}, skipped ${result.skipped ?? 0}.`
-          );
-        } catch (runError) {
-          setError(runError instanceof Error ? runError.message : 'Failed to run daily summary.');
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      const result = await memoriesApi.runDailySummaries({
+        target_date: runPayload.target_date || undefined,
+        timezone: runPayload.timezone || undefined,
+        conversation_id: runPayload.conversation_id || undefined,
+        dry_run: runPayload.dry_run,
+      });
+      setRunResult(result);
+      setBackfillResult(null);
+      await onCompleted();
+      appFeedback.success(
+        `Daily summary run finished with status ${result.status}. Created ${result.created ?? 0}, skipped ${result.skipped ?? 0}.`
+      );
+    } catch (runError) {
+      setError(
+        runError instanceof Error
+          ? runError.message
+          : 'Failed to run daily summary.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const runBackfill = () => {
+  const runBackfill = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          const result = await memoriesApi.backfillDailySummaries({
-            ...backfillPayload,
-            timezone: backfillPayload.timezone || undefined,
-            conversation_id: backfillPayload.conversation_id || undefined,
-          });
-          setBackfillResult(result);
-          setRunResult(null);
-          await onCompleted();
-          appFeedback.success(
-            `Backfill finished with status ${result.status}. Processed ${result.processed}, created ${result.created}.`
-          );
-        } catch (runError) {
-          setError(
-            runError instanceof Error ? runError.message : 'Failed to backfill daily summaries.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      const result = await memoriesApi.backfillDailySummaries({
+        ...backfillPayload,
+        timezone: backfillPayload.timezone || undefined,
+        conversation_id: backfillPayload.conversation_id || undefined,
+      });
+      setBackfillResult(result);
+      setRunResult(null);
+      await onCompleted();
+      appFeedback.success(
+        `Backfill finished with status ${result.status}. Processed ${result.processed}, created ${result.created}.`
+      );
+    } catch (runError) {
+      setError(
+        runError instanceof Error
+          ? runError.message
+          : 'Failed to backfill daily summaries.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
     <Card className="border-amber-200 bg-amber-50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Shield className="h-5 w-5" />
+          <Shield className="h-5 w-5"/>
           Daily summary admin actions
         </CardTitle>
         <CardDescription>
@@ -1555,7 +1591,7 @@ function DailySummaryAdminPanel({
                 type="date"
                 value={runPayload.target_date ?? ''}
                 onChange={(event) =>
-                  setRunPayload((current) => ({ ...current, target_date: event.target.value }))
+                  setRunPayload((current) => ({...current, target_date: event.target.value}))
                 }
                 disabled={isPending}
               />
@@ -1566,7 +1602,7 @@ function DailySummaryAdminPanel({
                 id="summary-run-timezone"
                 value={runPayload.timezone ?? ''}
                 onChange={(event) =>
-                  setRunPayload((current) => ({ ...current, timezone: event.target.value }))
+                  setRunPayload((current) => ({...current, timezone: event.target.value}))
                 }
                 disabled={isPending}
                 placeholder="Asia/Singapore"
@@ -1578,7 +1614,7 @@ function DailySummaryAdminPanel({
                 id="summary-run-conversation"
                 value={runPayload.conversation_id ?? ''}
                 onChange={(event) =>
-                  setRunPayload((current) => ({ ...current, conversation_id: event.target.value }))
+                  setRunPayload((current) => ({...current, conversation_id: event.target.value}))
                 }
                 disabled={isPending}
                 placeholder="Optional narrow target"
@@ -1586,11 +1622,11 @@ function DailySummaryAdminPanel({
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-neutral-700">
-            <input
+            <Input
               type="checkbox"
               checked={Boolean(runPayload.dry_run)}
               onChange={(event) =>
-                setRunPayload((current) => ({ ...current, dry_run: event.target.checked }))
+                setRunPayload((current) => ({...current, dry_run: event.target.checked}))
               }
               disabled={isPending}
             />
@@ -1616,7 +1652,7 @@ function DailySummaryAdminPanel({
                 type="date"
                 value={backfillPayload.start_date}
                 onChange={(event) =>
-                  setBackfillPayload((current) => ({ ...current, start_date: event.target.value }))
+                  setBackfillPayload((current) => ({...current, start_date: event.target.value}))
                 }
                 disabled={isPending}
               />
@@ -1628,7 +1664,7 @@ function DailySummaryAdminPanel({
                 type="date"
                 value={backfillPayload.end_date}
                 onChange={(event) =>
-                  setBackfillPayload((current) => ({ ...current, end_date: event.target.value }))
+                  setBackfillPayload((current) => ({...current, end_date: event.target.value}))
                 }
                 disabled={isPending}
               />
@@ -1639,7 +1675,7 @@ function DailySummaryAdminPanel({
                 id="summary-backfill-timezone"
                 value={backfillPayload.timezone ?? ''}
                 onChange={(event) =>
-                  setBackfillPayload((current) => ({ ...current, timezone: event.target.value }))
+                  setBackfillPayload((current) => ({...current, timezone: event.target.value}))
                 }
                 disabled={isPending}
                 placeholder="Asia/Singapore"
@@ -1662,11 +1698,11 @@ function DailySummaryAdminPanel({
             </div>
           </div>
           <label className="flex items-center gap-2 text-sm text-neutral-700">
-            <input
+            <Input
               type="checkbox"
               checked={Boolean(backfillPayload.dry_run)}
               onChange={(event) =>
-                setBackfillPayload((current) => ({ ...current, dry_run: event.target.checked }))
+                setBackfillPayload((current) => ({...current, dry_run: event.target.checked}))
               }
               disabled={isPending}
             />
@@ -1684,7 +1720,7 @@ function DailySummaryAdminPanel({
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {runResult ? (
-          <DailySummaryRunResultPanel result={runResult} dryRun={Boolean(runPayload.dry_run)} />
+          <DailySummaryRunResultPanel result={runResult} dryRun={Boolean(runPayload.dry_run)}/>
         ) : null}
         {backfillResult ? (
           <DailySummaryBackfillResultPanel
@@ -1698,9 +1734,9 @@ function DailySummaryAdminPanel({
 }
 
 function DailySummaryRunResultPanel({
-  result,
-  dryRun,
-}: {
+                                      result,
+                                      dryRun,
+                                    }: {
   result: DailySummaryRunResult;
   dryRun: boolean;
 }) {
@@ -1717,15 +1753,16 @@ function DailySummaryRunResultPanel({
         {result.failed ? <Badge variant="destructive">{result.failed} failed</Badge> : null}
       </div>
       <div className="mt-3 grid gap-2 text-sm text-neutral-700 md:grid-cols-3">
-        <DetailField label="Target date" value={result.target_date || '—'} />
-        <DetailField label="Timezone" value={result.timezone || '—'} />
+        <DetailField label="Target date" value={result.target_date || '—'}/>
+        <DetailField label="Timezone" value={result.timezone || '—'}/>
         <DetailField
           label="Eligible conversations"
           value={result.eligible_conversation_ids?.length ?? 0}
         />
       </div>
       {result.failures?.length ? (
-        <pre className="mt-3 max-h-40 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
+        <pre
+          className="mt-3 max-h-40 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
           {JSON.stringify(result.failures, null, 2)}
         </pre>
       ) : null}
@@ -1734,9 +1771,9 @@ function DailySummaryRunResultPanel({
 }
 
 function DailySummaryBackfillResultPanel({
-  result,
-  dryRun,
-}: {
+                                           result,
+                                           dryRun,
+                                         }: {
   result: DailySummaryBackfillResult;
   dryRun: boolean;
 }) {
@@ -1780,7 +1817,7 @@ function DailySummaryBackfillResultPanel({
   );
 }
 
-function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
+function SummaryReviewPanel({memories}: { memories: MemoryRecord[] }) {
   const [summaryType, setSummaryType] = useState<'all' | 'daily_summary' | 'run_summary'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -1821,7 +1858,7 @@ function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Shield className="h-5 w-5" />
+          <Shield className="h-5 w-5"/>
           Recent summaries
         </CardTitle>
         <CardDescription>
@@ -1832,7 +1869,7 @@ function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
           <div className="space-y-1.5">
             <Label htmlFor="summary-review-type">Type</Label>
-            <select
+            <NativeSelect
               id="summary-review-type"
               value={summaryType}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -1843,7 +1880,7 @@ function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
               <option value="all">All summaries</option>
               <option value="daily_summary">Daily summaries</option>
               <option value="run_summary">Run summaries</option>
-            </select>
+            </NativeSelect>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="summary-review-from">Date from</Label>
@@ -1884,13 +1921,14 @@ function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
         </div>
 
         {summaryMemories.length === 0 ? (
-          <div className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
+          <div
+            className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
             No summaries match the current filters.
           </div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            <SummaryList title="Daily summaries" memories={dailySummaries} />
-            <SummaryList title="Run summaries" memories={runSummaries} />
+            <SummaryList title="Daily summaries" memories={dailySummaries}/>
+            <SummaryList title="Run summaries" memories={runSummaries}/>
           </div>
         )}
       </CardContent>
@@ -1898,7 +1936,7 @@ function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
   );
 }
 
-function SummaryList({ title, memories }: { title: string; memories: MemoryRecord[] }) {
+function SummaryList({title, memories}: { title: string; memories: MemoryRecord[] }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -1906,7 +1944,8 @@ function SummaryList({ title, memories }: { title: string; memories: MemoryRecor
         <Badge variant="secondary">{memories.length}</Badge>
       </div>
       {memories.length === 0 ? (
-        <div className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
+        <div
+          className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
           No records.
         </div>
       ) : (
@@ -1945,12 +1984,12 @@ function SummaryList({ title, memories }: { title: string; memories: MemoryRecor
 }
 
 function MemoryDetailSheet({
-  memory,
-  memories,
-  open,
-  onOpenChange,
-  onChanged,
-}: {
+                             memory,
+                             memories,
+                             open,
+                             onOpenChange,
+                             onChanged,
+                           }: {
   memory: MemoryRecord | null;
   memories: MemoryRecord[];
   open: boolean;
@@ -1968,7 +2007,7 @@ function MemoryDetailSheet({
   const [exclusionTargetId, setExclusionTargetId] = useState('');
   const [exclusionReason, setExclusionReason] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   if (!memory) {
     return null;
@@ -2005,44 +2044,52 @@ function MemoryDetailSheet({
     setError(null);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.updateMemory(memory.id, {
-            confirmed,
-            patch: {
-              content: content.trim(),
-              summary: summary.trim() || null,
-              status,
-              importance: importance.trim() ? Number(importance) : null,
-            },
-          });
-          await onChanged();
-          setIsEditing(false);
-          appFeedback.success('Memory updated.');
-        } catch (updateError) {
-          setError(updateError instanceof Error ? updateError.message : 'Failed to update memory.');
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.updateMemory(memory.id, {
+        confirmed,
+        patch: {
+          content: content.trim(),
+          summary: summary.trim() || null,
+          status,
+          importance: importance.trim() ? Number(importance) : null,
+        },
+      });
+      await onChanged();
+      setIsEditing(false);
+      appFeedback.success('Memory updated.');
+    } catch (updateError) {
+      setError(
+        updateError instanceof Error
+          ? updateError.message
+          : 'Failed to update memory.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.deleteMemory(memory.id);
-          await onChanged();
-          onOpenChange(false);
-          appFeedback.success('Memory deleted.');
-        } catch (deleteError) {
-          setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete memory.');
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.deleteMemory(memory.id);
+      await onChanged();
+      onOpenChange(false);
+      appFeedback.success('Memory deleted.');
+    } catch (deleteError) {
+      setError(
+        deleteError instanceof Error
+          ? deleteError.message
+          : 'Failed to delete memory.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
   const handleCopy = () => {
@@ -2050,50 +2097,54 @@ function MemoryDetailSheet({
     appFeedback.success('Memory content copied.');
   };
 
-  const handleAddExclusion = () => {
+  const handleAddExclusion = async () => {
+    if (isPending) return;
     const targetId = exclusionTargetId.trim();
     if (exclusionTargetType !== 'global' && !targetId) {
       setError('Target ID is required for non-global exclusions.');
       return;
     }
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.addMemoryExclusion(memory.id, {
-            targetType: exclusionTargetType,
-            targetId: exclusionTargetType === 'global' ? null : targetId,
-            reason: exclusionReason.trim() || null,
-          });
-          await onChanged();
-          setExclusionTargetType('global');
-          setExclusionTargetId('');
-          setExclusionReason('');
-          appFeedback.success('Memory exclusion saved.');
-        } catch (excludeError) {
-          setError(
-            excludeError instanceof Error ? excludeError.message : 'Failed to exclude memory.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.addMemoryExclusion(memory.id, {
+        targetType: exclusionTargetType,
+        targetId: exclusionTargetType === 'global' ? null : targetId,
+        reason: exclusionReason.trim() || null,
+      });
+      await onChanged();
+      setExclusionTargetType('global');
+      setExclusionTargetId('');
+      setExclusionReason('');
+      appFeedback.success('Memory exclusion saved.');
+    } catch (excludeError) {
+      setError(
+        excludeError instanceof Error
+          ? excludeError.message
+          : 'Failed to exclude memory.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
-  const handleRemoveExclusion = (exclusionId: string) => {
+  const handleRemoveExclusion = async (exclusionId: string) => {
+    if (isPending) return;
     setError(null);
-    startTransition(() => {
-      void (async () => {
-        try {
-          await memoriesApi.deleteMemoryExclusion(memory.id, exclusionId);
-          await onChanged();
-          appFeedback.success('Memory exclusion removed.');
-        } catch (removeError) {
-          setError(
-            removeError instanceof Error ? removeError.message : 'Failed to remove exclusion.'
-          );
-        }
-      })();
-    });
+    setIsPending(true);
+    try {
+      await memoriesApi.deleteMemoryExclusion(memory.id, exclusionId);
+      await onChanged();
+      appFeedback.success('Memory exclusion removed.');
+    } catch (removeError) {
+      setError(
+        removeError instanceof Error
+          ? removeError.message
+          : 'Failed to remove exclusion.'
+      );
+    } finally {
+      setIsPending(false);
+    }
   };
 
   return (
@@ -2104,7 +2155,7 @@ function MemoryDetailSheet({
       busy={isPending}
       onDiscard={resetDrafts}
       width="md"
-      icon={<BrainCircuit className="size-4" aria-hidden="true" />}
+      icon={<BrainCircuit className="size-4" aria-hidden="true"/>}
       title={memory.summary || memory.content.slice(0, 80) || memory.id}
       description={memory.id}
       bodyClassName="flex flex-col gap-5"
@@ -2115,7 +2166,7 @@ function MemoryDetailSheet({
               Cancel edits
             </Button>
             <Button type="button" disabled={isPending || !content.trim()} onClick={handleUpdate}>
-              <Save data-icon="inline-start" />
+              <Save data-icon="inline-start"/>
               {isPending ? 'Saving...' : 'Save changes'}
             </Button>
           </>
@@ -2151,28 +2202,29 @@ function MemoryDetailSheet({
           </Badge>
         </div>
 
-        <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-          <DetailField label="Source" value={memory.source || 'manual'} />
-          <DetailField label="Importance" value={memory.importance ?? '—'} />
-          <DetailField label="Updated" value={formatDateTime(memory.updated_at)} />
-          <DetailField label="Summary date" value={formatDate(memory.summary_date)} />
-          <DetailField label="Conversation" value={sourceConversationId || '—'} />
-          <DetailField label="Execution" value={memory.source_execution_id || '—'} />
-          <DetailField label="Document" value={documentFilename || documentId || '—'} />
-          <DetailField label="Agent" value={memory.agent_id || '—'} />
-          <DetailField label="Workflow" value={memory.workflow_id || '—'} />
-          <DetailField label="Workspace" value={memory.workspace_id || '—'} />
+        <div
+          className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+          <DetailField label="Source" value={memory.source || 'manual'}/>
+          <DetailField label="Importance" value={memory.importance ?? '—'}/>
+          <DetailField label="Updated" value={formatDateTime(memory.updated_at)}/>
+          <DetailField label="Summary date" value={formatDate(memory.summary_date)}/>
+          <DetailField label="Conversation" value={sourceConversationId || '—'}/>
+          <DetailField label="Execution" value={memory.source_execution_id || '—'}/>
+          <DetailField label="Document" value={documentFilename || documentId || '—'}/>
+          <DetailField label="Agent" value={memory.agent_id || '—'}/>
+          <DetailField label="Workflow" value={memory.workflow_id || '—'}/>
+          <DetailField label="Workspace" value={memory.workspace_id || '—'}/>
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={handleCopy}>
-            <Copy className="mr-2 h-4 w-4" />
+            <Copy className="mr-2 h-4 w-4"/>
             Copy content
           </Button>
           {memory.workflow_id ? (
             <Button type="button" variant="outline" asChild>
               <Link href={`/workflows/${memory.workflow_id}`}>
-                <ExternalLink className="mr-2 h-4 w-4" />
+                <ExternalLink className="mr-2 h-4 w-4"/>
                 Workflow
               </Link>
             </Button>
@@ -2180,7 +2232,7 @@ function MemoryDetailSheet({
           <ConfirmActionDialog
             trigger={
               <Button type="button" variant="destructive" disabled={isPending}>
-                <Trash2 className="mr-2 h-4 w-4" />
+                <Trash2 className="mr-2 h-4 w-4"/>
                 Delete
               </Button>
             }
@@ -2213,7 +2265,7 @@ function MemoryDetailSheet({
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="memory-edit-status">Status</Label>
-                  <select
+                  <NativeSelect
                     id="memory-edit-status"
                     value={status}
                     onChange={(event) => setStatus(event.target.value as MemoryStatus)}
@@ -2225,7 +2277,7 @@ function MemoryDetailSheet({
                         {titleCase(item)}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
               </div>
               <div className="space-y-1.5">
@@ -2252,7 +2304,7 @@ function MemoryDetailSheet({
                   />
                 </div>
                 <label className="flex items-center gap-2 pt-7 text-xs text-neutral-700">
-                  <input
+                  <Input
                     type="checkbox"
                     checked={confirmed}
                     onChange={(event) => setConfirmed(event.target.checked)}
@@ -2267,7 +2319,8 @@ function MemoryDetailSheet({
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Content</h3>
-          <div className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
+          <div
+            className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
             <p className="whitespace-pre-wrap">{memory.content}</p>
           </div>
         </section>
@@ -2330,7 +2383,7 @@ function MemoryDetailSheet({
             <div className="grid gap-3 md:grid-cols-3">
               <div className="space-y-1.5">
                 <Label htmlFor="memory-exclusion-target-type">Target type</Label>
-                <select
+                <NativeSelect
                   id="memory-exclusion-target-type"
                   value={exclusionTargetType}
                   onChange={(event) =>
@@ -2344,7 +2397,7 @@ function MemoryDetailSheet({
                       {titleCase(item)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
               </div>
               <div className="space-y-1.5 md:col-span-2">
                 <Label htmlFor="memory-exclusion-target-id">Target ID</Label>
@@ -2376,7 +2429,7 @@ function MemoryDetailSheet({
               }
               onClick={handleAddExclusion}
             >
-              <Ban className="mr-2 h-4 w-4" />
+              <Ban className="mr-2 h-4 w-4"/>
               Add exclusion
             </Button>
           </div>
@@ -2384,31 +2437,34 @@ function MemoryDetailSheet({
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Source and lineage</h3>
-          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-            <DetailField label="Supersedes" value={memory.supersedes_memory_id || '—'} />
-            <DetailField label="Superseded by" value={supersededBy?.id || '—'} />
+          <div
+            className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+            <DetailField label="Supersedes" value={memory.supersedes_memory_id || '—'}/>
+            <DetailField label="Superseded by" value={supersededBy?.id || '—'}/>
             <DetailField
               label="Archived start"
               value={formatDateTime(memory.archived_window_start)}
             />
-            <DetailField label="Archived end" value={formatDateTime(memory.archived_window_end)} />
-            <DetailField label="Created by" value={memory.created_by_user_id || '—'} />
+            <DetailField label="Archived end" value={formatDateTime(memory.archived_window_end)}/>
+            <DetailField label="Created by" value={memory.created_by_user_id || '—'}/>
           </div>
         </section>
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Embedding details</h3>
-          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-            <DetailField label="Model profile" value={memory.embedding_model_profile_id || '—'} />
-            <DetailField label="Model" value={memory.embedding_model || '—'} />
-            <DetailField label="Dimensions" value={memory.embedding_dimensions ?? '—'} />
-            <DetailField label="Embedded at" value={formatDateTime(memory.embedded_at)} />
+          <div
+            className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+            <DetailField label="Model profile" value={memory.embedding_model_profile_id || '—'}/>
+            <DetailField label="Model" value={memory.embedding_model || '—'}/>
+            <DetailField label="Dimensions" value={memory.embedding_dimensions ?? '—'}/>
+            <DetailField label="Embedded at" value={formatDateTime(memory.embedded_at)}/>
           </div>
         </section>
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Metadata</h3>
-          <pre className="max-h-72 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
+          <pre
+            className="max-h-72 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
             {metadataPreview(memory)}
           </pre>
         </section>
@@ -2419,7 +2475,7 @@ function MemoryDetailSheet({
   );
 }
 
-function DetailField({ label, value }: { label: string; value: string | number | null }) {
+function DetailField({label, value}: { label: string; value: string | number | null }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.14em] text-neutral-500">{label}</p>
@@ -2444,6 +2500,10 @@ function MemoryTable({
   isArchiving: boolean;
 }) {
   const router = useRouter();
+  const openSourceConversation = (id: string) => {
+    window.localStorage.setItem('agency.active_conversation_id', id);
+    router.push('/assistant');
+  };
   const visibleMemoryIds = memories.map((memory) => memory.id);
   const allVisibleSelected =
     visibleMemoryIds.length > 0 && visibleMemoryIds.every((id) => selectedMemoryIds.has(id));
@@ -2492,7 +2552,7 @@ function MemoryTable({
         ) : null}
       </CardHeader>
       <CardContent>
-        <Table>
+        <Table className="table-fixed sm:table-auto">
           <TableHeader>
             <TableRow>
               <TableHead className="w-10">
@@ -2504,17 +2564,19 @@ function MemoryTable({
                   onCheckedChange={(checked) => toggleVisible(checked === true)}
                 />
               </TableHead>
-              <TableHead className="min-w-65">Summary</TableHead>
-              <TableHead>Type</TableHead>
-              <TableHead className="hidden xl:table-cell">Scope</TableHead>
+              <TableHead className="w-1/2 min-w-40">Summary</TableHead>
+              <TableHead className="hidden md:table-cell">Type</TableHead>
+              <TableHead className="hidden md:table-cell">Scope</TableHead>
               <TableHead className="hidden 2xl:table-cell">Source</TableHead>
               <TableHead className="hidden 2xl:table-cell">Mode</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="hidden sm:table-cell">Status</TableHead>
               <TableHead className="hidden text-right 2xl:table-cell">Importance</TableHead>
               <TableHead className="hidden 2xl:table-cell">Sensitive</TableHead>
-              <TableHead>Embedding</TableHead>
-              <TableHead className="hidden lg:table-cell">Updated</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead className="hidden lg:table-cell">Embedding</TableHead>
+              <TableHead className="hidden xl:table-cell">Updated</TableHead>
+              <TableHead className="sticky right-0 w-16 bg-card text-right sm:w-auto">
+                Actions
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -2537,28 +2599,35 @@ function MemoryTable({
                       }}
                     />
                   </TableCell>
-                  <TableCell className="hidden xl:table-cell">
+                  <TableCell className="min-w-0">
                     <button
                       type="button"
-                      className="block max-w-sm text-left"
+                      className="block w-full min-w-0 max-w-sm text-left"
                       onClick={() => onOpenMemory(memory.id)}
                     >
-                      <span className="block truncate font-medium text-slate-900">
+                      <span className="line-clamp-2 break-words font-medium text-foreground">
                         {memory.summary || memory.content || memory.id}
                       </span>
                       <span className="mt-1 block truncate text-xs text-neutral-500">
+                        {scopeLabel(memory.scope)} · {memory.source || 'manual'}
+                        {memory.sensitive ? ' · Sensitive' : ''}
+                      </span>
+                      <span
+                        className="mt-1 block max-w-40 truncate font-mono text-[10px] text-muted-foreground"
+                        title={memory.id}
+                      >
                         {memory.id}
                       </span>
                     </button>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     {memory.memory_type ? (
                       <Badge variant="outline">{memoryTypeLabel(memory.memory_type)}</Badge>
                     ) : (
                       <span className="text-neutral-500">—</span>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <Badge variant="secondary">{scopeLabel(memory.scope)}</Badge>
                   </TableCell>
                   <TableCell className="hidden whitespace-nowrap 2xl:table-cell">
@@ -2567,7 +2636,7 @@ function MemoryTable({
                   <TableCell className="hidden 2xl:table-cell">
                     {mode ? titleCase(mode) : '—'}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     {memory.status ? (
                       <Badge variant={memory.status === 'active' ? 'successful' : 'secondary'}>
                         {titleCase(memory.status)}
@@ -2586,16 +2655,16 @@ function MemoryTable({
                       <Badge variant="outline">No</Badge>
                     )}
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <Badge variant={memory.embedding_model_profile_id ? 'successful' : 'outline'}>
                       {memory.embedding_model_profile_id ? 'Embedded' : 'Missing'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="hidden whitespace-nowrap text-xs text-neutral-600 lg:table-cell">
+                  <TableCell className="hidden whitespace-nowrap text-xs text-muted-foreground xl:table-cell">
                     {formatDateTime(memory.updated_at)}
                   </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
+                  <TableCell className="sticky right-0 bg-card text-right">
+                    <div className="hidden justify-end gap-1 sm:flex">
                       {sourceConversationId ? (
                         <Button
                           type="button"
@@ -2603,13 +2672,7 @@ function MemoryTable({
                           size="icon"
                           aria-label={`Open chat for ${memory.summary || memory.id}`}
                           title="Open source conversation"
-                          onClick={() => {
-                            window.localStorage.setItem(
-                              'agency.active_conversation_id',
-                              sourceConversationId
-                            );
-                            router.push('/assistant');
-                          }}
+                          onClick={() => openSourceConversation(sourceConversationId)}
                         >
                           <ExternalLink className="h-4 w-4" />
                         </Button>
@@ -2636,6 +2699,39 @@ function MemoryTable({
                         <Eye className="h-4 w-4" />
                       </Button>
                     </div>
+                    <div className="sm:hidden">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            aria-label={`Actions for ${memory.summary || memory.id}`}
+                          >
+                            <MoreHorizontal data-icon="inline-start" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuGroup>
+                            <DropdownMenuItem onSelect={() => onOpenMemory(memory.id)}>
+                              Inspect memory
+                            </DropdownMenuItem>
+                            {sourceConversationId ? (
+                              <DropdownMenuItem
+                                onSelect={() => openSourceConversation(sourceConversationId)}
+                              >
+                                Open source conversation
+                              </DropdownMenuItem>
+                            ) : null}
+                            {memory.workflow_id ? (
+                              <DropdownMenuItem asChild>
+                                <Link href={`/workflows/${memory.workflow_id}`}>Open workflow</Link>
+                              </DropdownMenuItem>
+                            ) : null}
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
                   </TableCell>
                 </TableRow>
               );
@@ -2661,9 +2757,9 @@ function parseDocumentLinkTarget(value: string): {
   const [targetType, ...targetIdParts] = value.split(':');
   if (targetType === 'agent' || targetType === 'task') {
     const targetId = targetIdParts.join(':').trim();
-    return { targetType, targetId: targetId || null };
+    return {targetType, targetId: targetId || null};
   }
-  return { targetType: 'workflow', targetId: null };
+  return {targetType: 'workflow', targetId: null};
 }
 
 function splitCompactList(value: string) {
@@ -2767,10 +2863,10 @@ function workflowFromMemoryCompactPack(pack: MemoryRecord): WorkflowDefinition {
 }
 
 function CompactConversationsPanel({
-  conversations,
-  workflows,
-  onChanged,
-}: {
+                                     conversations,
+                                     workflows,
+                                     onChanged,
+                                   }: {
   conversations: Conversation[];
   workflows: WorkflowDefinition[];
   onChanged: () => Promise<void> | void;
@@ -2808,27 +2904,27 @@ function CompactConversationsPanel({
   const selectedTarget = parseDocumentLinkTarget(selectedTargetValue);
   const targetOptions = selectedWorkflow
     ? [
-        { value: documentLinkTargetValue('workflow'), label: 'Workflow' },
-        ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
-          value: documentLinkTargetValue('agent', agent.id),
-          label: `Agent: ${agent.name || agent.id}`,
-        })),
-        ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
-          value: documentLinkTargetValue('task', task.id),
-          label: `Task: ${task.name || task.id}`,
-        })),
-      ]
-    : [{ value: documentLinkTargetValue('workflow'), label: 'Workflow' }];
+      {value: documentLinkTargetValue('workflow'), label: 'Workflow'},
+      ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
+        value: documentLinkTargetValue('agent', agent.id),
+        label: `Agent: ${agent.name || agent.id}`,
+      })),
+      ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
+        value: documentLinkTargetValue('task', task.id),
+        label: `Task: ${task.name || task.id}`,
+      })),
+    ]
+    : [{value: documentLinkTargetValue('workflow'), label: 'Workflow'}];
 
   const compactPacksQuery = useQuery({
     queryKey: [...queryKeys.backendMemories(), 'compact-packs', conversationId],
     queryFn: () =>
       conversationId
         ? conversationsApi.listCompactPacks(conversationId, {
-            limit: 20,
-            include_superseded: true,
-          })
-        : Promise.resolve({ items: [] }),
+          limit: 20,
+          include_superseded: true,
+        })
+        : Promise.resolve({items: []}),
     enabled: Boolean(conversationId),
   });
   const workflowMemoryLinksQuery = useQuery({
@@ -2869,7 +2965,7 @@ function CompactConversationsPanel({
   };
 
   const compactMutation = useMutation({
-    mutationFn: ({ persist }: { persist: boolean }) => {
+    mutationFn: ({persist}: { persist: boolean }) => {
       if (!conversationId) {
         throw new Error('Select a conversation first.');
       }
@@ -2880,8 +2976,8 @@ function CompactConversationsPanel({
       setCompactError(null);
       await Promise.all([
         compactPacksQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
       ]);
       await onChanged();
       appFeedback.success(
@@ -2924,8 +3020,8 @@ function CompactConversationsPanel({
       setBackfillResult(result);
       await Promise.all([
         compactPacksQuery.refetch(),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
       ]);
       await onChanged();
       appFeedback.success(
@@ -2954,8 +3050,8 @@ function CompactConversationsPanel({
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMemoryLinks(selectedWorkflowId),
         }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(selectedWorkflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(selectedWorkflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
       ]);
       appFeedback.success('Compact pack linked.');
     },
@@ -2967,7 +3063,7 @@ function CompactConversationsPanel({
     mutationFn: (pack: MemoryRecord) =>
       workflowsApi.createWorkflow(workflowFromMemoryCompactPack(pack)),
     onSuccess: async (workflow) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() });
+      await queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()});
       appFeedback.success('Workflow draft created from compact pack.');
       router.push(`/workflows/${workflow.id}`);
     },
@@ -3015,7 +3111,7 @@ function CompactConversationsPanel({
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5 lg:col-span-2">
               <Label htmlFor="compact-conversation">Conversation</Label>
-              <select
+              <NativeSelect
                 id="compact-conversation"
                 value={conversationId}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3030,11 +3126,11 @@ function CompactConversationsPanel({
                     {conversationLabel(conversation)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="compact-mode">Mode</Label>
-              <select
+              <NativeSelect
                 id="compact-mode"
                 value={mode}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3045,7 +3141,7 @@ function CompactConversationsPanel({
                     {titleCase(item)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="compact-token-budget">Token budget</Label>
@@ -3062,7 +3158,7 @@ function CompactConversationsPanel({
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="space-y-1.5">
               <Label htmlFor="compact-source-range">Source range</Label>
-              <select
+              <NativeSelect
                 id="compact-source-range"
                 value={sourceRange}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3075,11 +3171,11 @@ function CompactConversationsPanel({
                     {titleCase(item)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="compact-strategy">Strategy</Label>
-              <select
+              <NativeSelect
                 id="compact-strategy"
                 value={strategy}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3090,11 +3186,11 @@ function CompactConversationsPanel({
                     {titleCase(item)}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="compact-workflow-id">Workflow binding</Label>
-              <select
+              <NativeSelect
                 id="compact-workflow-id"
                 value={workflowId}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3106,7 +3202,7 @@ function CompactConversationsPanel({
                     {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="compact-recent-limit">Recent messages kept</Label>
@@ -3165,7 +3261,7 @@ function CompactConversationsPanel({
 
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-neutral-700">
-              <input
+              <Input
                 type="checkbox"
                 checked={confirmed}
                 onChange={(event) => setConfirmed(event.target.checked)}
@@ -3173,7 +3269,7 @@ function CompactConversationsPanel({
               Confirm memory write
             </label>
             <label className="flex items-center gap-2 text-sm text-neutral-700">
-              <input
+              <Input
                 type="checkbox"
                 checked={supersedePrevious}
                 onChange={(event) => setSupersedePrevious(event.target.checked)}
@@ -3184,7 +3280,7 @@ function CompactConversationsPanel({
               type="button"
               variant="outline"
               disabled={!conversationId || compactMutation.isPending}
-              onClick={() => compactMutation.mutate({ persist: false })}
+              onClick={() => compactMutation.mutate({persist: false})}
             >
               {compactMutation.isPending ? 'Working...' : 'Preview'}
             </Button>
@@ -3192,9 +3288,9 @@ function CompactConversationsPanel({
               type="button"
               className="agency-gradient text-white hover:brightness-105"
               disabled={!conversationId || compactMutation.isPending}
-              onClick={() => compactMutation.mutate({ persist: true })}
+              onClick={() => compactMutation.mutate({persist: true})}
             >
-              <Save className="mr-2 h-4 w-4" />
+              <Save className="mr-2 h-4 w-4"/>
               Save pack
             </Button>
           </div>
@@ -3226,7 +3322,8 @@ function CompactConversationsPanel({
                   ))}
                 </div>
               ) : null}
-              <pre className="max-h-96 overflow-auto rounded-md border border-neutral-200 bg-white p-3 whitespace-pre-wrap text-sm text-neutral-800">
+              <pre
+                className="max-h-96 overflow-auto rounded-md border border-neutral-200 bg-white p-3 whitespace-pre-wrap text-sm text-neutral-800">
                 {compactResult.content}
               </pre>
               <div className="flex flex-wrap items-center gap-2">
@@ -3235,7 +3332,7 @@ function CompactConversationsPanel({
                   variant="outline"
                   onClick={() => copyText(compactResult.content)}
                 >
-                  <Copy className="mr-2 h-4 w-4" />
+                  <Copy className="mr-2 h-4 w-4"/>
                   Copy
                 </Button>
                 {compactResult.progress ? (
@@ -3262,7 +3359,7 @@ function CompactConversationsPanel({
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="compact-link-workflow">Link target workflow</Label>
-              <select
+              <NativeSelect
                 id="compact-link-workflow"
                 value={selectedWorkflowId}
                 className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3277,11 +3374,11 @@ function CompactConversationsPanel({
                     {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="compact-link-target">Link target</Label>
-              <select
+              <NativeSelect
                 id="compact-link-target"
                 value={selectedTargetValue}
                 disabled={!selectedWorkflow}
@@ -3293,7 +3390,7 @@ function CompactConversationsPanel({
                     {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
           </div>
 
@@ -3353,7 +3450,7 @@ function CompactConversationsPanel({
                           variant="outline"
                           onClick={() => copyText(pack.content)}
                         >
-                          <Copy className="mr-2 h-4 w-4" />
+                          <Copy className="mr-2 h-4 w-4"/>
                           Copy
                         </Button>
                         <Button
@@ -3361,7 +3458,7 @@ function CompactConversationsPanel({
                           variant="outline"
                           onClick={() => handlePackInNewChat(pack)}
                         >
-                          <ExternalLink className="mr-2 h-4 w-4" />
+                          <ExternalLink className="mr-2 h-4 w-4"/>
                           Use in chat
                         </Button>
                         <Button
@@ -3370,7 +3467,7 @@ function CompactConversationsPanel({
                           disabled={createWorkflowMutation.isPending}
                           onClick={() => createWorkflowMutation.mutate(pack)}
                         >
-                          <Save className="mr-2 h-4 w-4" />
+                          <Save className="mr-2 h-4 w-4"/>
                           Workflow
                         </Button>
                         <Button
@@ -3444,7 +3541,7 @@ function CompactConversationsPanel({
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-neutral-700">
-              <input
+              <Input
                 type="checkbox"
                 checked={backfillDryRun}
                 onChange={(event) => setBackfillDryRun(event.target.checked)}
@@ -3452,7 +3549,7 @@ function CompactConversationsPanel({
               Dry run
             </label>
             <label className="flex items-center gap-2 text-sm text-neutral-700">
-              <input
+              <Input
                 type="checkbox"
                 checked={backfillSkipExisting}
                 onChange={(event) => setBackfillSkipExisting(event.target.checked)}
@@ -3505,7 +3602,8 @@ function CompactConversationsPanel({
                 </TableBody>
               </Table>
               {backfillResult.progress.events.length > 0 ? (
-                <div className="max-h-56 overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                <div
+                  className="max-h-56 overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-3">
                   {backfillResult.progress.events.map((event, index) => (
                     <p key={`${event.step}:${index}`} className="text-xs text-neutral-700">
                       {event.status} · {event.step}: {event.message}
@@ -3522,9 +3620,9 @@ function CompactConversationsPanel({
 }
 
 function DocumentCatalogPanel({
-  onOpenMemory,
-  workflows,
-}: {
+                                onOpenMemory,
+                                workflows,
+                              }: {
   onOpenMemory: (memoryId: string) => void;
   workflows: WorkflowDefinition[];
 }) {
@@ -3535,23 +3633,23 @@ function DocumentCatalogPanel({
   );
   const catalogQuery = useQuery({
     queryKey: [...queryKeys.backendMemoryCatalog(), 'documents'],
-    queryFn: () => memoriesApi.listMemoryCatalog({ limit_per_group: 100 }),
+    queryFn: () => memoriesApi.listMemoryCatalog({limit_per_group: 100}),
   });
   const selectedWorkflow = workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? null;
   const selectedTarget = parseDocumentLinkTarget(selectedTargetValue);
   const targetOptions = selectedWorkflow
     ? [
-        { value: documentLinkTargetValue('workflow'), label: 'Workflow' },
-        ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
-          value: documentLinkTargetValue('agent', agent.id),
-          label: `Agent: ${agent.name || agent.id}`,
-        })),
-        ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
-          value: documentLinkTargetValue('task', task.id),
-          label: `Task: ${task.name || task.id}`,
-        })),
-      ]
-    : [{ value: documentLinkTargetValue('workflow'), label: 'Workflow' }];
+      {value: documentLinkTargetValue('workflow'), label: 'Workflow'},
+      ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
+        value: documentLinkTargetValue('agent', agent.id),
+        label: `Agent: ${agent.name || agent.id}`,
+      })),
+      ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
+        value: documentLinkTargetValue('task', task.id),
+        label: `Task: ${task.name || task.id}`,
+      })),
+    ]
+    : [{value: documentLinkTargetValue('workflow'), label: 'Workflow'}];
   const workflowMemoryLinksQuery = useQuery({
     queryKey: selectedWorkflowId
       ? queryKeys.backendWorkflowMemoryLinks(selectedWorkflowId)
@@ -3578,8 +3676,8 @@ function DocumentCatalogPanel({
     },
     onSuccess: async (result) => {
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
       ]);
       const removedChunks =
         'deleted_memory_count' in result && typeof result.deleted_memory_count === 'number'
@@ -3616,8 +3714,8 @@ function DocumentCatalogPanel({
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMemoryLinks(selectedWorkflowId),
         }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(selectedWorkflowId) }),
-        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(selectedWorkflowId)}),
+        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
       ]);
       appFeedback.success('Document memory group linked.');
     },
@@ -3653,7 +3751,7 @@ function DocumentCatalogPanel({
         <div className="grid gap-3 md:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="document-link-workflow">Link target workflow</Label>
-            <select
+            <NativeSelect
               id="document-link-workflow"
               value={selectedWorkflowId}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
@@ -3668,11 +3766,11 @@ function DocumentCatalogPanel({
                   {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="document-link-target">Link target</Label>
-            <select
+            <NativeSelect
               id="document-link-target"
               value={selectedTargetValue}
               disabled={!selectedWorkflow}
@@ -3684,7 +3782,7 @@ function DocumentCatalogPanel({
                   {option.label}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
         {catalogQuery.isLoading ? (
@@ -3773,7 +3871,7 @@ function DocumentCatalogPanel({
                         disabled={item.memoryIds.length === 0}
                         onClick={() => onOpenMemory(item.memoryIds[0])}
                       >
-                        <Eye className="mr-2 h-4 w-4" />
+                        <Eye className="mr-2 h-4 w-4"/>
                         Chunks
                       </Button>
                       <ConfirmActionDialog
@@ -3783,7 +3881,7 @@ function DocumentCatalogPanel({
                             variant="destructive"
                             disabled={deleteMutation.isPending}
                           >
-                            <Trash2 className="mr-2 h-4 w-4" />
+                            <Trash2 className="mr-2 h-4 w-4"/>
                             Remove
                           </Button>
                         }
@@ -3916,7 +4014,7 @@ export default function MemoryWorkspace() {
       memories.map((memory) => memory.source).filter((source): source is string => Boolean(source))
     )
   ).sort();
-  const agentOptions = agents.map((agent) => ({ id: agent.id, label: agentLabel(agent) }));
+  const agentOptions = agents.map((agent) => ({id: agent.id, label: agentLabel(agent)}));
   const conversationOptions = conversations.map((conversation) => ({
     id: conversation.id,
     label: `${conversation.title?.trim() || conversation.channel_display_name?.trim() || 'Untitled'} (${conversation.id})`,
@@ -4001,7 +4099,7 @@ export default function MemoryWorkspace() {
       memoryIds.map((memoryId) =>
         memoriesApi.updateMemory(memoryId, {
           confirmed: true,
-          patch: { status: 'archived' },
+          patch: {status: 'archived'},
         })
       )
     );
@@ -4020,7 +4118,7 @@ export default function MemoryWorkspace() {
       `${memoryIds.length - failedIds.length} archived; ${failedIds.length} need attention.`,
       {
         description: 'Failed records remain selected so you can retry safely.',
-        action: { label: 'Retry', onClick: () => void archiveMemoryIds(failedIds) },
+        action: {label: 'Retry', onClick: () => void archiveMemoryIds(failedIds)},
       }
     );
   };
@@ -4029,7 +4127,7 @@ export default function MemoryWorkspace() {
 
   if (memoriesQuery.isLoading || currentUserQuery.isLoading) {
     return (
-      <LoadingCard title="Agent Memory Ops" description="Loading durable memory operations." />
+      <LoadingCard title="Agent Memory Ops" description="Loading durable memory operations."/>
     );
   }
 
@@ -4089,41 +4187,47 @@ export default function MemoryWorkspace() {
         onValueChange={(value) => setActiveTab(value as MemoryOpsTab)}
         className="space-y-5"
       >
-        <TabsList className="h-auto flex-wrap justify-start gap-1">
+        <label className="flex flex-col gap-2 text-sm font-medium sm:hidden">
+          Memory section
+          <NativeSelect value={activeTab} onChange={event => setActiveTab(event.target.value as MemoryOpsTab)}>
+            <option value="browse">Browse ({filteredMemories.length})</option><option value="create">Create</option><option value="ingest">Ingest files ({documentCount})</option><option value="compact">Compact conversations ({compactCount})</option><option value="summaries">Summaries ({summaryCount})</option><option value="maintenance">Maintenance</option>
+          </NativeSelect>
+        </label>
+        <TabsList className="hidden h-auto flex-wrap justify-start gap-1 sm:flex">
           <TabsTrigger value="browse" className="gap-2">
-            <CalendarRange className="h-4 w-4" />
+            <CalendarRange className="h-4 w-4"/>
             Browse
             <Badge variant="secondary" className="ml-1">
               {filteredMemories.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="create" className="gap-2">
-            <BrainCircuit className="h-4 w-4" />
+            <BrainCircuit className="h-4 w-4"/>
             Create
           </TabsTrigger>
           <TabsTrigger value="ingest" className="gap-2">
-            <FileText className="h-4 w-4" />
+            <FileText className="h-4 w-4"/>
             Ingest Files
             <Badge variant="secondary" className="ml-1">
               {documentCount}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="compact" className="gap-2">
-            <Sparkles className="h-4 w-4" />
+            <Sparkles className="h-4 w-4"/>
             Compact Conversations
             <Badge variant="secondary" className="ml-1">
               {compactCount}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="summaries" className="gap-2">
-            <Shield className="h-4 w-4" />
+            <Shield className="h-4 w-4"/>
             Summaries
             <Badge variant="secondary" className="ml-1">
               {summaryCount}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="maintenance" className="gap-2">
-            <DatabaseZap className="h-4 w-4" />
+            <DatabaseZap className="h-4 w-4"/>
             Maintenance
           </TabsTrigger>
         </TabsList>
@@ -4132,7 +4236,7 @@ export default function MemoryWorkspace() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
-                <CalendarRange className="h-5 w-5" />
+                <CalendarRange className="h-5 w-5"/>
                 Find durable memory
               </CardTitle>
               <CardDescription>
@@ -4140,8 +4244,9 @@ export default function MemoryWorkspace() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-[180px_minmax(240px,1fr)_180px_auto]">
-                <select
+              <div
+                className="grid gap-3 sm:grid-cols-2 min-[80rem]:grid-cols-[180px_minmax(240px,1fr)_180px_auto]">
+                <NativeSelect
                   value={scope}
                   onChange={(event) => setScope(event.target.value as MemoryScope | '')}
                   aria-label="Memory scope"
@@ -4153,13 +4258,13 @@ export default function MemoryWorkspace() {
                       {scopeLabel(item)}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 <Input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="Search content, summaries, tags, or memory IDs"
                 />
-                <select
+                <NativeSelect
                   defaultValue="all"
                   onChange={(event) => applyBrowseView(event.target.value as MemoryBrowseView)}
                   aria-label="Memory view"
@@ -4170,7 +4275,7 @@ export default function MemoryWorkspace() {
                       {view.label}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 {activeFilterCount > 0 ? (
                   <Button type="button" variant="ghost" onClick={clearBrowseFilters}>
                     Clear {activeFilterCount}
@@ -4178,8 +4283,10 @@ export default function MemoryWorkspace() {
                 ) : null}
               </div>
 
-              <details className="group rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-(--agency-row-hover) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <details
+                className="group rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)">
+                <summary
+                  className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-(--agency-row-hover) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <span className="flex items-center gap-2">
                     <SlidersHorizontal
                       className="size-4 text-(--agency-shell-muted)"
@@ -4241,7 +4348,7 @@ export default function MemoryWorkspace() {
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="filter-source">Source</Label>
-                      <select
+                      <NativeSelect
                         id="filter-source"
                         value={sourceFilter}
                         onChange={(event) => setSourceFilter(event.target.value)}
@@ -4253,11 +4360,11 @@ export default function MemoryWorkspace() {
                             {source}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="filter-mode">Mode</Label>
-                      <select
+                      <NativeSelect
                         id="filter-mode"
                         value={modeFilter}
                         onChange={(event) => setModeFilter(event.target.value)}
@@ -4269,11 +4376,11 @@ export default function MemoryWorkspace() {
                             {titleCase(mode)}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="filter-sensitive">Sensitive</Label>
-                      <select
+                      <NativeSelect
                         id="filter-sensitive"
                         value={sensitiveFilter}
                         onChange={(event) =>
@@ -4286,11 +4393,11 @@ export default function MemoryWorkspace() {
                         <option value="all">All sensitivity</option>
                         <option value="sensitive">Sensitive only</option>
                         <option value="not_sensitive">Not sensitive</option>
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="filter-embedding">Embedding</Label>
-                      <select
+                      <NativeSelect
                         id="filter-embedding"
                         value={embeddingFilter}
                         onChange={(event) =>
@@ -4301,14 +4408,14 @@ export default function MemoryWorkspace() {
                         <option value="all">All vectors</option>
                         <option value="embedded">Embedded</option>
                         <option value="missing">Missing vector</option>
-                      </select>
+                      </NativeSelect>
                     </div>
                   </div>
 
                   <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
                     <div className="space-y-1.5">
                       <Label htmlFor="filter-workflow">Workflow</Label>
-                      <select
+                      <NativeSelect
                         id="filter-workflow"
                         value={workflowFilter}
                         onChange={(event) => setWorkflowFilter(event.target.value)}
@@ -4320,7 +4427,7 @@ export default function MemoryWorkspace() {
                             {workflow.name ? `${workflow.name} (${workflow.id})` : workflow.id}
                           </option>
                         ))}
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="filter-document">Document</Label>
@@ -4399,7 +4506,7 @@ export default function MemoryWorkspace() {
             onCreated={async () => {
               await Promise.all([
                 memoriesQuery.refetch(),
-                queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
+                queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
               ]);
             }}
           />
@@ -4415,7 +4522,7 @@ export default function MemoryWorkspace() {
               await memoriesQuery.refetch();
             }}
           />
-          <DocumentCatalogPanel onOpenMemory={setSelectedMemoryId} workflows={workflows} />
+          <DocumentCatalogPanel onOpenMemory={setSelectedMemoryId} workflows={workflows}/>
         </TabsContent>
 
         <TabsContent value="compact" className="mt-0">
@@ -4429,7 +4536,7 @@ export default function MemoryWorkspace() {
         </TabsContent>
 
         <TabsContent value="summaries" className="mt-0 space-y-5">
-          <SummaryReviewPanel memories={memories} />
+          <SummaryReviewPanel memories={memories}/>
           <DailySummaryAdminPanel
             isAdmin={isAdmin}
             onCompleted={async () => {

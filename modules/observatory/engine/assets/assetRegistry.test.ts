@@ -1,7 +1,7 @@
-import { existsSync } from 'node:fs';
-import { resolve } from 'node:path';
+import {existsSync} from 'node:fs';
+import {resolve} from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import {describe, expect, it} from 'vitest';
 
 import {
   filterObservatoryAssetRegistry,
@@ -22,12 +22,16 @@ import {
   observatoryGeneratedAssetInventoryEntries,
   summarizeObservatoryAssetPipeline,
 } from '@/modules/observatory/engine/assets/assetPipeline';
-import { filterObservatoryRegistryForMap } from '@/modules/observatory/engine/assets/assetUsage';
-import { getObservatoryPaletteAssets } from '@/modules/observatory/engine/assets/assetsPalette';
-import { validateObservatoryCharacterActionManifest } from '@/modules/observatory/engine/assets/characterActionManifestValidation';
-import { getObservatoryFullModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
+import {filterObservatoryRegistryForMap} from '@/modules/observatory/engine/assets/assetUsage';
+import {getObservatoryPaletteAssets} from '@/modules/observatory/engine/assets/assetsPalette';
+import {
+  validateObservatoryCharacterActionManifest
+} from '@/modules/observatory/engine/assets/characterActionManifestValidation';
+import {
+  getObservatoryFullModuleAssetRegistry
+} from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
 import sampleLayout from '@/modules/observatory/engine/world/sampleLayout.json';
-import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
+import {validateObservatoryLayout} from '@/modules/observatory/engine/world/layoutValidation';
 
 describe('observatory pixel asset registry', () => {
   it('preserves semantic, anchor, and collision metadata for valid assets', () => {
@@ -36,12 +40,12 @@ describe('observatory pixel asset registry', () => {
       assets: [
         {
           id: 'furniture:test-desk',
-          anchor: { x: 0.25, y: 0.75 },
+          anchor: {x: 0.25, y: 0.75},
           category: 'furniture',
-          collision: { height: 1, offsetX: 0.5, offsetY: 1, width: 2 },
+          collision: {height: 1, offsetX: 0.5, offsetY: 1, width: 2},
           label: 'Test Desk',
           semanticId: 'furniture:desk:test',
-          source: { kind: 'image', uri: '/test.png' },
+          source: {kind: 'image', uri: '/test.png'},
           tags: ['test'],
         },
       ],
@@ -50,8 +54,8 @@ describe('observatory pixel asset registry', () => {
 
     expect(registry.invalidAssets).toEqual([]);
     expect(registry.assets[0]).toMatchObject({
-      anchor: { x: 0.25, y: 0.75 },
-      collision: { height: 1, offsetX: 0.5, offsetY: 1, width: 2 },
+      anchor: {x: 0.25, y: 0.75},
+      collision: {height: 1, offsetX: 0.5, offsetY: 1, width: 2},
       semanticId: 'furniture:desk:test',
     });
   });
@@ -65,12 +69,12 @@ describe('observatory pixel asset registry', () => {
           autotile: {
             columns: 16,
             kind: 'rpgmaker-a2-ground',
-            set: { height: 3, width: 2, x: 0, y: 0 },
+            set: {height: 3, width: 2, x: 0, y: 0},
             tileSize: 32,
           },
           category: 'floor',
           label: 'Test A2 Floor',
-          source: { frameHeight: 32, frameWidth: 32, kind: 'spritesheet', uri: '/a2.png' },
+          source: {frameHeight: 32, frameWidth: 32, kind: 'spritesheet', uri: '/a2.png'},
         },
       ],
       registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
@@ -80,7 +84,7 @@ describe('observatory pixel asset registry', () => {
     expect(registry.assets[0]?.autotile).toEqual({
       columns: 16,
       kind: 'rpgmaker-a2-ground',
-      set: { height: 3, width: 2, x: 0, y: 0 },
+      set: {height: 3, width: 2, x: 0, y: 0},
       tileSize: 32,
     });
   });
@@ -94,12 +98,12 @@ describe('observatory pixel asset registry', () => {
           autotile: {
             columns: 0,
             kind: 'rpgmaker-a4-wall',
-            set: { height: 5, width: 2, x: 0, y: 0 },
+            set: {height: 5, width: 2, x: 0, y: 0},
             tileSize: 32,
           },
           category: 'wall',
           label: 'Bad A4 Wall',
-          source: { frameHeight: 32, frameWidth: 32, kind: 'spritesheet', uri: '/a4.png' },
+          source: {frameHeight: 32, frameWidth: 32, kind: 'spritesheet', uri: '/a4.png'},
         },
       ],
       registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
@@ -143,7 +147,7 @@ describe('observatory pixel asset registry', () => {
           ],
           category: 'human',
           label: 'Test Agent',
-          source: { frameHeight: 48, frameWidth: 48, kind: 'spritesheet', uri: '/agent.png' },
+          source: {frameHeight: 48, frameWidth: 48, kind: 'spritesheet', uri: '/agent.png'},
         },
       ],
       registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
@@ -164,17 +168,17 @@ describe('observatory pixel asset registry', () => {
       assets: [
         {
           id: 'decor:bad-anchor',
-          anchor: { x: 2, y: 0.5 },
+          anchor: {x: 2, y: 0.5},
           category: 'decor',
           label: 'Bad Anchor',
-          source: { kind: 'image', uri: '/bad-anchor.png' },
+          source: {kind: 'image', uri: '/bad-anchor.png'},
         },
         {
           id: 'decor:bad-collision',
           category: 'decor',
-          collision: { height: 1, width: 0 },
+          collision: {height: 1, width: 0},
           label: 'Bad Collision',
-          source: { kind: 'image', uri: '/bad-collision.png' },
+          source: {kind: 'image', uri: '/bad-collision.png'},
         },
       ],
       registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
@@ -238,30 +242,30 @@ describe('observatory pixel asset registry', () => {
         .filter((asset) => asset.source.uri.startsWith('/observatory-assets/'))
         .every((asset) => existsSync(resolve(process.cwd(), 'public', asset.source.uri.slice(1))))
     ).toBe(true);
-  });
+  }, 15000); // Hundreds of real file stats can exceed 5s on Windows/Docker mounts.
 
   it('crops wall spritesheet previews to the selected frame for the builder palette', () => {
-    const paletteAssets = getObservatoryPaletteAssets({ includeUnreviewed: true });
+    const paletteAssets = getObservatoryPaletteAssets({includeUnreviewed: true});
     const wallPreviews = paletteAssets
       .filter((asset) => asset.assetId.startsWith('wall:walls-1:variant-'))
       .sort((a, b) => a.assetId.localeCompare(b.assetId));
 
     expect(wallPreviews.map((asset) => asset.previewCrop)).toEqual([
-      expect.objectContaining({ height: 48, width: 48, x: 0, y: 144 }),
-      expect.objectContaining({ height: 48, width: 48, x: 96, y: 144 }),
-      expect.objectContaining({ height: 48, width: 48, x: 192, y: 144 }),
-      expect.objectContaining({ height: 48, width: 48, x: 288, y: 144 }),
+      expect.objectContaining({height: 48, width: 48, x: 0, y: 144}),
+      expect.objectContaining({height: 48, width: 48, x: 96, y: 144}),
+      expect.objectContaining({height: 48, width: 48, x: 192, y: 144}),
+      expect.objectContaining({height: 48, width: 48, x: 288, y: 144}),
     ]);
   });
 
-  it('keeps furniture source canvases as the placement footprint while cropping previews', () => {
+  it('uses visible furniture footprints while retaining native source canvases', () => {
     const registry = getObservatoryFullModuleAssetRegistry();
     const terminal = registry.assets.find(
       (asset) =>
         asset.id ===
         'furniture:1-modern-office-singles-48x48:modern-office-green-circuit-board-terminal'
     );
-    const terminalPreview = getObservatoryPaletteAssets({ includeUnreviewed: true }).find(
+    const terminalPreview = getObservatoryPaletteAssets({includeUnreviewed: true}).find(
       (asset) =>
         asset.assetId ===
         'furniture:1-modern-office-singles-48x48:modern-office-green-circuit-board-terminal'
@@ -282,7 +286,7 @@ describe('observatory pixel asset registry', () => {
       },
       width: 96,
     });
-    expect(terminalPreview?.footprint).toEqual({ height: 3, width: 2 });
+    expect(terminalPreview?.footprint).toEqual({height: 1, width: 1});
     expect(terminalPreview?.previewCrop).toMatchObject({
       height: 45,
       sourceHeight: 144,
@@ -299,7 +303,7 @@ describe('observatory pixel asset registry', () => {
       (asset) =>
         asset.id === 'furniture:1-modern-office-singles-48x48:modern-office-gray-office-chair-front'
     );
-    const chairPreview = getObservatoryPaletteAssets({ includeUnreviewed: true }).find(
+    const chairPreview = getObservatoryPaletteAssets({includeUnreviewed: true}).find(
       (asset) =>
         asset.assetId ===
         'furniture:1-modern-office-singles-48x48:modern-office-gray-office-chair-front'
@@ -320,7 +324,7 @@ describe('observatory pixel asset registry', () => {
       },
       width: 96,
     });
-    expect(chairPreview?.footprint).toEqual({ height: 3, width: 2 });
+    expect(chairPreview?.footprint).toEqual({height: 2, width: 1});
     expect(chairPreview?.previewCrop).toMatchObject({
       height: 63,
       sourceHeight: 144,
@@ -449,22 +453,22 @@ describe('observatory pixel asset registry', () => {
 
     expect(screens).toMatchObject({
       height: 144,
-      source: { kind: 'image', uri: '/observatory-assets/runtime-screens.svg' },
+      source: {kind: 'image', uri: '/observatory-assets/runtime-screens.svg'},
       width: 192,
-      collision: { width: 4, height: 2, offsetY: 1 },
+      collision: {width: 4, height: 2, offsetY: 1},
     });
     expect(server).toMatchObject({
       height: 144,
-      source: { kind: 'image', uri: '/observatory-assets/runtime-server.svg' },
-      collision: { width: 1, height: 2 },
+      source: {kind: 'image', uri: '/observatory-assets/runtime-server.svg'},
+      collision: {width: 1, height: 2},
     });
     expect(coffee).toMatchObject({
       height: 96,
-      source: { kind: 'image', uri: '/observatory-assets/coffee-station.svg' },
+      source: {kind: 'image', uri: '/observatory-assets/coffee-station.svg'},
     });
     expect(thinking).toMatchObject({
       height: 48,
-      source: { kind: 'image', uri: '/observatory-assets/thinking-emote.svg' },
+      source: {kind: 'image', uri: '/observatory-assets/thinking-emote.svg'},
       width: 48,
     });
   });
@@ -475,20 +479,20 @@ describe('observatory pixel asset registry', () => {
     const wall = registry.assets.find((asset) => asset.id === 'wall:office-partition');
 
     expect(floor).toMatchObject({
-      source: { frameWidth: 32, frameHeight: 32 },
+      source: {frameWidth: 32, frameHeight: 32},
       autotile: {
         columns: 16,
         kind: 'rpgmaker-a2-ground',
-        set: { height: 3, width: 2, x: 2, y: 3 },
+        set: {height: 3, width: 2, x: 2, y: 3},
         tileSize: 32,
       },
     });
     expect(wall).toMatchObject({
-      source: { frameWidth: 48, frameHeight: 48 },
+      source: {frameWidth: 48, frameHeight: 48},
       autotile: {
         columns: 16,
         kind: 'rpgmaker-a4-wall',
-        set: { height: 3, width: 2, x: 4, y: 0 },
+        set: {height: 3, width: 2, x: 4, y: 0},
         sourceLayout: {
           blockCount: 4,
           blockWidth: 96,

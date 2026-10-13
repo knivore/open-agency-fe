@@ -1,22 +1,23 @@
-import { writeFile } from 'node:fs/promises';
-import path from 'node:path';
+import { createObservatoryLayoutStore } from '@/modules/observatory/server/layoutStore';
 
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  markObservatoryLayoutStatus,
-  serializeObservatoryLayout,
-} from '@/modules/observatory/engine/world/layoutPersistence';
+import { markObservatoryLayoutStatus } from '@/modules/observatory/engine/world/layoutPersistence';
 import { validateObservatoryLayout } from '@/modules/observatory/engine/world/layoutValidation';
 import type { ObservatoryLayoutDocument } from '@/modules/observatory/engine/world/layoutTypes';
 
-const publishedLayoutPath = path.join(
-  process.cwd(),
-  'modules',
-  'observatory',
-  'layouts',
-  'publishedLayout.json'
-);
+export async function GET() {
+  try {
+    return NextResponse.json(await createObservatoryLayoutStore().readPublished(), {
+      headers: { 'Cache-Control': 'no-store' },
+    });
+  } catch (error) {
+    return NextResponse.json(
+      { message: error instanceof Error ? error.message : 'Unable to load deployed layout.' },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -52,15 +53,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    await writeFile(
-      publishedLayoutPath,
-      `${serializeObservatoryLayout(validation.layout)}\n`,
-      'utf8'
-    );
+    await createObservatoryLayoutStore().publish(validation.layout);
 
     return NextResponse.json({
       layout: validation.layout,
-      message: 'Published layout saved to repo.',
+      message: 'Deployed layout saved in server storage.',
     });
   } catch (error) {
     return NextResponse.json(

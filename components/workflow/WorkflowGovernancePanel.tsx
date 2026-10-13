@@ -24,6 +24,9 @@ import {
 } from '@/components/library/shadcn/card';
 import { DialogClose } from '@/components/library/shadcn/dialog';
 import { AppDialog } from '@/components/app-shell/AppOverlay';
+import { FormSection } from '@/components/app-shell/FormSection';
+import ActivityTimeline from '@/components/app-shell/ActivityTimeline';
+import AppState from '@/components/app-shell/AppState';
 import { ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import {
   WorkflowReadOnlySummaryField,
@@ -976,5 +979,94 @@ export default function WorkflowGovernancePanel({
         </AppDialog>
       ) : null}
     </>
+  );
+}
+
+/** History is read-only and loaded on demand; inspecting a revision never replaces a draft. */
+export function WorkflowVersionHistory({ workflowId }: { workflowId: string }) {
+  const [expanded, setExpanded] = useState(false);
+  const [selectedRevision, setSelectedRevision] = useState<number | null>(null);
+  const versions = useQuery({
+    queryKey: queryKeys.backendWorkflowVersions(workflowId),
+    queryFn: () => workflowsApi.listWorkflowVersions(workflowId),
+    enabled: expanded,
+  });
+  const items = [...(versions.data?.items ?? [])].sort(
+    (left, right) => right.revision - left.revision,
+  );
+  const selected = items.find((item) => item.revision === selectedRevision);
+  return (
+    <FormSection
+      title="Saved revisions"
+      description="Inspect previous definitions and their provenance without changing the current workflow."
+      advanced
+      onOpenChange={setExpanded}
+    >
+      {versions.isLoading ? (
+        <AppState
+          variant="loading"
+          title="Loading saved revisions"
+          description="Reading workflow version history."
+          compact
+        />
+      ) : versions.isError ? (
+        <AppState
+          variant="error"
+          title="Revision history unavailable"
+          description={
+            versions.error instanceof Error ? versions.error.message : 'Refresh to try again.'
+          }
+          onAction={() => void versions.refetch()}
+          compact
+        />
+      ) : (
+        <ActivityTimeline
+          empty="No saved revisions recorded."
+          items={items.map((item) => ({
+            id: String(item.revision),
+            title: `Revision ${item.revision} · v${item.version}`,
+            timestamp: item.created_at
+              ? new Date(item.created_at).toLocaleString()
+              : 'No timestamp',
+            meta: (
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge variant={item.is_current ? 'secondary' : 'outline'}>
+                  {item.is_current ? 'Current' : item.status || 'Saved'}
+                </Badge>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={selectedRevision === item.revision}
+                  onClick={() =>
+                    setSelectedRevision(selectedRevision === item.revision ? null : item.revision)
+                  }
+                >
+                  Inspect revision {item.revision}
+                </Button>
+              </div>
+            ),
+          }))}
+        />
+      )}
+      {selected ? (
+        <div className="mt-4 flex flex-col gap-3 rounded-lg border p-4">
+          <h3 className="text-sm font-semibold">
+            Revision {selected.revision}: {selected.definition?.name || 'Workflow definition'}
+          </h3>
+          <p className="text-sm text-muted-foreground">
+            {selected.definition?.description || 'No description recorded.'}
+          </p>
+          <details>
+            <summary className="cursor-pointer text-xs text-muted-foreground">
+              Full saved definition and provenance
+            </summary>
+            <pre className="mt-3 max-h-96 overflow-auto whitespace-pre-wrap break-words text-xs">
+              {JSON.stringify(selected, null, 2)}
+            </pre>
+          </details>
+        </div>
+      ) : null}
+    </FormSection>
   );
 }

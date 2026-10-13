@@ -1,5 +1,6 @@
 'use client';
 
+import { NativeSelect } from '@/components/library/shadcn/select';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
 import { signIn, useSession } from 'next-auth/react';
 import Link from 'next/link';
@@ -652,7 +653,7 @@ export default function LocalSetupPage() {
               {availableProfiles.length ? (
                 <div className="space-y-2">
                   <Label htmlFor="model-profile-choice">Model profile</Label>
-                  <select
+                  <NativeSelect
                     id="model-profile-choice"
                     className={setupSelectClassName}
                     value={selectedProfileValue}
@@ -664,7 +665,7 @@ export default function LocalSetupPage() {
                       </option>
                     ))}
                     <option value={CREATE_NEW_PROFILE_VALUE}>Create a new model profile</option>
-                  </select>
+                  </NativeSelect>
                   <p className="text-sm leading-6 text-neutral-600 dark:text-slate-300">
                     Reuse an existing runtime profile when you already trust its provider and model
                     settings. Create a new one only when you actually need a different runtime path.
@@ -692,7 +693,7 @@ export default function LocalSetupPage() {
                   <div className="grid gap-5 md:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="provider">Provider</Label>
-                      <select
+                      <NativeSelect
                         id="provider"
                         className={setupSelectClassName}
                         value={provider}
@@ -705,7 +706,7 @@ export default function LocalSetupPage() {
                       >
                         <option value="openai">OpenAI</option>
                         <option value="ollama">Ollama</option>
-                      </select>
+                      </NativeSelect>
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="model">Model</Label>
@@ -779,7 +780,7 @@ export default function LocalSetupPage() {
               ) : null}
 
               <label className="flex items-start gap-3 rounded-2xl border border-neutral-200 bg-white px-4 py-4 text-sm text-neutral-700 dark:border-cyan-500/15 dark:bg-[#0f1a2b] dark:text-slate-200">
-                <input
+                <Input
                   type="checkbox"
                   className="mt-1 h-4 w-4 rounded border-neutral-300"
                   checked={setupRecommendedAgents}
@@ -969,7 +970,7 @@ export default function LocalSetupPage() {
 
             <div className="mt-5 space-y-2">
               <Label htmlFor="tunnel-provider">Tunnel provider</Label>
-              <select
+              <NativeSelect
                 id="tunnel-provider"
                 className={setupSelectClassName}
                 value={tunnelProvider}
@@ -986,7 +987,7 @@ export default function LocalSetupPage() {
                 <option value="none">Local only</option>
                 <option value="cloudflare">Cloudflare Tunnel</option>
                 <option value="ngrok">ngrok</option>
-              </select>
+              </NativeSelect>
             </div>
 
             <div className="mt-4 space-y-2">
