@@ -5,7 +5,7 @@ import AppState from '@/components/app-shell/AppState';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, ArrowRight, CirclePause, CirclePlay, Plus, Target } from 'lucide-react';
+import { AlertTriangle, ArrowRight, CirclePause, CirclePlay, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import PageHeader from '@/components/app-shell/PageHeader';
@@ -101,7 +101,11 @@ export default function GoalsWorkspace() {
         (view === 'history'
           ? terminal
           : view === 'attention'
-            ? !terminal && (item.blocked || item.stale || (item.pending_approval_count ?? 0) > 0 || item.goal.status === 'waiting_for_input')
+            ? !terminal &&
+              (item.blocked ||
+                item.stale ||
+                (item.pending_approval_count ?? 0) > 0 ||
+                item.goal.status === 'waiting_for_input')
             : !terminal);
       return (
         matchesView &&
@@ -117,8 +121,6 @@ export default function GoalsWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Autonomous work"
-        icon={Target}
         tone="operator"
         title="Goals"
         description="Durable objectives supervised across workflow attempts, waits, evidence, and approvals."
@@ -134,11 +136,22 @@ export default function GoalsWorkspace() {
           },
           {
             label: 'Active blockers',
-            value: goalsQuery.data ? goalsQuery.data.items.filter(item => !TERMINAL.has(item.goal.status) && item.blocked).length : '—',
+            value: goalsQuery.data
+              ? goalsQuery.data.items.filter(
+                  (item) => !TERMINAL.has(item.goal.status) && item.blocked
+                ).length
+              : '—',
             onSelect: () => setView('attention'),
             selected: view === 'attention',
           },
-          { label: 'Active stale', value: goalsQuery.data ? goalsQuery.data.items.filter(item => !TERMINAL.has(item.goal.status) && item.stale).length : '—' },
+          {
+            label: 'Active stale',
+            value: goalsQuery.data
+              ? goalsQuery.data.items.filter(
+                  (item) => !TERMINAL.has(item.goal.status) && item.stale
+                ).length
+              : '—',
+          },
           { label: 'Approvals', value: summary?.pending_approval_count ?? '—' },
           { label: 'Recorded actions', value: summary?.automatic_action_count ?? '—' },
         ]}
@@ -215,10 +228,16 @@ export default function GoalsWorkspace() {
                   >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant={statusVariant(goal.status)}>{item.status_label.replaceAll('_', ' ')}</Badge>
+                        <Badge variant={statusVariant(goal.status)}>
+                          {item.status_label.replaceAll('_', ' ')}
+                        </Badge>
                         <Badge variant="outline">{goal.priority}</Badge>
                         <Badge variant="outline">{item.autonomy}</Badge>
-                        {item.blocked ? <Badge variant="failed">{TERMINAL.has(goal.status) ? 'Previously blocked' : 'Blocked'}</Badge> : null}
+                        {item.blocked ? (
+                          <Badge variant="failed">
+                            {TERMINAL.has(goal.status) ? 'Previously blocked' : 'Blocked'}
+                          </Badge>
+                        ) : null}
                         {item.stale ? <Badge variant="failed">Stale</Badge> : null}
                       </div>
                       <h2

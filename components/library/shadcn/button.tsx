@@ -1,22 +1,20 @@
 import * as React from 'react';
-import {Slot} from '@radix-ui/react-slot';
-import {cva, type VariantProps} from 'class-variance-authority';
+import { Slot } from '@radix-ui/react-slot';
+import { cva, type VariantProps } from 'class-variance-authority';
 
-import {cn} from '@/lib/utils';
+import { cn } from '@/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&>svg]:m-0 [&>svg]:shrink-0',
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-(--agency-radius-control) text-sm font-medium ring-offset-background transition-[background-color,border-color,color,box-shadow,transform] duration-(--agency-motion-fast) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0 disabled:pointer-events-none disabled:opacity-50 [&>svg]:m-0 [&>svg]:shrink-0 [&>svg:not([class*=size-]):not([class*=h-])]:size-4',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md',
-        brand:
-          'bg-primary text-primary-foreground shadow-sm shadow-primary/20 hover:-translate-y-px hover:bg-primary-800 hover:shadow-md',
+        default: 'bg-primary text-primary-foreground hover:bg-(--agency-primary-hover)',
+        brand: 'bg-primary text-primary-foreground hover:bg-(--agency-primary-hover)',
         destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
         outline:
-          'border border-(--agency-control-border) bg-(--agency-control-bg) text-(--agency-control-text) shadow-(--agency-outline-shadow) hover:bg-(--agency-control-bg-hover)',
-        secondary:
-          'bg-secondary text-secondary-foreground shadow-sm shadow-secondary/15 hover:bg-secondary-800',
+          'border border-(--agency-control-border) bg-(--agency-control-bg) text-(--agency-control-text) hover:bg-(--agency-control-bg-hover)',
+        secondary: 'bg-(--agency-surface-subtle) text-foreground hover:bg-accent',
         ghost: 'hover:bg-accent hover:text-accent-foreground',
         link: 'text-primary underline-offset-4 hover:underline',
       },
@@ -40,7 +38,7 @@ export interface ButtonProps
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({className, variant, size, asChild = false, title, ...props}, ref) => {
+  ({ className, variant, size, asChild = false, title, ...props }, ref) => {
     const Comp = asChild ? Slot : 'button';
     const inferredTitle =
       title ??
@@ -49,7 +47,7 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         : undefined);
     return (
       <Comp
-        className={cn(buttonVariants({variant, size, className}))}
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         title={inferredTitle}
         {...props}
@@ -59,4 +57,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = 'Button';
 
-export {Button, buttonVariants};
+export { Button, buttonVariants };

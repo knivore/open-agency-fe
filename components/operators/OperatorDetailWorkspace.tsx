@@ -17,7 +17,6 @@ import {
   LoaderCircle,
   OctagonX,
   Play,
-  RadioTower,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
@@ -149,9 +148,7 @@ export default function OperatorDetailWorkspace({ operatorId }: { operatorId: st
     return (
       <div className="space-y-6">
         <PageHeader
-          icon={RadioTower}
           tone="operator"
-          eyebrow="Operator supervision"
           title="Workspace required"
           description="Enter the workspace that owns this Operator. Open Agency does not infer cross-workspace authority."
         />
@@ -226,8 +223,6 @@ export default function OperatorDetailWorkspace({ operatorId }: { operatorId: st
           </Link>
         </Button>
         <PageHeader
-          eyebrow="Operator supervision"
-          icon={RadioTower}
           tone="operator"
           title={operator.name}
           description={operator.purpose}
@@ -436,6 +431,7 @@ export default function OperatorDetailWorkspace({ operatorId }: { operatorId: st
                   description="Evaluate a sample signal through the real policy and adapter path. The authoritative result always performs no action and persists no signal or evaluation."
                 />
                 <Textarea
+                  aria-label="Simulation signal"
                   value={simulationSignal}
                   onChange={(event) => setSimulationSignal(event.target.value)}
                   rows={4}

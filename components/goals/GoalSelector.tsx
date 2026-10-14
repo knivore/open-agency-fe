@@ -110,7 +110,7 @@ export default function GoalSelector({
               onGoalChange(value, goals.find((item) => item.goal.id === value) ?? null);
             }}
           >
-            <SelectTrigger className="min-w-0 flex-1">
+            <SelectTrigger aria-label="Select goal" className="min-w-0 flex-1">
               <SelectValue
                 placeholder={goalsQuery.isLoading ? 'Loading goals...' : 'No goal selected'}
               />
@@ -140,6 +140,7 @@ export default function GoalSelector({
       </div>
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input
+          aria-label="New goal objective"
           value={draftObjective}
           onChange={(event) => setDraftObjective(event.target.value)}
           placeholder="Create a new goal"

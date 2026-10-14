@@ -1,4 +1,5 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
 import { Button } from '../library/shadcn/button';
@@ -193,11 +194,13 @@ export default function WorkflowEdgeMetadataEditor({
                 className="grid gap-2 md:grid-cols-[minmax(0,1.2fr)_140px_minmax(0,1fr)_auto]"
               >
                 <Input
+                  aria-label="Metadata key"
                   value={field.key}
                   onChange={(event) => updateField(field.id, { key: event.target.value })}
                   placeholder="Key"
                 />
                 <NativeSelect
+                  aria-label="Metadata value type"
                   value={field.valueType}
                   onChange={(event) =>
                     updateField(field.id, {
@@ -214,6 +217,7 @@ export default function WorkflowEdgeMetadataEditor({
                 </NativeSelect>
                 {field.valueType === 'boolean' ? (
                   <NativeSelect
+                    aria-label="Boolean metadata value"
                     value={field.value || 'false'}
                     onChange={(event) => updateField(field.id, { value: event.target.value })}
                     className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-100"
@@ -227,6 +231,7 @@ export default function WorkflowEdgeMetadataEditor({
                   </div>
                 ) : (
                   <Input
+                    aria-label="Metadata value"
                     value={field.value}
                     onChange={(event) => updateField(field.id, { value: event.target.value })}
                     placeholder={field.valueType === 'number' ? '0' : 'Value'}
@@ -252,8 +257,11 @@ export default function WorkflowEdgeMetadataEditor({
         </div>
       )}
 
-      <div className="space-y-2">
-        <Label htmlFor={`${idPrefix}-metadata-json`}>Raw JSON</Label>
+      <FormField
+        label="Raw JSON"
+        htmlFor={`${idPrefix}-metadata-json`}
+        error={metadataError ? 'Metadata ' + metadataError : null}
+      >
         <Textarea
           id={`${idPrefix}-metadata-json`}
           value={metadataJson}
@@ -261,10 +269,7 @@ export default function WorkflowEdgeMetadataEditor({
           placeholder='Edge metadata JSON, e.g. {"priority":"high"}'
           className={`min-h-28 ${metadataError ? 'border-red-500' : ''}`}
         />
-        {metadataError ? (
-          <p className="text-xs text-red-600 dark:text-red-300">Metadata {metadataError}</p>
-        ) : null}
-      </div>
+      </FormField>
     </div>
   );
 }

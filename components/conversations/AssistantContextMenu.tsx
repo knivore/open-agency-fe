@@ -250,6 +250,7 @@ export default function AssistantContextMenu({
 
               {shouldShowGoalSearch ? (
                 <Input
+                  aria-label="Filter active goals"
                   value={goalSearch}
                   onChange={(event) => setGoalSearch(event.target.value)}
                   placeholder="Filter active goals"
@@ -289,6 +290,7 @@ export default function AssistantContextMenu({
                         {isEditing ? (
                           <div className="space-y-2">
                             <Input
+                              aria-label="Goal objective"
                               value={draftObjective}
                               onChange={(event) => setDraftObjective(event.target.value)}
                               disabled={goalActionMutation.isPending}

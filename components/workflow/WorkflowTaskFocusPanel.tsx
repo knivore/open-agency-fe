@@ -1,5 +1,7 @@
 'use client';
+import { FormField, FormFieldGroup } from '@/components/app-shell/FormSection';
 
+import { useId } from 'react';
 import { NativeSelect } from '@/components/library/shadcn/select';
 import type { AgentDefinition, BehaviorTuningProfile } from '@/types/agents';
 import { toolsRecommendedForWorkflowCapabilities } from '@/lib/workflows/capabilityTooling';
@@ -125,6 +127,7 @@ export default function WorkflowTaskFocusPanel({
   onSelectPreviousTask,
   onSelectNextTask,
 }: WorkflowTaskFocusPanelProps) {
+  const fieldIdPrefix = useId();
   const taskToolIds = selectedTask.tool_ids ?? [];
   const taskMemoryIds = selectedTask.memory_ids ?? [];
   const taskInputSources = workflowTaskInputSourcesFromMetadata(selectedTask.metadata);
@@ -274,16 +277,14 @@ export default function WorkflowTaskFocusPanel({
 
         {isEditing && onUpdateTask ? (
           <div className="workflow-drawer-fieldset workflow-drawer-section-identity grid gap-3 rounded-xl border border-amber-200/70 bg-white/80 p-3 dark:border-amber-300/14 dark:bg-[linear-gradient(180deg,rgba(64,44,12,0.16),rgba(15,23,42,0.74))]">
-            <div className="space-y-1.5">
-              <Label htmlFor={`selected-task-name-${selectedTask.id}`}>Task name</Label>
+            <FormField label="Task name" htmlFor={`selected-task-name-${selectedTask.id}`}>
               <Input
                 id={`selected-task-name-${selectedTask.id}`}
                 value={selectedTask.name}
                 onChange={(event) => onUpdateTask({ name: event.target.value })}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor={`selected-task-description-${selectedTask.id}`}>Description</Label>
+            </FormField>
+            <FormField label="Description" htmlFor={`selected-task-description-${selectedTask.id}`}>
               <Textarea
                 id={`selected-task-description-${selectedTask.id}`}
                 value={selectedTask.description}
@@ -295,10 +296,9 @@ export default function WorkflowTaskFocusPanel({
                   })
                 }
               />
-            </div>
+            </FormField>
             <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor={`selected-task-agent-${selectedTask.id}`}>Assigned agent</Label>
+              <FormField label="Assigned agent" htmlFor={`selected-task-agent-${selectedTask.id}`}>
                 <NativeSelect
                   id={`selected-task-agent-${selectedTask.id}`}
                   value={selectedTask.agent_id ?? ''}
@@ -312,32 +312,32 @@ export default function WorkflowTaskFocusPanel({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
+              </FormField>
               {showBuilderTaskFields ? (
-                <div className="space-y-1.5">
-                  <Label htmlFor={`selected-task-expected-output-${selectedTask.id}`}>
-                    Expected output
-                  </Label>
+                <FormField
+                  label="Expected output"
+                  htmlFor={`selected-task-expected-output-${selectedTask.id}`}
+                >
                   <Input
                     id={`selected-task-expected-output-${selectedTask.id}`}
                     value={selectedTask.expected_output ?? ''}
                     onChange={(event) => onUpdateTask({ expected_output: event.target.value })}
                   />
-                </div>
+                </FormField>
               ) : null}
             </div>
             {showBuilderTaskFields ? (
-              <div className="space-y-1.5">
-                <Label htmlFor={`selected-task-instructions-${selectedTask.id}`}>
-                  Instructions
-                </Label>
+              <FormField
+                label="Instructions"
+                htmlFor={`selected-task-instructions-${selectedTask.id}`}
+              >
                 <Textarea
                   id={`selected-task-instructions-${selectedTask.id}`}
                   value={selectedTask.instructions ?? ''}
                   className="min-h-24"
                   onChange={(event) => onUpdateTask({ instructions: event.target.value })}
                 />
-              </div>
+              </FormField>
             ) : null}
             {showBuilderTaskFields ? (
               <div className="space-y-2">
@@ -503,9 +503,11 @@ export default function WorkflowTaskFocusPanel({
             >
               Task Overrides
             </TaskDrawerSectionHeader>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor={`selected-task-timeout-${selectedTask.id}`}>Timeout seconds</Label>
+            <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+              <FormField
+                label="Timeout seconds"
+                htmlFor={`selected-task-timeout-${selectedTask.id}`}
+              >
                 <Input
                   id={`selected-task-timeout-${selectedTask.id}`}
                   type="number"
@@ -517,9 +519,8 @@ export default function WorkflowTaskFocusPanel({
                     })
                   }
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`selected-task-retries-${selectedTask.id}`}>Max retries</Label>
+              </FormField>
+              <FormField label="Max retries" htmlFor={`selected-task-retries-${selectedTask.id}`}>
                 <Input
                   id={`selected-task-retries-${selectedTask.id}`}
                   type="number"
@@ -531,11 +532,11 @@ export default function WorkflowTaskFocusPanel({
                     })
                   }
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`selected-task-model-profile-${selectedTask.id}`}>
-                  Model profile override
-                </Label>
+              </FormField>
+              <FormField
+                label="Model profile override"
+                htmlFor={`selected-task-model-profile-${selectedTask.id}`}
+              >
                 <NativeSelect
                   id={`selected-task-model-profile-${selectedTask.id}`}
                   value={taskRuntimeOverrides.model_profile_id ?? ''}
@@ -553,9 +554,8 @@ export default function WorkflowTaskFocusPanel({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor={`selected-task-max-tokens-${selectedTask.id}`}>Max tokens</Label>
+              </FormField>
+              <FormField label="Max tokens" htmlFor={`selected-task-max-tokens-${selectedTask.id}`}>
                 <Input
                   id={`selected-task-max-tokens-${selectedTask.id}`}
                   type="number"
@@ -567,11 +567,12 @@ export default function WorkflowTaskFocusPanel({
                     })
                   }
                 />
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor={`selected-task-approval-policy-${selectedTask.id}`}>
-                  Approval policy override
-                </Label>
+              </FormField>
+              <FormField
+                label="Approval policy override"
+                htmlFor={`selected-task-approval-policy-${selectedTask.id}`}
+                className="md:col-span-2"
+              >
                 <NativeSelect
                   id={`selected-task-approval-policy-${selectedTask.id}`}
                   value={taskRuntimeOverrides.approval_policy ?? 'inherit'}
@@ -596,8 +597,8 @@ export default function WorkflowTaskFocusPanel({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-            </div>
+              </FormField>
+            </FormFieldGroup>
           </div>
         ) : null}
 
@@ -726,9 +727,13 @@ export default function WorkflowTaskFocusPanel({
                       </Button>
                       {isEditing ? (
                         <div className="mt-2 space-y-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Edge Type</Label>
+                          <FormField
+                            label="Edge type"
+                            htmlFor={fieldIdPrefix + '-dependency-type-' + task.id}
+                            description="conditional requires a condition. success and failure are descriptive labels only."
+                          >
                             <NativeSelect
+                              id={fieldIdPrefix + '-dependency-type-' + task.id}
                               value={edgeType}
                               onChange={(event) =>
                                 onDependencyEdgeTypeChange(task.id, event.target.value)
@@ -740,22 +745,22 @@ export default function WorkflowTaskFocusPanel({
                               <option value="success">success</option>
                               <option value="failure">failure</option>
                             </NativeSelect>
-                            <p className="text-xs text-neutral-500 dark:text-slate-400">
-                              `conditional` requires a condition. `success` and `failure` are
-                              descriptive labels only.
-                            </p>
-                          </div>
-                          <Input
-                            value={condition}
-                            onChange={(event) =>
-                              onDependencyConditionChange(task.id, event.target.value)
-                            }
-                            placeholder="Edge condition"
-                            className={conditionError ? 'border-red-500' : ''}
-                          />
-                          {conditionError ? (
-                            <p className="text-xs text-red-600">Condition {conditionError}</p>
-                          ) : null}
+                          </FormField>
+                          <FormField
+                            label="Edge condition"
+                            htmlFor={fieldIdPrefix + '-dependency-condition-' + task.id}
+                            error={conditionError ? 'Condition ' + conditionError : null}
+                          >
+                            <Input
+                              id={fieldIdPrefix + '-dependency-condition-' + task.id}
+                              value={condition}
+                              onChange={(event) =>
+                                onDependencyConditionChange(task.id, event.target.value)
+                              }
+                              placeholder="Edge condition"
+                              className={conditionError ? 'border-red-500' : ''}
+                            />
+                          </FormField>
                           <WorkflowEdgeMetadataEditor
                             idPrefix={`dependency-edge-${task.id}`}
                             metadataJson={metadataJson}
@@ -810,9 +815,13 @@ export default function WorkflowTaskFocusPanel({
                       </Button>
                       {isEditing ? (
                         <div className="mt-2 space-y-2">
-                          <div className="space-y-1">
-                            <Label className="text-xs">Edge Type</Label>
+                          <FormField
+                            label="Edge type"
+                            htmlFor={fieldIdPrefix + '-dependent-type-' + task.id}
+                            description="conditional requires a condition. success and failure are descriptive labels only."
+                          >
                             <NativeSelect
+                              id={fieldIdPrefix + '-dependent-type-' + task.id}
                               value={edgeType}
                               onChange={(event) =>
                                 onDependentEdgeTypeChange(task.id, event.target.value)
@@ -824,22 +833,22 @@ export default function WorkflowTaskFocusPanel({
                               <option value="success">success</option>
                               <option value="failure">failure</option>
                             </NativeSelect>
-                            <p className="text-xs text-neutral-500 dark:text-slate-400">
-                              `conditional` requires a condition. `success` and `failure` are
-                              descriptive labels only.
-                            </p>
-                          </div>
-                          <Input
-                            value={condition}
-                            onChange={(event) =>
-                              onDependentConditionChange(task.id, event.target.value)
-                            }
-                            placeholder="Edge condition"
-                            className={conditionError ? 'border-red-500' : ''}
-                          />
-                          {conditionError ? (
-                            <p className="text-xs text-red-600">Condition {conditionError}</p>
-                          ) : null}
+                          </FormField>
+                          <FormField
+                            label="Edge condition"
+                            htmlFor={fieldIdPrefix + '-dependent-condition-' + task.id}
+                            error={conditionError ? 'Condition ' + conditionError : null}
+                          >
+                            <Input
+                              id={fieldIdPrefix + '-dependent-condition-' + task.id}
+                              value={condition}
+                              onChange={(event) =>
+                                onDependentConditionChange(task.id, event.target.value)
+                              }
+                              placeholder="Edge condition"
+                              className={conditionError ? 'border-red-500' : ''}
+                            />
+                          </FormField>
                           <WorkflowEdgeMetadataEditor
                             idPrefix={`dependent-edge-${task.id}`}
                             metadataJson={metadataJson}

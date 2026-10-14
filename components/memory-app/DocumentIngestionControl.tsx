@@ -1,4 +1,5 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
 import type { DragEvent } from 'react';
@@ -311,11 +312,7 @@ export default function DocumentIngestionControl({
       clearFile();
       toast.success(uploadSuccessMessage(result), { position: 'top-right' });
     } catch (ingestError) {
-      setError(
-        ingestError instanceof Error
-          ? ingestError.message
-          : 'Failed to ingest document.'
-      );
+      setError(ingestError instanceof Error ? ingestError.message : 'Failed to ingest document.');
     } finally {
       setIsPending(false);
     }
@@ -455,8 +452,11 @@ export default function DocumentIngestionControl({
       {!compact && showAdvanced ? (
         <div className="grid gap-3 md:grid-cols-4">
           {allowedUploadModes.length > 1 ? (
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor={`${idPrefix}-document-upload-mode`}>Use document as</Label>
+            <FormField
+              label="Use document as"
+              htmlFor={`${idPrefix}-document-upload-mode`}
+              className="md:col-span-2"
+            >
               <NativeSelect
                 id={`${idPrefix}-document-upload-mode`}
                 value={uploadMode}
@@ -470,7 +470,7 @@ export default function DocumentIngestionControl({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
+            </FormField>
           ) : null}
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-document-memory-scope`}>Scope</Label>
@@ -493,8 +493,7 @@ export default function DocumentIngestionControl({
             )}
           </div>
           {scope === 'workspace' ? (
-            <div className="space-y-1.5">
-              <Label htmlFor={`${idPrefix}-document-workspace-id`}>Workspace ID</Label>
+            <FormField label="Workspace ID" htmlFor={`${idPrefix}-document-workspace-id`}>
               <Input
                 id={`${idPrefix}-document-workspace-id`}
                 value={workspaceId ? contextLabel([], workspaceId) : localWorkspaceId}
@@ -502,7 +501,7 @@ export default function DocumentIngestionControl({
                 disabled={isPending || Boolean(workspaceId)}
                 placeholder="Required"
               />
-            </div>
+            </FormField>
           ) : null}
           {scope === 'conversation' ? (
             <div className="space-y-1.5 md:col-span-2">
@@ -588,8 +587,7 @@ export default function DocumentIngestionControl({
               </NativeSelect>
             )}
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-document-tags`}>Tags</Label>
+          <FormField label="Tags" htmlFor={`${idPrefix}-document-tags`}>
             <Input
               id={`${idPrefix}-document-tags`}
               value={tags}
@@ -597,7 +595,7 @@ export default function DocumentIngestionControl({
               disabled={isPending}
               placeholder="document,policy"
             />
-          </div>
+          </FormField>
           <div className="space-y-1.5">
             <Label htmlFor={`${idPrefix}-document-custom-chunking`}>Chunking</Label>
             <label className="flex h-10 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm dark:border-white/10 dark:bg-slate-950/78 dark:text-slate-100">
@@ -611,8 +609,7 @@ export default function DocumentIngestionControl({
               Custom
             </label>
           </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-document-chunk-size`}>Chunk size</Label>
+          <FormField label="Chunk size" htmlFor={`${idPrefix}-document-chunk-size`}>
             <Input
               id={`${idPrefix}-document-chunk-size`}
               type="number"
@@ -621,9 +618,8 @@ export default function DocumentIngestionControl({
               onChange={(event) => setChunkSize(event.target.value)}
               disabled={isPending || !customChunking}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-document-chunk-overlap`}>Chunk overlap</Label>
+          </FormField>
+          <FormField label="Chunk overlap" htmlFor={`${idPrefix}-document-chunk-overlap`}>
             <Input
               id={`${idPrefix}-document-chunk-overlap`}
               type="number"
@@ -632,7 +628,7 @@ export default function DocumentIngestionControl({
               onChange={(event) => setChunkOverlap(event.target.value)}
               disabled={isPending || !customChunking}
             />
-          </div>
+          </FormField>
         </div>
       ) : null}
 

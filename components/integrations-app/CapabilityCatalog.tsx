@@ -1,7 +1,8 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
-import {type ReactNode, useDeferredValue, useMemo, useRef, useState} from 'react';
+import { type ReactNode, useDeferredValue, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   Bot,
@@ -15,9 +16,9 @@ import {
   Target,
   Workflow,
 } from 'lucide-react';
-import type {IntegrationProvider} from '@/types/integrations';
-import type {ToolDefinition} from '@/types/tools';
-import {cn} from '@/lib/utils';
+import type { IntegrationProvider } from '@/types/integrations';
+import type { ToolDefinition } from '@/types/tools';
+import { cn } from '@/lib/utils';
 import {
   capabilityFamilies,
   matchesToolSearch,
@@ -27,11 +28,11 @@ import {
   toolCapabilityFamily,
   toolOperationChoices,
 } from '@/lib/tools/capabilityCatalog';
-import {Badge} from '../library/shadcn/badge';
-import {Button} from '../library/shadcn/button';
-import {Checkbox} from '../library/shadcn/checkbox';
-import {Input} from '../library/shadcn/input';
-import {AppDialog} from '../app-shell/AppOverlay';
+import { Badge } from '../library/shadcn/badge';
+import { Button } from '../library/shadcn/button';
+import { Checkbox } from '../library/shadcn/checkbox';
+import { Input } from '../library/shadcn/input';
+import { AppDialog } from '../app-shell/AppOverlay';
 
 const PAGE_SIZE = 12;
 const infrastructureFamily = {
@@ -108,13 +109,13 @@ export interface CapabilityCatalogProps {
 }
 
 export default function CapabilityCatalog({
-                                            providers,
-                                            actions,
-                                            selectedId,
-                                            onSelect,
-                                            renderDetails,
-                                            assignment,
-                                          }: CapabilityCatalogProps) {
+  providers,
+  actions,
+  selectedId,
+  onSelect,
+  renderDetails,
+  assignment,
+}: CapabilityCatalogProps) {
   const [query, setQuery] = useState(() => initialParam('integration-search-custom'));
   const [family, setFamily] = useState(() => {
     const value = initialParam('capability-family');
@@ -166,15 +167,15 @@ export default function CapabilityCatalog({
           return provider.kind === 'tool'
             ? matchesToolSearch(capabilityProviderTool(provider), deferredQuery)
             : deferredQuery
-              .trim()
-              .toLowerCase()
-              .split(/\s+/)
-              .every((term) =>
-                [provider.name, provider.id, provider.description]
-                  .join(' ')
-                  .toLowerCase()
-                  .includes(term)
-              );
+                .trim()
+                .toLowerCase()
+                .split(/\s+/)
+                .every((term) =>
+                  [provider.name, provider.id, provider.description]
+                    .join(' ')
+                    .toLowerCase()
+                    .includes(term)
+                );
         })
         .sort((a, b) => a.name.localeCompare(b.name)),
     [unique, family, kind, access, deferredQuery]
@@ -207,7 +208,7 @@ export default function CapabilityCatalog({
 
   function goToPage(next: number) {
     setPage(next);
-    operationsRef.current?.scrollIntoView?.({block: 'nearest'});
+    operationsRef.current?.scrollIntoView?.({ block: 'nearest' });
   }
 
   return (
@@ -226,15 +227,14 @@ export default function CapabilityCatalog({
       <div
         className={cn(
           'grid min-w-0 gap-4 md:grid-cols-[13rem_minmax(0,1fr)]',
-          assignment && 'min-[87.5rem]:grid-cols-[13rem_minmax(0,1fr)_24rem]'
+          assignment && 'xl:grid-cols-[13rem_minmax(0,1fr)_20rem]'
         )}
       >
         <nav
           aria-label="Capability families"
           className="hidden min-w-0 self-start rounded-xl border bg-card p-3 md:block"
         >
-          <h2
-            className="px-2 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="px-2 py-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             Capability families
           </h2>
           <div className="flex max-h-[calc(100vh-19rem)] flex-col gap-1 overflow-y-auto">
@@ -247,7 +247,7 @@ export default function CapabilityCatalog({
                 family === 'all' && 'bg-accent font-semibold text-primary'
               )}
             >
-              <Layers className="size-4 shrink-0" aria-hidden="true"/> All operations
+              <Layers className="size-4 shrink-0" aria-hidden="true" /> All operations
             </button>
             {availableFamilies.map((entry) => {
               const Icon = familyIcons[entry.id] ?? Layers;
@@ -263,7 +263,7 @@ export default function CapabilityCatalog({
                     family === entry.id && 'bg-accent font-semibold text-primary'
                   )}
                 >
-                  <Icon className="size-4 shrink-0" aria-hidden="true"/>
+                  <Icon className="size-4 shrink-0" aria-hidden="true" />
                   <span className="min-w-0 flex-1" title={entry.description}>
                     {familyNavigationLabels[entry.id] ?? entry.label}
                   </span>
@@ -307,17 +307,14 @@ export default function CapabilityCatalog({
                 aria-controls="capability-filters"
                 onClick={() => setFiltersOpen((value) => !value)}
               >
-                <SlidersHorizontal className="size-4" aria-hidden="true"/>
+                <SlidersHorizontal className="size-4" aria-hidden="true" />
                 <span className="sr-only sm:not-sr-only">Filters</span>
                 {access !== 'all' || kind !== 'all' ? (
-                  <span className="size-2 rounded-full bg-primary" aria-label="Active filters"/>
+                  <span className="size-2 rounded-full bg-primary" aria-label="Active filters" />
                 ) : null}
               </Button>
             </div>
-            <div className="md:hidden">
-              <label htmlFor="capability-family" className="sr-only">
-                Capability family
-              </label>
+            <FormField label="Capability family" htmlFor="capability-family" className="md:hidden">
               <NativeSelect
                 id="capability-family"
                 className="h-9 min-w-0 max-w-full rounded-md border bg-background px-2 text-sm md:hidden"
@@ -331,7 +328,7 @@ export default function CapabilityCatalog({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
+            </FormField>
             {filtersOpen ? (
               <div id="capability-filters" className="flex flex-wrap items-center gap-2">
                 <label htmlFor="capability-access" className="sr-only">
@@ -455,8 +452,7 @@ export default function CapabilityCatalog({
                 );
               })}
               {!matching.length ? (
-                <div
-                  className="flex flex-col items-center gap-3 p-8 text-center text-sm text-muted-foreground">
+                <div className="flex flex-col items-center gap-3 p-8 text-center text-sm text-muted-foreground">
                   <p role="status">
                     {unique.length
                       ? 'No capabilities match your filters.'
@@ -513,7 +509,7 @@ export default function CapabilityCatalog({
           <aside
             id="capability-agent-access"
             aria-label="Agent access"
-            className="min-w-0 md:col-start-2 min-[87.5rem]:col-start-auto"
+            className="min-w-0 md:col-start-2 xl:col-start-auto"
           >
             {assignment.panel}
           </aside>

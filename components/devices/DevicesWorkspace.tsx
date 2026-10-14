@@ -347,7 +347,6 @@ export default function DevicesWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Operations"
         title="Devices"
         description="Shared device operations across Smart Home entities and the Physical Devices canonical registry."
         meta={
@@ -681,7 +680,6 @@ function DevicesUnavailable({
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Operations"
         title="Devices"
         description="Device operations need at least one device source: Smart Home or Physical Devices."
         meta={<Badge variant="outline">No device source paired</Badge>}

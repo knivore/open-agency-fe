@@ -703,6 +703,7 @@ function ImportWorkflowDialog({
             <Input
               ref={fileInputRef}
               type="file"
+              aria-label="Import workflow package"
               accept=".json,application/json"
               className="sr-only"
               onChange={(event) => {
@@ -1145,7 +1146,6 @@ export default function WorkflowListWorkspace() {
   return (
     <div className="flex flex-col gap-7">
       <PageHeader
-        icon={Workflow}
         tone="workflow"
         title="Workflows"
         description="Build, run, and manage your LLM workflows."
@@ -1189,15 +1189,29 @@ export default function WorkflowListWorkspace() {
           summary={`Showing ${visibleWorkflows.length} of ${workflows.length} workflows`}
           onReset={filtersActive ? clearFilters : undefined}
         >
-          <NativeSelect aria-label="Filter by status" value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value as 'all' | 'ready' | 'needs-attention')}
-            className="w-full sm:w-48">
-            <option value="all">Status: All</option><option value="ready">Status: Ready</option><option value="needs-attention">Status: Needs attention</option>
+          <NativeSelect
+            aria-label="Filter by status"
+            value={statusFilter}
+            onChange={(event) =>
+              setStatusFilter(event.target.value as 'all' | 'ready' | 'needs-attention')
+            }
+            className="w-full sm:w-48"
+          >
+            <option value="all">Status: All</option>
+            <option value="ready">Status: Ready</option>
+            <option value="needs-attention">Status: Needs attention</option>
           </NativeSelect>
-          <NativeSelect aria-label="Filter by schedule" value={scheduleFilter}
-            onChange={(event) => setScheduleFilter(event.target.value as 'all' | 'scheduled' | 'unscheduled')}
-            className="w-full sm:w-48">
-            <option value="all">Schedule: All</option><option value="scheduled">Schedule: Active</option><option value="unscheduled">Schedule: None</option>
+          <NativeSelect
+            aria-label="Filter by schedule"
+            value={scheduleFilter}
+            onChange={(event) =>
+              setScheduleFilter(event.target.value as 'all' | 'scheduled' | 'unscheduled')
+            }
+            className="w-full sm:w-48"
+          >
+            <option value="all">Schedule: All</option>
+            <option value="scheduled">Schedule: Active</option>
+            <option value="unscheduled">Schedule: None</option>
           </NativeSelect>
         </WorkspaceToolbar>
       ) : null}

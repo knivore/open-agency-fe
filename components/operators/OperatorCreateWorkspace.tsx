@@ -12,7 +12,6 @@ import {
   Clock3,
   LoaderCircle,
   Play,
-  RadioTower,
   Save,
   ShieldCheck,
   Sparkles,
@@ -240,8 +239,6 @@ export default function OperatorCreateWorkspace() {
     return (
       <div className="space-y-6">
         <PageHeader
-          eyebrow="Operator creation"
-          icon={RadioTower}
           tone="operator"
           title="Create operator"
           description="Describe an ongoing responsibility, then review every capability and boundary before activation."
@@ -301,8 +298,6 @@ export default function OperatorCreateWorkspace() {
           </Link>
         </Button>
         <PageHeader
-          eyebrow="Operator creation"
-          icon={RadioTower}
           tone="operator"
           title="Create operator"
           description="Describe an ongoing responsibility, then review every capability and boundary before activation."

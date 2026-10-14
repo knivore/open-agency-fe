@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
 import WorkflowTaskFocusPanel from '@/components/workflow/WorkflowTaskFocusPanel';
 import type { TaskDefinition } from '@/types/workflows';
 
@@ -17,7 +18,11 @@ const selectedTask: TaskDefinition = {
   metadata: {},
 };
 
-function renderPanel(task: TaskDefinition = selectedTask, onUpdateTask = vi.fn()) {
+function renderPanel(
+  task: TaskDefinition = selectedTask,
+  onUpdateTask = vi.fn(),
+  overrides: Partial<ComponentProps<typeof WorkflowTaskFocusPanel>> = {}
+) {
   render(
     <WorkflowTaskFocusPanel
       selectedTask={task}
@@ -41,11 +46,42 @@ function renderPanel(task: TaskDefinition = selectedTask, onUpdateTask = vi.fn()
       onSelectDependentTask={vi.fn()}
       onSelectPreviousTask={vi.fn()}
       onSelectNextTask={vi.fn()}
+      {...overrides}
     />
   );
 }
 
 describe('WorkflowTaskFocusPanel', () => {
+  it('keeps mapped edge controls distinct across directions and repeated panels', () => {
+    const edge = {
+      task: { ...selectedTask, id: 'linked-task' },
+      edgeType: 'conditional',
+      condition: '',
+      conditionError: 'is required',
+      metadataJson: '',
+    };
+    const change = vi.fn();
+    const props = {
+      dependencyLinks: [edge],
+      dependentLinks: [edge],
+      onDependencyConditionChange: change,
+    };
+    renderPanel(selectedTask, vi.fn(), props);
+    renderPanel(selectedTask, vi.fn(), props);
+
+    const types = screen.getAllByRole('combobox', { name: 'Edge type' });
+    const conditions = screen.getAllByRole('textbox', { name: 'Edge condition' });
+    expect(types).toHaveLength(4);
+    expect(new Set(types.map((control) => control.id)).size).toBe(4);
+    expect(new Set(conditions.map((control) => control.id)).size).toBe(4);
+    for (const condition of conditions) {
+      expect(condition).toHaveAttribute('aria-invalid', 'true');
+      expect(condition).toHaveAccessibleDescription('Condition is required');
+    }
+    fireEvent.change(conditions[0], { target: { value: 'task.output.ready' } });
+    expect(change).toHaveBeenCalledWith('linked-task', 'task.output.ready');
+  });
+
   it('updates structured task input source metadata', () => {
     const onUpdateTask = vi.fn();
 

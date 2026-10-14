@@ -1,13 +1,14 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
-import type {ExecutionHost, WorkflowCapabilityTag} from '@/types/workflows';
-import type {JsonObject} from '@/types/api';
-import {FileText} from 'lucide-react';
-import {Button} from '../library/shadcn/button';
-import {Input} from '../library/shadcn/input';
-import {Label} from '../library/shadcn/label';
-import {Textarea} from '../library/shadcn/textarea';
+import type { ExecutionHost, WorkflowCapabilityTag } from '@/types/workflows';
+import type { JsonObject } from '@/types/api';
+import { FileText } from 'lucide-react';
+import { Button } from '../library/shadcn/button';
+import { Input } from '../library/shadcn/input';
+import { Label } from '../library/shadcn/label';
+import { Textarea } from '../library/shadcn/textarea';
 import WorkflowPersistentCycleEditor from '@/components/workflow/WorkflowPersistentCycleEditor';
 
 interface RuntimeAdapterOption {
@@ -46,31 +47,31 @@ interface WorkflowMetadataEditorProps {
 }
 
 export default function WorkflowMetadataEditor({
-                                                 name,
-                                                 description,
-                                                 entrypoint,
-                                                 defaultRuntimeAdapterId,
-                                                 executionHost,
-                                                 restartActiveExecutions,
-                                                 workflowMetadata,
-                                                 visibleTaskDefinitions,
-                                                 runtimeAdapters,
-                                                 workflowNameInvalid,
-                                                 workflowDescriptionInvalid,
-                                                 draftValidationIssues,
-                                                 hasUnsavedChanges,
-                                                 isSaving,
-                                                 autoSaveStatus = 'idle',
-                                                 lastAutoSavedAt,
-                                                 onNameChange,
-                                                 onDescriptionChange,
-                                                 onEntrypointChange,
-                                                 onDefaultRuntimeAdapterChange,
-                                                 onExecutionHostChange,
-                                                 onRestartActiveExecutionsChange,
-                                                 onWorkflowMetadataChange,
-                                                 onSave,
-                                               }: WorkflowMetadataEditorProps) {
+  name,
+  description,
+  entrypoint,
+  defaultRuntimeAdapterId,
+  executionHost,
+  restartActiveExecutions,
+  workflowMetadata,
+  visibleTaskDefinitions,
+  runtimeAdapters,
+  workflowNameInvalid,
+  workflowDescriptionInvalid,
+  draftValidationIssues,
+  hasUnsavedChanges,
+  isSaving,
+  autoSaveStatus = 'idle',
+  lastAutoSavedAt,
+  onNameChange,
+  onDescriptionChange,
+  onEntrypointChange,
+  onDefaultRuntimeAdapterChange,
+  onExecutionHostChange,
+  onRestartActiveExecutionsChange,
+  onWorkflowMetadataChange,
+  onSave,
+}: WorkflowMetadataEditorProps) {
   // Match the backend's deny precedence; an editor convenience must not clear
   // an explicit policy restriction or silently grant mutation permissions.
   const mainAgentAccessDenied = [
@@ -99,9 +100,9 @@ export default function WorkflowMetadataEditor({
     if (autoSaveStatus === 'saved') {
       return lastAutoSavedAt
         ? `Autosaved at ${lastAutoSavedAt.toLocaleTimeString([], {
-          hour: 'numeric',
-          minute: '2-digit',
-        })}`
+            hour: 'numeric',
+            minute: '2-digit',
+          })}`
         : 'All changes saved.';
     }
     return hasUnsavedChanges ? 'Autosave pending...' : 'All changes saved.';
@@ -109,13 +110,10 @@ export default function WorkflowMetadataEditor({
 
   return (
     <>
-      <section
-        className="workflow-surface-metadata grid gap-4 rounded-xl border border-neutral-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-12">
-        <div
-          className="flex items-start gap-3 border-b border-neutral-200 pb-4 dark:border-white/10 md:col-span-2 xl:col-span-12">
-          <span
-            className="workflow-metadata-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
-            <FileText className="size-[1.05rem] stroke-[1.75]"/>
+      <section className="workflow-surface-metadata grid gap-4 rounded-xl border border-neutral-200 bg-white p-4 md:grid-cols-2 xl:grid-cols-12">
+        <div className="flex items-start gap-3 border-b border-neutral-200 pb-4 dark:border-white/10 md:col-span-2 xl:col-span-12">
+          <span className="workflow-metadata-icon flex size-9 shrink-0 items-center justify-center rounded-lg border">
+            <FileText className="size-[1.05rem] stroke-[1.75]" />
           </span>
           <div>
             <h2 className="font-semibold text-neutral-950 dark:text-slate-100">
@@ -127,20 +125,24 @@ export default function WorkflowMetadataEditor({
             </p>
           </div>
         </div>
-        <div className="space-y-2 md:col-span-2 xl:col-span-6">
-          <Label htmlFor="workflow-name">Name</Label>
+        <FormField
+          label="Name"
+          htmlFor="workflow-name"
+          error={workflowNameInvalid ? 'Workflow name is required.' : null}
+          className="md:col-span-2 xl:col-span-6"
+        >
           <Input
             id="workflow-name"
             value={name}
             onChange={(event) => onNameChange(event.target.value)}
             className={workflowNameInvalid ? 'border-red-500' : ''}
           />
-          {workflowNameInvalid ? (
-            <p className="text-xs text-red-600">Workflow name is required.</p>
-          ) : null}
-        </div>
-        <div className="space-y-2 md:col-span-2 xl:col-span-6">
-          <Label htmlFor="workflow-entrypoint">Entrypoint</Label>
+        </FormField>
+        <FormField
+          label="Entrypoint"
+          htmlFor="workflow-entrypoint"
+          className="md:col-span-2 xl:col-span-6"
+        >
           <NativeSelect
             id="workflow-entrypoint"
             value={entrypoint}
@@ -154,21 +156,25 @@ export default function WorkflowMetadataEditor({
               </option>
             ))}
           </NativeSelect>
-        </div>
-        <div className="space-y-2 md:col-span-2 xl:col-span-7">
-          <Label htmlFor="workflow-description">Description</Label>
+        </FormField>
+        <FormField
+          label="Description"
+          htmlFor="workflow-description"
+          error={workflowDescriptionInvalid ? 'Workflow description is required.' : null}
+          className="md:col-span-2 xl:col-span-7"
+        >
           <Textarea
             id="workflow-description"
             value={description}
             onChange={(event) => onDescriptionChange(event.target.value)}
             className={`min-h-24 ${workflowDescriptionInvalid ? 'border-red-500' : ''}`}
           />
-          {workflowDescriptionInvalid ? (
-            <p className="text-xs text-red-600">Workflow description is required.</p>
-          ) : null}
-        </div>
-        <div className="space-y-2 xl:col-span-5">
-          <Label htmlFor="workflow-default-runtime-adapter">Runtime adapter</Label>
+        </FormField>
+        <FormField
+          label="Runtime adapter"
+          htmlFor="workflow-default-runtime-adapter"
+          className="xl:col-span-5"
+        >
           <NativeSelect
             id="workflow-default-runtime-adapter"
             value={defaultRuntimeAdapterId}
@@ -182,7 +188,7 @@ export default function WorkflowMetadataEditor({
               </option>
             ))}
           </NativeSelect>
-        </div>
+        </FormField>
         <div className="space-y-2 xl:col-span-4">
           <Label htmlFor="workflow-execution-host">Execution host</Label>
           <NativeSelect
@@ -246,8 +252,7 @@ export default function WorkflowMetadataEditor({
           metadata={workflowMetadata}
           onMetadataChange={onWorkflowMetadataChange}
         />
-        <div
-          className="flex flex-col gap-3 border-t border-neutral-200 pt-3 dark:border-white/10 md:col-span-2 xl:col-span-12 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-3 border-t border-neutral-200 pt-3 dark:border-white/10 md:col-span-2 xl:col-span-12 sm:flex-row sm:items-center sm:justify-between">
           <p
             className={`text-xs ${
               autoSaveStatus === 'error' || autoSaveStatus === 'blocked'

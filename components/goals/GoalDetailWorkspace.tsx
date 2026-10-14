@@ -130,8 +130,6 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Durable goal"
-        icon={Target}
         tone="operator"
         title={goal.objective}
         description={`Goal ${goal.id}`}
@@ -328,10 +326,11 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
                   id: `${text(item.timestamp)}-${index}`,
                   title: text(item.summary, text(item.event, 'Recorded event')),
                   timestamp: formatDate(item.timestamp),
-                  meta: <Badge variant="outline">{text(item.type, 'event').replaceAll('_', ' ')}</Badge>,
+                  meta: (
+                    <Badge variant="outline">{text(item.type, 'event').replaceAll('_', ' ')}</Badge>
+                  ),
                 }))}
               />
-
             ) : (
               <Empty text="No timeline events recorded." />
             )}
@@ -350,7 +349,7 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
                 })
               }
             >
-              <SelectTrigger className="max-w-sm">
+              <SelectTrigger aria-label="Goal autonomy" className="max-w-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -365,6 +364,7 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
           <Section title="Owner" detail="Reassign responsibility without changing goal history.">
             <div className="flex max-w-xl flex-col gap-2 sm:flex-row">
               <Input
+                aria-label="Goal owner"
                 value={ownerText}
                 onChange={(event) => setOwnerDraft(event.target.value)}
                 placeholder="Owner actor"
@@ -386,6 +386,7 @@ export default function GoalDetailWorkspace({ goalId }: { goalId: string }) {
             detail="One line becomes one explicit completion criterion."
           >
             <Textarea
+              aria-label="Success criteria"
               value={criteriaText}
               onChange={(event) => setCriteriaDraft(event.target.value)}
               rows={6}
@@ -596,6 +597,7 @@ function GoalRunControl({
           {wait.kind === 'input' ? (
             <div className="mt-3 flex flex-col gap-2 sm:flex-row">
               <Input
+                aria-label="Requested goal input"
                 value={input}
                 onChange={(event) => setInput(event.target.value)}
                 placeholder="Provide requested input"
@@ -698,7 +700,7 @@ function JsonBlock({ value }: { value: unknown }) {
 /** Keep complete evidence inspectable while leading with human-readable plan fields. */
 function ReadableRecord({ value }: { value: JsonObject }) {
   const entries = Object.entries(value).filter(
-    ([key, entry]) => !['id', 'metadata'].includes(key) && entry !== null,
+    ([key, entry]) => !['id', 'metadata'].includes(key) && entry !== null
   );
   return (
     <div className="flex flex-col gap-4">

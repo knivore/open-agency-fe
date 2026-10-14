@@ -1,4 +1,5 @@
 'use client';
+import WorkspaceSearch from '@/components/app-shell/WorkspaceSearch';
 
 import WorkspaceDirectory from '@/components/app-shell/WorkspaceDirectory';
 import InlineEditActions from '@/components/app-shell/InlineEditActions';
@@ -731,10 +732,11 @@ export default function PersonaFactoryWorkspace({
   );
   const createDraftDirty =
     JSON.stringify(currentCreateDraft) !== JSON.stringify(createDraftBaseline);
-  const openCreatePersonaDialog = () => detailGuard.requestLeave(() => {
-    setCreateDraftBaseline(currentCreateDraft);
-    setIsCreateOpen(true);
-  });
+  const openCreatePersonaDialog = () =>
+    detailGuard.requestLeave(() => {
+      setCreateDraftBaseline(currentCreateDraft);
+      setIsCreateOpen(true);
+    });
   const resetCreatePersonaDraft = () => {
     setPersonaName(createDraftBaseline.name);
     setPersonaDescription(createDraftBaseline.description);
@@ -1165,12 +1167,19 @@ export default function PersonaFactoryWorkspace({
     },
   });
 
-  const detailDirty = detailEditing && (detailName !== defaultDetailDraft.name || detailDescription !== defaultDetailDraft.description);
+  const detailDirty =
+    detailEditing &&
+    (detailName !== defaultDetailDraft.name ||
+      detailDescription !== defaultDetailDraft.description);
   const detailBusy = updatePersonaMutation.isPending || deletePersonaMutation.isPending;
   const detailGuard = useDraftDiscardGuard({
-    dirty: detailDirty, busy: detailBusy,
-    onDiscard: () => { seedDetailDraftForPersona(selectedPersona); setDetailEditing(false); },
-    onNavigate: href => router.push(href),
+    dirty: detailDirty,
+    busy: detailBusy,
+    onDiscard: () => {
+      seedDetailDraftForPersona(selectedPersona);
+      setDetailEditing(false);
+    },
+    onNavigate: (href) => router.push(href),
   });
   const loadRunMutation = useMutation({
     mutationFn: (runId: string) => personasApi.getRun(runId),
@@ -1847,29 +1856,36 @@ export default function PersonaFactoryWorkspace({
             />
           </div>
           {detailEditing ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
-            <Field label="Name" htmlFor="persona-detail-name">
-              <Input
-                id="persona-detail-name"
-                disabled={detailBusy}
-                autoFocus
-                value={detailName}
-                onChange={(event) => setDetailName(event.target.value)}
-              />
-            </Field>
-            <div className="lg:col-span-2">
-              <Field label="Description" htmlFor="persona-detail-description">
-                <Textarea
-                  id="persona-detail-description"
-                  rows={4}
+            <div className="mt-4 grid gap-3 lg:grid-cols-2">
+              <Field label="Name" htmlFor="persona-detail-name">
+                <Input
+                  id="persona-detail-name"
                   disabled={detailBusy}
-                  value={detailDescription}
-                  onChange={(event) => setDetailDescription(event.target.value)}
+                  autoFocus
+                  value={detailName}
+                  onChange={(event) => setDetailName(event.target.value)}
                 />
               </Field>
+              <div className="lg:col-span-2">
+                <Field label="Description" htmlFor="persona-detail-description">
+                  <Textarea
+                    id="persona-detail-description"
+                    rows={4}
+                    disabled={detailBusy}
+                    value={detailDescription}
+                    onChange={(event) => setDetailDescription(event.target.value)}
+                  />
+                </Field>
+              </div>
             </div>
-          </div>
-          ) : <div className="mt-3 flex flex-col gap-2"><h2 className="text-lg font-semibold">{selectedPersona.name}</h2><p className="text-sm leading-6 text-muted-foreground">{selectedPersona.description || 'No description yet.'}</p></div>}
+          ) : (
+            <div className="mt-3 flex flex-col gap-2">
+              <h2 className="text-lg font-semibold">{selectedPersona.name}</h2>
+              <p className="text-sm leading-6 text-muted-foreground">
+                {selectedPersona.description || 'No description yet.'}
+              </p>
+            </div>
+          )}
           <div className="mt-4 flex flex-wrap gap-2">
             <ConfirmActionDialog
               trigger={
@@ -2053,9 +2069,16 @@ export default function PersonaFactoryWorkspace({
   return (
     <div className="min-h-screen">
       <div className="mx-auto flex max-w-375 flex-col gap-5">
-        <ConfirmActionDialog trigger={null} {...detailGuard} title="Discard persona changes?" description="Your unsaved identity changes will be discarded." confirmLabel="Discard changes" cancelLabel="Keep editing" pending={detailBusy}/>
+        <ConfirmActionDialog
+          trigger={null}
+          {...detailGuard}
+          title="Discard persona changes?"
+          description="Your unsaved identity changes will be discarded."
+          confirmLabel="Discard changes"
+          cancelLabel="Keep editing"
+          pending={detailBusy}
+        />
         <PageHeader
-          icon={UserRoundCog}
           tone="persona"
           title={isDetailPage ? (selectedPersona?.name ?? 'Persona detail') : 'Personas'}
           description={
@@ -2066,7 +2089,11 @@ export default function PersonaFactoryWorkspace({
           actions={
             <>
               {isDetailPage ? (
-                <Button type="button" variant="outline" onClick={() => detailGuard.requestLeave(() => router.push('/persona'))}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => detailGuard.requestLeave(() => router.push('/persona'))}
+                >
                   <ArrowLeft className="mr-2 h-4 w-4" />
                   Personas
                 </Button>
@@ -2076,7 +2103,12 @@ export default function PersonaFactoryWorkspace({
                   New Persona
                 </Button>
               )}
-              <Button type="button" variant="outline" disabled={detailEditing || detailBusy} onClick={() => void personasQuery.refetch()}>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={detailEditing || detailBusy}
+                onClick={() => void personasQuery.refetch()}
+              >
                 <RefreshCw className="mr-2 h-4 w-4" />
                 Refresh
               </Button>
@@ -2086,7 +2118,13 @@ export default function PersonaFactoryWorkspace({
 
         {!isDetailPage ? (
           <section className="space-y-5">
-            <FormSection title="Persona setup" description="Add an identity, attach sources, then review before publishing." advanced defaultOpen={personas.length === 0} contentClassName="p-0 sm:p-0">
+            <FormSection
+              title="Persona setup"
+              description="Add an identity, attach sources, then review before publishing."
+              advanced
+              defaultOpen={personas.length === 0}
+              contentClassName="p-0 sm:p-0"
+            >
               <div className="grid md:grid-cols-3">
                 <FactoryStepCard
                   index={1}
@@ -2122,7 +2160,7 @@ export default function PersonaFactoryWorkspace({
                   [persona.name, persona.slug, persona.description, persona.status]
                     .join(' ')
                     .toLowerCase()
-                    .includes(personaSearch.trim().toLowerCase()),
+                    .includes(personaSearch.trim().toLowerCase())
                 )
                 .map((persona) => ({
                   id: persona.id,
@@ -2131,7 +2169,9 @@ export default function PersonaFactoryWorkspace({
                   group: persona.status === 'published' ? 'Published' : 'Drafts',
                   actionLabel: `Select ${persona.name}`,
                   optionLabel: `${persona.name} · ${persona.status}`,
-                  meta: <Badge variant={statusBadgeVariant(persona.status)}>{persona.status}</Badge>,
+                  meta: (
+                    <Badge variant={statusBadgeVariant(persona.status)}>{persona.status}</Badge>
+                  ),
                 }))}
               onSelect={(id) => {
                 const persona = personas.find((persona) => persona.id === id);
@@ -2648,6 +2688,7 @@ export default function PersonaFactoryWorkspace({
                       </div>
                     ) : null}
                     <Textarea
+                      aria-label="Persona package JSON"
                       className="mt-4 min-h-130 font-mono text-xs"
                       value={packageText}
                       onChange={(event) => {
@@ -2734,6 +2775,7 @@ export default function PersonaFactoryWorkspace({
                     </div>
                     <div className="mt-4 space-y-3">
                       <Textarea
+                        aria-label="Persona runtime test prompt"
                         value={runtimePrompt}
                         onChange={(event) => setRuntimePrompt(event.target.value)}
                         rows={4}
@@ -3986,9 +4028,10 @@ function PersonaGraphContextPanel({
             </option>
           ))}
         </NativeSelect>
-        <Input
+        <WorkspaceSearch
+          label="Search connected knowledge"
           value={query}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={setQuery}
           placeholder="Search connected knowledge"
         />
         <div className="grid grid-cols-2 gap-2 text-center">

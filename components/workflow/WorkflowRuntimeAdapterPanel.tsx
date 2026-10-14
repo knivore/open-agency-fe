@@ -1,4 +1,5 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
 import type { ReactNode } from 'react';
@@ -104,13 +105,7 @@ export default function WorkflowRuntimeAdapterPanel({
   const content = editable ? (
     <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
       <div className="grid w-full max-w-3xl gap-4 md:grid-cols-2">
-        <div className="space-y-2">
-          <label
-            className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-            htmlFor={selectId}
-          >
-            {selectLabel}
-          </label>
+        <FormField label={selectLabel} htmlFor={selectId}>
           <NativeSelect
             id={selectId}
             value={selectedAdapterId}
@@ -128,14 +123,8 @@ export default function WorkflowRuntimeAdapterPanel({
               ))
             )}
           </NativeSelect>
-        </div>
-        <div className="space-y-2">
-          <label
-            className="text-sm font-medium text-neutral-900 dark:text-neutral-100"
-            htmlFor={`${selectId}-host`}
-          >
-            Execution host
-          </label>
+        </FormField>
+        <FormField label="Execution host" htmlFor={`${selectId}-host`}>
           <NativeSelect
             id={`${selectId}-host`}
             value={host}
@@ -146,7 +135,7 @@ export default function WorkflowRuntimeAdapterPanel({
             <option value="local">Local backend process</option>
             <option value="docker">Docker container</option>
           </NativeSelect>
-        </div>
+        </FormField>
         <div className="space-y-1 text-xs text-neutral-500 dark:text-neutral-400 md:col-span-2">
           <p>{availabilityText}</p>
           <p>{preferenceText}</p>

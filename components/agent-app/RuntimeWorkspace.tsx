@@ -1,7 +1,8 @@
 'use client';
+import { FormField, FormFieldGroup } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
-import { useState } from 'react';
+import { useState, useId } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { runtimeAdaptersApi } from '@/lib/api/backend';
 import { queryKeys } from '@/lib/react-query/queryKeys';
@@ -95,24 +96,21 @@ function AdapterFields({
   disabled: boolean;
   lockType?: boolean;
 }) {
+  const fieldIdPrefix = useId();
   return (
     <div className="space-y-3">
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-            Name
-          </label>
+      <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+        <FormField label="Name" htmlFor={fieldIdPrefix + '-field-1'}>
           <Input
+            id={fieldIdPrefix + '-field-1'}
             value={form.name}
             onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
             disabled={disabled}
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-            Adapter Type
-          </label>
+        </FormField>
+        <FormField label="Adapter Type" htmlFor={fieldIdPrefix + '-field-2'}>
           <NativeSelect
+            id={fieldIdPrefix + '-field-2'}
             value={form.adapterType}
             onChange={(event) =>
               setForm((current) => ({ ...current, adapterType: event.target.value }))
@@ -126,38 +124,32 @@ function AdapterFields({
               </option>
             ))}
           </NativeSelect>
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-          Description
-        </label>
+        </FormField>
+      </FormFieldGroup>
+      <FormField label="Description" htmlFor={fieldIdPrefix + '-field-3'}>
         <Textarea
+          id={fieldIdPrefix + '-field-3'}
           value={form.description}
           onChange={(event) =>
             setForm((current) => ({ ...current, description: event.target.value }))
           }
           disabled={disabled}
         />
-      </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <div className="space-y-1">
-          <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-            Version
-          </label>
+      </FormField>
+      <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+        <FormField label="Version" htmlFor={fieldIdPrefix + '-field-4'}>
           <Input
+            id={fieldIdPrefix + '-field-4'}
             value={form.version}
             onChange={(event) =>
               setForm((current) => ({ ...current, version: event.target.value }))
             }
             disabled={disabled}
           />
-        </div>
-        <div className="space-y-1">
-          <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-            Capabilities
-          </label>
+        </FormField>
+        <FormField label="Capabilities" htmlFor={fieldIdPrefix + '-field-5'}>
           <Input
+            id={fieldIdPrefix + '-field-5'}
             value={form.capabilities}
             onChange={(event) =>
               setForm((current) => ({ ...current, capabilities: event.target.value }))
@@ -165,13 +157,11 @@ function AdapterFields({
             disabled={disabled}
             placeholder="streaming, tools"
           />
-        </div>
-      </div>
-      <div className="space-y-1">
-        <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-          Config Schema
-        </label>
+        </FormField>
+      </FormFieldGroup>
+      <FormField label="Config Schema" htmlFor={fieldIdPrefix + '-field-6'}>
         <Textarea
+          id={fieldIdPrefix + '-field-6'}
           className="min-h-[140px] font-mono text-xs"
           value={form.configSchema}
           onChange={(event) =>
@@ -179,7 +169,7 @@ function AdapterFields({
           }
           disabled={disabled}
         />
-      </div>
+      </FormField>
     </div>
   );
 }
@@ -456,7 +446,6 @@ export default function RuntimeWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Runtime"
         title="Runtime"
         description="Runtime adapters, capabilities, and backend execution surfaces."
         actions={

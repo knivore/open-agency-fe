@@ -1,4 +1,5 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import DiffViewer from '@/components/tools/DiffViewer';
 
@@ -6,25 +7,24 @@ import Link from 'next/link';
 import WorkflowReviewQueue from './WorkflowReviewQueue';
 import WhatsAppNotificationSetup from '@/components/integrations-app/WhatsAppNotificationSetup';
 import TelegramNotificationSetup from '@/components/integrations-app/TelegramNotificationSetup';
-import {useMemo, useState} from 'react';
-import {useSession} from 'next-auth/react';
-import {toast} from 'sonner';
+import { useId, useMemo, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { toast } from 'sonner';
 import {
   AlertTriangle,
   Check,
   ChevronDown,
   ExternalLink,
   GitBranch,
-  Inbox,
   MessageSquare,
   Radar,
   RefreshCw,
   SlidersHorizontal,
   X,
 } from 'lucide-react';
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {Badge} from '@/components/library/shadcn/badge';
-import {Button} from '@/components/library/shadcn/button';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Badge } from '@/components/library/shadcn/badge';
+import { Button } from '@/components/library/shadcn/button';
 import {
   Card,
   CardContent,
@@ -32,8 +32,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/library/shadcn/card';
-import {Input} from '@/components/library/shadcn/input';
-import {Label} from '@/components/library/shadcn/label';
+import { Input } from '@/components/library/shadcn/input';
 import {
   Select,
   SelectContent,
@@ -43,19 +42,20 @@ import {
 } from '@/components/library/shadcn/select';
 import PageHeader from '@/components/app-shell/PageHeader';
 import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
+import WorkspaceDirectory from '@/components/app-shell/WorkspaceDirectory';
 import WorkspaceMetrics from '@/components/app-shell/WorkspaceMetrics';
 import ActivityTimeline from '@/components/app-shell/ActivityTimeline';
 import AppState from '@/components/app-shell/AppState';
 import { NativeSelect } from '@/components/library/shadcn/select';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/library/shadcn/tabs';
-import {conversationsApi} from '@/lib/api/backend/conversations';
-import {credentialsApi} from '@/lib/api/backend/credentials';
-import {mainAgentMonitorApi} from '@/lib/api/backend/workflows';
-import {queryKeys} from '@/lib/react-query/queryKeys';
-import type {ApprovalRequest, Conversation} from '@/types/conversations';
-import type {CredentialDefinition} from '@/types/integrations';
-import type {ExecutionEventRecord} from '@/types/runtime';
-import type {MainAgentMonitorCommandCenterResponse} from '@/types/workflows';
+import { conversationsApi } from '@/lib/api/backend/conversations';
+import { credentialsApi } from '@/lib/api/backend/credentials';
+import { mainAgentMonitorApi } from '@/lib/api/backend/workflows';
+import { queryKeys } from '@/lib/react-query/queryKeys';
+import type { ApprovalRequest, Conversation } from '@/types/conversations';
+import type { CredentialDefinition } from '@/types/integrations';
+import type { ExecutionEventRecord } from '@/types/runtime';
+import type { MainAgentMonitorCommandCenterResponse } from '@/types/workflows';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === 'object' && !Array.isArray(value));
@@ -216,10 +216,10 @@ function deliveryThreadRequired(provider: string) {
 }
 
 export function ApprovalCard({
-                               approval,
-                               isMutating,
-                               onDecision,
-                             }: {
+  approval,
+  isMutating,
+  onDecision,
+}: {
   approval: ApprovalRequest;
   isMutating: boolean;
   onDecision: (approvalId: string, action: 'approve' | 'reject') => void;
@@ -248,8 +248,7 @@ export function ApprovalCard({
       </CardHeader>
       <CardContent className="space-y-3">
         <details className="group rounded-lg border bg-background">
-          <summary
-            className="flex min-h-11 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <summary className="flex min-h-11 cursor-pointer items-center justify-between gap-2 px-3 py-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
             Review request
             <ChevronDown
               className="size-4 shrink-0 transition-transform group-open:rotate-180"
@@ -262,8 +261,7 @@ export function ApprovalCard({
               <DiffViewer patch={approval.diff_summary} />
             ) : null}
             {permission ? (
-              <div
-                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
                 <p className="font-medium">Repository write access requested</p>
                 <p className="mt-1">
                   {text(permission.reason, 'Review read-write repo access before approving.')}
@@ -276,7 +274,7 @@ export function ApprovalCard({
                 disabled={isMutating}
                 onClick={() => onDecision(approval.id, 'approve')}
               >
-                <Check className="mr-2 h-4 w-4"/>
+                <Check className="mr-2 h-4 w-4" />
                 Approve
               </Button>
               <Button
@@ -285,7 +283,7 @@ export function ApprovalCard({
                 disabled={isMutating}
                 onClick={() => onDecision(approval.id, 'reject')}
               >
-                <X className="mr-2 h-4 w-4"/>
+                <X className="mr-2 h-4 w-4" />
                 Reject
               </Button>
             </div>
@@ -297,10 +295,10 @@ export function ApprovalCard({
 }
 
 function EventList({
-                     title,
-                     events,
-                     empty,
-                   }: {
+  title,
+  events,
+  empty,
+}: {
   title: string;
   events: Array<ExecutionEventRecord & { workflow?: { id: string; name: string } }>;
   empty: string;
@@ -334,16 +332,17 @@ function EventList({
 }
 
 function RoutingPanel({
-                        data,
-                        isSaving,
-                        onSave,
-                        actorUserId,
-                      }: {
+  data,
+  isSaving,
+  onSave,
+  actorUserId,
+}: {
   data: MainAgentMonitorCommandCenterResponse;
   isSaving: boolean;
   onSave: (payload: Record<string, unknown>) => void;
   actorUserId: string;
 }) {
+  const fieldIdPrefix = useId();
   const noExternalDeliveryValue = '__conversation_only__';
   const route = isRecord(data.notification_route) ? data.notification_route : {};
   const routeConversation = conversationFromRoute(route);
@@ -399,7 +398,7 @@ function RoutingPanel({
 
       const metadata = {
         ...(normalizedProvider === 'discord' && deliveryGuildId.trim()
-          ? {guild_id: deliveryGuildId.trim()}
+          ? { guild_id: deliveryGuildId.trim() }
           : {}),
         purpose: 'main_agent_monitor_delivery',
       };
@@ -431,7 +430,7 @@ function RoutingPanel({
           ? current
           : '';
       });
-      toast.success('Chat destination resolved.', {position: 'top-right'});
+      toast.success('Chat destination resolved.', { position: 'top-right' });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to resolve chat destination.', {
@@ -441,13 +440,10 @@ function RoutingPanel({
   });
 
   return (
-    <details
-      className="group overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
-      <summary
-        className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400">
-        <span
-          className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-cyan-300/15 dark:bg-cyan-300/8 dark:text-cyan-200">
-          <MessageSquare className="size-4" aria-hidden="true"/>
+    <details className="group overflow-hidden rounded-xl border border-neutral-200 bg-white dark:border-white/10 dark:bg-white/5">
+      <summary className="flex min-h-16 cursor-pointer list-none items-center gap-3 px-5 py-4 marker:hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary-400">
+        <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-primary-100 bg-primary-50 text-primary-700 dark:border-cyan-300/15 dark:bg-cyan-300/8 dark:text-cyan-200">
+          <MessageSquare className="size-4" aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-neutral-900 dark:text-slate-100">
@@ -460,12 +456,10 @@ function RoutingPanel({
         <span className="hidden text-sm text-neutral-500 sm:block dark:text-slate-400">
           {routeConversation ? conversationTargetLabel(routeConversation) : 'Inbox only'}
         </span>
-        <ChevronDown
-          className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180"/>
+        <ChevronDown className="size-4 shrink-0 text-neutral-500 transition-transform group-open:rotate-180" />
       </summary>
       <div className="space-y-4 border-t border-neutral-200 p-5 dark:border-white/10">
-        <div
-          className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
+        <div className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/5">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
@@ -494,45 +488,52 @@ function RoutingPanel({
 
         <div className="grid gap-3 md:grid-cols-4">
           {provider !== 'whatsapp' ? (
-            <div className="space-y-1 md:col-span-2">
-              <Label htmlFor="delivery-thread-id">{deliveryThreadLabel(provider)}</Label>
+            <FormField
+              label={deliveryThreadLabel(provider)}
+              htmlFor={fieldIdPrefix + '-delivery-thread-id'}
+              className="md:col-span-2"
+            >
               <Input
-                id="delivery-thread-id"
+                id={fieldIdPrefix + '-delivery-thread-id'}
                 value={deliveryThreadId}
                 onChange={(event) => setDeliveryThreadId(event.target.value)}
                 placeholder={provider === 'telegram' ? 'chat-id' : 'channel-id'}
               />
-            </div>
+            </FormField>
           ) : null}
-          <div className="space-y-1">
-            <Label htmlFor="delivery-user-id">{deliveryUserLabel(provider)}</Label>
+          <FormField
+            label={deliveryUserLabel(provider)}
+            htmlFor={fieldIdPrefix + '-delivery-user-id'}
+          >
             <Input
-              id="delivery-user-id"
+              id={fieldIdPrefix + '-delivery-user-id'}
               value={deliveryUserId}
               onChange={(event) => setDeliveryUserId(event.target.value)}
               placeholder={provider === 'whatsapp' ? '15551234567' : 'operator-user-id'}
             />
-          </div>
+          </FormField>
           {provider === 'discord' ? (
-            <div className="space-y-1">
-              <Label htmlFor="delivery-guild-id">Guild ID</Label>
+            <FormField label="Guild ID" htmlFor={fieldIdPrefix + '-delivery-guild-id'}>
               <Input
-                id="delivery-guild-id"
+                id={fieldIdPrefix + '-delivery-guild-id'}
                 value={deliveryGuildId}
                 onChange={(event) => setDeliveryGuildId(event.target.value)}
                 placeholder="optional"
               />
-            </div>
+            </FormField>
           ) : null}
-          <div className="space-y-1 md:col-span-3">
-            <Label htmlFor="delivery-display-name">Display name</Label>
+          <FormField
+            label="Display name"
+            htmlFor={fieldIdPrefix + '-delivery-display-name'}
+            className="md:col-span-3"
+          >
             <Input
-              id="delivery-display-name"
+              id={fieldIdPrefix + '-delivery-display-name'}
               value={deliveryDisplayName}
               onChange={(event) => setDeliveryDisplayName(event.target.value)}
               placeholder="optional"
             />
-          </div>
+          </FormField>
           <div className="flex items-end">
             <Button
               type="button"
@@ -540,24 +541,25 @@ function RoutingPanel({
               disabled={resolveDeliveryMutation.isPending}
               onClick={() => resolveDeliveryMutation.mutate()}
             >
-              <MessageSquare className="mr-2 h-4 w-4"/>
+              <MessageSquare className="mr-2 h-4 w-4" />
               Resolve
             </Button>
           </div>
         </div>
 
         <div className="grid gap-3 md:grid-cols-[1.4fr_0.8fr_1fr_auto]">
-          <div className="space-y-1">
-            <Label htmlFor="approval-conversation">Approval conversation</Label>
+          <FormField
+            label="Approval conversation"
+            htmlFor={fieldIdPrefix + '-approval-conversation'}
+          >
             <Input
-              id="approval-conversation"
+              id={fieldIdPrefix + '-approval-conversation'}
               value={conversationId}
               onChange={(event) => setConversationId(event.target.value)}
               placeholder="conversation-id"
             />
-          </div>
-          <div className="space-y-1">
-            <Label>Provider</Label>
+          </FormField>
+          <FormField label="Provider" htmlFor={fieldIdPrefix + '-provider'}>
             <Select
               value={provider}
               onValueChange={(value) => {
@@ -565,8 +567,8 @@ function RoutingPanel({
                 setCredentialId('');
               }}
             >
-              <SelectTrigger>
-                <SelectValue/>
+              <SelectTrigger id={fieldIdPrefix + '-provider'}>
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="telegram">Telegram</SelectItem>
@@ -574,17 +576,31 @@ function RoutingPanel({
                 <SelectItem value="whatsapp">WhatsApp</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-1">
-            <Label>Credential</Label>
+          </FormField>
+          <FormField
+            label="Credential"
+            htmlFor={fieldIdPrefix + '-credential'}
+            description={
+              deliveryCredentials.length === 0
+                ? `No ${provider} credentials are saved yet.`
+                : undefined
+            }
+          >
             <Select
               value={credentialId || noExternalDeliveryValue}
               onValueChange={(value) =>
                 setCredentialId(value === noExternalDeliveryValue ? '' : value)
               }
             >
-              <SelectTrigger>
-                <SelectValue/>
+              <SelectTrigger
+                id={fieldIdPrefix + '-credential'}
+                aria-describedby={
+                  deliveryCredentials.length === 0
+                    ? fieldIdPrefix + '-credential-feedback'
+                    : undefined
+                }
+              >
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={noExternalDeliveryValue}>Conversation inbox only</SelectItem>
@@ -595,10 +611,7 @@ function RoutingPanel({
                 ))}
               </SelectContent>
             </Select>
-            {deliveryCredentials.length === 0 ? (
-              <p className="text-xs text-amber-700">No {provider} credentials are saved yet.</p>
-            ) : null}
-          </div>
+          </FormField>
           <div className="flex items-end">
             <Button
               disabled={isSaving || !conversationId.trim()}
@@ -618,7 +631,7 @@ function RoutingPanel({
                 onSave(payload);
               }}
             >
-              <SlidersHorizontal className="mr-2 h-4 w-4"/>
+              <SlidersHorizontal className="mr-2 h-4 w-4" />
               Save
             </Button>
           </div>
@@ -628,9 +641,78 @@ function RoutingPanel({
   );
 }
 
+/** Selecting a request only changes inspection; decisions retain the existing explicit controls. */
+export function ApprovalInbox({
+  approvals,
+  isLoading,
+  isMutating,
+  onDecision,
+}: {
+  approvals: ApprovalRequest[];
+  isLoading: boolean;
+  isMutating: boolean;
+  onDecision: (approvalId: string, action: 'approve' | 'reject') => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected = approvals.find((request) => request.id === selectedId) ?? approvals[0];
+  const entries = approvals.map((request) => ({
+    id: request.id,
+    label: request.summary,
+    description: approvalKind(request),
+    meta: formatDate(request.created_at),
+    actionLabel: 'Inspect ' + request.summary,
+  }));
+  return (
+    <section aria-label="Human Attention Inbox" className="flex min-w-0 flex-col gap-4">
+      <div>
+        <h2 className="text-lg font-semibold">Human Attention Inbox</h2>
+        <p className="mt-1 max-w-[72ch] text-sm leading-6 text-muted-foreground">
+          Select a request to inspect its evidence. Approval and rejection remain explicit human
+          decisions.
+        </p>
+      </div>
+      {isLoading ? (
+        <AppState
+          variant="loading"
+          title="Loading review inbox"
+          description="Reading pending human decisions."
+          compact
+        />
+      ) : !selected ? (
+        <AppState
+          variant="empty"
+          title="No approval requests match this view"
+          description="Adjust your filters to inspect other requests. Repository write gates are reviewed separately below."
+          compact
+        />
+      ) : (
+        <div className="grid min-w-0 items-start gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
+          <WorkspaceDirectory
+            label="Approval requests"
+            title="Pending requests"
+            entries={entries}
+            selected={entries.find((entry) => entry.id === selected.id)}
+            onSelect={setSelectedId}
+            selectionLabel="Inspect approval request"
+            summary={approvals.length + ' pending requests'}
+            disabled={isMutating}
+            className="md:sticky md:top-5"
+          />
+          <ApprovalCard
+            key={selected.id}
+            approval={selected}
+            isMutating={isMutating}
+            onDecision={onDecision}
+          />
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function MainAgentMonitorWorkspace() {
   const queryClient = useQueryClient();
-  const {data: session} = useSession();
+  const { data: session } = useSession();
   const actorUserId = session?.user?.id ?? 'operator';
   const [monitorTab, setMonitorTab] = useState('review');
   const [reviewSearch, setReviewSearch] = useState('');
@@ -647,7 +729,7 @@ export default function MainAgentMonitorWorkspace() {
     mutationFn: (payload: Record<string, unknown>) => mainAgentMonitorApi.updateRoutes(payload),
     onSuccess: (next) => {
       queryClient.setQueryData(queryKeys.backendMainAgentMonitor(), next);
-      toast.success('Monitor routing updated.', {position: 'top-right'});
+      toast.success('Monitor routing updated.', { position: 'top-right' });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to update monitor routing.', {
@@ -657,7 +739,7 @@ export default function MainAgentMonitorWorkspace() {
   });
 
   const approvalMutation = useMutation({
-    mutationFn: ({approvalId, action}: { approvalId: string; action: 'approve' | 'reject' }) => {
+    mutationFn: ({ approvalId, action }: { approvalId: string; action: 'approve' | 'reject' }) => {
       if (action === 'approve') {
         return conversationsApi.approveApprovalRequest(approvalId, {
           user_id: actorUserId,
@@ -670,8 +752,8 @@ export default function MainAgentMonitorWorkspace() {
       });
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({queryKey: queryKeys.backendMainAgentMonitor()});
-      toast.success('Approval decision recorded.', {position: 'top-right'});
+      await queryClient.invalidateQueries({ queryKey: queryKeys.backendMainAgentMonitor() });
+      toast.success('Approval decision recorded.', { position: 'top-right' });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Approval decision failed.', {
@@ -686,18 +768,32 @@ export default function MainAgentMonitorWorkspace() {
   const lastTick = isRecord(runtime.last_tick) ? runtime.last_tick : null;
   const allApprovals = data?.pending_approvals ?? [];
   const matchesWorkflow = (id: unknown) => workflowFilter === 'all' || id === workflowFilter;
-  const matchesAge = (timestamp: string | undefined) => ageFilter === 'all' || monitorQuery.dataUpdatedAt - Date.parse(timestamp ?? '') >= Number(ageFilter) * 86_400_000;
-  const pendingApprovals = allApprovals.filter(approval => {
+  const matchesAge = (timestamp: string | undefined) =>
+    ageFilter === 'all' ||
+    monitorQuery.dataUpdatedAt - Date.parse(timestamp ?? '') >= Number(ageFilter) * 86_400_000;
+  const pendingApprovals = allApprovals.filter((approval) => {
     const payload = isRecord(approval.proposed_payload) ? approval.proposed_payload : {};
     const metadata = isRecord(approval.metadata) ? approval.metadata : {};
-    const workflowId = payload.workflow_id ?? metadata.workflow_id ?? (approval.target_type === 'workflow' ? approval.target_id : null);
-    return matchesWorkflow(workflowId) && matchesAge(approval.created_at) &&
-      (approval.summary + ' ' + approval.target_id + ' ' + approval.approval_type).toLowerCase().includes(reviewSearch.trim().toLowerCase());
+    const workflowId =
+      payload.workflow_id ??
+      metadata.workflow_id ??
+      (approval.target_type === 'workflow' ? approval.target_id : null);
+    return (
+      matchesWorkflow(workflowId) &&
+      matchesAge(approval.created_at) &&
+      (approval.summary + ' ' + approval.target_id + ' ' + approval.approval_type)
+        .toLowerCase()
+        .includes(reviewSearch.trim().toLowerCase())
+    );
   });
-  const filterEvents = <T extends ExecutionEventRecord>(events: T[]) => events.filter(event =>
-    matchesWorkflow(event.workflow_id) && matchesAge(event.timestamp) &&
-    (severityFilter === 'all' || eventSeverity(event) === severityFilter) &&
-    eventReason(event).toLowerCase().includes(reviewSearch.trim().toLowerCase()));
+  const filterEvents = <T extends ExecutionEventRecord>(events: T[]) =>
+    events.filter(
+      (event) =>
+        matchesWorkflow(event.workflow_id) &&
+        matchesAge(event.timestamp) &&
+        (severityFilter === 'all' || eventSeverity(event) === severityFilter) &&
+        eventReason(event).toLowerCase().includes(reviewSearch.trim().toLowerCase())
+    );
   const repoWriteRequests = data?.repo_write_requests ?? [];
   const monitoredWorkflows = useMemo(
     () => (data?.workflows ?? []).filter((item) => item.monitoring.enabled),
@@ -707,7 +803,6 @@ export default function MainAgentMonitorWorkspace() {
   return (
     <div className="min-w-0 space-y-6">
       <PageHeader
-        icon={Radar}
         tone="monitor"
         title="Main-agent Monitor"
         description="Dedicated operations queue for workflow health findings, improvement approvals, repo-write gates, and notification routing."
@@ -746,7 +841,18 @@ export default function MainAgentMonitorWorkspace() {
           },
         ]}
       />
-      {monitorQuery.isError ? <AppState variant="error" title="Monitor could not be loaded" description={monitorQuery.error instanceof Error ? monitorQuery.error.message : 'Try refreshing the monitor.'} onAction={() => void monitorQuery.refetch()}/> : null}
+      {monitorQuery.isError ? (
+        <AppState
+          variant="error"
+          title="Monitor could not be loaded"
+          description={
+            monitorQuery.error instanceof Error
+              ? monitorQuery.error.message
+              : 'Try refreshing the monitor.'
+          }
+          onAction={() => void monitorQuery.refetch()}
+        />
+      ) : null}
       <Tabs
         value={monitorTab}
         onValueChange={setMonitorTab}
@@ -838,44 +944,13 @@ export default function MainAgentMonitorWorkspace() {
           </WorkspaceToolbar>
         ) : null}
         <TabsContent value="review" className="flex flex-col gap-5">
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-            <Card className="border-neutral-200 dark:border-white/10">
-              <CardHeader>
-                <div className="flex items-center gap-2">
-                  <Inbox className="h-5 w-5 text-primary-700" />
-                  <CardTitle>Human Attention Inbox</CardTitle>
-                </div>
-                <CardDescription>
-                  Pending monitor approvals are explicit human gates; repo-write requests are never
-                  auto-approved.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {monitorQuery.isLoading ? (
-                  <AppState
-                    variant="loading"
-                    title="Loading review inbox"
-                    description="Reading pending human decisions."
-                    compact
-                  />
-                ) : pendingApprovals.length === 0 ? (
-                  <p className="text-sm text-neutral-500 dark:text-slate-400">
-                    No approval requests match this view.
-                  </p>
-                ) : (
-                  pendingApprovals.map((approval) => (
-                    <ApprovalCard
-                      key={approval.id}
-                      approval={approval}
-                      isMutating={approvalMutation.isPending}
-                      onDecision={(approvalId, action) =>
-                        approvalMutation.mutate({ approvalId, action })
-                      }
-                    />
-                  ))
-                )}
-              </CardContent>
-            </Card>
+          <div className="flex min-w-0 flex-col gap-6">
+            <ApprovalInbox
+              approvals={pendingApprovals}
+              isLoading={monitorQuery.isLoading}
+              isMutating={approvalMutation.isPending}
+              onDecision={(approvalId, action) => approvalMutation.mutate({ approvalId, action })}
+            />
 
             <Card className="border-neutral-200 dark:border-white/10">
               <CardHeader>
@@ -885,7 +960,7 @@ export default function MainAgentMonitorWorkspace() {
                 </div>
                 <CardDescription>Monitor loop status and delivery signals.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="grid gap-3 sm:grid-cols-3">
                 <div className="rounded-md border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-white/5">
                   <p className="text-xs font-medium uppercase text-neutral-500 dark:text-slate-400">
                     Last tick
@@ -936,8 +1011,8 @@ export default function MainAgentMonitorWorkspace() {
                   <CardTitle>Repository Write Requests</CardTitle>
                 </div>
                 <CardDescription>
-                  Approve only when the requested repo should be mounted read-write and host permissions
-                  are writable.
+                  Approve only when the requested repo should be mounted read-write and host
+                  permissions are writable.
                 </CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-2">
@@ -952,7 +1027,10 @@ export default function MainAgentMonitorWorkspace() {
                         {approval.summary}
                       </p>
                       <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">
-                        {text(permission?.operator_action, 'Review read-write mounts before approval.')}
+                        {text(
+                          permission?.operator_action,
+                          'Review read-write mounts before approval.'
+                        )}
                       </p>
                     </div>
                   );
@@ -986,7 +1064,9 @@ export default function MainAgentMonitorWorkspace() {
                 <GitBranch className="h-5 w-5 text-primary-700" />
                 <CardTitle>Monitored Workflows</CardTitle>
               </div>
-              <CardDescription>Current monitor coverage and workflow-level controls.</CardDescription>
+              <CardDescription>
+                Current monitor coverage and workflow-level controls.
+              </CardDescription>
             </CardHeader>
             <CardContent>
               {monitoredWorkflows.length === 0 ? (

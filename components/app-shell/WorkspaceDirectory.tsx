@@ -1,4 +1,5 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { useId, type ComponentType, type ReactNode } from 'react';
 import { NativeSelect } from '@/components/library/shadcn/select';
@@ -23,7 +24,12 @@ interface WorkspaceDirectoryProps {
   entries: readonly WorkspaceDirectoryEntry[];
   selected?: WorkspaceDirectoryEntry | null;
   onSelect: (id: string) => void;
-  search: { label: string; placeholder?: string; value: string; onChange: (value: string) => void };
+  search?: {
+    label: string;
+    placeholder?: string;
+    value: string;
+    onChange: (value: string) => void;
+  };
   summary?: ReactNode;
   toolbar?: ReactNode;
   selectionLabel?: string;
@@ -53,11 +59,14 @@ export default function WorkspaceDirectory({
   return (
     <nav
       aria-label={label}
-      className={cn('flex min-w-0 flex-col overflow-hidden rounded-xl border bg-card', className)}
+      className={cn(
+        'flex min-w-0 flex-col overflow-hidden rounded-(--agency-radius-panel) border bg-card',
+        className
+      )}
     >
       <div className="flex flex-col gap-3 border-b p-3">
         <h2 className="px-1 text-sm font-semibold">{title}</h2>
-        <WorkspaceSearch {...search} disabled={disabled} />
+        {search ? <WorkspaceSearch {...search} disabled={disabled} /> : null}
         <div className="flex flex-wrap items-center justify-between gap-2">
           {summary ? (
             <p className="px-1 text-xs text-muted-foreground" aria-live="polite">
@@ -66,10 +75,11 @@ export default function WorkspaceDirectory({
           ) : null}
           {toolbar}
         </div>
-        <div className="flex flex-col gap-2 md:hidden">
-          <label htmlFor={selectionId} className="text-xs text-muted-foreground">
-            {selectionLabel}
-          </label>
+        <FormField
+          label={selectionLabel}
+          htmlFor={selectionId}
+          className="flex flex-col gap-2 md:hidden"
+        >
           <NativeSelect
             id={selectionId}
             value={selected?.id ?? ''}
@@ -90,7 +100,7 @@ export default function WorkspaceDirectory({
               </option>
             ))}
           </NativeSelect>
-        </div>
+        </FormField>
       </div>
       <div className="hidden max-h-[calc(100dvh-18rem)] flex-col gap-3 overflow-y-auto p-2 md:flex">
         {!entries.length ? (
@@ -101,9 +111,7 @@ export default function WorkspaceDirectory({
         {groups.map((group) => (
           <div key={group} className="flex flex-col gap-1">
             {group ? (
-              <h3 className="px-3 pt-2 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                {group}
-              </h3>
+              <h3 className="px-3 pt-2 text-xs font-medium text-muted-foreground">{group}</h3>
             ) : null}
             {entries
               .filter((entry) => (entry.group ?? '') === group)

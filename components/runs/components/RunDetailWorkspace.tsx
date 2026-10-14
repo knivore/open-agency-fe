@@ -1,26 +1,26 @@
 'use client';
 
 import Link from 'next/link';
-import {useSearchParams} from 'next/navigation';
-import type {ReactNode} from 'react';
-import {useMemo, useState} from 'react';
+import { useSearchParams } from 'next/navigation';
+import type { ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import {cn} from '@/lib/utils';
-import {formatRunDateTime, formatRunError} from '@/lib/workflows/runFormatting';
-import {runStatusTone} from '@/lib/runs/runPresentation';
-import {describeWaitKind, isPausableRunStatus, readRunLifecycle} from '@/lib/runs/runLifecycle';
-import {useWorkflowRunLauncher} from '@/lib/workflows/useWorkflowRunLauncher';
+import { cn } from '@/lib/utils';
+import { formatRunDateTime, formatRunError } from '@/lib/workflows/runFormatting';
+import { runStatusTone } from '@/lib/runs/runPresentation';
+import { describeWaitKind, isPausableRunStatus, readRunLifecycle } from '@/lib/runs/runLifecycle';
+import { useWorkflowRunLauncher } from '@/lib/workflows/useWorkflowRunLauncher';
 import {
   workflowExecutionEventsToGraphRuntimeEvents,
   workflowRunToGraphRuntimeEvents,
 } from '@/lib/workflows/workflowGraphAdapter';
-import {queryKeys} from '@/lib/react-query/queryKeys';
-import {useRunsModule} from '@/components/runs/context';
+import { queryKeys } from '@/lib/react-query/queryKeys';
+import { useRunsModule } from '@/components/runs/context';
 import {
   RUN_GOVERNANCE_EVENT_TYPES,
   useRunDetailData,
 } from '@/components/runs/hooks/useRunDetailData';
-import {useRunPresence} from '@/components/runs/hooks/useRunPresence';
+import { useRunPresence } from '@/components/runs/hooks/useRunPresence';
 import type {
   ExecutionApprovalRequest,
   ExecutionArtifact,
@@ -31,10 +31,10 @@ import type {
   RunSessionSummary,
   RuntimeLogLine,
 } from '@/types/runtime';
-import type {WorkflowDefinition} from '@/types/workflows';
-import {Badge} from '@/components/library/shadcn/badge';
-import {Button} from '@/components/library/shadcn/button';
-import {Textarea} from '@/components/library/shadcn/textarea';
+import type { WorkflowDefinition } from '@/types/workflows';
+import { Badge } from '@/components/library/shadcn/badge';
+import { Button } from '@/components/library/shadcn/button';
+import { Textarea } from '@/components/library/shadcn/textarea';
 import {
   Card,
   CardContent,
@@ -45,7 +45,7 @@ import {
 import PageHeader from '@/components/app-shell/PageHeader';
 import ActivityTimeline from '@/components/app-shell/ActivityTimeline';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
-import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
 import {
   Accordion,
   AccordionContent,
@@ -54,7 +54,7 @@ import {
 } from '@/components/library/shadcn/accordion';
 import WorkflowGraphCanvas from '@/components/workflow/WorkflowGraphCanvas';
 import WorkflowRuntimeAdapterPanel from '@/components/workflow/WorkflowRuntimeAdapterPanel';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/library/shadcn/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
 import {
   Table,
   TableBody,
@@ -88,7 +88,7 @@ import {
 import RunFailureRecoveryPanel from '@/components/runs/components/RunFailureRecoveryPanel';
 import RunStatusBadge from '@/components/runs/components/RunStatusBadge';
 import RunBrowserPanel from '@/components/runs/components/RunBrowserPanel';
-import {toast} from 'sonner';
+import { toast } from 'sonner';
 
 const TERMINAL_STATUSES = new Set(['completed', 'failed', 'cancelled']);
 const LLM_PARSE_FAILURE = 'Failed to parse LLM response';
@@ -146,7 +146,7 @@ const EMPTY_RUN_STATE: ExecutionStateSnapshot = {
 };
 
 function formatDate(value?: string | null) {
-  return value ? new Date(value).toLocaleString('en-SG', {timeZone: 'Asia/Singapore'}) : '—';
+  return value ? new Date(value).toLocaleString('en-SG', { timeZone: 'Asia/Singapore' }) : '—';
 }
 
 function formatLifecycleReason(value: string) {
@@ -154,17 +154,17 @@ function formatLifecycleReason(value: string) {
 }
 
 function PersistentRunLifecyclePanel({
-                                       run,
-                                       wait,
-                                       resolving,
-                                       onResolveWait,
-                                     }: {
+  run,
+  wait,
+  resolving,
+  onResolveWait,
+}: {
   run: RunSessionSummary;
   wait: ExecutionWaitRecord | null;
   resolving: boolean;
   onResolveWait: (payload: Record<string, unknown>) => void;
 }) {
-  const {activeWait, persistentCycle} = readRunLifecycle(run.metadata);
+  const { activeWait, persistentCycle } = readRunLifecycle(run.metadata);
   const [inputResponse, setInputResponse] = useState('');
   if (!activeWait && !persistentCycle) {
     return null;
@@ -199,9 +199,8 @@ function PersistentRunLifecyclePanel({
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200">
-            <Repeat2 className="size-[1.05rem] stroke-[1.75]"/>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-white text-neutral-700 dark:border-white/10 dark:bg-slate-950 dark:text-slate-200">
+            <Repeat2 className="size-[1.05rem] stroke-[1.75]" />
           </span>
           <div>
             <div className="flex flex-wrap items-center gap-2">
@@ -265,40 +264,33 @@ function PersistentRunLifecyclePanel({
         </p>
       ) : null}
       {wait ? (
-        <div
-          className="mt-4 grid gap-3 border-t border-neutral-200 pt-4 text-sm dark:border-white/10 lg:grid-cols-3">
+        <div className="mt-4 grid gap-3 border-t border-neutral-200 pt-4 text-sm dark:border-white/10 lg:grid-cols-3">
           <div>
-            <p
-              className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
               Requested work
             </p>
-            <pre
-              className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
               {JSON.stringify(requestPayload ?? {}, null, 2)}
             </pre>
           </div>
           <div>
-            <p
-              className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
               Expected wake condition
             </p>
             <p className="mt-2 text-neutral-800 dark:text-slate-200">
               {expectedWake ?? 'Manual resolution'}
             </p>
             {wait.policy && Object.keys(wait.policy).length > 0 ? (
-              <pre
-                className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
+              <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
                 {JSON.stringify(wait.policy, null, 2)}
               </pre>
             ) : null}
           </div>
           <div>
-            <p
-              className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+            <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
               Persisted checkpoint
             </p>
-            <pre
-              className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
+            <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded-md bg-white p-3 text-xs dark:bg-slate-950">
               {JSON.stringify(checkpoint ?? {}, null, 2)}
             </pre>
           </div>
@@ -314,7 +306,7 @@ function PersistentRunLifecyclePanel({
                 type="button"
                 className="mt-2"
                 disabled={resolving || !inputResponse.trim()}
-                onClick={() => onResolveWait({response: inputResponse.trim()})}
+                onClick={() => onResolveWait({ response: inputResponse.trim() })}
               >
                 {resolving ? 'Submitting...' : 'Submit input and resume'}
               </Button>
@@ -325,7 +317,7 @@ function PersistentRunLifecyclePanel({
                 type="button"
                 variant="outline"
                 disabled={resolving}
-                onClick={() => onResolveWait({source: 'operator_wake_now'})}
+                onClick={() => onResolveWait({ source: 'operator_wake_now' })}
               >
                 {resolving ? 'Waking...' : 'Wake now'}
               </Button>
@@ -335,8 +327,7 @@ function PersistentRunLifecyclePanel({
       ) : null}
       {persistentCycle?.history.length ? (
         <div className="mt-4 border-t border-neutral-200 pt-4 dark:border-white/10">
-          <p
-            className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-wide text-neutral-500 dark:text-slate-400">
             Recent cycle outcomes
           </p>
           <ul className="mt-2 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
@@ -572,12 +563,12 @@ interface NativeApprovalActivity {
 }
 
 function SummaryCard({
-                       title,
-                       value,
-                       description,
-                       children,
-                       className,
-                     }: {
+  title,
+  value,
+  description,
+  children,
+  className,
+}: {
   title: string;
   value?: ReactNode;
   description?: ReactNode;
@@ -592,8 +583,7 @@ function SummaryCard({
       )}
     >
       <CardHeader className="pb-2">
-        <CardTitle
-          className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+        <CardTitle className="text-xs font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
           {title}
         </CardTitle>
       </CardHeader>
@@ -610,12 +600,12 @@ function SummaryCard({
 }
 
 function RunEvidenceNavigator({
-                                pendingApprovals,
-                                artifacts,
-                                events,
-                                logs,
-                                onSelect,
-                              }: {
+  pendingApprovals,
+  artifacts,
+  events,
+  logs,
+  onSelect,
+}: {
   pendingApprovals: number;
   artifacts: number;
   events: number;
@@ -623,11 +613,11 @@ function RunEvidenceNavigator({
   onSelect: (tab: RunEvidenceTab) => void;
 }) {
   const destinations: Array<{ label: string; tab: RunEvidenceTab; count?: number }> = [
-    {label: 'Approvals', tab: 'approvals', count: pendingApprovals},
-    {label: 'Logs', tab: 'logs', count: logs},
-    {label: 'Events', tab: 'events', count: events},
-    {label: 'Timeline', tab: 'timeline'},
-    {label: 'Artifacts', tab: 'artifacts', count: artifacts},
+    { label: 'Approvals', tab: 'approvals', count: pendingApprovals },
+    { label: 'Logs', tab: 'logs', count: logs },
+    { label: 'Events', tab: 'events', count: events },
+    { label: 'Timeline', tab: 'timeline' },
+    { label: 'Artifacts', tab: 'artifacts', count: artifacts },
   ];
 
   return (
@@ -809,7 +799,7 @@ function usageBreakdownEntries(value: unknown) {
     return [];
   }
   return Object.entries(value)
-    .flatMap(([label, bucket]) => (isRecord(bucket) ? [{label, bucket}] : []))
+    .flatMap(([label, bucket]) => (isRecord(bucket) ? [{ label, bucket }] : []))
     .sort(
       (left, right) =>
         (numberValue(right.bucket.total_tokens) ?? 0) - (numberValue(left.bucket.total_tokens) ?? 0)
@@ -860,17 +850,17 @@ function modelFallbackRecordFromValue(value: unknown): ModelFallbackRecord | nul
 function modelFallbackFromEvent(event: ExecutionEventRecord): ModelFallbackRecord | null {
   const payload = isRecord(event.payload) ? event.payload : {};
   if (event.event_type === 'model.fallback.used') {
-    const record = modelFallbackRecordFromValue({...payload, used: true});
+    const record = modelFallbackRecordFromValue({ ...payload, used: true });
     return record
       ? {
-        ...record,
-        agentId: record.agentId ?? event.agent_id ?? null,
-        taskId: record.taskId ?? event.task_id ?? null,
-        modelRequestId: record.modelRequestId ?? event.model_request_id ?? null,
-        eventId: record.eventId ?? event.id,
-        sequence: record.sequence ?? event.sequence,
-        updatedAt: record.updatedAt ?? event.timestamp ?? null,
-      }
+          ...record,
+          agentId: record.agentId ?? event.agent_id ?? null,
+          taskId: record.taskId ?? event.task_id ?? null,
+          modelRequestId: record.modelRequestId ?? event.model_request_id ?? null,
+          eventId: record.eventId ?? event.id,
+          sequence: record.sequence ?? event.sequence,
+          updatedAt: record.updatedAt ?? event.timestamp ?? null,
+        }
       : null;
   }
   const usage = isRecord(payload.usage) ? payload.usage : {};
@@ -880,22 +870,22 @@ function modelFallbackFromEvent(event: ExecutionEventRecord): ModelFallbackRecor
     modelFallbackRecordFromValue(usage.model_fallback);
   return record
     ? {
-      ...record,
-      agentId: record.agentId ?? event.agent_id ?? null,
-      taskId: record.taskId ?? event.task_id ?? null,
-      modelRequestId: record.modelRequestId ?? event.model_request_id ?? null,
-      eventId: record.eventId ?? event.id,
-      sequence: record.sequence ?? event.sequence,
-      updatedAt: record.updatedAt ?? event.timestamp ?? null,
-    }
+        ...record,
+        agentId: record.agentId ?? event.agent_id ?? null,
+        taskId: record.taskId ?? event.task_id ?? null,
+        modelRequestId: record.modelRequestId ?? event.model_request_id ?? null,
+        eventId: record.eventId ?? event.id,
+        sequence: record.sequence ?? event.sequence,
+        updatedAt: record.updatedAt ?? event.timestamp ?? null,
+      }
     : null;
 }
 
 function modelFallbackEntries(tokenUsage: Record<string, unknown>, events: ExecutionEventRecord[]) {
   const snapshotRecords = Array.isArray(tokenUsage.model_fallbacks)
     ? tokenUsage.model_fallbacks
-      .map(modelFallbackRecordFromValue)
-      .filter((record): record is ModelFallbackRecord => record !== null)
+        .map(modelFallbackRecordFromValue)
+        .filter((record): record is ModelFallbackRecord => record !== null)
     : [];
 
   if (snapshotRecords.length > 0) {
@@ -912,17 +902,16 @@ function modelFallbackEntries(tokenUsage: Record<string, unknown>, events: Execu
 }
 
 function RuntimeUsageBreakdown({
-                                 title,
-                                 emptyLabel,
-                                 entries,
-                               }: {
+  title,
+  emptyLabel,
+  entries,
+}: {
   title: string;
   emptyLabel: string;
   entries: Array<{ label: string; bucket: Record<string, unknown> }>;
 }) {
   return (
-    <div
-      className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
+    <div className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
       <div className="border-b border-neutral-200 px-4 py-3 dark:border-white/10">
         <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">{title}</p>
       </div>
@@ -938,10 +927,9 @@ function RuntimeUsageBreakdown({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {entries.map(({label, bucket}) => (
+            {entries.map(({ label, bucket }) => (
               <TableRow key={label}>
-                <TableCell
-                  className="max-w-3xs truncate font-medium text-neutral-900 dark:text-neutral-100">
+                <TableCell className="max-w-3xs truncate font-medium text-neutral-900 dark:text-neutral-100">
                   {label}
                 </TableCell>
                 <TableCell className="text-right">
@@ -967,10 +955,9 @@ function RuntimeUsageBreakdown({
   );
 }
 
-function ModelFallbackBreakdown({entries}: { entries: ModelFallbackRecord[] }) {
+function ModelFallbackBreakdown({ entries }: { entries: ModelFallbackRecord[] }) {
   return (
-    <div
-      className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
+    <div className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
       <div className="border-b border-neutral-200 px-4 py-3 dark:border-white/10">
         <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
           Model Fallbacks
@@ -989,8 +976,7 @@ function ModelFallbackBreakdown({entries}: { entries: ModelFallbackRecord[] }) {
           <TableBody>
             {entries.map((entry, index) => (
               <TableRow key={`${entry.eventId ?? entry.modelRequestId ?? 'fallback'}-${index}`}>
-                <TableCell
-                  className="max-w-[14rem] truncate font-medium text-neutral-900 dark:text-neutral-100">
+                <TableCell className="max-w-[14rem] truncate font-medium text-neutral-900 dark:text-neutral-100">
                   {modelFallbackLabel(entry.primaryProvider, entry.primaryModel)}
                 </TableCell>
                 <TableCell className="max-w-[14rem] truncate">
@@ -1045,13 +1031,13 @@ function nativeApprovalDecisionLabel(activity: NativeApprovalActivity, delegatio
 }
 
 function ActiveApprovalCheckpointPanel({
-                                         approval,
-                                         waitId,
-                                         workerReleased,
-                                         pending,
-                                         onDecision,
-                                         onReview,
-                                       }: {
+  approval,
+  waitId,
+  workerReleased,
+  pending,
+  onDecision,
+  onReview,
+}: {
   approval: NativeApprovalActivity | null;
   waitId?: string | null;
   workerReleased: boolean;
@@ -1070,9 +1056,8 @@ function ActiveApprovalCheckpointPanel({
     >
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <span
-            className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 dark:border-amber-500/30 dark:bg-slate-950 dark:text-amber-200">
-            <ShieldAlert className="size-[1.05rem] stroke-[1.75]"/>
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-amber-200 bg-white text-amber-700 dark:border-amber-500/30 dark:bg-slate-950 dark:text-amber-200">
+            <ShieldAlert className="size-[1.05rem] stroke-[1.75]" />
           </span>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
@@ -1103,7 +1088,7 @@ function ActiveApprovalCheckpointPanel({
                 onClick={() => onDecision(approval.toolId, 'approve')}
                 disabled={pending}
               >
-                <CheckCircle2 data-icon="inline-start"/>
+                <CheckCircle2 data-icon="inline-start" />
                 Approve and resume
               </Button>
               <Button
@@ -1113,7 +1098,7 @@ function ActiveApprovalCheckpointPanel({
                 onClick={() => onDecision(approval.toolId, 'reject')}
                 disabled={pending}
               >
-                <XCircle data-icon="inline-start"/>
+                <XCircle data-icon="inline-start" />
                 Reject and resume
               </Button>
             </>
@@ -1688,7 +1673,7 @@ function summarizeEventPayload(event: ExecutionEventRecord) {
   return 'No payload';
 }
 
-function MarkdownBlock({children, compact = false}: { children: string; compact?: boolean }) {
+function MarkdownBlock({ children, compact = false }: { children: string; compact?: boolean }) {
   const normalized = normalizeMarkdownLikeText(children);
 
   return (
@@ -1697,7 +1682,7 @@ function MarkdownBlock({children, compact = false}: { children: string; compact?
     >
       <ReactMarkdown
         components={{
-          a: ({children: linkChildren, href}) => (
+          a: ({ children: linkChildren, href }) => (
             <a
               href={href}
               className="font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
@@ -1707,39 +1692,37 @@ function MarkdownBlock({children, compact = false}: { children: string; compact?
               {linkChildren}
             </a>
           ),
-          code: ({children: codeChildren}) => (
-            <code
-              className="max-w-full whitespace-pre-wrap rounded bg-black/5 px-1 py-0.5 font-mono text-[0.9em] text-neutral-900 [overflow-wrap:anywhere] dark:bg-white/10 dark:text-neutral-100">
+          code: ({ children: codeChildren }) => (
+            <code className="max-w-full whitespace-pre-wrap rounded bg-black/5 px-1 py-0.5 font-mono text-[0.9em] text-neutral-900 [overflow-wrap:anywhere] dark:bg-white/10 dark:text-neutral-100">
               {codeChildren}
             </code>
           ),
-          h1: ({children: headingChildren}) => (
+          h1: ({ children: headingChildren }) => (
             <h3 className="text-base font-semibold text-neutral-950 dark:text-neutral-50">
               {headingChildren}
             </h3>
           ),
-          h2: ({children: headingChildren}) => (
+          h2: ({ children: headingChildren }) => (
             <h3 className="text-base font-semibold text-neutral-950 dark:text-neutral-50">
               {headingChildren}
             </h3>
           ),
-          h3: ({children: headingChildren}) => (
+          h3: ({ children: headingChildren }) => (
             <h4 className="text-sm font-semibold text-neutral-950 dark:text-neutral-50">
               {headingChildren}
             </h4>
           ),
-          li: ({children: listChildren}) => (
+          li: ({ children: listChildren }) => (
             <li className="ml-4 list-disc pl-1">{listChildren}</li>
           ),
-          ol: ({children: listChildren}) => <ol className="space-y-1">{listChildren}</ol>,
-          pre: ({children: preChildren}) => (
-            <pre
-              className="max-w-full overflow-auto whitespace-pre-wrap rounded-md bg-black/5 p-3 font-mono text-xs [overflow-wrap:anywhere] dark:bg-white/10">
+          ol: ({ children: listChildren }) => <ol className="space-y-1">{listChildren}</ol>,
+          pre: ({ children: preChildren }) => (
+            <pre className="max-w-full overflow-auto whitespace-pre-wrap rounded-md bg-black/5 p-3 font-mono text-xs [overflow-wrap:anywhere] dark:bg-white/10">
               {preChildren}
             </pre>
           ),
-          p: ({children: paragraphChildren}) => <p>{paragraphChildren}</p>,
-          ul: ({children: listChildren}) => <ul className="space-y-1">{listChildren}</ul>,
+          p: ({ children: paragraphChildren }) => <p>{paragraphChildren}</p>,
+          ul: ({ children: listChildren }) => <ul className="space-y-1">{listChildren}</ul>,
         }}
       >
         {normalized}
@@ -1750,15 +1733,14 @@ function MarkdownBlock({children, compact = false}: { children: string; compact?
 
 function MissingThought() {
   return (
-    <div
-      className="rounded-md border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500 dark:border-white/10 dark:bg-white/4 dark:text-neutral-400">
+    <div className="rounded-md border border-dashed border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-neutral-500 dark:border-white/10 dark:bg-white/4 dark:text-neutral-400">
       Thought not available in a readable format. The runtime marked this as a parser miss, not
       model content.
     </div>
   );
 }
 
-function PrimitivePayloadValue({value}: { value: unknown }) {
+function PrimitivePayloadValue({ value }: { value: unknown }) {
   if (value === null || value === undefined || value === '') {
     return <span className="text-neutral-400 dark:text-neutral-500">—</span>;
   }
@@ -1789,7 +1771,7 @@ function textLikeField(key?: string) {
   );
 }
 
-function MessagePayloadList({messages}: { messages: unknown[] }) {
+function MessagePayloadList({ messages }: { messages: unknown[] }) {
   return (
     <div className="min-w-0 space-y-2">
       {messages.map((message, index) => {
@@ -1810,7 +1792,7 @@ function MessagePayloadList({messages}: { messages: unknown[] }) {
                 </span>
               ) : null}
             </div>
-            <PayloadValue value={content} depth={1} fieldKey="content"/>
+            <PayloadValue value={content} depth={1} fieldKey="content" />
           </div>
         );
       })}
@@ -1819,16 +1801,16 @@ function MessagePayloadList({messages}: { messages: unknown[] }) {
 }
 
 function PayloadValue({
-                        value,
-                        depth = 0,
-                        fieldKey,
-                      }: {
+  value,
+  depth = 0,
+  fieldKey,
+}: {
   value: unknown;
   depth?: number;
   fieldKey?: string;
 }) {
   if (fieldKey?.toLowerCase() === 'thought' && isUnavailableThought(value)) {
-    return <MissingThought/>;
+    return <MissingThought />;
   }
 
   if (typeof value === 'string' && (value.includes('\n') || textLikeField(fieldKey))) {
@@ -1851,11 +1833,10 @@ function PayloadValue({
             key={index}
             className="rounded-md border border-black/10 bg-white/60 p-2 dark:border-white/10 dark:bg-white/4"
           >
-            <div
-              className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
               Item {index + 1}
             </div>
-            <PayloadValue value={item} depth={depth + 1}/>
+            <PayloadValue value={item} depth={depth + 1} />
           </div>
         ))}
       </div>
@@ -1872,16 +1853,16 @@ function PayloadValue({
       const otherEntries = entries.filter(([key]) => key !== 'messages');
       return (
         <div className="space-y-3">
-          <MessagePayloadList messages={value.messages}/>
-          {otherEntries.length > 0 ? <PayloadFields entries={otherEntries} depth={depth}/> : null}
+          <MessagePayloadList messages={value.messages} />
+          {otherEntries.length > 0 ? <PayloadFields entries={otherEntries} depth={depth} /> : null}
         </div>
       );
     }
 
-    return <PayloadFields entries={entries} depth={depth}/>;
+    return <PayloadFields entries={entries} depth={depth} />;
   }
 
-  return <PrimitivePayloadValue value={value}/>;
+  return <PrimitivePayloadValue value={value} />;
 }
 
 function filterPayloadEntries(
@@ -1894,7 +1875,7 @@ function filterPayloadEntries(
   );
 }
 
-function PayloadFields({entries, depth}: { entries: Array<[string, unknown]>; depth: number }) {
+function PayloadFields({ entries, depth }: { entries: Array<[string, unknown]>; depth: number }) {
   return (
     <dl className="grid min-w-0 gap-2">
       {entries.map(([key, value]) => (
@@ -1906,12 +1887,11 @@ function PayloadFields({entries, depth}: { entries: Array<[string, unknown]>; de
               : 'min-w-0'
           }
         >
-          <dt
-            className="min-w-0 text-[11px] font-medium uppercase tracking-wide text-neutral-500 [overflow-wrap:anywhere] dark:text-neutral-400">
+          <dt className="min-w-0 text-[11px] font-medium uppercase tracking-wide text-neutral-500 [overflow-wrap:anywhere] dark:text-neutral-400">
             {formatPayloadKey(key)}
           </dt>
           <dd className="mt-1 min-w-0 text-sm text-neutral-800 dark:text-neutral-100">
-            <PayloadValue value={value} depth={depth + 1} fieldKey={key}/>
+            <PayloadValue value={value} depth={depth + 1} fieldKey={key} />
           </dd>
         </div>
       ))}
@@ -1919,7 +1899,7 @@ function PayloadFields({entries, depth}: { entries: Array<[string, unknown]>; de
   );
 }
 
-function EventTitle({event}: { event: ExecutionEventRecord }) {
+function EventTitle({ event }: { event: ExecutionEventRecord }) {
   if (event.event_type === 'agent.message.created') {
     return <>Agent update</>;
   }
@@ -1951,40 +1931,38 @@ function EventTitle({event}: { event: ExecutionEventRecord }) {
   return <>{event.event_type}</>;
 }
 
-function EventIcon({event}: { event: ExecutionEventRecord }) {
+function EventIcon({ event }: { event: ExecutionEventRecord }) {
   if (event.event_type === 'agent.message.created') {
-    return <MessageSquare className="h-4 w-4"/>;
+    return <MessageSquare className="h-4 w-4" />;
   }
 
   if (event.event_type === 'llm.response.created') {
-    return <Sparkles className="h-4 w-4"/>;
+    return <Sparkles className="h-4 w-4" />;
   }
 
   if (event.event_type === 'artifact.created') {
-    return <FileText className="h-4 w-4"/>;
+    return <FileText className="h-4 w-4" />;
   }
 
   if (event.event_type === 'execution.completed') {
-    return <CheckCircle2 className="h-4 w-4"/>;
+    return <CheckCircle2 className="h-4 w-4" />;
   }
 
-  return <MessageSquare className="h-4 w-4"/>;
+  return <MessageSquare className="h-4 w-4" />;
 }
 
 function PayloadSection({
-                          title,
-                          children,
-                          scrollable = false,
-                        }: {
+  title,
+  children,
+  scrollable = false,
+}: {
   title: string;
   children: ReactNode;
   scrollable?: boolean;
 }) {
   return (
-    <section
-      className="rounded-md border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.07]">
-      <p
-        className="mb-2 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-300">
+    <section className="rounded-md border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.07]">
+      <p className="mb-2 text-[11px] font-medium uppercase tracking-wide text-neutral-500 dark:text-neutral-300">
         {title}
       </p>
       <div className={scrollable ? 'max-h-72 overflow-auto pr-1' : ''}>{children}</div>
@@ -1992,7 +1970,7 @@ function PayloadSection({
   );
 }
 
-function LlmResponseDetails({payload}: { payload: Record<string, unknown> }) {
+function LlmResponseDetails({ payload }: { payload: Record<string, unknown> }) {
   const output = cleanPayloadText(payload.output) ?? cleanPayloadText(payload.Output);
   const text = cleanPayloadText(payload.text) ?? cleanPayloadText(payload.Text);
   const primary = output ?? text;
@@ -2004,9 +1982,9 @@ function LlmResponseDetails({payload}: { payload: Record<string, unknown> }) {
       {'thought' in payload || 'Thought' in payload || hasThoughtParseError(payload) ? (
         <PayloadSection title="Thought">
           {hasThoughtParseError(payload) || isUnavailableThought(payloadThought(payload)) ? (
-            <MissingThought/>
+            <MissingThought />
           ) : (
-            <PayloadValue value={payloadThought(payload)} fieldKey="thought"/>
+            <PayloadValue value={payloadThought(payload)} fieldKey="thought" />
           )}
         </PayloadSection>
       ) : null}
@@ -2020,12 +1998,12 @@ function LlmResponseDetails({payload}: { payload: Record<string, unknown> }) {
           <MarkdownBlock>{text}</MarkdownBlock>
         </PayloadSection>
       ) : null}
-      {otherEntries.length > 0 ? <PayloadFields entries={otherEntries} depth={0}/> : null}
+      {otherEntries.length > 0 ? <PayloadFields entries={otherEntries} depth={0} /> : null}
     </div>
   );
 }
 
-function LlmRequestDetails({payload}: { payload: Record<string, unknown> }) {
+function LlmRequestDetails({ payload }: { payload: Record<string, unknown> }) {
   const entries = filterPayloadEntries(payload, ['thought']);
 
   return (
@@ -2033,18 +2011,18 @@ function LlmRequestDetails({payload}: { payload: Record<string, unknown> }) {
       {'thought' in payload || 'Thought' in payload || hasThoughtParseError(payload) ? (
         <PayloadSection title="Thought">
           {hasThoughtParseError(payload) || isUnavailableThought(payloadThought(payload)) ? (
-            <MissingThought/>
+            <MissingThought />
           ) : (
-            <PayloadValue value={payloadThought(payload)} fieldKey="thought"/>
+            <PayloadValue value={payloadThought(payload)} fieldKey="thought" />
           )}
         </PayloadSection>
       ) : null}
-      {entries.length > 0 ? <PayloadFields entries={entries} depth={0}/> : null}
+      {entries.length > 0 ? <PayloadFields entries={entries} depth={0} /> : null}
     </div>
   );
 }
 
-function CompletionDetails({payload}: { payload: Record<string, unknown> }) {
+function CompletionDetails({ payload }: { payload: Record<string, unknown> }) {
   const output = finalOutputFromPayload(payload);
   const error = cleanPayloadText(payload.error);
   const otherEntries = filterPayloadEntries(payload, [
@@ -2059,7 +2037,7 @@ function CompletionDetails({payload}: { payload: Record<string, unknown> }) {
     <div className="space-y-3">
       {error ? (
         <PayloadSection title="Error">
-          <PrimitivePayloadValue value={error}/>
+          <PrimitivePayloadValue value={error} />
         </PayloadSection>
       ) : null}
       {output ? (
@@ -2067,12 +2045,12 @@ function CompletionDetails({payload}: { payload: Record<string, unknown> }) {
           <MarkdownBlock>{stripFinalOutputLabel(output)}</MarkdownBlock>
         </PayloadSection>
       ) : null}
-      {otherEntries.length > 0 ? <PayloadFields entries={otherEntries} depth={0}/> : null}
+      {otherEntries.length > 0 ? <PayloadFields entries={otherEntries} depth={0} /> : null}
     </div>
   );
 }
 
-function AgentMessageDetails({payload}: { payload: Record<string, unknown> }) {
+function AgentMessageDetails({ payload }: { payload: Record<string, unknown> }) {
   const entries = filterPayloadEntries(payload, [
     'content',
     'message',
@@ -2090,32 +2068,32 @@ function AgentMessageDetails({payload}: { payload: Record<string, unknown> }) {
     );
   }
 
-  return <PayloadFields entries={entries} depth={0}/>;
+  return <PayloadFields entries={entries} depth={0} />;
 }
 
-function EventPayloadDetails({event}: { event: ExecutionEventRecord }) {
+function EventPayloadDetails({ event }: { event: ExecutionEventRecord }) {
   const payload = event.payload ?? {};
 
   if (event.event_type === 'agent.message.created') {
-    return <AgentMessageDetails payload={payload}/>;
+    return <AgentMessageDetails payload={payload} />;
   }
 
   if (event.event_type === 'llm.response.created') {
-    return <LlmResponseDetails payload={payload}/>;
+    return <LlmResponseDetails payload={payload} />;
   }
 
   if (event.event_type === 'llm.request.created') {
-    return <LlmRequestDetails payload={payload}/>;
+    return <LlmRequestDetails payload={payload} />;
   }
 
   if (event.event_type === 'execution.completed') {
-    return <CompletionDetails payload={payload}/>;
+    return <CompletionDetails payload={payload} />;
   }
 
-  return <PayloadValue value={payload}/>;
+  return <PayloadValue value={payload} />;
 }
 
-function RunStoryOverview({events}: { events: ExecutionEventRecord[] }) {
+function RunStoryOverview({ events }: { events: ExecutionEventRecord[] }) {
   const finalOutput = finalOutputForEvents(events);
   const finalOutputArtifact = finalOutputArtifactForEvents(events);
   const llmResponseCount = events.filter(
@@ -2124,27 +2102,24 @@ function RunStoryOverview({events}: { events: ExecutionEventRecord[] }) {
   const artifactCount = events.filter((event) => event.event_type === 'artifact.created').length;
 
   return (
-    <section
-      className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[rgba(10,17,30,0.84)]">
+    <section className="rounded-lg border border-neutral-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[rgba(10,17,30,0.84)]">
       <div className="flex flex-wrap gap-2">
         <Badge variant="outline">{events.length} events</Badge>
         <Badge variant="outline">{llmResponseCount} LLM responses</Badge>
         <Badge variant="outline">{artifactCount} artifacts</Badge>
       </div>
       {finalOutput ? (
-        <div
-          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/12 dark:text-emerald-100">
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/12 dark:text-emerald-100">
           <div className="mb-2 flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4"/>
+            <CheckCircle2 className="h-4 w-4" />
             <h3 className="text-sm font-semibold">Final output</h3>
           </div>
           <MarkdownBlock>{finalOutput}</MarkdownBlock>
         </div>
       ) : finalOutputArtifact ? (
-        <div
-          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/12 dark:text-emerald-100">
+        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-emerald-950 dark:border-emerald-500/30 dark:bg-emerald-500/12 dark:text-emerald-100">
           <div className="mb-2 flex items-center gap-2">
-            <FileText className="h-4 w-4"/>
+            <FileText className="h-4 w-4" />
             <h3 className="text-sm font-semibold">Final output artifact</h3>
           </div>
           <p className="text-sm">
@@ -2155,8 +2130,7 @@ function RunStoryOverview({events}: { events: ExecutionEventRecord[] }) {
             .
           </p>
           {payloadText(finalOutputArtifact.payload ?? {}, ['uri', 'Uri']) ? (
-            <p
-              className="mt-2 wrap-break-word font-mono text-xs text-emerald-800 dark:text-emerald-200">
+            <p className="mt-2 wrap-break-word font-mono text-xs text-emerald-800 dark:text-emerald-200">
               {payloadText(finalOutputArtifact.payload ?? {}, ['uri', 'Uri'])}
             </p>
           ) : null}
@@ -2170,7 +2144,7 @@ function RunStoryOverview({events}: { events: ExecutionEventRecord[] }) {
   );
 }
 
-function EventRowsView({events}: { events: ExecutionEventRecord[] }) {
+function EventRowsView({ events }: { events: ExecutionEventRecord[] }) {
   const orderedEvents = orderEventsLatestFirst(events);
 
   return (
@@ -2192,8 +2166,7 @@ function EventRowsView({events}: { events: ExecutionEventRecord[] }) {
             <TableCell>{actorLabel(event)}</TableCell>
             <TableCell>{formatDate(event.timestamp)}</TableCell>
             <TableCell className="max-w-80">
-              <pre
-                className="max-h-24 overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
+              <pre className="max-h-24 overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
                 {JSON.stringify(sanitizeDisplayPayload(event.payload || {}), null, 2)}
               </pre>
             </TableCell>
@@ -2204,12 +2177,12 @@ function EventRowsView({events}: { events: ExecutionEventRecord[] }) {
   );
 }
 
-function EventStoryView({events}: { events: ExecutionEventRecord[] }) {
+function EventStoryView({ events }: { events: ExecutionEventRecord[] }) {
   const orderedEvents = orderEventsLatestFirst(events);
 
   return (
     <div className="space-y-4">
-      <RunStoryOverview events={events}/>
+      <RunStoryOverview events={events} />
       {orderedEvents.map((event) => {
         const palette = eventChatPalette(event);
         const isSystem = (event.actor_type || '').toLowerCase() === 'system';
@@ -2226,7 +2199,7 @@ function EventStoryView({events}: { events: ExecutionEventRecord[] }) {
             >
               <div className="flex items-start gap-3">
                 <div className={`mt-0.5 rounded-full p-2 ${palette.chip}`}>
-                  <EventIcon event={event}/>
+                  <EventIcon event={event} />
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -2234,7 +2207,7 @@ function EventStoryView({events}: { events: ExecutionEventRecord[] }) {
                       {actorLabel(event)}
                     </span>
                     <span className="font-semibold">
-                      <EventTitle event={event}/>
+                      <EventTitle event={event} />
                     </span>
                     {showRawEventType ? (
                       <span className="text-current/65">{event.event_type}</span>
@@ -2261,13 +2234,12 @@ function EventStoryView({events}: { events: ExecutionEventRecord[] }) {
                       value={`details-${event.id}`}
                       className="rounded-md border border-black/10 bg-white/70 px-3 dark:border-white/10 dark:bg-white/8"
                     >
-                      <AccordionTrigger
-                        className="py-3 text-xs font-semibold uppercase tracking-wide text-current/60 hover:no-underline">
+                      <AccordionTrigger className="py-3 text-xs font-semibold uppercase tracking-wide text-current/60 hover:no-underline">
                         Details
                       </AccordionTrigger>
                       <AccordionContent className="pt-1">
                         <div className="text-xs text-neutral-800 dark:text-neutral-100">
-                          <EventPayloadDetails event={event}/>
+                          <EventPayloadDetails event={event} />
                         </div>
                       </AccordionContent>
                     </AccordionItem>
@@ -2282,7 +2254,7 @@ function EventStoryView({events}: { events: ExecutionEventRecord[] }) {
   );
 }
 
-function RuntimeLogLines({lines}: { lines?: RuntimeLogLine[] }) {
+function RuntimeLogLines({ lines }: { lines?: RuntimeLogLine[] }) {
   if (!lines || lines.length === 0) {
     return (
       <p className="text-sm text-neutral-500 dark:text-neutral-400">No structured logs reported.</p>
@@ -2296,8 +2268,7 @@ function RuntimeLogLines({lines}: { lines?: RuntimeLogLine[] }) {
           key={`${line.sequence ?? index}-${line.event_type ?? 'event'}`}
           className={`rounded-md border px-3 py-2 text-sm ${logLevelClass(line.level)}`}
         >
-          <div
-            className="flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400">
             <span>{line.sequence != null ? `#${line.sequence}` : `#${index + 1}`}</span>
             {line.event_type ? <span>{line.event_type}</span> : null}
             {line.timestamp ? <span>{formatDate(line.timestamp)}</span> : null}
@@ -2310,22 +2281,20 @@ function RuntimeLogLines({lines}: { lines?: RuntimeLogLine[] }) {
   );
 }
 
-export function ArtifactCard({artifact}: { artifact: ExecutionArtifact }) {
+export function ArtifactCard({ artifact }: { artifact: ExecutionArtifact }) {
   const contentText = cleanPayloadText(artifact.content_text);
   const contentJson = artifact.content_json;
   const hasJsonContent = isRecord(contentJson);
 
   return (
-    <div
-      className="rounded-lg border border-neutral-200 p-4 text-sm dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
+    <div className="rounded-lg border border-neutral-200 p-4 text-sm dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="font-medium text-neutral-900 dark:text-neutral-100">
             {artifact.name || artifact.id}
           </p>
           {artifact.uri ? (
-            <p
-              className="mt-1 wrap-break-word font-mono text-xs text-neutral-500 dark:text-neutral-400">
+            <p className="mt-1 wrap-break-word font-mono text-xs text-neutral-500 dark:text-neutral-400">
               {artifact.uri}
             </p>
           ) : null}
@@ -2340,10 +2309,8 @@ export function ArtifactCard({artifact}: { artifact: ExecutionArtifact }) {
       </div>
 
       {contentText ? (
-        <div
-          className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/4">
-          <p
-            className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+        <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
             Content
           </p>
           <div className="max-h-72 overflow-auto pr-1">
@@ -2351,14 +2318,11 @@ export function ArtifactCard({artifact}: { artifact: ExecutionArtifact }) {
           </div>
         </div>
       ) : hasJsonContent ? (
-        <div
-          className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/4">
-          <p
-            className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
+        <div className="mt-3 rounded-md border border-neutral-200 bg-neutral-50 p-3 dark:border-white/10 dark:bg-white/4">
+          <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-neutral-500 dark:text-neutral-400">
             Content JSON
           </p>
-          <pre
-            className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-neutral-700 dark:text-neutral-300">
+          <pre className="max-h-72 overflow-auto whitespace-pre-wrap text-xs text-neutral-700 dark:text-neutral-300">
             {JSON.stringify(contentJson, null, 2)}
           </pre>
         </div>
@@ -2371,13 +2335,13 @@ export function ArtifactCard({artifact}: { artifact: ExecutionArtifact }) {
   );
 }
 
-function OutputContent({value}: { value: string }) {
+function OutputContent({ value }: { value: string }) {
   const structuredValue = parseDisplayJsonText(value);
 
   return (
     <div className="max-h-80 min-w-0 max-w-full overflow-auto pr-1">
       {structuredValue ? (
-        <PayloadValue value={structuredValue}/>
+        <PayloadValue value={structuredValue} />
       ) : (
         <MarkdownBlock>{value}</MarkdownBlock>
       )}
@@ -2385,12 +2349,10 @@ function OutputContent({value}: { value: string }) {
   );
 }
 
-function OutputPanel({title, children}: { title: string; children: ReactNode }) {
+function OutputPanel({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section
-      className="min-w-0 max-w-full rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/4">
-      <p
-        className="mb-2 min-w-0 text-xs font-semibold uppercase tracking-wide text-neutral-500 [overflow-wrap:anywhere] dark:text-neutral-400">
+    <section className="min-w-0 max-w-full rounded-lg border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-white/4">
+      <p className="mb-2 min-w-0 text-xs font-semibold uppercase tracking-wide text-neutral-500 [overflow-wrap:anywhere] dark:text-neutral-400">
         {title}
       </p>
       {children}
@@ -2399,11 +2361,11 @@ function OutputPanel({title, children}: { title: string; children: ReactNode }) 
 }
 
 function RunOutputs({
-                      outputPayload,
-                      stateNodeOutputs,
-                      artifacts,
-                      isLoadingArtifacts,
-                    }: {
+  outputPayload,
+  stateNodeOutputs,
+  artifacts,
+  isLoadingArtifacts,
+}: {
   outputPayload?: Record<string, unknown> | null;
   stateNodeOutputs?: Record<string, unknown>;
   artifacts: ExecutionArtifact[];
@@ -2448,7 +2410,7 @@ function RunOutputs({
 
         {primaryOutput ? (
           <OutputPanel title="Primary output">
-            <OutputContent value={primaryOutput}/>
+            <OutputContent value={primaryOutput} />
           </OutputPanel>
         ) : null}
 
@@ -2474,11 +2436,10 @@ function RunOutputs({
                       key={nodeId}
                       className="min-w-0 rounded-md border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-[rgba(10,17,30,0.78)]"
                     >
-                      <p
-                        className="mb-2 min-w-0 font-mono text-xs text-neutral-500 [overflow-wrap:anywhere] dark:text-neutral-400">
+                      <p className="mb-2 min-w-0 font-mono text-xs text-neutral-500 [overflow-wrap:anywhere] dark:text-neutral-400">
                         {nodeId}
                       </p>
-                      <PayloadValue value={value}/>
+                      <PayloadValue value={value} />
                     </div>
                   ))}
                 </div>
@@ -2491,7 +2452,7 @@ function RunOutputs({
           <OutputPanel title="Output artifacts">
             <div className="space-y-3">
               {visibleArtifacts.map((artifact) => (
-                <ArtifactCard key={artifact.id} artifact={artifact}/>
+                <ArtifactCard key={artifact.id} artifact={artifact} />
               ))}
             </div>
           </OutputPanel>
@@ -2501,15 +2462,14 @@ function RunOutputs({
   );
 }
 
-function StructuredRuntimeLogs({logs}: { logs?: RunLogEntry }) {
+function StructuredRuntimeLogs({ logs }: { logs?: RunLogEntry }) {
   const workflowLogs = logs?.workflow_logs ?? [];
   const agentLogs = logs?.agent_logs ?? [];
   const rawContainerLogs = logs?.raw_container_logs?.trim();
 
   if (workflowLogs.length === 0 && agentLogs.length === 0 && !rawContainerLogs) {
     return (
-      <pre
-        className="max-h-120 overflow-auto rounded-lg border border-neutral-200 bg-neutral-950 p-4 text-xs text-neutral-100 dark:border-white/10">
+      <pre className="max-h-120 overflow-auto rounded-lg border border-neutral-200 bg-neutral-950 p-4 text-xs text-neutral-100 dark:border-white/10">
         {logs?.logs?.trim() || 'No runtime logs reported.'}
       </pre>
     );
@@ -2524,7 +2484,7 @@ function StructuredRuntimeLogs({logs}: { logs?: RunLogEntry }) {
           </h3>
           <Badge variant="outline">{workflowLogs.length}</Badge>
         </div>
-        <RuntimeLogLines lines={workflowLogs}/>
+        <RuntimeLogLines lines={workflowLogs} />
       </section>
 
       <section className="space-y-3">
@@ -2549,7 +2509,7 @@ function StructuredRuntimeLogs({logs}: { logs?: RunLogEntry }) {
                   {group.agent_id ? <Badge variant="secondary">{group.agent_id}</Badge> : null}
                   <Badge variant="outline">{group.logs.length}</Badge>
                 </div>
-                <RuntimeLogLines lines={group.logs}/>
+                <RuntimeLogLines lines={group.logs} />
               </div>
             ))}
           </div>
@@ -2566,8 +2526,7 @@ function StructuredRuntimeLogs({logs}: { logs?: RunLogEntry }) {
               {logs?.container_id || logs?.containerId || 'container'}
             </Badge>
           </div>
-          <pre
-            className="max-h-90 overflow-auto rounded-lg border border-neutral-200 bg-neutral-950 p-4 text-xs text-neutral-100 dark:border-white/10">
+          <pre className="max-h-90 overflow-auto rounded-lg border border-neutral-200 bg-neutral-950 p-4 text-xs text-neutral-100 dark:border-white/10">
             {rawContainerLogs}
           </pre>
         </section>
@@ -2584,8 +2543,8 @@ function runLogEvidenceCount(logs?: RunLogEntry) {
   return workflowLogCount + agentLogCount + rawLogCount;
 }
 
-export default function RunDetailWorkspace({runId}: { runId: string }) {
-  const {api} = useRunsModule();
+export default function RunDetailWorkspace({ runId }: { runId: string }) {
+  const { api } = useRunsModule();
   const searchParams = useSearchParams();
   const [selectedRerunAdapterId, setSelectedRerunAdapterId] = useState('');
   const [eventViewMode, setEventViewMode] = useState<EventViewMode>('story');
@@ -2709,7 +2668,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
     redirectTo: (nextRunId) => `/runs/${nextRunId}?workflowId=${rerunWorkflowId}&tab=runs`,
     additionalInvalidationKeys: () => [queryKeys.backendActiveRunSessions()],
   });
-  const {tasks: derivedTasks, agents: derivedAgents} = useRunPresence({
+  const { tasks: derivedTasks, agents: derivedAgents } = useRunPresence({
     run,
     workflow,
     state: runDetail?.state ?? EMPTY_RUN_STATE,
@@ -2867,17 +2826,17 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
       },
       workflowId
         ? {
-          type: 'workflow',
-          id: workflowId,
-          name: workflowLabel,
-        }
+            type: 'workflow',
+            id: workflowId,
+            name: workflowLabel,
+          }
         : null,
       linkedConversation
         ? {
-          type: 'conversation',
-          id: linkedConversation.id,
-          name: linkedConversation.title || 'Linked conversation',
-        }
+            type: 'conversation',
+            id: linkedConversation.id,
+            name: linkedConversation.title || 'Linked conversation',
+          }
         : null,
       ...derivedAgents.slice(0, 6).map((agent) => ({
         type: 'agent',
@@ -3041,7 +3000,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
     approvalRequestId: string,
     action: 'approve' | 'reject'
   ) => {
-    await toast.promise(approvalDecisionMutation.mutateAsync({approvalRequestId, action}), {
+    await toast.promise(approvalDecisionMutation.mutateAsync({ approvalRequestId, action }), {
       loading: `${action === 'approve' ? 'Approving' : 'Rejecting'} request...`,
       success: `Approval ${action === 'approve' ? 'granted' : 'rejected'}.`,
       error: (error) => (error instanceof Error ? error.message : `Failed to ${action} approval.`),
@@ -3050,7 +3009,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
   };
 
   const handleNativeApprovalDecision = async (toolId: string, action: 'approve' | 'reject') => {
-    await toast.promise(nativeApprovalDecisionMutation.mutateAsync({toolId, action}), {
+    await toast.promise(nativeApprovalDecisionMutation.mutateAsync({ toolId, action }), {
       loading: `${action === 'approve' ? 'Approving' : 'Rejecting'} native approval...`,
       success: `Native approval ${action === 'approve' ? 'granted' : 'rejected'}.`,
       error: (error) =>
@@ -3107,19 +3066,17 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Run"
-        icon={ListChecks}
         tone="run"
         title={workflowLabel}
         description="Execution details, outputs, and runtime evidence."
         meta={
           <>
-            <RunStatusBadge status={run.status}/>
+            <RunStatusBadge status={run.status} />
             {run.runtimeAdapterId ? (
               <Badge variant="secondary">{run.runtimeAdapterId}</Badge>
             ) : null}
             <Badge variant="outline">
-              <Clock3 className="mr-1 h-3 w-3"/>
+              <Clock3 className="mr-1 h-3 w-3" />
               Started {formatDate(run.startedAt)}
             </Badge>
             <Badge variant="outline" className="font-mono font-normal" title={run.id}>
@@ -3157,7 +3114,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 onClick={handlePause}
                 disabled={pauseMutation.isPending}
               >
-                <Pause className="mr-2 h-4 w-4"/>
+                <Pause className="mr-2 h-4 w-4" />
                 {pauseMutation.isPending ? 'Pausing...' : 'Pause'}
               </Button>
             ) : null}
@@ -3168,7 +3125,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 onClick={handleResume}
                 disabled={resumeMutation.isPending}
               >
-                <Play className="mr-2 h-4 w-4"/>
+                <Play className="mr-2 h-4 w-4" />
                 {resumeMutation.isPending ? 'Resuming...' : 'Resume'}
               </Button>
             ) : null}
@@ -3187,7 +3144,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 onConfirm={handleCancel}
                 trigger={
                   <Button type="button" variant="destructive" disabled={cancelMutation.isPending}>
-                    <Square data-icon="inline-start"/>
+                    <Square data-icon="inline-start" />
                     {cancelMutation.isPending ? 'Cancelling...' : 'Cancel'}
                   </Button>
                 }
@@ -3237,7 +3194,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
           }
         >
           <div className="flex items-center justify-between gap-3">
-            <RunStatusBadge status={run.status} className="px-3 py-1 text-sm"/>
+            <RunStatusBadge status={run.status} className="px-3 py-1 text-sm" />
             <span className={cn('text-xs font-medium', statusTone.text)}>
               {TERMINAL_STATUSES.has(run.status) ? 'Terminal' : 'Active'}
             </span>
@@ -3336,7 +3293,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                     !effectiveSelectedRerunAdapterId
                   }
                 >
-                  <Play data-icon="inline-start"/>
+                  <Play data-icon="inline-start" />
                   {rerunMutation.isPending
                     ? 'Starting...'
                     : `Run Again${effectiveSelectedRerunAdapterId ? ` With ${effectiveSelectedRerunAdapterId}` : ''}`}
@@ -3370,8 +3327,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
             />
           ) : null}
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <div
-              className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+            <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
               <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Total Tokens
               </p>
@@ -3385,8 +3341,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 {formatTokenCount(totalTokenUsage.completion_tokens)}
               </p>
             </div>
-            <div
-              className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+            <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
               <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Estimated Cost
               </p>
@@ -3399,8 +3354,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 Updated {formatDate(usageQuery.data?.updated_at)}
               </p>
             </div>
-            <div
-              className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+            <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
               <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Context Health
               </p>
@@ -3418,8 +3372,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 {formatTokenCount(latestContextHealth.context_window)} tokens
               </p>
             </div>
-            <div
-              className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+            <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
               <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Compaction
               </p>
@@ -3433,8 +3386,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 {formatTokenCount(latestCompaction.estimated_tokens_saved)} tokens
               </p>
             </div>
-            <div
-              className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+            <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
               <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Model Fallbacks
               </p>
@@ -3449,8 +3401,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
             </div>
           </div>
           {latestBudgetWarning ? (
-            <div
-              className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/12 dark:text-amber-100">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/12 dark:text-amber-100">
               Budget warning: {stringValue(latestBudgetWarning.scope) ?? 'run'} used{' '}
               {formatTokenCount(latestBudgetWarning.used_tokens)} /{' '}
               {formatTokenCount(latestBudgetWarning.budget_tokens)} tokens.
@@ -3473,9 +3424,8 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
               entries={modelUsageEntries}
             />
           </div>
-          <ModelFallbackBreakdown entries={modelFallbacks}/>
-          <div
-            className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
+          <ModelFallbackBreakdown entries={modelFallbacks} />
+          <div className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
             <div className="border-b border-neutral-200 px-4 py-3 dark:border-white/10">
               <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                 Budget Warning History
@@ -3514,10 +3464,8 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
               </p>
             )}
           </div>
-          <div
-            className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
-            <div
-              className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-white/10">
+          <div className="rounded-lg border border-neutral-200 dark:border-white/10 dark:bg-[rgba(9,15,27,0.82)]">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-neutral-200 px-4 py-3 dark:border-white/10">
               <div>
                 <p className="text-sm font-medium text-neutral-900 dark:text-neutral-100">
                   Governance Event Timeline
@@ -3586,18 +3534,15 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2 text-sm text-neutral-600 dark:text-neutral-300">
             <p>
-              <span
-                className="font-medium text-neutral-900 dark:text-neutral-100">Container</span>:{' '}
+              <span className="font-medium text-neutral-900 dark:text-neutral-100">Container</span>:{' '}
               {run.container?.containerName || run.container?.containerId || 'Not attached'}
             </p>
             <p>
-              <span
-                className="font-medium text-neutral-900 dark:text-neutral-100">Image</span>:{' '}
+              <span className="font-medium text-neutral-900 dark:text-neutral-100">Image</span>:{' '}
               {run.container?.image || '—'}
             </p>
             <p>
-              <span
-                className="font-medium text-neutral-900 dark:text-neutral-100">Worker</span>:{' '}
+              <span className="font-medium text-neutral-900 dark:text-neutral-100">Worker</span>:{' '}
               {run.workerId || '—'}
             </p>
             <p>
@@ -3763,23 +3708,19 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 ) : null}
               </div>
               <div className="grid gap-4 lg:grid-cols-2">
-                <div
-                  className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+                <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
                   <p className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                     Node Outputs
                   </p>
-                  <pre
-                    className="overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
+                  <pre className="overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
                     {JSON.stringify(runDetail.state.node_outputs || {}, null, 2)}
                   </pre>
                 </div>
-                <div
-                  className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
+                <div className="rounded-lg border border-neutral-200 p-4 dark:border-white/10 dark:bg-white/4">
                   <p className="mb-2 text-sm font-medium text-neutral-900 dark:text-neutral-100">
                     Runtime Diagnostics
                   </p>
-                  <pre
-                    className="overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
+                  <pre className="overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
                     {JSON.stringify(runDetail.runtime?.diagnostics || {}, null, 2)}
                   </pre>
                 </div>
@@ -3852,8 +3793,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                             </Badge>
                           </div>
                         </div>
-                        <div
-                          className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
+                        <div className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                           <p>
                             Agent: {approval.agentId || 'unknown'} · Task:{' '}
                             {approval.taskId || 'unknown'}
@@ -3875,14 +3815,11 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                             <p>Responded by: {approval.respondedBy}</p>
                           ) : null}
                           {approval.argumentsPayload ? (
-                            <details
-                              className="mt-2 rounded-md bg-neutral-50 px-3 py-2 dark:bg-white/5">
-                              <summary
-                                className="cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-300">
+                            <details className="mt-2 rounded-md bg-neutral-50 px-3 py-2 dark:bg-white/5">
+                              <summary className="cursor-pointer text-xs font-medium text-neutral-700 dark:text-neutral-300">
                                 Redacted arguments
                               </summary>
-                              <pre
-                                className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
+                              <pre className="mt-2 overflow-auto whitespace-pre-wrap text-xs text-neutral-600 dark:text-neutral-300">
                                 {JSON.stringify(approval.argumentsPayload, null, 2)}
                               </pre>
                             </details>
@@ -3983,8 +3920,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                           <Badge variant="outline">{approval.approval_type}</Badge>
                         </div>
                       </div>
-                      <div
-                        className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
+                      <div className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                         <p>
                           Target: {approval.target_type}
                           {approval.target_id ? ` · ${approval.target_id}` : ''}
@@ -4059,9 +3995,8 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-neutral-500 dark:text-neutral-400"/>
-                            <p
-                              className="truncate font-medium text-neutral-900 dark:text-neutral-100">
+                            <User className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
+                            <p className="truncate font-medium text-neutral-900 dark:text-neutral-100">
                               {agent.name}
                             </p>
                           </div>
@@ -4073,8 +4008,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                           {agent.status}
                         </Badge>
                       </div>
-                      <div
-                        className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
+                      <div className="mt-3 space-y-1 text-sm text-neutral-600 dark:text-neutral-300">
                         <p>
                           Role:{' '}
                           {typeof agent.metadata.role === 'string' ? agent.metadata.role : '—'}
@@ -4124,9 +4058,8 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <ListChecks className="h-4 w-4 text-neutral-500 dark:text-neutral-400"/>
-                            <p
-                              className="truncate font-medium text-neutral-900 dark:text-neutral-100">
+                            <ListChecks className="h-4 w-4 text-neutral-500 dark:text-neutral-400" />
+                            <p className="truncate font-medium text-neutral-900 dark:text-neutral-100">
                               {task.name}
                             </p>
                           </div>
@@ -4138,8 +4071,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                           {task.status}
                         </Badge>
                       </div>
-                      <div
-                        className="mt-3 grid gap-2 text-sm text-neutral-600 dark:text-neutral-300 md:grid-cols-2">
+                      <div className="mt-3 grid gap-2 text-sm text-neutral-600 dark:text-neutral-300 md:grid-cols-2">
                         <p>
                           Assigned agent:{' '}
                           {typeof task.metadata.agentId === 'string' ? task.metadata.agentId : '—'}
@@ -4178,7 +4110,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                   onRetry={() => logsQuery.refetch()}
                 />
               ) : (
-                <StructuredRuntimeLogs logs={logsQuery.data}/>
+                <StructuredRuntimeLogs logs={logsQuery.data} />
               )}
             </CardContent>
           </Card>
@@ -4186,8 +4118,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
 
         <TabsContent value="events">
           <Card>
-            <CardHeader
-              className="gap-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+            <CardHeader className="gap-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
               <div>
                 <CardTitle>Run Events</CardTitle>
                 <CardDescription>
@@ -4206,7 +4137,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                   aria-pressed={eventViewMode === 'story'}
                   onClick={() => setEventViewMode('story')}
                 >
-                  <MessageSquare className="h-3.5 w-3.5"/>
+                  <MessageSquare className="h-3.5 w-3.5" />
                   Story
                 </Button>
                 <Button
@@ -4217,7 +4148,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                   aria-pressed={eventViewMode === 'rows'}
                   onClick={() => setEventViewMode('rows')}
                 >
-                  <Table2 className="h-3.5 w-3.5"/>
+                  <Table2 className="h-3.5 w-3.5" />
                   Rows
                 </Button>
               </div>
@@ -4236,9 +4167,9 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                   No run events recorded yet.
                 </p>
               ) : eventViewMode === 'rows' ? (
-                <EventRowsView events={eventsQuery.data?.items ?? []}/>
+                <EventRowsView events={eventsQuery.data?.items ?? []} />
               ) : (
-                <EventStoryView events={eventsQuery.data?.items ?? []}/>
+                <EventStoryView events={eventsQuery.data?.items ?? []} />
               )}
             </CardContent>
           </Card>
@@ -4278,11 +4209,19 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                         id: event.id,
                         title: governanceEventLabel(event.event_type).replace(/[._]/g, ' '),
                         timestamp: formatRunDateTime(event.timestamp) || 'No timestamp',
-                        description: <span className="line-clamp-3">{summarizeTimelineEvent(event)}</span>,
-                        meta: <span className="text-xs text-muted-foreground">{actorLabel(event)}</span>,
+                        description: (
+                          <span className="line-clamp-3">{summarizeTimelineEvent(event)}</span>
+                        ),
+                        meta: (
+                          <span className="text-xs text-muted-foreground">{actorLabel(event)}</span>
+                        ),
                       }))}
                   />
-                  {(timelineQuery.data?.events?.length ?? 0) > 20 ? <p className="text-xs text-muted-foreground">Showing the latest 20 events. Open Events to inspect the complete record.</p> : null}
+                  {(timelineQuery.data?.events?.length ?? 0) > 20 ? (
+                    <p className="text-xs text-muted-foreground">
+                      Showing the latest 20 events. Open Events to inspect the complete record.
+                    </p>
+                  ) : null}
                   {workflowQuery.isError ? (
                     <RunsErrorAlert
                       title="Failed to load workflow"
@@ -4290,8 +4229,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                       onRetry={() => workflowQuery.refetch()}
                     />
                   ) : (
-                    <div
-                      className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-[rgba(10,17,30,0.78)]">
+                    <div className="rounded-lg border border-neutral-200 bg-white p-3 dark:border-white/10 dark:bg-[rgba(10,17,30,0.78)]">
                       {workflowQuery.isLoading && !workflow ? (
                         <p className="mb-3 text-xs text-neutral-500 dark:text-neutral-400">
                           Loading workflow definition. Showing runtime-derived graph details.
@@ -4315,7 +4253,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
         </TabsContent>
 
         <TabsContent value="browser">
-          <RunBrowserPanel runId={runId}/>
+          <RunBrowserPanel runId={runId} />
         </TabsContent>
 
         <TabsContent value="artifacts">
@@ -4343,7 +4281,7 @@ export default function RunDetailWorkspace({runId}: { runId: string }) {
                 </p>
               ) : (
                 artifactsQuery.data?.items.map((artifact) => (
-                  <ArtifactCard key={artifact.id} artifact={artifact}/>
+                  <ArtifactCard key={artifact.id} artifact={artifact} />
                 ))
               )}
             </CardContent>

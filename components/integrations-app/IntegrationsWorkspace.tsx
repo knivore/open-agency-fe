@@ -1,8 +1,9 @@
 'use client';
+import WorkspaceSearch from '@/components/app-shell/WorkspaceSearch';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
 import CapabilityStudio from './CapabilityStudio';
-import {CapabilityDraftGuard, useCapabilityDraftGuard} from './CapabilityDraftGuard';
+import { CapabilityDraftGuard, useCapabilityDraftGuard } from './CapabilityDraftGuard';
 import LocalAccessSummary from './LocalAccessSummary';
 import TelegramNotificationSetup from './TelegramNotificationSetup';
 import WhatsAppNotificationSetup from './WhatsAppNotificationSetup';
@@ -16,24 +17,25 @@ import {
   useRef,
   useState,
   useSyncExternalStore,
+  useId,
 } from 'react';
-import {useMutation, useQueries, useQuery, useQueryClient} from '@tanstack/react-query';
+import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import Link from 'next/link';
-import {useSearchParams} from 'next/navigation';
-import {connectorsApi} from '@/lib/api/backend/connectors';
-import {credentialsApi} from '@/lib/api/backend/credentials';
-import {integrationsApi} from '@/lib/api/backend/integrations';
-import {mcpServersApi} from '@/lib/api/backend/mcpServers';
-import {providersApi} from '@/lib/api/backend/providers';
-import {profileApi} from '@/lib/api/backend/profile';
+import { useSearchParams } from 'next/navigation';
+import { connectorsApi } from '@/lib/api/backend/connectors';
+import { credentialsApi } from '@/lib/api/backend/credentials';
+import { integrationsApi } from '@/lib/api/backend/integrations';
+import { mcpServersApi } from '@/lib/api/backend/mcpServers';
+import { providersApi } from '@/lib/api/backend/providers';
+import { profileApi } from '@/lib/api/backend/profile';
 import type {
   SmartHomeEntityListPayload,
   SmartHomeEntitySummary,
 } from '@/lib/api/backend/smartHome';
-import {smartHomeApi} from '@/lib/api/backend/smartHome';
-import {toolsApi} from '@/lib/api/backend/tools';
-import {isApiError} from '@/lib/api/errors';
-import {queryKeys} from '@/lib/react-query/queryKeys';
+import { smartHomeApi } from '@/lib/api/backend/smartHome';
+import { toolsApi } from '@/lib/api/backend/tools';
+import { isApiError } from '@/lib/api/errors';
+import { queryKeys } from '@/lib/react-query/queryKeys';
 import type {
   ConnectorCapabilityDefinition,
   ConnectorHealthHistoryPayload,
@@ -49,22 +51,22 @@ import type {
   PlannedIntegrationDefinition,
   PlannedIntegrationState,
 } from '@/types/integrations';
-import {Badge} from '../library/shadcn/badge';
-import {Button} from '../library/shadcn/button';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '../library/shadcn/card';
-import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
-import {DialogClose} from '../library/shadcn/dialog';
-import {Input} from '../library/shadcn/input';
+import { Badge } from '../library/shadcn/badge';
+import { Button } from '../library/shadcn/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
+import { DialogClose } from '../library/shadcn/dialog';
+import { Input } from '../library/shadcn/input';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '../library/shadcn/accordion';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '../library/shadcn/tabs';
-import {Textarea} from '../library/shadcn/textarea';
-import PageHeader from '@/components/app-shell/PageHeader';
-import {AppDialog} from '@/components/app-shell/AppOverlay';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../library/shadcn/tabs';
+import { Textarea } from '../library/shadcn/textarea';
+import PageHeader, { WorkspaceGuide } from '@/components/app-shell/PageHeader';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import {
   FieldFeedback,
@@ -87,15 +89,17 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Plug,
+  Bot,
   Trash2,
   Wrench,
 } from 'lucide-react';
-import {EmptyCard, ErrorAlert, LoadingCard} from '@/components/agent-app/StatePanels';
-import {toast} from 'sonner';
-import type {ToolDefinition} from '@/types/tools';
-import {cn} from '@/lib/utils';
-import {buildSmartHomeCapabilityMetadata} from '@/modules/smart-home/capabilityMetadata';
-import {getIntegrationSetupGuide} from '@/lib/integrations/setupGuides';
+import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import { toast } from 'sonner';
+import type { ToolDefinition } from '@/types/tools';
+import { cn } from '@/lib/utils';
+import { buildSmartHomeCapabilityMetadata } from '@/modules/smart-home/capabilityMetadata';
+import { getIntegrationSetupGuide } from '@/lib/integrations/setupGuides';
 import {
   buildOneCLIConnectionsUrl,
   buildOneCLIConnectorSetupUrl,
@@ -130,7 +134,7 @@ function subscribeToStaticBrowserLocation() {
 }
 
 function getServerOneCLIAppUrl() {
-  return getOneCLIAppUrl(undefined, {hostname: '', protocol: 'http:'});
+  return getOneCLIAppUrl(undefined, { hostname: '', protocol: 'http:' });
 }
 
 function capabilitySurfaceLabel(surface?: ConnectorCapabilityDefinition['capabilitySurface']) {
@@ -690,8 +694,8 @@ function buildFallbackOneCLISetupGuide(
     notes:
       backendKey === 'telegram-bot'
         ? [
-          'Set OneCLI URL-path injection to /bot{value}. Open Agency sends a placeholder path and never stores the Telegram bot token.',
-        ]
+            'Set OneCLI URL-path injection to /bot{value}. Open Agency sends a placeholder path and never stores the Telegram bot token.',
+          ]
         : [],
   };
 }
@@ -760,92 +764,92 @@ function buildOneCLIGenericSecretGuide(
     },
     ...(profile
       ? [
-        {
-          id: 'host_pattern',
-          label: 'Host pattern',
-          value: profile.hostPattern,
-          description: 'Restricts where OneCLI may inject this secret.',
-          copyable: true,
-        },
-        ...(profile.pathPattern
-          ? [
-            {
-              id: 'path_pattern',
-              label: 'Path pattern',
-              value: profile.pathPattern,
-              description: 'Restricts injection to the provider API path.',
-              copyable: true,
-            },
-          ]
-          : []),
-        {
-          id: 'inject_as',
-          label: 'Inject as',
-          value:
-            profile.injectionTarget === 'url_path'
-              ? 'URL path'
-              : profile.injectionTarget === 'url_parameter'
-                ? 'URL parameter'
-                : 'Header',
-          description: 'Select this injection method in OneCLI.',
-          copyable: true,
-        },
-        ...(profile.headerName
-          ? [
-            {
-              id: 'header_name',
-              label: 'Header name',
-              value: profile.headerName,
-              description: 'OneCLI injects the formatted value into this header.',
-              copyable: true,
-            },
-          ]
-          : []),
-        ...(profile.valueFormat
-          ? [
-            {
-              id: 'value_format',
-              label: 'Value format',
-              value: profile.valueFormat,
-              description: 'OneCLI replaces {value} without exposing it to Open Agency.',
-              copyable: true,
-            },
-          ]
-          : []),
-        ...(profile.parameterName
-          ? [
-            {
-              id: 'parameter_name',
-              label: 'Parameter name',
-              value: profile.parameterName,
-              description: 'OneCLI injects the value into this URL parameter.',
-              copyable: true,
-            },
-          ]
-          : []),
-        ...(profile.parameterFormat
-          ? [
-            {
-              id: 'parameter_format',
-              label: 'Parameter format',
-              value: profile.parameterFormat,
-              description: 'OneCLI replaces {value} in this parameter format.',
-              copyable: true,
-            },
-          ]
-          : []),
-        ...(profile.pathTemplate
-          ? [
-            {
-              id: 'path_template',
-              label: 'Path template',
-              value: profile.pathTemplate,
-              description: 'Required for token-in-path APIs such as Telegram.',
-              copyable: true,
-            },
-          ]
-          : []),
-      ]
+          {
+            id: 'host_pattern',
+            label: 'Host pattern',
+            value: profile.hostPattern,
+            description: 'Restricts where OneCLI may inject this secret.',
+            copyable: true,
+          },
+          ...(profile.pathPattern
+            ? [
+                {
+                  id: 'path_pattern',
+                  label: 'Path pattern',
+                  value: profile.pathPattern,
+                  description: 'Restricts injection to the provider API path.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          {
+            id: 'inject_as',
+            label: 'Inject as',
+            value:
+              profile.injectionTarget === 'url_path'
+                ? 'URL path'
+                : profile.injectionTarget === 'url_parameter'
+                  ? 'URL parameter'
+                  : 'Header',
+            description: 'Select this injection method in OneCLI.',
+            copyable: true,
+          },
+          ...(profile.headerName
+            ? [
+                {
+                  id: 'header_name',
+                  label: 'Header name',
+                  value: profile.headerName,
+                  description: 'OneCLI injects the formatted value into this header.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.valueFormat
+            ? [
+                {
+                  id: 'value_format',
+                  label: 'Value format',
+                  value: profile.valueFormat,
+                  description: 'OneCLI replaces {value} without exposing it to Open Agency.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.parameterName
+            ? [
+                {
+                  id: 'parameter_name',
+                  label: 'Parameter name',
+                  value: profile.parameterName,
+                  description: 'OneCLI injects the value into this URL parameter.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.parameterFormat
+            ? [
+                {
+                  id: 'parameter_format',
+                  label: 'Parameter format',
+                  value: profile.parameterFormat,
+                  description: 'OneCLI replaces {value} in this parameter format.',
+                  copyable: true,
+                },
+              ]
+            : []),
+          ...(profile.pathTemplate
+            ? [
+                {
+                  id: 'path_template',
+                  label: 'Path template',
+                  value: profile.pathTemplate,
+                  description: 'Required for token-in-path APIs such as Telegram.',
+                  copyable: true,
+                },
+              ]
+            : []),
+        ]
       : []),
   ];
 
@@ -855,8 +859,8 @@ function buildOneCLIGenericSecretGuide(
       ? setupGuideNotes
       : backendKey === 'telegram-bot'
         ? [
-          'Telegram uses OneCLI URL-path injection. Set the path template exactly to /bot{value}; Open Agency sends only a placeholder path and never stores the bot token.',
-        ]
+            'Telegram uses OneCLI URL-path injection. Set the path template exactly to /bot{value}; Open Agency sends only a placeholder path and never stores the bot token.',
+          ]
         : [],
   };
 }
@@ -1258,9 +1262,9 @@ function paginationSummaryLabel(totalItems: number, visibleItems: number, startI
 }
 
 function SectionJumpChips({
-                            sections,
-                            onJump,
-                          }: {
+  sections,
+  onJump,
+}: {
   sections: Array<{ id: string; label: string; count: number; targetPage: number }>;
   onJump: (sectionId: string, targetPage: number) => void;
 }) {
@@ -1302,7 +1306,7 @@ function scrollToCategorySection(sectionId: string) {
     return;
   }
 
-  target.scrollIntoView({behavior: 'smooth', block: 'start'});
+  target.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function schemaPropertyNames(schema: unknown): string[] {
@@ -1317,9 +1321,9 @@ function schemaPropertyNames(schema: unknown): string[] {
 }
 
 function ToolIntegrationSummary({
-                                  provider,
-                                  tool,
-                                }: {
+  provider,
+  tool,
+}: {
   provider: IntegrationProvider;
   tool?: ToolDefinition;
 }) {
@@ -1348,8 +1352,7 @@ function ToolIntegrationSummary({
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         <div className={cn('rounded-lg border border-neutral-200 bg-white px-3 py-2', theme.panel)}>
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Tool ID
           </p>
           <p className="mt-1 wrap-break-word text-sm text-neutral-900 dark:text-slate-100">
@@ -1357,8 +1360,7 @@ function ToolIntegrationSummary({
           </p>
         </div>
         <div className={cn('rounded-lg border border-neutral-200 bg-white px-3 py-2', theme.panel)}>
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Type
           </p>
           <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
@@ -1366,8 +1368,7 @@ function ToolIntegrationSummary({
           </p>
         </div>
         <div className={cn('rounded-lg border border-neutral-200 bg-white px-3 py-2', theme.panel)}>
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Inputs
           </p>
           <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
@@ -1382,8 +1383,7 @@ function ToolIntegrationSummary({
           ) : null}
         </div>
         <div className={cn('rounded-lg border border-neutral-200 bg-white px-3 py-2', theme.panel)}>
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Outputs
           </p>
           <p className="mt-1 text-sm text-neutral-900 dark:text-slate-100">
@@ -1437,7 +1437,7 @@ function toolPayloadFromForm(form: {
   };
 }
 
-function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
+function CreateToolCard({ onCreated }: { onCreated: () => Promise<void> }) {
   const [isOpen, setIsOpen] = useState(false);
   const [form, setForm] = useState({
     name: '',
@@ -1496,7 +1496,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
     try {
       await toolsApi.createTool(toolPayloadFromForm(form));
       await onCreated();
-      toast.success('Tool created.', {position: 'top-right'});
+      toast.success('Tool created.', { position: 'top-right' });
       reset();
       setIsOpen(false);
     } catch (createError) {
@@ -1509,7 +1509,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
   return (
     <>
       <Button type="button" variant="outline" onClick={() => setIsOpen(true)}>
-        <Plus className="mr-2 h-4 w-4"/>
+        <Plus className="mr-2 h-4 w-4" />
         New tool
       </Button>
       <AppDialog
@@ -1524,7 +1524,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
         busy={isPending}
         onDiscard={reset}
         size="lg"
-        icon={<Wrench className="size-4" aria-hidden="true"/>}
+        icon={<Wrench className="size-4" aria-hidden="true" />}
         title="New tool"
         description="Create a canonical backend tool definition that agents and workflows can bind to."
         bodyClassName="flex flex-col gap-3"
@@ -1551,7 +1551,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
         <FormSection
           title="Tool identity"
           description="Start with a recognizable name and a plain-language description."
-          icon={<Info className="size-4" aria-hidden="true"/>}
+          icon={<Info className="size-4" aria-hidden="true" />}
           contentClassName="flex flex-col gap-4"
         >
           <FormFieldGroup columns={2}>
@@ -1561,7 +1561,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 required
                 value={form.name}
                 onChange={(event) =>
-                  setForm((current) => ({...current, name: event.target.value}))
+                  setForm((current) => ({ ...current, name: event.target.value }))
                 }
                 onBlur={() => markTouched('name')}
                 aria-invalid={Boolean(nameError)}
@@ -1574,7 +1574,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 id="new-tool-type"
                 value={form.toolType}
                 onChange={(event) =>
-                  setForm((current) => ({...current, toolType: event.target.value}))
+                  setForm((current) => ({ ...current, toolType: event.target.value }))
                 }
                 disabled={isPending}
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
@@ -1598,7 +1598,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 required
                 value={form.description}
                 onChange={(event) =>
-                  setForm((current) => ({...current, description: event.target.value}))
+                  setForm((current) => ({ ...current, description: event.target.value }))
                 }
                 onBlur={() => markTouched('description')}
                 aria-invalid={Boolean(descriptionError)}
@@ -1612,7 +1612,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
         <FormSection
           title="Implementation"
           description="Tell Open Agency where the tool runs and which entrypoint it should call."
-          icon={<Wrench className="size-4" aria-hidden="true"/>}
+          icon={<Wrench className="size-4" aria-hidden="true" />}
         >
           <FormFieldGroup columns={3}>
             <FormField label="Implementation type" htmlFor="new-tool-implementation" required>
@@ -1620,7 +1620,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 id="new-tool-implementation"
                 value={form.implementationType}
                 onChange={(event) =>
-                  setForm((current) => ({...current, implementationType: event.target.value}))
+                  setForm((current) => ({ ...current, implementationType: event.target.value }))
                 }
                 disabled={isPending}
                 className="flex h-10 w-full rounded-lg border border-input bg-background px-3 py-2 text-sm"
@@ -1638,7 +1638,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 required
                 value={form.target}
                 onChange={(event) =>
-                  setForm((current) => ({...current, target: event.target.value}))
+                  setForm((current) => ({ ...current, target: event.target.value }))
                 }
                 onBlur={() => markTouched('target')}
                 aria-invalid={Boolean(targetError)}
@@ -1656,7 +1656,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 id="new-tool-entrypoint"
                 value={form.entrypoint}
                 onChange={(event) =>
-                  setForm((current) => ({...current, entrypoint: event.target.value}))
+                  setForm((current) => ({ ...current, entrypoint: event.target.value }))
                 }
                 aria-describedby="new-tool-entrypoint-feedback"
                 disabled={isPending}
@@ -1679,7 +1679,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 className="min-h-35 font-mono text-xs"
                 value={form.inputSchema}
                 onChange={(event) =>
-                  setForm((current) => ({...current, inputSchema: event.target.value}))
+                  setForm((current) => ({ ...current, inputSchema: event.target.value }))
                 }
                 disabled={isPending}
               />
@@ -1690,7 +1690,7 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
                 className="min-h-35 font-mono text-xs"
                 value={form.outputSchema}
                 onChange={(event) =>
-                  setForm((current) => ({...current, outputSchema: event.target.value}))
+                  setForm((current) => ({ ...current, outputSchema: event.target.value }))
                 }
                 disabled={isPending}
               />
@@ -1705,20 +1705,20 @@ function CreateToolCard({onCreated}: { onCreated: () => Promise<void> }) {
             <Input
               id="new-tool-tags"
               value={form.tags}
-              onChange={(event) => setForm((current) => ({...current, tags: event.target.value}))}
+              onChange={(event) => setForm((current) => ({ ...current, tags: event.target.value }))}
               disabled={isPending}
               placeholder="search, internal"
               aria-describedby="new-tool-tags-feedback"
             />
           </FormField>
         </FormSection>
-        <FieldFeedback error={error}/>
+        <FieldFeedback error={error} />
       </AppDialog>
     </>
   );
 }
 
-function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
+function CreateMcpServerCard({ onCreated }: { onCreated: () => Promise<void> }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState('');
   const [transport, setTransport] = useState<(typeof MCP_TRANSPORT_TYPES)[number]>('stdio');
@@ -1771,7 +1771,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
             `MCP server created, but discovery failed: ${
               discoverError instanceof Error ? discoverError.message : 'Unknown discovery error.'
             }`,
-            {position: 'top-right'}
+            { position: 'top-right' }
           );
           reset();
           setIsOpen(false);
@@ -1794,7 +1794,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
   return (
     <>
       <Button type="button" variant="outline" onClick={() => setIsOpen(true)}>
-        <Plus className="mr-2 h-4 w-4"/>
+        <Plus className="mr-2 h-4 w-4" />
         New MCP server
       </Button>
       <AppDialog
@@ -1809,7 +1809,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
         busy={isPending}
         onDiscard={reset}
         size="md"
-        icon={<PlugZap className="size-4" aria-hidden="true"/>}
+        icon={<PlugZap className="size-4" aria-hidden="true" />}
         title="New MCP server"
         description="Create a backend MCP server definition for tool discovery and runtime use."
         bodyClassName="flex flex-col gap-3"
@@ -1834,7 +1834,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
         <FormSection
           title="Connection"
           description="Choose a recognizable name and the transport used by the server."
-          icon={<PlugZap className="size-4" aria-hidden="true"/>}
+          icon={<PlugZap className="size-4" aria-hidden="true" />}
         >
           <FormFieldGroup columns={2}>
             <FormField label="Name" htmlFor="new-mcp-name" error={nameError} required>
@@ -1872,7 +1872,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
         <FormSection
           title="Runtime command"
           description="Enter the executable and any arguments Open Agency should pass when starting it."
-          icon={<Wrench className="size-4" aria-hidden="true"/>}
+          icon={<Wrench className="size-4" aria-hidden="true" />}
         >
           <FormFieldGroup columns={2}>
             <FormField label="Command" htmlFor="new-mcp-command" error={commandError} required>
@@ -1920,8 +1920,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
               disabled={isPending}
             />
           </FormField>
-          <label
-            className="flex items-start gap-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) p-3 text-sm text-(--agency-shell-text)">
+          <label className="flex items-start gap-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover) p-3 text-sm text-(--agency-shell-text)">
             <Input
               type="checkbox"
               checked={enabled}
@@ -1937,7 +1936,7 @@ function CreateMcpServerCard({onCreated}: { onCreated: () => Promise<void> }) {
             </span>
           </label>
         </FormSection>
-        <FieldFeedback error={error}/>
+        <FieldFeedback error={error} />
       </AppDialog>
     </>
   );
@@ -1948,7 +1947,7 @@ function ManageModelProfilesButton() {
     <div className="flex flex-wrap gap-2">
       <Button type="button" variant="outline" asChild>
         <Link href="/models">
-          <ArrowRight className="mr-2 h-4 w-4"/>
+          <ArrowRight className="mr-2 h-4 w-4" />
           Manage models
         </Link>
       </Button>
@@ -2091,7 +2090,7 @@ function isEmbeddingModelProfile(profile?: ModelProfileDefinition) {
   );
 }
 
-function LlmPresetSummary({preset}: { preset: IntegrationProvider }) {
+function LlmPresetSummary({ preset }: { preset: IntegrationProvider }) {
   const rawProfile = preset.raw as unknown as ModelProfileDefinition | undefined;
   const capabilities = preset.capabilities ?? [];
   const embeddingReady = isEmbeddingModelProfile(rawProfile);
@@ -2104,7 +2103,7 @@ function LlmPresetSummary({preset}: { preset: IntegrationProvider }) {
         cue.card
       )}
     >
-      <span className={cn('absolute inset-y-0 left-0 w-1', cue.accent)}/>
+      <span className={cn('absolute inset-y-0 left-0 w-1', cue.accent)} />
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="pl-2">
           <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">{preset.name}</p>
@@ -2134,7 +2133,7 @@ function LlmPresetSummary({preset}: { preset: IntegrationProvider }) {
   );
 }
 
-function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) {
+function LlmModelsInventoryPanel({ category }: { category: IntegrationCategory }) {
   const theme = supportedCategoryTheme(category.id);
   const connections = category.providers
     .filter((provider) => provider.kind === 'model_provider')
@@ -2143,7 +2142,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
       raw: provider.raw as unknown as ModelProviderDefinition | undefined,
     }));
   const presets = category.providers.filter((provider) => provider.kind === 'model_profile');
-  const connectionIds = new Set(connections.map(({provider}) => provider.id));
+  const connectionIds = new Set(connections.map(({ provider }) => provider.id));
   const unlinkedPresets = presets.filter((preset) => {
     const rawProfile = preset.raw as unknown as ModelProfileDefinition | undefined;
     return !rawProfile?.provider || !connectionIds.has(rawProfile.provider);
@@ -2154,8 +2153,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
 
   return (
     <div className="flex flex-col gap-4">
-      <div
-        className="flex flex-col items-start justify-between gap-3 border-b border-neutral-200 pb-4 sm:flex-row dark:border-white/10">
+      <div className="flex flex-col items-start justify-between gap-3 border-b border-neutral-200 pb-4 sm:flex-row dark:border-white/10">
         <div>
           <h2 className={cn('text-xl font-semibold text-neutral-900', theme.title)}>
             {category.name}
@@ -2165,7 +2163,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
             bind agents, and embedding presets can power memory retrieval.
           </p>
         </div>
-        <ManageModelProfilesButton/>
+        <ManageModelProfilesButton />
       </div>
 
       <div className="grid grid-cols-3 gap-2 sm:gap-3">
@@ -2175,12 +2173,10 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
             theme.panelMuted
           )}
         >
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Connections
           </p>
-          <p
-            className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
+          <p className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
             {connections.length}
           </p>
         </div>
@@ -2190,12 +2186,10 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
             theme.panelMuted
           )}
         >
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Model presets
           </p>
-          <p
-            className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
+          <p className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
             {presets.length}
           </p>
         </div>
@@ -2205,12 +2199,10 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
             theme.panelMuted
           )}
         >
-          <p
-            className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
             Memory candidates
           </p>
-          <p
-            className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
+          <p className="mt-1 text-xl font-semibold text-neutral-900 sm:text-2xl dark:text-slate-100">
             {embeddingPresetCount}
           </p>
         </div>
@@ -2223,7 +2215,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
         />
       ) : (
         <div className="grid gap-3 lg:grid-cols-3">
-          {connections.map(({provider, raw}) => {
+          {connections.map(({ provider, raw }) => {
             const linkedPresets = presets.filter((preset) => {
               const rawProfile = preset.raw as unknown as ModelProfileDefinition | undefined;
               return rawProfile?.provider === provider.id;
@@ -2241,7 +2233,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
                 key={provider.id}
                 className={cn('relative overflow-hidden rounded-xl shadow-none', cue.card)}
               >
-                <span className={cn('absolute inset-x-0 top-0 h-1', cue.accent)}/>
+                <span className={cn('absolute inset-x-0 top-0 h-1', cue.accent)} />
                 <CardHeader>
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -2271,12 +2263,10 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
                         theme.panel
                       )}
                     >
-                      <p
-                        className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                         Endpoint
                       </p>
-                      <p
-                        className="mt-1 wrap-break-word text-sm text-neutral-800 dark:text-slate-100">
+                      <p className="mt-1 wrap-break-word text-sm text-neutral-800 dark:text-slate-100">
                         {baseUrl || 'Not set'}
                       </p>
                     </div>
@@ -2286,8 +2276,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
                         theme.panel
                       )}
                     >
-                      <p
-                        className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                         Credentials
                       </p>
                       <p className="mt-1 text-sm text-neutral-800 dark:text-slate-100">
@@ -2299,19 +2288,17 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
                   </div>
 
                   <div className="space-y-2">
-                    <p
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                       Model presets
                     </p>
                     {linkedPresets.length > 0 ? (
                       <div className="space-y-2">
                         {linkedPresets.map((preset) => (
-                          <LlmPresetSummary key={preset.id} preset={preset}/>
+                          <LlmPresetSummary key={preset.id} preset={preset} />
                         ))}
                       </div>
                     ) : (
-                      <p
-                        className="rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-3 text-sm text-neutral-500 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-400">
+                      <p className="rounded-lg border border-dashed border-neutral-300 bg-white px-3 py-3 text-sm text-neutral-500 dark:border-white/10 dark:bg-slate-950/72 dark:text-slate-400">
                         No model presets are attached to this connection yet.
                       </p>
                     )}
@@ -2324,8 +2311,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
       )}
 
       {unlinkedPresets.length > 0 ? (
-        <Card
-          className="border-amber-200 bg-amber-50 dark:border-amber-400/25 dark:bg-amber-500/10">
+        <Card className="border-amber-200 bg-amber-50 dark:border-amber-400/25 dark:bg-amber-500/10">
           <CardHeader>
             <CardTitle className="text-lg dark:text-amber-100">Unlinked model presets</CardTitle>
             <CardDescription className="dark:text-amber-200">
@@ -2335,7 +2321,7 @@ function LlmModelsInventoryPanel({category}: { category: IntegrationCategory }) 
           </CardHeader>
           <CardContent className="space-y-2">
             {unlinkedPresets.map((preset) => (
-              <LlmPresetSummary key={preset.id} preset={preset}/>
+              <LlmPresetSummary key={preset.id} preset={preset} />
             ))}
           </CardContent>
         </Card>
@@ -2614,12 +2600,12 @@ function openIntegrationConnector(categoryId: string, connectorId: string) {
 }
 
 function CategoryPagination({
-                              categoryId,
-                              currentPage,
-                              totalPages,
-                              totalItems,
-                              onChange,
-                            }: {
+  categoryId,
+  currentPage,
+  totalPages,
+  totalItems,
+  onChange,
+}: {
   categoryId: string;
   currentPage: number;
   totalPages: number;
@@ -2631,8 +2617,7 @@ function CategoryPagination({
   }
 
   return (
-    <div
-      className="mb-24 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 pr-24 shadow-sm dark:border-white/10 dark:bg-slate-950/70 dark:shadow-none md:pr-28">
+    <div className="mb-24 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 pr-24 shadow-sm dark:border-white/10 dark:bg-slate-950/70 dark:shadow-none md:pr-28">
       <p className="text-sm text-neutral-500 dark:text-slate-300">
         {totalItems} integration{totalItems === 1 ? '' : 's'} across {totalPages} pages.
       </p>
@@ -2665,10 +2650,10 @@ function CategoryPagination({
 }
 
 function CategorySummaryTile({
-                               label,
-                               value,
-                               tone = 'default',
-                             }: {
+  label,
+  value,
+  tone = 'default',
+}: {
   label: string;
   value: string | number;
   tone?: 'default' | 'primary' | 'success' | 'warning';
@@ -2683,8 +2668,7 @@ function CategorySummaryTile({
 
   return (
     <div className={cn('rounded-2xl border px-4 py-3 shadow-sm dark:shadow-none', toneClassName)}>
-      <p
-        className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-slate-400">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-neutral-500 dark:text-slate-400">
         {label}
       </p>
       <p className="mt-2 text-2xl font-semibold text-neutral-950 dark:text-slate-50">{value}</p>
@@ -2746,7 +2730,7 @@ function groupPlannedProvidersBySection(
   providers: PlannedProviderSectionEntry[]
 ): PlannedProviderSection[] {
   if (categoryId !== 'communications') {
-    return [{name: null, providers}];
+    return [{ name: null, providers }];
   }
 
   const sectionOrder = ['Messaging & chat', 'SMS & voice', 'Email'];
@@ -2759,24 +2743,24 @@ function groupPlannedProvidersBySection(
 
   return [
     ...sectionOrder
-      .map((name) => ({name, providers: groups.get(name) ?? []}))
+      .map((name) => ({ name, providers: groups.get(name) ?? [] }))
       .filter((group) => group.providers.length > 0),
     ...Array.from(groups.entries())
       .filter(([name]) => !sectionOrder.includes(name))
-      .map(([name, sectionProviders]) => ({name, providers: sectionProviders})),
+      .map(([name, sectionProviders]) => ({ name, providers: sectionProviders })),
   ];
 }
 
 function PlannedProviderCard({
-                               provider,
-                               onRefresh,
-                               onConnectorTestResult,
-                               isSelected,
-                               onSelect,
-                               readinessState,
-                               capabilityOverride,
-                               autoOpenSetup,
-                             }: {
+  provider,
+  onRefresh,
+  onConnectorTestResult,
+  isSelected,
+  onSelect,
+  readinessState,
+  capabilityOverride,
+  autoOpenSetup,
+}: {
   provider: IntegrationProvider;
   onRefresh: () => Promise<void>;
   onConnectorTestResult: (credentialId: string, result: Record<string, unknown>) => void;
@@ -2786,6 +2770,7 @@ function PlannedProviderCard({
   capabilityOverride?: ConnectorCapabilityDefinition | null;
   autoOpenSetup?: boolean;
 }) {
+  const fieldIdPrefix = useId();
   const cardRef = useRef<HTMLButtonElement | null>(null);
   const queryClient = useQueryClient();
   const planned = provider.raw as PlannedIntegrationState | undefined;
@@ -2807,7 +2792,7 @@ function PlannedProviderCard({
   const [setupBaseline, setSetupBaseline] = useState<{
     name: string;
     metadata: Record<string, string>;
-  }>({name: provider.name, metadata: {}});
+  }>({ name: provider.name, metadata: {} });
   const [setupSession, setSetupSession] = useState<ConnectorSetupSessionPayload | null>(null);
   const [onecliFrameLoaded, setOneCLIFrameLoaded] = useState(false);
   const [setupClock, setSetupClock] = useState(() => Date.now());
@@ -2883,8 +2868,8 @@ function PlannedProviderCard({
     ) ?? null;
   const sessionInstallation: ConnectorInstallationDefinition | null = setupSession
     ? (installationsQuery.data?.items.find(
-      (installation) => installation.id === setupSession.installation.id
-    ) ?? setupSession.installation)
+        (installation) => installation.id === setupSession.installation.id
+      ) ?? setupSession.installation)
     : null;
   const latestInstallation: ConnectorInstallationDefinition | null =
     sessionInstallation ?? (isUpdateMode ? providerInstallation : null);
@@ -2916,11 +2901,11 @@ function PlannedProviderCard({
       let resumedSession: ConnectorSetupSessionPayload | null = null;
 
       const [schemaResult, existingCredentialResult, installationResult] = await Promise.all([
-        backendKey ? schemaQuery.refetch() : Promise.resolve({data: null}),
+        backendKey ? schemaQuery.refetch() : Promise.resolve({ data: null }),
         mode === 'update' && matchedCredentialId
           ? existingCredentialQuery.refetch()
-          : Promise.resolve({data: null}),
-        mode === 'new' ? installationsQuery.refetch() : Promise.resolve({data: null}),
+          : Promise.resolve({ data: null }),
+        mode === 'new' ? installationsQuery.refetch() : Promise.resolve({ data: null }),
       ]);
 
       if (mode === 'new') {
@@ -2980,7 +2965,7 @@ function PlannedProviderCard({
       setNameTouched(false);
       setName(nextName);
       setMetadataValues(nextMetadata);
-      setSetupBaseline({name: nextName, metadata: nextMetadata});
+      setSetupBaseline({ name: nextName, metadata: nextMetadata });
     },
     [
       backendKey,
@@ -3011,18 +2996,18 @@ function PlannedProviderCard({
       return connectorsApi.createConnectorSetupSession(backendKey, payload);
     },
     onSuccess: async (result) => {
-      await queryClient.invalidateQueries({queryKey: queryKeys.backendIntegrations()});
-      await queryClient.invalidateQueries({queryKey: ['connectorInstallations']});
+      await queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() });
+      await queryClient.invalidateQueries({ queryKey: ['connectorInstallations'] });
       await onRefresh();
       if (isConnectorSetupSessionPayload(result)) {
         setSetupSession(result);
         setOneCLIFrameLoaded(false);
         setSetupClock(Date.now());
-        setSetupBaseline({name, metadata: metadataValues});
-        toast.success('OneCLI setup session created.', {position: 'top-right'});
+        setSetupBaseline({ name, metadata: metadataValues });
+        toast.success('OneCLI setup session created.', { position: 'top-right' });
         return;
       }
-      toast.success('Connector credential updated.', {position: 'top-right'});
+      toast.success('Connector credential updated.', { position: 'top-right' });
       setIsOpen(false);
     },
     onError: (error) => {
@@ -3051,11 +3036,11 @@ function PlannedProviderCard({
       return connectorsApi.completeConnectorInstallation(latestInstallation.id, payload);
     },
     onSuccess: async () => {
-      await queryClient.invalidateQueries({queryKey: queryKeys.backendIntegrations()});
-      await queryClient.invalidateQueries({queryKey: ['connectorInstallations']});
+      await queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() });
+      await queryClient.invalidateQueries({ queryKey: ['connectorInstallations'] });
       await installationsQuery.refetch();
       await onRefresh();
-      toast.success('Connector setup completed.', {position: 'top-right'});
+      toast.success('Connector setup completed.', { position: 'top-right' });
       if (!['telegram-bot', 'whatsapp-cloud-api'].includes(backendKey)) setIsOpen(false);
     },
     onError: (error) => {
@@ -3075,9 +3060,9 @@ function PlannedProviderCard({
       if (matchedCredentialId) {
         onConnectorTestResult(matchedCredentialId, result);
       }
-      void queryClient.invalidateQueries({queryKey: ['aggregateConnectorHistory']});
+      void queryClient.invalidateQueries({ queryKey: ['aggregateConnectorHistory'] });
       void historyQuery.refetch();
-      toast.success('Connector test completed.', {position: 'top-right'});
+      toast.success('Connector test completed.', { position: 'top-right' });
     },
     onError: (error) => {
       const result = {
@@ -3101,14 +3086,14 @@ function PlannedProviderCard({
     },
     onSuccess: async () => {
       await Promise.all([
-        queryClient.invalidateQueries({queryKey: ['connectorInstallations']}),
+        queryClient.invalidateQueries({ queryKey: ['connectorInstallations'] }),
         queryClient.invalidateQueries({
           queryKey: ['connectorHistory', matchedCredentialId ?? ''],
         }),
-        queryClient.invalidateQueries({queryKey: ['aggregateConnectorHistory']}),
+        queryClient.invalidateQueries({ queryKey: ['aggregateConnectorHistory'] }),
         onRefresh(),
       ]);
-      toast.success('Connector instance deleted.', {position: 'top-right'});
+      toast.success('Connector instance deleted.', { position: 'top-right' });
     },
     onError: (error) => {
       toast.error(error instanceof Error ? error.message : 'Failed to delete connector instance.', {
@@ -3127,8 +3112,8 @@ function PlannedProviderCard({
       setOneCLIFrameLoaded(false);
       setSaveError(null);
       await Promise.all([
-        queryClient.invalidateQueries({queryKey: ['connectorInstallations']}),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendIntegrations()}),
+        queryClient.invalidateQueries({ queryKey: ['connectorInstallations'] }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() }),
         onRefresh(),
       ]);
       toast.success('Setup session abandoned. You can start a fresh one.', {
@@ -3146,12 +3131,12 @@ function PlannedProviderCard({
   const capabilitySetupGuide = effectiveCapability.onecliSetupGuide;
   const onecliSetupGuide = researchedSetupGuide
     ? {
-      ...capabilitySetupGuide,
-      ...researchedSetupGuide,
-      // A live backend schema remains authoritative for the fields OneCLI accepts.
-      fields: capabilitySetupGuide?.fields ?? researchedSetupGuide.fields,
-      options: capabilitySetupGuide?.options ?? researchedSetupGuide.options,
-    }
+        ...capabilitySetupGuide,
+        ...researchedSetupGuide,
+        // A live backend schema remains authoritative for the fields OneCLI accepts.
+        fields: capabilitySetupGuide?.fields ?? researchedSetupGuide.fields,
+        options: capabilitySetupGuide?.options ?? researchedSetupGuide.options,
+      }
     : (capabilitySetupGuide ?? buildFallbackOneCLISetupGuide(provider, planned));
   const setupSupported =
     effectiveCapability.setupSupported ??
@@ -3199,10 +3184,10 @@ function PlannedProviderCard({
   const persistedHealthResult =
     !lastHealthResult && historyItems.length > 0
       ? {
-        ok: historyItems[0].status === 'completed',
-        error: historyItems[0].error ?? null,
-        audit_execution_id: historyItems[0].executionId,
-      }
+          ok: historyItems[0].status === 'completed',
+          error: historyItems[0].error ?? null,
+          audit_execution_id: historyItems[0].executionId,
+        }
       : null;
   const effectiveLastHealthResult = lastHealthResult ?? persistedHealthResult;
   const lastHealthOk = effectiveLastHealthResult?.ok === true;
@@ -3221,10 +3206,10 @@ function PlannedProviderCard({
   const onecliCopyRows = onecliGenericSecretGuide.rows.filter((row) => Boolean(row.value));
   const setupUrl = setupSession
     ? buildOneCLIConnectorSetupUrl({
-      setupUrl: setupSession.setup_url,
-      nativeAppId: effectiveCapability.onecliAppId,
-      genericSecret: onecliGenericSecretPrefill(onecliCopyRows),
-    })
+        setupUrl: setupSession.setup_url,
+        nativeAppId: effectiveCapability.onecliAppId,
+        genericSecret: onecliGenericSecretPrefill(onecliCopyRows),
+      })
     : null;
   const onecliEmbedIsolated = setupUrl
     ? isTrustedOneCLIEmbedUrl(setupUrl, trustedOneCLIAppUrl)
@@ -3237,8 +3222,8 @@ function PlannedProviderCard({
   const selectedInstallation =
     selectedCredential?.secret_ref && installationsQuery.data?.items
       ? (installationsQuery.data.items.find(
-        (installation) => installation.onecli_credential_ref === selectedCredential.secret_ref
-      ) ?? null)
+          (installation) => installation.onecli_credential_ref === selectedCredential.secret_ref
+        ) ?? null)
       : null;
   const selectedDeleteInstallationId = selectedInstallation?.id ?? latestInstallation?.id ?? null;
   const selectedCredentialMetadata = selectedCredential?.metadata ?? {};
@@ -3277,7 +3262,7 @@ function PlannedProviderCard({
     }
     const interval = window.setInterval(() => {
       void installationsQuery.refetch();
-      void queryClient.invalidateQueries({queryKey: queryKeys.backendIntegrations()});
+      void queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() });
     }, 4000);
     return () => window.clearInterval(interval);
   }, [installationsQuery, isOpen, queryClient, setupSession, setupSessionCompleted]);
@@ -3301,9 +3286,9 @@ function PlannedProviderCard({
       }
 
       if (typeof card.scrollIntoView === 'function') {
-        card.scrollIntoView({block: 'center', behavior: 'smooth'});
+        card.scrollIntoView({ block: 'center', behavior: 'smooth' });
       }
-      card.focus({preventScroll: true});
+      card.focus({ preventScroll: true });
     });
 
     return () => window.cancelAnimationFrame(frame);
@@ -3329,10 +3314,10 @@ function PlannedProviderCard({
   const copyOneCLIValue = async (label: string, value: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied.`, {position: 'top-right'});
+      toast.success(`${label} copied.`, { position: 'top-right' });
     } catch (error) {
       console.error('Unable to copy OneCLI setup value.', error);
-      toast.error('Copy failed.', {position: 'top-right'});
+      toast.error('Copy failed.', { position: 'top-right' });
     }
   };
 
@@ -3346,7 +3331,7 @@ function PlannedProviderCard({
           isSelected ? 'border-primary-500 ring-2 ring-primary-100 xl:col-span-2' : ''
         )}
       >
-        <span className={cn('absolute inset-x-0 top-0 h-1', readinessCue.accent)}/>
+        <span className={cn('absolute inset-x-0 top-0 h-1', readinessCue.accent)} />
         <CardHeader className="p-0">
           <button
             ref={cardRef}
@@ -3405,8 +3390,7 @@ function PlannedProviderCard({
             {capabilitySurface === 'module' ||
             moduleCapabilities.length > 0 ||
             agencyCapabilityDependencies.length > 0 ? (
-              <div
-                className="rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
+              <div className="rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
@@ -3426,8 +3410,7 @@ function PlannedProviderCard({
                 </div>
                 {moduleCapabilities.length > 0 ? (
                   <div className="mt-3">
-                    <p
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
                       Smart Home owns
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -3441,8 +3424,7 @@ function PlannedProviderCard({
                 ) : null}
                 {agencyCapabilityDependencies.length > 0 ? (
                   <div className="mt-3">
-                    <p
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-sky-800 dark:text-sky-200">
                       Uses Open Agency capabilities
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2">
@@ -3456,8 +3438,7 @@ function PlannedProviderCard({
                 ) : null}
               </div>
             ) : null}
-            <div
-              className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
               <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                 Credential inventory
               </p>
@@ -3465,10 +3446,8 @@ function PlannedProviderCard({
                 {provider.credentialStatus.message}
               </p>
               {provider.credentialStatus.refs.length ? (
-                <details
-                  className="group mt-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover)/40">
-                  <summary
-                    className="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-(--agency-shell-muted) outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <details className="group mt-3 rounded-lg border border-(--agency-shell-border) bg-(--agency-row-hover)/40">
+                  <summary className="cursor-pointer list-none px-3 py-2 text-xs font-semibold text-(--agency-shell-muted) outline-none focus-visible:ring-2 focus-visible:ring-ring">
                     Credential references (advanced)
                   </summary>
                   <div className="space-y-2 border-t border-(--agency-shell-border) px-3 py-3">
@@ -3479,8 +3458,7 @@ function PlannedProviderCard({
                       >
                         <Badge variant="outline">{reference.name}</Badge>
                         {reference.description ? (
-                          <p
-                            className="wrap-break-word text-xs text-neutral-500 dark:text-slate-400">
+                          <p className="wrap-break-word text-xs text-neutral-500 dark:text-slate-400">
                             {reference.description}
                           </p>
                         ) : null}
@@ -3490,13 +3468,11 @@ function PlannedProviderCard({
                 </details>
               ) : null}
               {matchedCredentials.length > 1 ? (
-                <div className="mt-4 space-y-1">
-                  <label
-                    htmlFor={`${provider.id}-active-instance`}
-                    className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400"
-                  >
-                    Active instance
-                  </label>
+                <FormField
+                  label="Active instance"
+                  htmlFor={`${provider.id}-active-instance`}
+                  className="mt-4 "
+                >
                   <NativeSelect
                     id={`${provider.id}-active-instance`}
                     className="h-10 w-full rounded-md border border-neutral-200 bg-white px-3 text-sm text-neutral-900 shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:border-white/10 dark:bg-slate-900 dark:text-slate-100"
@@ -3511,7 +3487,7 @@ function PlannedProviderCard({
                       </option>
                     ))}
                   </NativeSelect>
-                </div>
+                </FormField>
               ) : null}
               {hasCredentials ? (
                 <div className="mt-4 flex flex-wrap gap-2">
@@ -3532,7 +3508,7 @@ function PlannedProviderCard({
                         variant="outline"
                         disabled={deleteMutation.isPending || !selectedDeleteInstallationId}
                       >
-                        <Trash2 data-icon="inline-start" className="h-4 w-4"/>
+                        <Trash2 data-icon="inline-start" className="h-4 w-4" />
                         Delete selected instance
                       </Button>
                     }
@@ -3540,8 +3516,7 @@ function PlannedProviderCard({
                 </div>
               ) : null}
               {matchedCredentials.length > 1 ? (
-                <div
-                  className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10">
+                <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-300/25 dark:bg-amber-400/10">
                   <p className="text-sm font-medium text-amber-950 dark:text-amber-100">
                     Multiple instances detected
                   </p>
@@ -3553,10 +3528,8 @@ function PlannedProviderCard({
                 </div>
               ) : null}
               {selectedCredential ? (
-                <div
-                  className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/4">
-                  <p
-                    className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                <div className="mt-4 rounded-lg border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/4">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                     How agents identify this instance
                   </p>
                   <p className="mt-1 wrap-break-word text-sm text-neutral-700 dark:text-slate-300">
@@ -3566,8 +3539,7 @@ function PlannedProviderCard({
                 </div>
               ) : null}
             </div>
-            <div
-              className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+            <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
               <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                 Connector setup
               </p>
@@ -3684,9 +3656,9 @@ function PlannedProviderCard({
                       )}
                     >
                       {lastHealthOk ? (
-                        <CheckCircle2 className="size-4" aria-hidden="true"/>
+                        <CheckCircle2 className="size-4" aria-hidden="true" />
                       ) : (
-                        <CircleAlert className="size-4" aria-hidden="true"/>
+                        <CircleAlert className="size-4" aria-hidden="true" />
                       )}
                     </span>
                     <div>
@@ -3697,7 +3669,7 @@ function PlannedProviderCard({
                         {lastHealthOk
                           ? 'Backend health check succeeded for the saved connector credential.'
                           : toStringValue(effectiveLastHealthResult.error) ||
-                          'Backend health check failed.'}
+                            'Backend health check failed.'}
                       </p>
                       {healthFailureHint ? (
                         <p className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-200">
@@ -3723,8 +3695,7 @@ function PlannedProviderCard({
               </div>
             ) : null}
             {hasCredentials ? (
-              <div
-                className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
+              <div className="rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/70">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -3801,8 +3772,7 @@ function PlannedProviderCard({
             ) : null}
           </CardContent>
         ) : (
-          <CardContent
-            className="flex flex-wrap items-center justify-between gap-3 border-t border-(--agency-shell-border) px-5 pb-4 pt-4 sm:px-5 sm:pb-4 sm:pt-4">
+          <CardContent className="flex flex-wrap items-center justify-between gap-3 border-t border-(--agency-shell-border) px-5 pb-4 pt-4 sm:px-5 sm:pb-4 sm:pt-4">
             <div>
               <p className="text-xs font-medium text-(--agency-shell-text)">
                 {hasCredentials
@@ -3881,7 +3851,7 @@ function PlannedProviderCard({
               ? 'Scan the QR on your phone, confirm the test, then enable alerts.'
               : 'Follow the guided handoff to create a secure connector credential.'
         }
-        icon={<PlugZap className="size-4" aria-hidden="true"/>}
+        icon={<PlugZap className="size-4" aria-hidden="true" />}
         footer={
           <>
             {setupSession && !setupSessionCompleted ? (
@@ -3908,15 +3878,15 @@ function PlannedProviderCard({
                   ? false
                   : completionAvailable
                     ? completeInstallationMutation.isPending ||
-                    schemaQuery.isLoading ||
-                    missingRequiredMetadata ||
-                    setupSessionExpired
+                      schemaQuery.isLoading ||
+                      missingRequiredMetadata ||
+                      setupSessionExpired
                     : saveMutation.isPending ||
-                    schemaQuery.isLoading ||
-                    !name.trim() ||
-                    !canStartSetup ||
-                    missingRequiredMetadata ||
-                    (!isUpdateMode && !setupSupported)
+                      schemaQuery.isLoading ||
+                      !name.trim() ||
+                      !canStartSetup ||
+                      missingRequiredMetadata ||
+                      (!isUpdateMode && !setupSupported)
               }
               onClick={() => {
                 if (
@@ -3953,11 +3923,11 @@ function PlannedProviderCard({
         }
       >
         {backendKey === 'whatsapp-personal' ? (
-          <WhatsAppNotificationSetup mode="personal"/>
+          <WhatsAppNotificationSetup mode="personal" />
         ) : schemaQuery.isLoading ||
-        schemaQuery.isFetching ||
-        existingCredentialQuery.isLoading ||
-        existingCredentialQuery.isFetching ? (
+          schemaQuery.isFetching ||
+          existingCredentialQuery.isLoading ||
+          existingCredentialQuery.isFetching ? (
           <LoadingCard
             title="Connector schema"
             description="Loading connector credential requirements."
@@ -3965,10 +3935,10 @@ function PlannedProviderCard({
         ) : (
           <div className="flex flex-col gap-3">
             {backendKey === 'whatsapp-cloud-api' && latestInstallation?.status === 'active' ? (
-              <WhatsAppNotificationSetup installation={latestInstallation} mode="business"/>
+              <WhatsAppNotificationSetup installation={latestInstallation} mode="business" />
             ) : null}
             {backendKey === 'telegram-bot' && latestInstallation?.status === 'active' ? (
-              <TelegramNotificationSetup installation={latestInstallation}/>
+              <TelegramNotificationSetup installation={latestInstallation} />
             ) : null}
             <ol
               aria-label="Connector setup progress"
@@ -4048,20 +4018,17 @@ function PlannedProviderCard({
                 data-testid={`provider-setup-guide-${backendKey}`}
                 className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm dark:border-sky-400/20 dark:bg-slate-950/80"
               >
-                <summary
-                  className="cursor-pointer list-none border-b border-sky-100 bg-linear-to-br from-sky-50 via-white to-cyan-50 px-4 py-4 dark:border-sky-400/15 dark:from-sky-500/12 dark:via-slate-950 dark:to-cyan-500/8">
+                <summary className="cursor-pointer list-none border-b border-sky-100 bg-linear-to-br from-sky-50 via-white to-cyan-50 px-4 py-4 dark:border-sky-400/15 dark:from-sky-500/12 dark:via-slate-950 dark:to-cyan-500/8">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="flex min-w-0 items-start gap-3">
-                      <div
-                        className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white shadow-sm shadow-sky-600/20 dark:bg-sky-500">
-                        <BookOpen className="size-4" aria-hidden="true"/>
+                      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-sky-600 text-white shadow-sm shadow-sky-600/20 dark:bg-sky-500">
+                        <BookOpen className="size-4" aria-hidden="true" />
                       </div>
                       <div>
                         <p className="text-sm font-semibold text-neutral-950 dark:text-slate-50">
                           Provider setup guide
                         </p>
-                        <p
-                          className="mt-1 max-w-2xl text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                        <p className="mt-1 max-w-2xl text-xs leading-5 text-neutral-600 dark:text-slate-300">
                           Complete the provider-side work first, then use the secure OneCLI handoff
                           below. Secret values should never be pasted into Open Agency metadata.
                         </p>
@@ -4073,7 +4040,7 @@ function PlannedProviderCard({
                           variant="outline"
                           className="gap-1.5 bg-white/75 dark:bg-slate-950/70"
                         >
-                          <Clock3 className="size-3" aria-hidden="true"/>
+                          <Clock3 className="size-3" aria-hidden="true" />
                           About {onecliSetupGuide.estimatedMinutes} min
                         </Badge>
                       ) : null}
@@ -4089,8 +4056,7 @@ function PlannedProviderCard({
                 <div className="space-y-5 p-4">
                   {onecliSetupGuide.prerequisites?.length ? (
                     <div>
-                      <p
-                        className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                         Before you start
                       </p>
                       <div className="mt-2 grid gap-2 md:grid-cols-2">
@@ -4111,8 +4077,7 @@ function PlannedProviderCard({
                   ) : null}
 
                   <div>
-                    <p
-                      className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                       Setup steps
                     </p>
                     <ol className="mt-3 space-y-3">
@@ -4124,22 +4089,18 @@ function PlannedProviderCard({
                               aria-hidden="true"
                             />
                           ) : null}
-                          <span
-                            className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-sky-200 bg-sky-50 text-xs font-semibold text-sky-700 dark:border-sky-400/30 dark:bg-sky-500/15 dark:text-sky-200">
+                          <span className="relative z-10 flex size-8 shrink-0 items-center justify-center rounded-full border-2 border-sky-200 bg-sky-50 text-xs font-semibold text-sky-700 dark:border-sky-400/30 dark:bg-sky-500/15 dark:text-sky-200">
                             {index + 1}
                           </span>
-                          <div
-                            className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-3 dark:border-white/10">
+                          <div className="min-w-0 flex-1 rounded-lg border border-neutral-200 px-3 py-3 dark:border-white/10">
                             <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                               {step.title}
                             </p>
-                            <p
-                              className="mt-1 text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                            <p className="mt-1 text-xs leading-5 text-neutral-600 dark:text-slate-300">
                               {step.description}
                             </p>
                             {step.details?.length ? (
-                              <ul
-                                className="mt-2 space-y-1.5 border-l-2 border-sky-100 pl-3 text-xs leading-5 text-neutral-500 dark:border-sky-400/20 dark:text-slate-400">
+                              <ul className="mt-2 space-y-1.5 border-l-2 border-sky-100 pl-3 text-xs leading-5 text-neutral-500 dark:border-sky-400/20 dark:text-slate-400">
                                 {step.details.map((detail) => (
                                   <li key={detail}>{detail}</li>
                                 ))}
@@ -4153,18 +4114,15 @@ function PlannedProviderCard({
 
                   <div className="grid gap-3 lg:grid-cols-2">
                     {onecliSetupGuide.verification?.length ? (
-                      <div
-                        className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-400/20 dark:bg-emerald-500/8">
-                        <div
-                          className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-100">
-                          <CheckCircle2 className="size-3.5" aria-hidden="true"/>
+                      <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-400/20 dark:bg-emerald-500/8">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-emerald-950 dark:text-emerald-100">
+                          <CheckCircle2 className="size-3.5" aria-hidden="true" />
                           Verify it works
                         </div>
-                        <ul
-                          className="mt-2 space-y-2 text-xs leading-5 text-emerald-900 dark:text-emerald-200">
+                        <ul className="mt-2 space-y-2 text-xs leading-5 text-emerald-900 dark:text-emerald-200">
                           {onecliSetupGuide.verification.map((item) => (
                             <li key={item} className="flex gap-2">
-                              <span className="mt-2 size-1 shrink-0 rounded-full bg-emerald-500"/>
+                              <span className="mt-2 size-1 shrink-0 rounded-full bg-emerald-500" />
                               <span>{item}</span>
                             </li>
                           ))}
@@ -4172,11 +4130,9 @@ function PlannedProviderCard({
                       </div>
                     ) : null}
                     {onecliSetupGuide.troubleshooting?.length ? (
-                      <div
-                        className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-400/20 dark:bg-amber-500/8">
-                        <div
-                          className="flex items-center gap-2 text-xs font-semibold text-amber-950 dark:text-amber-100">
-                          <CircleAlert className="size-3.5" aria-hidden="true"/>
+                      <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3 dark:border-amber-400/20 dark:bg-amber-500/8">
+                        <div className="flex items-center gap-2 text-xs font-semibold text-amber-950 dark:text-amber-100">
+                          <CircleAlert className="size-3.5" aria-hidden="true" />
                           Common blockers
                         </div>
                         <dl className="mt-2 space-y-2 text-xs leading-5">
@@ -4196,10 +4152,8 @@ function PlannedProviderCard({
                   </div>
 
                   {onecliSetupGuide.resources?.length ? (
-                    <div
-                      className="flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-4 dark:border-white/8">
-                      <span
-                        className="mr-1 text-xs font-medium text-neutral-500 dark:text-slate-400">
+                    <div className="flex flex-wrap items-center gap-2 border-t border-neutral-100 pt-4 dark:border-white/8">
+                      <span className="mr-1 text-xs font-medium text-neutral-500 dark:text-slate-400">
                         Official documentation
                       </span>
                       {onecliSetupGuide.resources.map((resource) => (
@@ -4211,7 +4165,7 @@ function PlannedProviderCard({
                           className="inline-flex items-center gap-1.5 rounded-md border border-neutral-200 bg-white px-2.5 py-1.5 text-xs font-medium text-neutral-700 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 dark:border-white/10 dark:bg-white/4 dark:text-slate-200 dark:hover:border-sky-400/30 dark:hover:bg-sky-500/10"
                         >
                           {resource.label}
-                          <ExternalLink className="size-3" aria-hidden="true"/>
+                          <ExternalLink className="size-3" aria-hidden="true" />
                         </a>
                       ))}
                     </div>
@@ -4221,8 +4175,7 @@ function PlannedProviderCard({
             ) : null}
 
             {setupSession ? (
-              <div
-                className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/70">
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/70">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
@@ -4256,8 +4209,7 @@ function PlannedProviderCard({
                     className="overflow-hidden rounded-xl border border-sky-200 bg-white shadow-sm dark:border-sky-400/25 dark:bg-slate-950"
                     aria-labelledby={`${provider.id}-onecli-embedded-title`}
                   >
-                    <div
-                      className="flex flex-wrap items-start justify-between gap-3 border-b border-sky-100 bg-sky-50/70 px-4 py-3 dark:border-sky-400/15 dark:bg-sky-500/8">
+                    <div className="flex flex-wrap items-start justify-between gap-3 border-b border-sky-100 bg-sky-50/70 px-4 py-3 dark:border-sky-400/15 dark:bg-sky-500/8">
                       <div>
                         <p
                           id={`${provider.id}-onecli-embedded-title`}
@@ -4265,8 +4217,7 @@ function PlannedProviderCard({
                         >
                           Secure OneCLI workspace
                         </p>
-                        <p
-                          className="mt-1 max-w-3xl text-xs leading-5 text-sky-800 dark:text-sky-200">
+                        <p className="mt-1 max-w-3xl text-xs leading-5 text-sky-800 dark:text-sky-200">
                           Enter provider secrets inside this OneCLI frame. Because OneCLI is a
                           separate origin, Open Agency cannot read the credential fields or their
                           values.
@@ -4275,21 +4226,19 @@ function PlannedProviderCard({
                       <Button asChild type="button" variant="outline" size="sm">
                         <a href={setupUrl} target="_blank" rel="noreferrer">
                           Open in OneCLI
-                          <ExternalLink className="ml-2 size-3.5" aria-hidden="true"/>
+                          <ExternalLink className="ml-2 size-3.5" aria-hidden="true" />
                         </a>
                       </Button>
                     </div>
                     <div className="relative min-h-[32rem] bg-white dark:bg-slate-950">
                       {!onecliFrameLoaded ? (
-                        <div
-                          className="absolute inset-0 z-10 flex items-center justify-center bg-white/92 px-6 text-center dark:bg-slate-950/92">
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/92 px-6 text-center dark:bg-slate-950/92">
                           <div>
                             <RefreshCw
                               className="mx-auto size-5 animate-spin text-sky-600"
                               aria-hidden="true"
                             />
-                            <p
-                              className="mt-3 text-sm font-medium text-neutral-800 dark:text-slate-100">
+                            <p className="mt-3 text-sm font-medium text-neutral-800 dark:text-slate-100">
                               Loading OneCLI securely…
                             </p>
                             <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
@@ -4314,8 +4263,7 @@ function PlannedProviderCard({
                     </div>
                   </section>
                 ) : setupSession && setupUrl ? (
-                  <div
-                    className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-100">
                     <p className="font-medium">OneCLI origin is not trusted</p>
                     <p className="mt-1 text-xs leading-5 text-amber-900 dark:text-amber-200">
                       This setup URL does not exactly match the configured, isolated OneCLI origin
@@ -4328,18 +4276,16 @@ function PlannedProviderCard({
                         rel="noreferrer"
                       >
                         Open configured OneCLI
-                        <ExternalLink className="ml-2 size-3.5" aria-hidden="true"/>
+                        <ExternalLink className="ml-2 size-3.5" aria-hidden="true" />
                       </a>
                     </Button>
                   </div>
                 ) : null}
                 {!effectiveCapability.onecliAppId ? (
-                  <div
-                    className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
+                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-3 dark:border-white/10 dark:bg-white/4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
-                        <p
-                          className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                        <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                           Copy into OneCLI
                         </p>
                         <p className="mt-1 text-xs text-neutral-500 dark:text-slate-300">
@@ -4353,11 +4299,9 @@ function PlannedProviderCard({
                       ) : null}
                     </div>
                     {onecliGenericSecretGuide.notes.length > 0 ? (
-                      <div
-                        className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+                      <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-3 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
                         <div className="flex items-start gap-2">
-                          <Info
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300"/>
+                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-700 dark:text-amber-300" />
                           <div className="space-y-2">
                             <p className="font-medium text-amber-950 dark:text-amber-100">
                               Setup notes
@@ -4365,8 +4309,7 @@ function PlannedProviderCard({
                             <ul className="space-y-2">
                               {onecliGenericSecretGuide.notes.map((note) => (
                                 <li key={note} className="flex gap-2">
-                                  <span
-                                    className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 dark:bg-amber-300"/>
+                                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 dark:bg-amber-300" />
                                   <span>{note}</span>
                                 </li>
                               ))}
@@ -4381,8 +4324,7 @@ function PlannedProviderCard({
                         className="mt-3 rounded-md border border-cyan-200 bg-cyan-50 px-3 py-3 dark:border-cyan-400/30 dark:bg-cyan-500/10"
                       >
                         <div className="flex items-start gap-2">
-                          <Info
-                            className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-300"/>
+                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-cyan-700 dark:text-cyan-300" />
                           <div className="space-y-3">
                             <div>
                               <p className="text-xs font-medium text-cyan-950 dark:text-cyan-100">
@@ -4402,31 +4344,26 @@ function PlannedProviderCard({
                                   className="rounded-md border border-cyan-200 bg-white px-3 py-3 dark:border-cyan-400/20 dark:bg-slate-950/75"
                                 >
                                   <div className="flex flex-wrap items-center gap-2">
-                                    <p
-                                      className="text-sm font-medium text-neutral-900 dark:text-slate-100">
+                                    <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                                       {option.name}
                                     </p>
                                     <Badge variant="outline" className="text-[11px]">
                                       {option.authModel}
                                     </Badge>
                                   </div>
-                                  <p
-                                    className="mt-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
+                                  <p className="mt-2 text-xs leading-5 text-neutral-600 dark:text-slate-300">
                                     {option.summary}
                                   </p>
                                   {option.fields.length > 0 ? (
-                                    <p
-                                      className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
+                                    <p className="mt-2 text-xs text-neutral-500 dark:text-slate-400">
                                       Fields: {option.fields.map((field) => field.label).join(', ')}
                                     </p>
                                   ) : null}
                                   {option.notes?.length ? (
-                                    <ul
-                                      className="mt-2 space-y-1 text-xs text-neutral-600 dark:text-slate-300">
+                                    <ul className="mt-2 space-y-1 text-xs text-neutral-600 dark:text-slate-300">
                                       {option.notes.map((note) => (
                                         <li key={note} className="flex gap-2">
-                                          <span
-                                            className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500 dark:bg-cyan-300"/>
+                                          <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-500 dark:bg-cyan-300" />
                                           <span>{note}</span>
                                         </li>
                                       ))}
@@ -4447,16 +4384,14 @@ function PlannedProviderCard({
                           className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/78 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.5fr)_auto]"
                         >
                           <div className="min-w-0">
-                            <p
-                              className="wrap-break-word font-mono text-xs font-semibold text-neutral-900 dark:text-slate-100">
+                            <p className="wrap-break-word font-mono text-xs font-semibold text-neutral-900 dark:text-slate-100">
                               {row.label}
                             </p>
                             <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
                               {row.description}
                             </p>
                           </div>
-                          <p
-                            className="min-w-0 break-all rounded border border-neutral-200 bg-white px-2 py-2 font-mono text-xs text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                          <p className="min-w-0 break-all rounded border border-neutral-200 bg-white px-2 py-2 font-mono text-xs text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
                             {row.value}
                           </p>
                           {row.copyable ? (
@@ -4467,7 +4402,7 @@ function PlannedProviderCard({
                               className="gap-2"
                               onClick={() => void copyOneCLIValue(row.label, row.value)}
                             >
-                              <Copy className="h-3.5 w-3.5" aria-hidden="true"/>
+                              <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                               Copy
                             </Button>
                           ) : (
@@ -4480,33 +4415,27 @@ function PlannedProviderCard({
                     </div>
                   </div>
                 ) : (
-                  <div
-                    className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/8 dark:text-emerald-200">
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-3 text-xs leading-5 text-emerald-900 dark:border-emerald-400/20 dark:bg-emerald-500/8 dark:text-emerald-200">
                     Complete the provider&apos;s native connection flow inside OneCLI. Open Agency
                     will verify a newly connected {effectiveCapability.onecliAppId} account; no
                     credential fields or manual reference are copied back.
                   </div>
                 )}
                 {(selectedInstallation ?? latestInstallation) ? (
-                  <div
-                    className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-950/78">
-                    <p
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                  <div className="rounded-lg border border-neutral-200 bg-white px-3 py-2 dark:border-white/10 dark:bg-slate-950/78">
+                    <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                       Installation
                     </p>
-                    <p
-                      className="mt-1 wrap-break-word text-sm text-neutral-900 dark:text-slate-100">
+                    <p className="mt-1 wrap-break-word text-sm text-neutral-900 dark:text-slate-100">
                       {(selectedInstallation ?? latestInstallation)?.name}
                     </p>
                     <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
                       Status:{' '}
                       {formatDisplayLabel((selectedInstallation ?? latestInstallation)?.status)}
                     </p>
-                    <div
-                      className="mt-3 grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/4">
+                    <div className="mt-3 grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-white/4">
                       <div className="min-w-0">
-                        <p
-                          className="wrap-break-word font-mono text-xs font-semibold text-neutral-900 dark:text-slate-100">
+                        <p className="wrap-break-word font-mono text-xs font-semibold text-neutral-900 dark:text-slate-100">
                           Installation id
                         </p>
                         <p className="mt-1 text-xs text-neutral-500 dark:text-slate-400">
@@ -4533,7 +4462,7 @@ function PlannedProviderCard({
                             )
                           }
                         >
-                          <Copy className="h-3.5 w-3.5" aria-hidden="true"/>
+                          <Copy className="h-3.5 w-3.5" aria-hidden="true" />
                           Copy
                         </Button>
                       </div>
@@ -4571,8 +4500,7 @@ function PlannedProviderCard({
                 ) : null}
               </div>
             ) : (
-              <div
-                className="rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4 dark:border-sky-400/20 dark:bg-sky-500/8">
+              <div className="rounded-xl border border-dashed border-sky-200 bg-sky-50/60 p-4 dark:border-sky-400/20 dark:bg-sky-500/8">
                 <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
                   {setupSupported ? 'Ready for the secure OneCLI handoff' : 'Setup is guide-only'}
                 </p>
@@ -4580,24 +4508,25 @@ function PlannedProviderCard({
                   {setupSupported
                     ? 'Start setup to create a short-lived session. The next step opens the exact OneCLI provider flow and gives you only the non-secret values it needs.'
                     : effectiveCapability.setupBlockReason ||
-                    'This connector does not yet have a OneCLI resource shape Open Agency can verify safely. Use the guide to prepare, but activation remains disabled.'}
+                      'This connector does not yet have a OneCLI resource shape Open Agency can verify safely. Use the guide to prepare, but activation remains disabled.'}
                 </p>
               </div>
             )}
 
             {requiredMetadata.length > 0 ? (
-              <div
-                className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/78">
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/78">
                 <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                   Required metadata
                 </p>
                 {requiredMetadata.map((requirement) => (
-                  <div key={requirement.key} className="space-y-1">
-                    <label
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      {requirement.key}
-                    </label>
+                  <FormField
+                    label={requirement.key}
+                    htmlFor={fieldIdPrefix + '-metadata-1-' + requirement.key}
+                    key={requirement.key}
+                  >
                     <Input
+                      aria-describedby={fieldIdPrefix + '-metadata-1-' + requirement.key + '-hint'}
+                      id={fieldIdPrefix + '-metadata-1-' + requirement.key}
                       aria-label={requirement.key}
                       value={metadataValues[requirement.key] ?? ''}
                       onChange={(event) =>
@@ -4608,10 +4537,12 @@ function PlannedProviderCard({
                       }
                       disabled={saveMutation.isPending || completeInstallationMutation.isPending}
                     />
-                    <p className="text-xs text-neutral-500 dark:text-slate-400">
-                      {requirement.description}
-                    </p>
-                  </div>
+                    <div id={fieldIdPrefix + '-metadata-1-' + requirement.key + '-hint'}>
+                      <p className="text-xs text-neutral-500 dark:text-slate-400">
+                        {requirement.description}
+                      </p>
+                    </div>
+                  </FormField>
                 ))}
               </div>
             ) : null}
@@ -4645,8 +4576,7 @@ function PlannedProviderCard({
                       {requirement.description}
                     </p>
                     <div className="space-y-1">
-                      <label
-                        className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                      <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                         {requirement.key}
                       </label>
                       <Input
@@ -4667,18 +4597,19 @@ function PlannedProviderCard({
             ) : null}
 
             {instanceIdentityMetadata.length > 0 ? (
-              <div
-                className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
+              <div className="space-y-3 rounded-xl border border-neutral-200 bg-white p-4 dark:border-white/10 dark:bg-slate-950/78">
                 <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                   Instance identity
                 </p>
                 {instanceIdentityMetadata.map((requirement) => (
-                  <div key={requirement.key} className="space-y-1">
-                    <label
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      {requirement.key}
-                    </label>
+                  <FormField
+                    label={requirement.key}
+                    htmlFor={fieldIdPrefix + '-metadata-2-' + requirement.key}
+                    key={requirement.key}
+                  >
                     <Input
+                      aria-describedby={fieldIdPrefix + '-metadata-2-' + requirement.key + '-hint'}
+                      id={fieldIdPrefix + '-metadata-2-' + requirement.key}
                       aria-label={requirement.key}
                       value={metadataValues[requirement.key] ?? ''}
                       onChange={(event) =>
@@ -4689,25 +4620,25 @@ function PlannedProviderCard({
                       }
                       disabled={saveMutation.isPending || completeInstallationMutation.isPending}
                     />
-                    <p className="text-xs text-neutral-500 dark:text-slate-400">
-                      {requirement.description}
-                    </p>
-                  </div>
+                    <div id={fieldIdPrefix + '-metadata-2-' + requirement.key + '-hint'}>
+                      <p className="text-xs text-neutral-500 dark:text-slate-400">
+                        {requirement.description}
+                      </p>
+                    </div>
+                  </FormField>
                 ))}
               </div>
             ) : null}
 
             {ownershipNotes.length > 0 ? (
-              <div
-                className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
+              <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50 p-4 dark:border-sky-400/20 dark:bg-sky-500/10">
                 <p className="text-sm font-medium text-sky-950 dark:text-sky-100">
                   Capability boundary
                 </p>
                 <ul className="space-y-2 text-sm text-sky-900 dark:text-sky-200">
                   {ownershipNotes.map((note) => (
                     <li key={note} className="flex gap-2">
-                      <span
-                        className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-300"/>
+                      <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500 dark:bg-sky-300" />
                       <span>{note}</span>
                     </li>
                   ))}
@@ -4716,9 +4647,9 @@ function PlannedProviderCard({
             ) : null}
 
             {missingRequiredMetadata ? (
-              <FieldFeedback error="Complete every required field before continuing."/>
+              <FieldFeedback error="Complete every required field before continuing." />
             ) : null}
-            {saveError ? <FieldFeedback error={saveError}/> : null}
+            {saveError ? <FieldFeedback error={saveError} /> : null}
           </div>
         )}
       </AppDialog>
@@ -4727,7 +4658,7 @@ function PlannedProviderCard({
         onOpenChange={setSmartHomePreviewOpen}
         busy={smartHomeEntitiesQuery.isFetching}
         size="md"
-        icon={<PlugZap className="size-4" aria-hidden="true"/>}
+        icon={<PlugZap className="size-4" aria-hidden="true" />}
         title="Smart Home entity preview"
         description="Run a read-only smoke check against the live home backend before relying on ambient-home actions."
         bodyClassName="flex flex-col gap-4"
@@ -4741,17 +4672,15 @@ function PlannedProviderCard({
       >
         <div className="flex flex-col gap-4">
           <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
-            <div className="space-y-1">
-              <label className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500">
-                Domain filter
-              </label>
+            <FormField label="Domain filter" htmlFor={fieldIdPrefix + '-field-1'}>
               <Input
+                id={fieldIdPrefix + '-field-1'}
                 aria-label="Smart Home domain filter"
                 placeholder="light, sensor, camera, lock"
                 value={smartHomePreviewDomain}
                 onChange={(event) => setSmartHomePreviewDomain(event.target.value)}
               />
-            </div>
+            </FormField>
             <div className="flex items-end">
               <Button
                 type="button"
@@ -4829,15 +4758,15 @@ function PlannedProviderCard({
 }
 
 function PlannedCategoryPanel({
-                                category,
-                                onRefresh,
-                                onConnectorTestResult,
-                                latestHistoryByCredentialId,
-                                selectedConnectorId,
-                                selectedConnectorAction,
-                                onSelectConnector,
-                                connectorCapabilitiesByBackendKey,
-                              }: {
+  category,
+  onRefresh,
+  onConnectorTestResult,
+  latestHistoryByCredentialId,
+  selectedConnectorId,
+  selectedConnectorAction,
+  onSelectConnector,
+  connectorCapabilitiesByBackendKey,
+}: {
   category: IntegrationCategory;
   onRefresh: () => Promise<void>;
   onConnectorTestResult: (credentialId: string, result: Record<string, unknown>) => void;
@@ -4908,7 +4837,7 @@ function PlannedCategoryPanel({
             readinessState,
           };
         })
-        .filter(({provider, readinessState}) => {
+        .filter(({ provider, readinessState }) => {
           if (selectedConnectorId && provider.id === selectedConnectorId) {
             return true;
           }
@@ -4926,7 +4855,7 @@ function PlannedCategoryPanel({
           }
           return left.provider.name.localeCompare(right.provider.name);
         })
-        .map(({provider, readinessState}) => ({provider, readinessState})),
+        .map(({ provider, readinessState }) => ({ provider, readinessState })),
     [
       activeFilter,
       category.providers,
@@ -5013,30 +4942,23 @@ function PlannedCategoryPanel({
         className="space-y-3 rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel) p-3 shadow-[0_1px_2px_rgba(15,23,42,0.025)]"
       >
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <label className="relative block w-full lg:max-w-md">
-            <span className="sr-only">Search {category.name.toLowerCase()} connectors</span>
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-(--agency-shell-muted)"
-              aria-hidden="true"
-            />
-            <Input
-              value={searchQuery}
-              onChange={(event) => updateSearch(event.target.value)}
-              placeholder={`Search ${category.name.toLowerCase()} connectors`}
-              className="pl-9"
-            />
-          </label>
+          <WorkspaceSearch
+            label={`Search ${category.name.toLowerCase()} connectors`}
+            value={searchQuery}
+            onChange={updateSearch}
+            className="w-full lg:max-w-md"
+          />
           <p className="shrink-0 text-sm text-(--agency-shell-muted)" aria-live="polite">
             {paginationSummaryLabel(totalItems, visibleSectionItemCount, firstVisibleIndex + 1)}
           </p>
         </div>
         <div className="flex flex-wrap gap-2" aria-label="Connector readiness">
           {[
-            {key: 'all', label: 'All', count: category.providers.length},
-            {key: 'needs-setup', label: 'Need setup', count: needsSetupCount},
-            {key: 'healthy', label: 'Healthy', count: healthyCount},
-            {key: 'failing', label: 'Failing', count: failingCount},
-            {key: 'never-tested', label: 'Not tested', count: neverTestedCount},
+            { key: 'all', label: 'All', count: category.providers.length },
+            { key: 'needs-setup', label: 'Need setup', count: needsSetupCount },
+            { key: 'healthy', label: 'Healthy', count: healthyCount },
+            { key: 'failing', label: 'Failing', count: failingCount },
+            { key: 'never-tested', label: 'Not tested', count: neverTestedCount },
           ].map((filter) => (
             <Button
               key={filter.key}
@@ -5092,8 +5014,7 @@ function PlannedCategoryPanel({
               </div>
             ) : null}
             {section.name ? null : (
-              <div
-                className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 shadow-sm dark:border-white/10 dark:bg-white/4 dark:shadow-none">
+              <div className="flex items-center justify-between gap-3 rounded-2xl border border-neutral-200 bg-white/90 px-4 py-3 shadow-sm dark:border-white/10 dark:bg-white/4 dark:shadow-none">
                 <h3 className="text-sm font-semibold text-neutral-900 dark:text-slate-100">
                   All connectors
                 </h3>
@@ -5103,7 +5024,7 @@ function PlannedCategoryPanel({
               </div>
             )}
             <div className="grid gap-4 xl:grid-cols-2">
-              {section.providers.map(({provider, readinessState}) => (
+              {section.providers.map(({ provider, readinessState }) => (
                 <PlannedProviderCard
                   key={provider.id}
                   provider={provider}
@@ -5117,8 +5038,8 @@ function PlannedCategoryPanel({
                   }
                   capabilityOverride={
                     connectorCapabilitiesByBackendKey[
-                    (provider.raw as PlannedIntegrationState | undefined)?.backendKey ?? ''
-                      ] ?? null
+                      (provider.raw as PlannedIntegrationState | undefined)?.backendKey ?? ''
+                    ] ?? null
                   }
                 />
               ))}
@@ -5146,16 +5067,17 @@ function PlannedCategoryPanel({
 }
 
 function ProviderEditor({
-                          provider,
-                          onRefresh,
-                          isSelected,
-                          onSelect,
-                        }: {
+  provider,
+  onRefresh,
+  isSelected,
+  onSelect,
+}: {
   provider: IntegrationProvider;
   onRefresh: () => Promise<void>;
   isSelected: boolean;
   onSelect: (providerId: string) => void;
 }) {
+  const fieldIdPrefix = useId();
   const queryClient = useQueryClient();
   const rawTool =
     provider.kind === 'tool' ? (provider.raw as unknown as ToolDefinition | undefined) : undefined;
@@ -5167,7 +5089,7 @@ function ProviderEditor({
   const [deleteMode, setDeleteMode] = useState(false);
 
   const refreshIntegrations = async () => {
-    await queryClient.invalidateQueries({queryKey: queryKeys.backendIntegrations()});
+    await queryClient.invalidateQueries({ queryKey: queryKeys.backendIntegrations() });
     await onRefresh();
   };
 
@@ -5182,9 +5104,9 @@ function ProviderEditor({
           command: formValues.command || '',
           args: formValues.args
             ? formValues.args
-              .split(',')
-              .map((value) => value.trim())
-              .filter(Boolean)
+                .split(',')
+                .map((value) => value.trim())
+                .filter(Boolean)
             : [],
           url: formValues.url || null,
           enabled: formValues.enabled === 'true',
@@ -5195,7 +5117,7 @@ function ProviderEditor({
     },
     onSuccess: async () => {
       await refreshIntegrations();
-      toast.success('Configuration saved.', {position: 'top-right'});
+      toast.success('Configuration saved.', { position: 'top-right' });
     },
   });
 
@@ -5206,11 +5128,11 @@ function ProviderEditor({
       }
 
       const nextEnabled = provider.status !== 'enabled';
-      return providersApi.updateMcpServer(provider.id, {enabled: nextEnabled});
+      return providersApi.updateMcpServer(provider.id, { enabled: nextEnabled });
     },
     onSuccess: async () => {
       await refreshIntegrations();
-      toast.success('Provider state updated.', {position: 'top-right'});
+      toast.success('Provider state updated.', { position: 'top-right' });
     },
   });
 
@@ -5228,7 +5150,7 @@ function ProviderEditor({
     },
     onSuccess: async () => {
       await refreshIntegrations();
-      toast.success('Integration deleted.', {position: 'top-right'});
+      toast.success('Integration deleted.', { position: 'top-right' });
     },
   });
 
@@ -5251,7 +5173,7 @@ function ProviderEditor({
       }
 
       if (provider.kind === 'tool') {
-        return toolsApi.testTool(provider.id, {input: {}});
+        return toolsApi.testTool(provider.id, { input: {} });
       }
 
       return null;
@@ -5275,7 +5197,7 @@ function ProviderEditor({
       onClickCapture={() => onSelect(provider.id)}
       onFocusCapture={() => onSelect(provider.id)}
     >
-      <span className={cn('absolute inset-x-0 top-0 h-1', cue.accent)}/>
+      <span className={cn('absolute inset-x-0 top-0 h-1', cue.accent)} />
       <CardHeader>
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -5313,8 +5235,7 @@ function ProviderEditor({
                     categoryTheme.panelMuted
                   )}
                 >
-                  <p
-                    className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+                  <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                     {field.label}
                   </p>
                   <p className="mt-1 wrap-break-word text-sm text-neutral-800 dark:text-slate-100">
@@ -5345,26 +5266,28 @@ function ProviderEditor({
                 </div>
               ) : null}
             </div>
-            <ManageModelProfilesButton/>
+            <ManageModelProfilesButton />
           </>
         ) : (
           <>
             {provider.kind === 'tool' ? (
-              <ToolIntegrationSummary provider={provider} tool={rawTool}/>
+              <ToolIntegrationSummary provider={provider} tool={rawTool} />
             ) : provider.configFields.length > 0 ? (
               <div className="space-y-3">
                 <p className="text-sm font-medium text-neutral-900 dark:text-slate-100">
                   Required / available configuration
                 </p>
                 {provider.configFields.map((field) => (
-                  <div key={field.key} className="space-y-1">
-                    <label
-                      className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
-                      {field.label}
-                      {field.required ? ' *' : ''}
-                    </label>
+                  <FormField
+                    key={field.key}
+                    label={field.label}
+                    htmlFor={fieldIdPrefix + '-config-' + field.key}
+                    required={field.required}
+                    description={field.description}
+                  >
                     {field.type === 'textarea' || field.type === 'json' ? (
                       <Textarea
+                        id={fieldIdPrefix + '-config-' + field.key}
                         value={formValues[field.key] ?? ''}
                         readOnly={!field.editable}
                         onChange={(event) =>
@@ -5377,6 +5300,7 @@ function ProviderEditor({
                       />
                     ) : (
                       <Input
+                        id={fieldIdPrefix + '-config-' + field.key}
                         value={formValues[field.key] ?? ''}
                         readOnly={!field.editable}
                         onChange={(event) =>
@@ -5387,12 +5311,7 @@ function ProviderEditor({
                         }
                       />
                     )}
-                    {field.description ? (
-                      <p className="text-xs text-neutral-500 dark:text-slate-400">
-                        {field.description}
-                      </p>
-                    ) : null}
-                  </div>
+                  </FormField>
                 ))}
               </div>
             ) : (
@@ -5442,7 +5361,7 @@ function ProviderEditor({
                   onClick={() => saveMutation.mutate()}
                   disabled={saveMutation.isPending}
                 >
-                  <Wrench className="mr-2 h-4 w-4"/>
+                  <Wrench className="mr-2 h-4 w-4" />
                   {saveMutation.isPending ? 'Saving...' : 'Save Config'}
                 </Button>
               ) : null}
@@ -5453,7 +5372,7 @@ function ProviderEditor({
                   onClick={() => toggleMutation.mutate()}
                   disabled={toggleMutation.isPending}
                 >
-                  <PlugZap className="mr-2 h-4 w-4"/>
+                  <PlugZap className="mr-2 h-4 w-4" />
                   {provider.status === 'enabled' ? 'Disable' : 'Enable'}
                 </Button>
               ) : null}
@@ -5493,7 +5412,7 @@ function ProviderEditor({
                   </>
                 ) : (
                   <Button type="button" variant="outline" onClick={() => setDeleteMode(true)}>
-                    <Trash2 className="mr-2 h-4 w-4"/>
+                    <Trash2 className="mr-2 h-4 w-4" />
                     Delete
                   </Button>
                 )
@@ -5525,8 +5444,7 @@ function ProviderEditor({
               />
             ) : null}
             {testMutation.isSuccess && testMutation.data ? (
-              <div
-                className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
+              <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-800 dark:border-emerald-400/25 dark:bg-emerald-500/10 dark:text-emerald-100">
                 Test/discovery completed. The backend returned a response successfully.
               </div>
             ) : null}
@@ -5538,15 +5456,15 @@ function ProviderEditor({
 }
 
 function CategoryPanel({
-                         category,
-                         onRefresh,
-                         onConnectorTestResult,
-                         latestHistoryByCredentialId,
-                         selectedConnectorId,
-                         onSelectConnector,
-                         connectorCapabilitiesByBackendKey,
-                         selectedConnectorAction,
-                       }: {
+  category,
+  onRefresh,
+  onConnectorTestResult,
+  latestHistoryByCredentialId,
+  selectedConnectorId,
+  onSelectConnector,
+  connectorCapabilitiesByBackendKey,
+  selectedConnectorAction,
+}: {
   category: IntegrationCategory;
   onRefresh: () => Promise<void>;
   onConnectorTestResult: (credentialId: string, result: Record<string, unknown>) => void;
@@ -5557,7 +5475,7 @@ function CategoryPanel({
   selectedConnectorAction?: string | null;
 }) {
   if (category.id === 'llm-models') {
-    return <LlmModelsInventoryPanel category={category}/>;
+    return <LlmModelsInventoryPanel category={category} />;
   }
 
   if (category.status === 'planned') {
@@ -5596,11 +5514,11 @@ function CategoryPanel({
 }
 
 function SupportedCategoryPanel({
-                                  category,
-                                  onRefresh,
-                                  selectedConnectorId,
-                                  onSelectConnector,
-                                }: {
+  category,
+  onRefresh,
+  selectedConnectorId,
+  onSelectConnector,
+}: {
   category: IntegrationCategory;
   onRefresh: () => Promise<void>;
   selectedConnectorId: string | null;
@@ -5635,11 +5553,11 @@ function SupportedCategoryPanel({
 }
 
 function SupportedProviderCategoryPanel({
-                                          category,
-                                          onRefresh,
-                                          selectedConnectorId,
-                                          onSelectConnector,
-                                        }: {
+  category,
+  onRefresh,
+  selectedConnectorId,
+  onSelectConnector,
+}: {
   category: IntegrationCategory;
   onRefresh: () => Promise<void>;
   selectedConnectorId: string | null;
@@ -5688,7 +5606,7 @@ function SupportedProviderCategoryPanel({
     [allProviderSections, page]
   );
   const availableFilters = [
-    {key: 'all' as const, label: 'All', count: category.providers.length},
+    { key: 'all' as const, label: 'All', count: category.providers.length },
     ...CATEGORY_PROVIDER_KIND_ORDER.map((kind) => ({
       key: kind,
       label: providerGroupTitle(kind),
@@ -5764,7 +5682,7 @@ function SupportedProviderCategoryPanel({
           value={category.providers.length}
           tone={theme.summaryPrimary}
         />
-        <CategorySummaryTile label="Visible" value={totalItems}/>
+        <CategorySummaryTile label="Visible" value={totalItems} />
         <CategorySummaryTile
           label="Groups"
           value={allProviderSections.length || 1}
@@ -5777,14 +5695,13 @@ function SupportedProviderCategoryPanel({
         />
       </div>
 
-      <div
-        className="space-y-4 rounded-[28px] border border-neutral-200 bg-linear-to-br from-white via-neutral-50 to-secondary-50/35 p-4 shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_35%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.76))] dark:shadow-none">
+      <div className="space-y-4 rounded-[28px] border border-neutral-200 bg-linear-to-br from-white via-neutral-50 to-secondary-50/35 p-4 shadow-sm dark:border-white/10 dark:bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.16),transparent_35%),linear-gradient(180deg,rgba(15,23,42,0.92),rgba(15,23,42,0.76))] dark:shadow-none">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Input
+          <WorkspaceSearch
+            label={`Search ${category.name.toLowerCase()} integrations`}
             value={searchQuery}
-            onChange={(event) => updateSearch(event.target.value)}
-            placeholder={`Search ${category.name.toLowerCase()} integrations`}
-            className="max-w-md border-neutral-200 bg-white/95 dark:border-white/10 dark:bg-slate-950/70"
+            onChange={updateSearch}
+            className="max-w-md flex-1"
           />
           <p className="text-sm text-neutral-500 dark:text-slate-300">
             {paginationSummaryLabel(totalItems, visibleSectionItemCount, firstVisibleIndex + 1)}
@@ -5878,25 +5795,25 @@ function SupportedProviderCategoryPanel({
 }
 
 function OperationsPanel({
-                           showSummary = true,
-                           aggregateHistoryQuery,
-                           mappedCredentialIds,
-                           healthyConnectorCount,
-                           failingConnectorCount,
-                           neverTestedConnectorCount,
-                           operationsFilter,
-                           setOperationsFilter,
-                           filteredOperationalItems,
-                           matchingOperationalItems,
-                           operationsVisibleCount,
-                           setOperationsVisibleCount,
-                           operationsLastTestResult,
-                           operationsTestMutation,
-                           operationsBulkTestMutation,
-                           refreshOperationsQueue,
-                           credentialProviderById,
-                           categoryNameById,
-                         }: {
+  showSummary = true,
+  aggregateHistoryQuery,
+  mappedCredentialIds,
+  healthyConnectorCount,
+  failingConnectorCount,
+  neverTestedConnectorCount,
+  operationsFilter,
+  setOperationsFilter,
+  filteredOperationalItems,
+  matchingOperationalItems,
+  operationsVisibleCount,
+  setOperationsVisibleCount,
+  operationsLastTestResult,
+  operationsTestMutation,
+  operationsBulkTestMutation,
+  refreshOperationsQueue,
+  credentialProviderById,
+  categoryNameById,
+}: {
   showSummary?: boolean;
   aggregateHistoryQuery: ReturnType<typeof useQuery<ConnectorHealthHistoryPayload>>;
   mappedCredentialIds: string[];
@@ -5969,10 +5886,8 @@ function OperationsPanel({
             ) : null}
           </div>
           <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div
-              className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-              <p
-                className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                 Credential-backed
               </p>
               <p
@@ -5982,10 +5897,8 @@ function OperationsPanel({
                 {mappedCredentialIds.length}
               </p>
             </div>
-            <div
-              className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-500/10">
-              <p
-                className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-200">
+            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-300/20 dark:bg-emerald-500/10">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-emerald-700 dark:text-emerald-200">
                 Healthy
               </p>
               <p
@@ -5995,10 +5908,8 @@ function OperationsPanel({
                 {healthyConnectorCount}
               </p>
             </div>
-            <div
-              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-300/20 dark:bg-red-500/10">
-              <p
-                className="text-xs font-medium uppercase tracking-[0.14em] text-red-700 dark:text-red-200">
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 dark:border-red-300/20 dark:bg-red-500/10">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-red-700 dark:text-red-200">
                 Failing
               </p>
               <p
@@ -6008,10 +5919,8 @@ function OperationsPanel({
                 {failingConnectorCount}
               </p>
             </div>
-            <div
-              className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
-              <p
-                className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
+            <div className="rounded-lg border border-neutral-200 bg-neutral-50 px-4 py-3 dark:border-white/10 dark:bg-white/5">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-neutral-500 dark:text-slate-400">
                 Never tested
               </p>
               <p
@@ -6060,10 +5969,10 @@ function OperationsPanel({
         </div>
         <div className="mt-4 flex flex-wrap gap-2">
           {[
-            {key: 'all', label: 'All', count: mappedCredentialIds.length},
-            {key: 'failing', label: 'Failing', count: failingConnectorCount},
-            {key: 'healthy', label: 'Healthy', count: healthyConnectorCount},
-            {key: 'never-tested', label: 'Never tested', count: neverTestedConnectorCount},
+            { key: 'all', label: 'All', count: mappedCredentialIds.length },
+            { key: 'failing', label: 'Failing', count: failingConnectorCount },
+            { key: 'healthy', label: 'Healthy', count: healthyConnectorCount },
+            { key: 'never-tested', label: 'Never tested', count: neverTestedConnectorCount },
           ].map((filter) => (
             <Button
               key={filter.key}
@@ -6233,7 +6142,7 @@ function OperationsPanel({
   );
 }
 
-function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operations' }) {
+function IntegrationsWorkspaceContent({ mode = 'full' }: { mode?: 'full' | 'operations' }) {
   const draftGuard = useCapabilityDraftGuard();
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -6321,7 +6230,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
   const aggregateHistoryQuery = useQuery({
     queryKey: ['aggregateConnectorHistory', mappedCredentialIds.join(',')],
     queryFn: (): Promise<ConnectorHealthHistoryPayload> =>
-      connectorsApi.getAggregateConnectorHistory({limit: 200}),
+      connectorsApi.getAggregateConnectorHistory({ limit: 200 }),
     enabled: mappedCredentialIds.length > 0,
     retry: false,
   });
@@ -6333,7 +6242,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
     queries: mappedCredentialIds.map((credentialId) => ({
       queryKey: ['connectorLatestHistory', credentialId],
       queryFn: (): Promise<ConnectorHealthHistoryPayload> =>
-        connectorsApi.getConnectorHistory(credentialId, {limit: 1}),
+        connectorsApi.getConnectorHistory(credentialId, { limit: 1 }),
       enabled: Boolean(credentialId),
       retry: false,
     })),
@@ -6485,13 +6394,13 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
   );
   const resolvedSelectedConnectorId = staleSelectedConnector ? null : selectedConnectorId;
   const recordConnectorTestResult = (credentialId: string, result: Record<string, unknown>) => {
-    setOperationsLastTestResult((current) => ({...current, [credentialId]: result}));
+    setOperationsLastTestResult((current) => ({ ...current, [credentialId]: result }));
   };
   const operationsTestMutation = useMutation({
     mutationFn: async (credentialId: string) => connectorsApi.testConnector(credentialId),
     onMutate: (credentialId) => {
       setOperationsLastTestResult((current) => {
-        const next = {...current};
+        const next = { ...current };
         delete next[credentialId];
         return next;
       });
@@ -6500,10 +6409,10 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
       recordConnectorTestResult(credentialId, result);
       await Promise.all([
         aggregateHistoryQuery.refetch(),
-        queryClient.invalidateQueries({queryKey: ['connectorLatestHistory', credentialId]}),
-        queryClient.invalidateQueries({queryKey: ['connectorHistory', credentialId]}),
+        queryClient.invalidateQueries({ queryKey: ['connectorLatestHistory', credentialId] }),
+        queryClient.invalidateQueries({ queryKey: ['connectorHistory', credentialId] }),
       ]);
-      toast.success('Connector test completed.', {position: 'top-right'});
+      toast.success('Connector test completed.', { position: 'top-right' });
     },
     onError: (error, credentialId) => {
       recordConnectorTestResult(credentialId, {
@@ -6519,10 +6428,10 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
     await Promise.all([
       aggregateHistoryQuery.refetch(),
       ...mappedCredentialIds.map((credentialId) =>
-        queryClient.invalidateQueries({queryKey: ['connectorLatestHistory', credentialId]})
+        queryClient.invalidateQueries({ queryKey: ['connectorLatestHistory', credentialId] })
       ),
       ...mappedCredentialIds.map((credentialId) =>
-        queryClient.invalidateQueries({queryKey: ['connectorHistory', credentialId]})
+        queryClient.invalidateQueries({ queryKey: ['connectorHistory', credentialId] })
       ),
     ]);
   };
@@ -6532,7 +6441,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
         credentialIds.map(async (credentialId) => {
           try {
             const result = await connectorsApi.testConnector(credentialId);
-            return {credentialId, ok: true as const, result};
+            return { credentialId, ok: true as const, result };
           } catch (error) {
             return {
               credentialId,
@@ -6545,7 +6454,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
     },
     onMutate: (credentialIds) => {
       setOperationsLastTestResult((current) => {
-        const next = {...current};
+        const next = { ...current };
         credentialIds.forEach((credentialId) => {
           delete next[credentialId];
         });
@@ -6554,14 +6463,14 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
     },
     onSuccess: async (results) => {
       setOperationsLastTestResult((current) => {
-        const next = {...current};
+        const next = { ...current };
         results.forEach((result) => {
           next[result.credentialId] = result.ok
             ? result.result
             : {
-              ok: false,
-              error: result.error,
-            };
+                ok: false,
+                error: result.error,
+              };
         });
         return next;
       });
@@ -6623,13 +6532,13 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
     const selectedCredentialId = selectedPlanned?.matchedCredentialIds?.[0] ?? null;
     const selectedEntity = selectedProvider
       ? {
-        type: selectedProvider.kind === 'planned' ? 'connector' : selectedProvider.kind,
-        id: selectedProvider.id,
-        name: selectedProvider.name,
-        categoryId: selectedProvider.categoryId,
-        status: selectedProvider.status,
-        kind: selectedProvider.kind,
-      }
+          type: selectedProvider.kind === 'planned' ? 'connector' : selectedProvider.kind,
+          id: selectedProvider.id,
+          name: selectedProvider.name,
+          categoryId: selectedProvider.categoryId,
+          status: selectedProvider.status,
+          kind: selectedProvider.kind,
+        }
       : null;
 
     return {
@@ -6706,7 +6615,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
 
   if (integrationsQuery.isLoading) {
     return (
-      <LoadingCard title="Integrations" description="Loading available models and services."/>
+      <LoadingCard title="Integrations" description="Loading available models and services." />
     );
   }
 
@@ -6758,7 +6667,6 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
     return (
       <div className="space-y-6">
         <PageHeader
-          icon={PlugZap}
           tone="integration"
           title="Integrations"
           description="Check saved connectors and fix any that are failing."
@@ -6766,7 +6674,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
             <>
               <Button type="button" variant="outline" asChild>
                 <a href={onecliConnectionsUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 size-4" aria-hidden="true"/>
+                  <ExternalLink className="mr-2 size-4" aria-hidden="true" />
                   Open OneCLI
                 </a>
               </Button>
@@ -6797,10 +6705,9 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
       <PageHeader
         className="border-0 pb-0 after:hidden"
         tone="integration"
-        eyebrow={primaryTab === 'custom' ? 'Integrations / Capabilities' : 'Integrations'}
         title={
           primaryTab === 'custom'
-            ? 'Capability Studio'
+            ? 'Capabilities'
             : primaryTab === 'llm-models'
               ? 'Models & providers'
               : 'Integrations'
@@ -6814,13 +6721,13 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
           <>
             {primaryTab === 'custom' ? (
               <>
-                <CreateToolCard onCreated={refreshIntegrations}/>
-                <CreateMcpServerCard onCreated={refreshIntegrations}/>
+                <CreateToolCard onCreated={refreshIntegrations} />
+                <CreateMcpServerCard onCreated={refreshIntegrations} />
               </>
             ) : (
               <Button type="button" variant="outline" asChild>
                 <a href={onecliConnectionsUrl} target="_blank" rel="noreferrer">
-                  <ExternalLink className="mr-2 size-4" aria-hidden="true"/>
+                  <ExternalLink className="mr-2 size-4" aria-hidden="true" />
                   Open OneCLI
                 </a>
               </Button>
@@ -6853,11 +6760,11 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
           className="h-auto w-full justify-start gap-3 overflow-x-auto rounded-none border-0 border-b bg-transparent p-0"
         >
           {[
-            {id: 'overview', label: 'Overview'},
-            {id: 'connections', label: 'Connections'},
-            {id: 'custom', label: 'Capabilities'},
-            {id: 'llm-models', label: 'Models'},
-            {id: 'local-access', label: 'Local access'},
+            { id: 'overview', label: 'Overview' },
+            { id: 'connections', label: 'Connections' },
+            { id: 'custom', label: 'Capabilities' },
+            { id: 'llm-models', label: 'Models' },
+            { id: 'local-access', label: 'Local access' },
           ].map((entry) => (
             <TabsTrigger
               key={entry.id}
@@ -6869,6 +6776,32 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
             </TabsTrigger>
           ))}
         </TabsList>
+        {primaryTab === 'custom' ? (
+          <WorkspaceGuide
+            label="Capability setup path"
+            steps={[
+              {
+                id: 'connect',
+                label: 'Connect services',
+                icon: Plug,
+                onSelect: () => changeWorkspaceTab('connections'),
+              },
+              {
+                id: 'discover',
+                label: 'Discover capabilities',
+                icon: Search,
+                current: true,
+                onSelect: () => changeWorkspaceTab('custom'),
+              },
+              {
+                id: 'assign',
+                label: 'Assign to a specialist',
+                icon: Bot,
+                href: '#capability-agent-access',
+              },
+            ]}
+          />
+        ) : null}
         <TabsContent value="overview" className="mt-0 flex flex-col gap-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <Card>
@@ -6899,7 +6832,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
               </CardContent>
             </Card>
           </div>
-          <LocalAccessSummary/>
+          <LocalAccessSummary />
 
           {mappedCredentialIds.length > 0 ? (
             <Accordion
@@ -6910,19 +6843,16 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
             >
               <AccordionItem value="connector-health" className="border-0">
                 <AccordionTrigger className="px-4 py-3.5 text-left hover:no-underline sm:px-5">
-                  <div
-                    className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span
-                        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-                        <Activity className="size-4" aria-hidden="true"/>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                        <Activity className="size-4" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
                         <p className="font-semibold text-neutral-950 dark:text-slate-50">
                           Connector health
                         </p>
-                        <p
-                          className="mt-0.5 text-xs font-normal text-neutral-500 dark:text-slate-400">
+                        <p className="mt-0.5 text-xs font-normal text-neutral-500 dark:text-slate-400">
                           Review saved connector tests and rerun checks when needed.
                         </p>
                       </div>
@@ -6935,16 +6865,14 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
                         configured
                       </Badge>
                       <Badge variant="successful" className="gap-1">
-                        <span
-                          data-testid="operations-healthy-count">{healthyConnectorCount}</span>{' '}
+                        <span data-testid="operations-healthy-count">{healthyConnectorCount}</span>{' '}
                         healthy
                       </Badge>
                       <Badge
                         variant={failingConnectorCount > 0 ? 'failed' : 'outline'}
                         className="gap-1"
                       >
-                        <span
-                          data-testid="operations-failing-count">{failingConnectorCount}</span>{' '}
+                        <span data-testid="operations-failing-count">{failingConnectorCount}</span>{' '}
                         failing
                       </Badge>
                       <Badge variant="outline" className="gap-1">
@@ -6971,7 +6899,7 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
           ) : null}
         </TabsContent>
         <TabsContent value="local-access" className="mt-0">
-          <LocalAccessSummary/>
+          <LocalAccessSummary />
         </TabsContent>
         <TabsContent value="custom" className="mt-0">
           <CategoryPanel
@@ -7027,19 +6955,16 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
             >
               <AccordionItem value="connector-health" className="border-0">
                 <AccordionTrigger className="px-4 py-3.5 text-left hover:no-underline sm:px-5">
-                  <div
-                    className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex min-w-0 items-center gap-3">
-                      <span
-                        className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
-                        <Activity className="size-4" aria-hidden="true"/>
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-neutral-200 bg-neutral-50 text-neutral-700 dark:border-white/10 dark:bg-white/5 dark:text-slate-200">
+                        <Activity className="size-4" aria-hidden="true" />
                       </span>
                       <div className="min-w-0">
                         <p className="font-semibold text-neutral-950 dark:text-slate-50">
                           Connector health
                         </p>
-                        <p
-                          className="mt-0.5 text-xs font-normal text-neutral-500 dark:text-slate-400">
+                        <p className="mt-0.5 text-xs font-normal text-neutral-500 dark:text-slate-400">
                           Review saved connector tests and rerun checks when needed.
                         </p>
                       </div>
@@ -7052,16 +6977,14 @@ function IntegrationsWorkspaceContent({mode = 'full'}: { mode?: 'full' | 'operat
                         configured
                       </Badge>
                       <Badge variant="successful" className="gap-1">
-                        <span
-                          data-testid="operations-healthy-count">{healthyConnectorCount}</span>{' '}
+                        <span data-testid="operations-healthy-count">{healthyConnectorCount}</span>{' '}
                         healthy
                       </Badge>
                       <Badge
                         variant={failingConnectorCount > 0 ? 'failed' : 'outline'}
                         className="gap-1"
                       >
-                        <span
-                          data-testid="operations-failing-count">{failingConnectorCount}</span>{' '}
+                        <span data-testid="operations-failing-count">{failingConnectorCount}</span>{' '}
                         failing
                       </Badge>
                       <Badge variant="outline" className="gap-1">

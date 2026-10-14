@@ -56,7 +56,7 @@ export function FormSection({
     return (
       <details
         className={cn(
-          'group overflow-hidden rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)',
+          'group overflow-hidden rounded-(--agency-radius-panel) border border-(--agency-shell-border) bg-(--agency-shell-panel)',
           className
         )}
         open={defaultOpen}
@@ -89,7 +89,7 @@ export function FormSection({
   return (
     <section
       className={cn(
-        'overflow-hidden rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)',
+        'overflow-hidden rounded-(--agency-radius-panel) border border-(--agency-shell-border) bg-(--agency-shell-panel)',
         className
       )}
       aria-labelledby={headingId}
@@ -241,9 +241,9 @@ export function FieldFeedback({ id, error, success, help, className }: FieldFeed
       className={cn(
         'mt-1.5 flex items-start gap-1.5 text-xs leading-5',
         error
-          ? 'text-rose-700 dark:text-rose-200'
+          ? 'text-(--agency-danger-text)'
           : success
-            ? 'text-emerald-700 dark:text-emerald-200'
+            ? 'text-(--agency-success-text)'
             : 'text-(--agency-shell-muted)',
         className
       )}

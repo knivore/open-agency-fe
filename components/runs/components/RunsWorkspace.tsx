@@ -89,14 +89,25 @@ export default function RunsWorkspace() {
     statusFilters,
   } = useRunsWorkspace({ workflowNamesById });
   const searchParams = useSearchParams();
-  const [workflowFilter, setWorkflowFilter] = useState(() => searchParams.get('workflowId') || 'all');
+  const [workflowFilter, setWorkflowFilter] = useState(
+    () => searchParams.get('workflowId') || 'all'
+  );
   const [dateFilter, setDateFilter] = useState('all');
   const filteredRuns = useMemo(() => {
-    const cutoff = dateFilter === 'all' ? 0 : runsQuery.dataUpdatedAt - Number(dateFilter) * 86_400_000;
-    return baseFilteredRuns.filter(run => (workflowFilter === 'all' || run.workflowId === workflowFilter) &&
-      (!cutoff || Date.parse(run.startedAt || run.createdAt || '') >= cutoff));
+    const cutoff =
+      dateFilter === 'all' ? 0 : runsQuery.dataUpdatedAt - Number(dateFilter) * 86_400_000;
+    return baseFilteredRuns.filter(
+      (run) =>
+        (workflowFilter === 'all' || run.workflowId === workflowFilter) &&
+        (!cutoff || Date.parse(run.startedAt || run.createdAt || '') >= cutoff)
+    );
   }, [baseFilteredRuns, workflowFilter, dateFilter, runsQuery.dataUpdatedAt]);
-  const clearFilters = () => { setSearch(''); setStatusFilter('all'); setWorkflowFilter('all'); setDateFilter('all'); };
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setWorkflowFilter('all');
+    setDateFilter('all');
+  };
   const [visibleViewMode, setVisibleViewMode] = useState<RunsVisibleViewMode>(viewMode);
   const [observatoryHasMounted, setObservatoryHasMounted] = useState(false);
   const [observatoryAgentVisibilityMode, setObservatoryAgentVisibilityMode] =
@@ -237,7 +248,11 @@ export default function RunsWorkspace() {
   const focusedWorkflowName = focusedWorkflowId
     ? (workflowNamesById.get(focusedWorkflowId) ?? focusedWorkflowId)
     : null;
-  const hasActiveFilters = search.trim().length > 0 || statusFilter !== 'all' || workflowFilter !== 'all' || dateFilter !== 'all';
+  const hasActiveFilters =
+    search.trim().length > 0 ||
+    statusFilter !== 'all' ||
+    workflowFilter !== 'all' ||
+    dateFilter !== 'all';
   const statusCounts = useMemo(() => {
     const counts = new Map<string, number>();
     runs.forEach((run) => counts.set(run.status, (counts.get(run.status) ?? 0) + 1));
@@ -345,7 +360,6 @@ export default function RunsWorkspace() {
     return (
       <div className="space-y-6">
         <PageHeader
-          icon={ActivitySquare}
           tone="run"
           title="Runs"
           description="Follow live execution, approvals, failures, and completed workflow runs."
@@ -411,7 +425,6 @@ export default function RunsWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={ActivitySquare}
         tone="run"
         title="Runs"
         description="Follow live execution, approvals, failures, and completed workflow runs."

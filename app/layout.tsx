@@ -1,9 +1,17 @@
 import './globals.css';
-import {auth} from '@/auth';
+import localFont from 'next/font/local';
+
+const publicSans = localFont({
+  src: './fonts/PublicSans.ttf',
+  variable: '--font-agency',
+  weight: '100 900',
+  display: 'swap',
+});
+import { auth } from '@/auth';
 import Providers from '@/app/providers';
-import {InlineScript} from '@/app/inline-script';
+import { InlineScript } from '@/app/inline-script';
 import AppToaster from '@/components/app-shell/AppToaster';
-import type {Metadata} from 'next';
+import type { Metadata } from 'next';
 import React from 'react';
 
 const themeInitScript = `
@@ -30,20 +38,20 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function RootLayout({children}: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await auth();
   return (
-    <html lang="en" suppressHydrationWarning>
-    <head>
-      <InlineScript html={themeInitScript}/>
-      <title>Open Agency</title>
-    </head>
-    <body className="min-h-dvh">
-    <Providers session={session}>
-      {children}
-      <AppToaster/>
-    </Providers>
-    </body>
+    <html lang="en" className={publicSans.variable} suppressHydrationWarning>
+      <head>
+        <InlineScript html={themeInitScript} />
+        <title>Open Agency</title>
+      </head>
+      <body className="min-h-dvh">
+        <Providers session={session}>
+          {children}
+          <AppToaster />
+        </Providers>
+      </body>
     </html>
   );
 }

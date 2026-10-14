@@ -4,25 +4,24 @@ import WorkspaceToolbar from '@/components/app-shell/WorkspaceToolbar';
 import { NativeSelect } from '@/components/library/shadcn/select';
 
 import Link from 'next/link';
-import {useMemo, useState} from 'react';
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   AlertTriangle,
   ArrowRight,
   CirclePause,
   CirclePlay,
   Plus,
-  RadioTower,
   ShieldAlert,
   WifiOff,
   Zap,
 } from 'lucide-react';
-import {toast} from 'sonner';
+import { toast } from 'sonner';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import PageHeader from '@/components/app-shell/PageHeader';
-import {Alert, AlertDescription, AlertTitle} from '@/components/library/shadcn/alert';
-import {Button} from '@/components/library/shadcn/button';
-import {Input} from '@/components/library/shadcn/input';
+import { Alert, AlertDescription, AlertTitle } from '@/components/library/shadcn/alert';
+import { Button } from '@/components/library/shadcn/button';
+import { Input } from '@/components/library/shadcn/input';
 import {
   Table,
   TableBody,
@@ -31,24 +30,24 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/library/shadcn/table';
-import {operatorsApi} from '@/lib/api/backend/operators';
-import {queryKeys} from '@/lib/react-query/queryKeys';
-import type {OperatorReadModel} from '@/types/operators';
+import { operatorsApi } from '@/lib/api/backend/operators';
+import { queryKeys } from '@/lib/react-query/queryKeys';
+import type { OperatorReadModel } from '@/types/operators';
 import {
   DecisionBadge,
   OperatorMetric,
   OperatorQueryState,
   OperatorStatusBadge,
 } from './OperatorPrimitives';
-import {formatOperatorTime, formatRelativeTime, operatorBudget} from './operatorPresentation';
-import {useOnlineStatus, useOperatorWorkspace} from './useOperatorWorkspace';
+import { formatOperatorTime, formatRelativeTime, operatorBudget } from './operatorPresentation';
+import { useOnlineStatus, useOperatorWorkspace } from './useOperatorWorkspace';
 
 const POLL_INTERVAL = 15_000;
 
 export default function OperatorsWorkspace() {
   const queryClient = useQueryClient();
   const online = useOnlineStatus();
-  const {workspaceId, selectWorkspace} = useOperatorWorkspace();
+  const { workspaceId, selectWorkspace } = useOperatorWorkspace();
   const [workspaceDraft, setWorkspaceDraft] = useState(workspaceId);
   const [search, setSearch] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -71,17 +70,21 @@ export default function OperatorsWorkspace() {
   const visibleOperators = useMemo(() => {
     const items = fleetQuery.data?.items ?? [];
     const query = search.trim().toLowerCase();
-    return items.filter(({operator}) =>
-      (stateFilter === 'all' || operator.status === stateFilter) &&
-      (!query || [operator.name, operator.purpose, operator.description, operator.status].filter(Boolean).some(value => String(value).toLowerCase().includes(query)))
+    return items.filter(
+      ({ operator }) =>
+        (stateFilter === 'all' || operator.status === stateFilter) &&
+        (!query ||
+          [operator.name, operator.purpose, operator.description, operator.status]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(query)))
     );
   }, [fleetQuery.data?.items, search, stateFilter]);
 
-  const effectiveSelectedId = visibleOperators.some(({operator}) => operator.id === selectedId)
+  const effectiveSelectedId = visibleOperators.some(({ operator }) => operator.id === selectedId)
     ? selectedId
     : (visibleOperators[0]?.operator.id ?? null);
   const selected =
-    visibleOperators.find(({operator}) => operator.id === effectiveSelectedId) ?? null;
+    visibleOperators.find(({ operator }) => operator.id === effectiveSelectedId) ?? null;
   const selectedOperatorId = selected?.operator.id ?? '';
   const selectedEvaluations = useQuery({
     queryKey: queryKeys.backendOperatorResource(workspaceId, selectedOperatorId, 'evaluations'),
@@ -110,17 +113,17 @@ export default function OperatorsWorkspace() {
 
   const invalidateFleet = async (operatorId?: string) => {
     await Promise.all([
-      queryClient.invalidateQueries({queryKey: queryKeys.backendOperators(workspaceId)}),
-      queryClient.invalidateQueries({queryKey: queryKeys.backendOperatorSummary(workspaceId)}),
+      queryClient.invalidateQueries({ queryKey: queryKeys.backendOperators(workspaceId) }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.backendOperatorSummary(workspaceId) }),
       operatorId
         ? queryClient.invalidateQueries({
-          queryKey: queryKeys.backendOperator(workspaceId, operatorId),
-        })
+            queryKey: queryKeys.backendOperator(workspaceId, operatorId),
+          })
         : Promise.resolve(),
     ]);
   };
   const lifecycleMutation = useMutation({
-    mutationFn: async ({id, action}: { id: string; action: 'pause' | 'resume' | 'wake' }) => {
+    mutationFn: async ({ id, action }: { id: string; action: 'pause' | 'resume' | 'wake' }) => {
       if (action === 'pause') return operatorsApi.pause(workspaceId, id);
       if (action === 'resume') return operatorsApi.resume(workspaceId, id);
       return operatorsApi.wake(workspaceId, id, 'Manual wake from the Operators fleet workspace.');
@@ -160,8 +163,6 @@ export default function OperatorsWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        eyebrow="Control plane"
-        icon={RadioTower}
         tone="operator"
         title="Operators"
         description="Persistent agents that monitor work, use approved capabilities, and dispatch controlled jobs."
@@ -170,7 +171,7 @@ export default function OperatorsWorkspace() {
             <ConfirmActionDialog
               trigger={
                 <Button variant="outline" disabled={!workspaceId || emergencyMutation.isPending}>
-                  <ShieldAlert className="size-4"/> Emergency stop
+                  <ShieldAlert className="size-4" /> Emergency stop
                 </Button>
               }
               title="Stop every Operator in this workspace?"
@@ -183,7 +184,7 @@ export default function OperatorsWorkspace() {
             />
             <Button asChild variant="brand" disabled={!workspaceId}>
               <Link href={createHref} aria-disabled={!workspaceId}>
-                <Plus className="size-4"/> Create operator
+                <Plus className="size-4" /> Create operator
               </Link>
             </Button>
           </>
@@ -192,8 +193,7 @@ export default function OperatorsWorkspace() {
 
       {!workspaceId || choosingWorkspace ? (
         <section className="mx-auto max-w-2xl border-y border-(--agency-shell-border) py-10">
-          <p
-            className="text-xs font-semibold uppercase tracking-[0.12em] text-(--agency-page-tone)">
+          <p className="text-xs font-semibold uppercase tracking-[0.12em] text-(--agency-page-tone)">
             Workspace context required
           </p>
           <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em]">
@@ -203,7 +203,10 @@ export default function OperatorsWorkspace() {
             Open Agency does not infer workspace authority. Enter the workspace identifier whose
             Operators you are authorized to supervise.
           </p>
-          <p id="operator-workspace-help" className="mt-3 text-xs text-muted-foreground">Use the workspace ID from your Operator setup. Selecting it does not grant access; the backend checks your authority.</p>
+          <p id="operator-workspace-help" className="mt-3 text-xs text-muted-foreground">
+            Use the workspace ID from your Operator setup. Selecting it does not grant access; the
+            backend checks your authority.
+          </p>
           <form
             className="mt-5 flex flex-col gap-2 sm:flex-row"
             onSubmit={(event) => {
@@ -223,15 +226,18 @@ export default function OperatorsWorkspace() {
             <Button type="submit" disabled={!workspaceDraft.trim()}>
               Open workspace
             </Button>
-            {workspaceId ? <Button type="button" variant="ghost" onClick={() => setChoosingWorkspace(false)}>Cancel</Button> : null}
+            {workspaceId ? (
+              <Button type="button" variant="ghost" onClick={() => setChoosingWorkspace(false)}>
+                Cancel
+              </Button>
+            ) : null}
           </form>
         </section>
       ) : (
         <>
           {!online ? (
-            <Alert
-              className="border-amber-300/60 bg-amber-50/70 text-amber-950 dark:border-amber-300/20 dark:bg-amber-400/10 dark:text-amber-100">
-              <WifiOff className="size-4"/>
+            <Alert className="border-amber-300/60 bg-amber-50/70 text-amber-950 dark:border-amber-300/20 dark:bg-amber-400/10 dark:text-amber-100">
+              <WifiOff className="size-4" />
               <AlertTitle>Offline — showing the latest durable ledger</AlertTitle>
               <AlertDescription>
                 Operator controls are unavailable until connectivity returns. Last refreshed{' '}
@@ -240,8 +246,7 @@ export default function OperatorsWorkspace() {
             </Alert>
           ) : null}
 
-          <section
-            className="grid grid-cols-2 overflow-hidden rounded-xl border bg-card xl:grid-cols-5">
+          <section className="grid grid-cols-2 overflow-hidden rounded-xl border bg-card xl:grid-cols-5">
             <OperatorMetric
               label="Fleet"
               value={summaryQuery.data?.total ?? '—'}
@@ -393,7 +398,7 @@ export default function OperatorsWorkspace() {
                   offline={!online}
                   pending={lifecycleMutation.isPending}
                   onAction={(action) =>
-                    lifecycleMutation.mutate({id: selected.operator.id, action})
+                    lifecycleMutation.mutate({ id: selected.operator.id, action })
                   }
                 />
               ) : null}
@@ -406,10 +411,10 @@ export default function OperatorsWorkspace() {
 }
 
 function OperatorFleetTable({
-                              items,
-                              selectedId,
-                              onSelect,
-                            }: {
+  items,
+  selectedId,
+  onSelect,
+}: {
   items: OperatorReadModel[];
   selectedId: string | null;
   onSelect: (id: string) => void;
@@ -426,7 +431,7 @@ function OperatorFleetTable({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map(({operator}) => (
+          {items.map(({ operator }) => (
             <TableRow
               key={operator.id}
               data-state={selectedId === operator.id ? 'selected' : undefined}
@@ -440,13 +445,12 @@ function OperatorFleetTable({
             >
               <TableCell>
                 <p className="font-semibold text-(--agency-shell-text)">{operator.name}</p>
-                <p
-                  className="mt-1 max-w-xl line-clamp-2 text-xs leading-5 text-(--agency-shell-muted)">
+                <p className="mt-1 max-w-xl line-clamp-2 text-xs leading-5 text-(--agency-shell-muted)">
                   {operator.purpose}
                 </p>
               </TableCell>
               <TableCell>
-                <OperatorStatusBadge status={operator.status}/>
+                <OperatorStatusBadge status={operator.status} />
               </TableCell>
               <TableCell className="hidden text-sm md:table-cell">
                 {formatRelativeTime(operator.next_evaluation_at)}
@@ -463,17 +467,17 @@ function OperatorFleetTable({
 }
 
 function OperatorInspector({
-                             item,
-                             workspaceId,
-                             latestEvaluation,
-                             capabilityUnavailable,
-                             capabilityCount,
-                             activeGoal,
-                             failedNotifications,
-                             offline,
-                             pending,
-                             onAction,
-                           }: {
+  item,
+  workspaceId,
+  latestEvaluation,
+  capabilityUnavailable,
+  capabilityCount,
+  activeGoal,
+  failedNotifications,
+  offline,
+  pending,
+  onAction,
+}: {
   item: OperatorReadModel;
   workspaceId: string;
   latestEvaluation?: {
@@ -488,7 +492,7 @@ function OperatorInspector({
   pending: boolean;
   onAction: (action: 'pause' | 'resume' | 'wake') => void;
 }) {
-  const {operator, active_standing_order: order} = item;
+  const { operator, active_standing_order: order } = item;
   const budget = operatorBudget(operator);
   const isPaused = operator.status === 'paused';
   const detailHref = `/operators/${operator.id}?workspace=${encodeURIComponent(workspaceId)}`;
@@ -497,19 +501,18 @@ function OperatorInspector({
       <div className="pb-5">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p
-              className="text-xs font-semibold uppercase tracking-[0.12em] text-(--agency-page-tone)">
+            <p className="text-xs font-semibold uppercase tracking-[0.12em] text-(--agency-page-tone)">
               Selected operator
             </p>
             <h2 className="mt-2 text-xl font-semibold tracking-[-0.03em]">{operator.name}</h2>
           </div>
-          <OperatorStatusBadge status={operator.status}/>
+          <OperatorStatusBadge status={operator.status} />
         </div>
         <p className="mt-3 text-sm leading-6 text-(--agency-shell-muted)">{operator.purpose}</p>
       </div>
 
       <dl className="divide-y border-y border-(--agency-shell-border)">
-        <InspectorValue label="Next wake" value={formatOperatorTime(operator.next_evaluation_at)}/>
+        <InspectorValue label="Next wake" value={formatOperatorTime(operator.next_evaluation_at)} />
         <InspectorValue
           label="Last evaluation"
           value={
@@ -520,7 +523,7 @@ function OperatorInspector({
         />
         <InspectorValue
           label="Latest decision"
-          value={<DecisionBadge decision={latestEvaluation?.decision?.decision}/>}
+          value={<DecisionBadge decision={latestEvaluation?.decision?.decision} />}
           detail={latestEvaluation?.decision?.rationale_summary}
         />
         <InspectorValue
@@ -569,7 +572,7 @@ function OperatorInspector({
           }
           onClick={() => onAction(isPaused ? 'resume' : 'pause')}
         >
-          {isPaused ? <CirclePlay className="size-4"/> : <CirclePause className="size-4"/>}
+          {isPaused ? <CirclePlay className="size-4" /> : <CirclePause className="size-4" />}
           {isPaused ? 'Resume' : 'Pause'}
         </Button>
         <Button
@@ -584,17 +587,17 @@ function OperatorInspector({
           }
           onClick={() => onAction('wake')}
         >
-          <Zap className="size-4"/> Wake now
+          <Zap className="size-4" /> Wake now
         </Button>
         <Button size="sm" asChild className="ml-auto">
           <Link href={detailHref}>
-            Supervise <ArrowRight className="size-4"/>
+            Supervise <ArrowRight className="size-4" />
           </Link>
         </Button>
       </div>
       {operator.status === 'degraded' ? (
         <div className="mt-4 flex gap-2 text-xs leading-5 text-rose-700 dark:text-rose-200">
-          <AlertTriangle className="mt-0.5 size-3.5 shrink-0"/> This Operator requires attention
+          <AlertTriangle className="mt-0.5 size-3.5 shrink-0" /> This Operator requires attention
           before normal operation can continue.
         </div>
       ) : null}
@@ -603,11 +606,11 @@ function OperatorInspector({
 }
 
 function InspectorValue({
-                          label,
-                          value,
-                          detail,
-                          danger = false,
-                        }: {
+  label,
+  value,
+  detail,
+  danger = false,
+}: {
   label: string;
   value: React.ReactNode;
   detail?: React.ReactNode;
@@ -615,8 +618,7 @@ function InspectorValue({
 }) {
   return (
     <div className="py-3">
-      <dt
-        className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-(--agency-shell-muted)">
+      <dt className="text-[0.68rem] font-semibold uppercase tracking-[0.1em] text-(--agency-shell-muted)">
         {label}
       </dt>
       <dd

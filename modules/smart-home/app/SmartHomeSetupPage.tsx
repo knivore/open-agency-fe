@@ -44,7 +44,6 @@ export default async function SmartHomeSetupPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        icon={Home}
         tone="integration"
         title="Set up Smart Home"
         description="Connect Home Assistant once, verify a device, and then use home entities inside workflows."

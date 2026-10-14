@@ -1,4 +1,5 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
@@ -11,7 +12,6 @@ import { useAgencyTheme } from '@/app/providers';
 import { Alert, AlertDescription, AlertTitle } from '@/components/library/shadcn/alert';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
-import { Label } from '@/components/library/shadcn/label';
 import { isAgencyDevAuthEnabled } from '@/lib/api/config';
 
 function getSafeCallbackUrl(value: string | null) {
@@ -177,8 +177,7 @@ export default function Login() {
 
           {isDevAuthEnabled ? (
             <form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="email">Email</Label>
+              <FormField label="Email" htmlFor="email" className="flex flex-col gap-2">
                 <Input
                   id="email"
                   type="email"
@@ -188,10 +187,9 @@ export default function Login() {
                   placeholder="dev@example.com"
                   required
                 />
-              </div>
+              </FormField>
 
-              <div className="flex flex-col gap-2">
-                <Label htmlFor="password">Password</Label>
+              <FormField label="Password" htmlFor="password" className="flex flex-col gap-2">
                 <Input
                   id="password"
                   type="password"
@@ -201,7 +199,7 @@ export default function Login() {
                   placeholder="Enter your password"
                   required
                 />
-              </div>
+              </FormField>
 
               {errorMessage ? (
                 <Alert variant="destructive">

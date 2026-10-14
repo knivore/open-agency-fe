@@ -10,7 +10,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      fontFamily: { 'source-sans': ['"Source Sans Pro"', 'sans-serif'] },
+      fontFamily: {
+        sans: ['var(--font-agency)', 'Public Sans', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        'source-sans': ['var(--font-agency)', 'Public Sans', 'sans-serif'],
+      },
       fontSize: {
         base: ['16px', '20px'],
         'caption-1': ['14px', '17px'],
@@ -37,7 +40,7 @@ const config: Config = {
           foreground: 'hsl(var(--popover-foreground))',
         },
         primary: {
-          DEFAULT: 'hsl(var(--primary-700) / <alpha-value>)',
+          DEFAULT: 'hsl(var(--primary) / <alpha-value>)',
           foreground: 'hsl(var(--primary-foreground))',
           50: 'hsl(var(--primary-50) / <alpha-value>)',
           100: 'hsl(var(--primary-100) / <alpha-value>)',
@@ -52,7 +55,7 @@ const config: Config = {
           950: 'hsl(var(--primary-950) / <alpha-value>)',
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary-700))',
+          DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
           50: 'hsl(var(--secondary-50) / <alpha-value>)',
           100: 'hsl(var(--secondary-100) / <alpha-value>)',
@@ -80,7 +83,7 @@ const config: Config = {
           950: 'hsl(var(--neutral-950) / <alpha-value>)',
         },
         success: {
-          DEFAULT: 'hsl(var(--success-700) / <alpha-value>)',
+          DEFAULT: 'var(--success)',
           50: 'hsl(var(--success-50) / <alpha-value>)',
           100: 'hsl(var(--success-100) / <alpha-value>)',
           200: 'hsl(var(--success-200) / <alpha-value>)',
@@ -94,7 +97,7 @@ const config: Config = {
           950: 'hsl(var(--success-950) / <alpha-value>)',
         },
         warning: {
-          DEFAULT: 'hsl(var(--warning-700) / <alpha-value>)',
+          DEFAULT: 'var(--warning)',
           50: 'hsl(var(--warning-50) / <alpha-value>)',
           100: 'hsl(var(--warning-100) / <alpha-value>)',
           200: 'hsl(var(--warning-200) / <alpha-value>)',
@@ -108,7 +111,7 @@ const config: Config = {
           950: 'hsl(var(--warning-950) / <alpha-value>)',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive-700) / <alpha-value>)',
+          DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',
           foreground: 'hsl(var(--destructive-foreground))',
           50: 'hsl(var(--destructive-50) / <alpha-value>)',
           100: 'hsl(var(--destructive-100) / <alpha-value>)',

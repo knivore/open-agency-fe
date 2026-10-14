@@ -5,12 +5,12 @@ import React, {
   ReactNode,
   TextareaHTMLAttributes,
 } from 'react';
-import {fireEvent, render, screen} from '@testing-library/react';
-import {describe, expect, it, vi} from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import WorkflowMetadataEditor from '@/components/workflow/WorkflowMetadataEditor';
 
 vi.mock('@/components/library/shadcn/button', () => ({
-  Button: ({children, ...props}: ButtonHTMLAttributes<HTMLButtonElement>) => (
+  Button: ({ children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>
       {children}
     </button>
@@ -26,17 +26,17 @@ vi.mock('@/components/library/shadcn/textarea', () => ({
 }));
 
 vi.mock('@/components/library/shadcn/label', () => ({
-  Label: ({children, ...props}: LabelHTMLAttributes<HTMLLabelElement>) => (
+  Label: ({ children, ...props }: LabelHTMLAttributes<HTMLLabelElement>) => (
     <label {...props}>{children}</label>
   ),
 }));
 
 vi.mock('@/components/library/shadcn/card', () => ({
-  Card: ({children}: { children: ReactNode }) => <div>{children}</div>,
-  CardHeader: ({children}: { children: ReactNode }) => <div>{children}</div>,
-  CardTitle: ({children}: { children: ReactNode }) => <div>{children}</div>,
-  CardDescription: ({children}: { children: ReactNode }) => <div>{children}</div>,
-  CardContent: ({children, className}: { children: ReactNode; className?: string }) => (
+  Card: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CardHeader: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CardTitle: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CardDescription: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  CardContent: ({ children, className }: { children: ReactNode; className?: string }) => (
     <div className={className}>{children}</div>
   ),
 }));
@@ -67,39 +67,43 @@ function renderEditor(overrides?: Partial<React.ComponentProps<typeof WorkflowMe
       draftValidationIssues={[]}
       hasUnsavedChanges
       isSaving={false}
-      onNameChange={() => {
-      }}
-      onDescriptionChange={() => {
-      }}
-      onEntrypointChange={() => {
-      }}
-      onDefaultRuntimeAdapterChange={() => {
-      }}
-      onExecutionHostChange={() => {
-      }}
-      onRestartActiveExecutionsChange={() => {
-      }}
-      onWorkflowMetadataChange={() => {
-      }}
-      onWorkflowCapabilityTagsChange={() => {
-      }}
+      onNameChange={() => {}}
+      onDescriptionChange={() => {}}
+      onEntrypointChange={() => {}}
+      onDefaultRuntimeAdapterChange={() => {}}
+      onExecutionHostChange={() => {}}
+      onRestartActiveExecutionsChange={() => {}}
+      onWorkflowMetadataChange={() => {}}
+      onWorkflowCapabilityTagsChange={() => {}}
       onSave={onSave}
       {...overrides}
     />
   );
 
-  return {onSave};
+  return { onSave };
 }
 
 describe('WorkflowMetadataEditor', () => {
+  it('links validation feedback to reusable fields without adding native validation', () => {
+    renderEditor({ workflowNameInvalid: true, workflowDescriptionInvalid: true });
+    const name = screen.getByRole('textbox', { name: 'Name' });
+    const description = screen.getByRole('textbox', { name: 'Description' });
+    expect(name).toHaveAttribute('aria-invalid', 'true');
+    expect(name).toHaveAccessibleDescription('Workflow name is required.');
+    expect(description).toHaveAttribute('aria-invalid', 'true');
+    expect(description).toHaveAccessibleDescription('Workflow description is required.');
+    expect(name).not.toBeRequired();
+    expect(description).not.toBeRequired();
+  });
+
   it('opts into visibility without granting edit permission or losing metadata', () => {
     const onWorkflowMetadataChange = vi.fn();
     renderEditor({
-      workflowMetadata: {created_by: 'owner', mutable_by_main_agent: false},
+      workflowMetadata: { created_by: 'owner', mutable_by_main_agent: false },
       onWorkflowMetadataChange,
     });
-    fireEvent.change(screen.getByRole('combobox', {name: 'Main agent access'}), {
-      target: {value: 'visible'},
+    fireEvent.change(screen.getByRole('combobox', { name: 'Main agent access' }), {
+      target: { value: 'visible' },
     });
     expect(onWorkflowMetadataChange).toHaveBeenCalledWith({
       created_by: 'owner',
@@ -112,12 +116,12 @@ describe('WorkflowMetadataEditor', () => {
   it('revokes both visibility aliases while preserving other permissions', () => {
     const onWorkflowMetadataChange = vi.fn();
     renderEditor({
-      workflowMetadata: {visible_to_agent: true, mutable_by_main_agent: true},
+      workflowMetadata: { visible_to_agent: true, mutable_by_main_agent: true },
       onWorkflowMetadataChange,
     });
-    const access = screen.getByRole('combobox', {name: 'Main agent access'});
+    const access = screen.getByRole('combobox', { name: 'Main agent access' });
     expect(access).toHaveValue('visible');
-    fireEvent.change(access, {target: {value: 'hidden'}});
+    fireEvent.change(access, { target: { value: 'hidden' } });
     expect(onWorkflowMetadataChange).toHaveBeenCalledWith({
       visible_to_agent: false,
       visible_to_main_agent: false,
@@ -134,11 +138,11 @@ describe('WorkflowMetadataEditor', () => {
   ])('preserves explicit %s policy denials', (key) => {
     const onWorkflowMetadataChange = vi.fn();
     renderEditor({
-      workflowMetadata: {[key]: true, visible_to_main_agent: true},
+      workflowMetadata: { [key]: true, visible_to_main_agent: true },
       onWorkflowMetadataChange,
     });
-    expect(screen.getByRole('combobox', {name: 'Main agent access'})).toBeDisabled();
-    expect(screen.getByRole('combobox', {name: 'Main agent access'})).toHaveValue('hidden');
+    expect(screen.getByRole('combobox', { name: 'Main agent access' })).toBeDisabled();
+    expect(screen.getByRole('combobox', { name: 'Main agent access' })).toHaveValue('hidden');
     expect(onWorkflowMetadataChange).not.toHaveBeenCalled();
     expect(screen.getByText(/Workflow policy blocks main agent access/)).toBeInTheDocument();
   });
@@ -148,13 +152,13 @@ describe('WorkflowMetadataEditor', () => {
       draftValidationIssues: ['Edge metadata for "Task A" -> "Task B" must be valid JSON.'],
     });
 
-    expect(screen.getByRole('button', {name: 'Save Changes'})).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Save Changes' })).toBeDisabled();
   });
 
   it('allows save when the draft is valid and changed', () => {
-    const {onSave} = renderEditor();
+    const { onSave } = renderEditor();
 
-    const saveButton = screen.getByRole('button', {name: 'Save Changes'});
+    const saveButton = screen.getByRole('button', { name: 'Save Changes' });
     expect(saveButton).toBeEnabled();
 
     fireEvent.click(saveButton);
@@ -163,10 +167,10 @@ describe('WorkflowMetadataEditor', () => {
 
   it('lets the restart active runs setting be edited', () => {
     const onRestartActiveExecutionsChange = vi.fn();
-    renderEditor({onRestartActiveExecutionsChange});
+    renderEditor({ onRestartActiveExecutionsChange });
 
-    fireEvent.change(screen.getByRole('combobox', {name: 'Active run behavior'}), {
-      target: {value: 'restart'},
+    fireEvent.change(screen.getByRole('combobox', { name: 'Active run behavior' }), {
+      target: { value: 'restart' },
     });
 
     expect(onRestartActiveExecutionsChange).toHaveBeenCalledWith(true);
@@ -174,9 +178,9 @@ describe('WorkflowMetadataEditor', () => {
 
   it('enables a persistent monitor through workflow metadata', () => {
     const onWorkflowMetadataChange = vi.fn();
-    renderEditor({onWorkflowMetadataChange});
+    renderEditor({ onWorkflowMetadataChange });
 
-    fireEvent.click(screen.getByRole('button', {name: 'Persistent monitor'}));
+    fireEvent.click(screen.getByRole('button', { name: 'Persistent monitor' }));
 
     expect(onWorkflowMetadataChange).toHaveBeenCalledWith({
       execution_lifecycle: {

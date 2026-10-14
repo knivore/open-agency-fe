@@ -1,9 +1,9 @@
 'use client';
 
-import type {ComponentType} from 'react';
-import {useMemo} from 'react';
-import {useSession} from 'next-auth/react';
-import {useQuery} from '@tanstack/react-query';
+import type { ComponentType } from 'react';
+import { useMemo } from 'react';
+import { useSession } from 'next-auth/react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Activity,
   ChartNetwork,
@@ -14,26 +14,26 @@ import {
   SlidersHorizontal,
   Stethoscope,
 } from 'lucide-react';
-import {Button, Card, CardBody, CardHeader, Chip, Spinner} from '@nextui-org/react';
+import { Button, Card, CardBody, CardHeader, Chip, Spinner } from '@nextui-org/react';
 import PageHeader from '@/components/app-shell/PageHeader';
-import {backendCapabilitiesApi} from '@/lib/api/backend/capabilities';
-import {executionsApi} from '@/lib/api/backend/executions';
-import {graphReadApi} from '@/lib/api/backend/graphRead';
-import {physicalDevicesApi} from '@/lib/api/backend/physicalDevices';
-import {smartHomeApi} from '@/lib/api/backend/smartHome';
-import {queryKeys} from '@/lib/react-query/queryKeys';
-import {useAgencyUserPreferences} from '@/lib/userPreferences';
-import type {AuthUser} from '@/types/auth';
-import type {ExecutionRecord} from '@/types/runtime';
+import { backendCapabilitiesApi } from '@/lib/api/backend/capabilities';
+import { executionsApi } from '@/lib/api/backend/executions';
+import { graphReadApi } from '@/lib/api/backend/graphRead';
+import { physicalDevicesApi } from '@/lib/api/backend/physicalDevices';
+import { smartHomeApi } from '@/lib/api/backend/smartHome';
+import { queryKeys } from '@/lib/react-query/queryKeys';
+import { useAgencyUserPreferences } from '@/lib/userPreferences';
+import type { AuthUser } from '@/types/auth';
+import type { ExecutionRecord } from '@/types/runtime';
 
 const diagnosticsCacheMs = 30_000;
 
 export default function DiagnosticsWorkspace() {
-  const {data: session} = useSession();
+  const { data: session } = useSession();
   const user = session?.user as AuthUser | undefined;
   const {
     isLoaded,
-    preferences: {showDiagnostics},
+    preferences: { showDiagnostics },
     setShowDiagnostics,
   } = useAgencyUserPreferences();
   const enabled = isLoaded && showDiagnostics;
@@ -88,7 +88,7 @@ export default function DiagnosticsWorkspace() {
   if (!isLoaded) {
     return (
       <div className="flex min-h-[calc(100vh-8rem)] items-center justify-center">
-        <Spinner color="primary" size="lg"/>
+        <Spinner color="primary" size="lg" />
       </div>
     );
   }
@@ -98,17 +98,14 @@ export default function DiagnosticsWorkspace() {
       <div className="mx-auto min-w-0 w-full max-w-7xl">
         <PageHeader
           className="mb-6"
-          icon={Stethoscope}
           tone="run"
           title="Diagnostics"
           description="Optional backend capabilities, graph health, run coverage, and module availability."
         />
-        <Card
-          className="max-w-2xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+        <Card className="max-w-2xl border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
           <CardBody className="flex flex-col gap-5 p-6 sm:flex-row sm:items-start">
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
-              <SlidersHorizontal className="h-6 w-6"/>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
+              <SlidersHorizontal className="h-6 w-6" />
             </div>
             <div className="min-w-0 flex-1">
               <h2 className="text-xl font-semibold text-neutral-950 dark:text-slate-50">
@@ -132,13 +129,12 @@ export default function DiagnosticsWorkspace() {
     <div className="mx-auto min-w-0 w-full max-w-7xl">
       <PageHeader
         className="mb-8"
-        icon={Stethoscope}
         tone="run"
         title="Diagnostics"
         description="A profile-gated workspace for backend capabilities, graph health, run coverage, and optional module availability."
         actions={
           <>
-            {isFetching ? <Spinner color="primary" size="sm"/> : null}
+            {isFetching ? <Spinner color="primary" size="sm" /> : null}
             <Button size="sm" variant="flat" onPress={() => setShowDiagnostics(false)}>
               Hide Diagnostics
             </Button>
@@ -189,12 +185,10 @@ export default function DiagnosticsWorkspace() {
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-        <Card
-          className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-          <CardHeader
-            className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+        <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
             <div className="flex items-center gap-2">
-              <Stethoscope className="h-5 w-5 text-primary"/>
+              <Stethoscope className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
                 Operational Signals
               </h2>
@@ -234,21 +228,19 @@ export default function DiagnosticsWorkspace() {
           </CardBody>
         </Card>
 
-        <Card
-          className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
-          <CardHeader
-            className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
+        <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+          <CardHeader className="border-b border-neutral-200 bg-neutral-50/80 dark:border-white/10 dark:bg-white/5">
             <h2 className="text-xl font-semibold text-neutral-900 dark:text-slate-100">
               Graph Intelligence Roadmap
             </h2>
           </CardHeader>
           <CardBody className="space-y-3 text-sm text-neutral-600 dark:text-slate-300">
-            <RoadmapItem label="Reliable coverage" done/>
-            <RoadmapItem label="Temporal aggregation by run age and status"/>
-            <RoadmapItem label="Incident clustering across workflows and errors"/>
-            <RoadmapItem label="Workflow/run health summaries in graph clusters"/>
-            <RoadmapItem label="Drill-down from cluster to logs, artifacts, and evidence"/>
-            <RoadmapItem label="Graph-native retry, resume, and artifact actions"/>
+            <RoadmapItem label="Reliable coverage" done />
+            <RoadmapItem label="Temporal aggregation by run age and status" />
+            <RoadmapItem label="Incident clustering across workflows and errors" />
+            <RoadmapItem label="Workflow/run health summaries in graph clusters" />
+            <RoadmapItem label="Drill-down from cluster to logs, artifacts, and evidence" />
+            <RoadmapItem label="Graph-native retry, resume, and artifact actions" />
           </CardBody>
         </Card>
       </div>
@@ -257,12 +249,12 @@ export default function DiagnosticsWorkspace() {
 }
 
 function SummaryCard({
-                       detail,
-                       icon: Icon,
-                       label,
-                       state,
-                       tone,
-                     }: {
+  detail,
+  icon: Icon,
+  label,
+  state,
+  tone,
+}: {
   detail: string;
   icon: ComponentType<{ className?: string }>;
   label: string;
@@ -270,21 +262,18 @@ function SummaryCard({
   tone: 'success' | 'warning';
 }) {
   return (
-    <Card
-      className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
+    <Card className="border border-neutral-200 bg-white shadow-sm dark:border-white/10 dark:bg-white/5 dark:shadow-none">
       <CardBody className="space-y-4">
         <div className="flex items-center justify-between gap-3">
-          <div
-            className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
-            <Icon className="h-5 w-5"/>
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary-50 text-primary-700 dark:bg-cyan-400/10 dark:text-cyan-200">
+            <Icon className="h-5 w-5" />
           </div>
           <Chip color={tone === 'success' ? 'success' : 'warning'} size="sm" variant="flat">
             {tone === 'success' ? 'OK' : 'Check'}
           </Chip>
         </div>
         <div>
-          <p
-            className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-neutral-500 dark:text-slate-400">
             {label}
           </p>
           <p className="mt-2 text-lg font-semibold text-neutral-950 dark:text-slate-50">{state}</p>
@@ -296,12 +285,12 @@ function SummaryCard({
 }
 
 function SignalRow({
-                     detail,
-                     isLoading,
-                     isWarning,
-                     label,
-                     status,
-                   }: {
+  detail,
+  isLoading,
+  isWarning,
+  label,
+  status,
+}: {
   detail: string;
   isLoading?: boolean;
   isWarning?: boolean;
@@ -309,8 +298,7 @@ function SignalRow({
   status: string;
 }) {
   return (
-    <div
-      className="flex items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/40">
+    <div className="flex items-start justify-between gap-4 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 dark:border-white/10 dark:bg-slate-950/40">
       <div>
         <p className="font-medium text-neutral-950 dark:text-slate-50">{label}</p>
         <p className="mt-1 text-sm text-neutral-600 dark:text-slate-300">{detail}</p>
@@ -320,9 +308,9 @@ function SignalRow({
         size="sm"
         startContent={
           isLoading ? undefined : isWarning ? (
-            <CircleAlert className="h-3 w-3"/>
+            <CircleAlert className="h-3 w-3" />
           ) : (
-            <CheckCircle2 className="h-3 w-3"/>
+            <CheckCircle2 className="h-3 w-3" />
           )
         }
         variant="flat"
@@ -333,10 +321,9 @@ function SignalRow({
   );
 }
 
-function RoadmapItem({done = false, label}: { done?: boolean; label: string }) {
+function RoadmapItem({ done = false, label }: { done?: boolean; label: string }) {
   return (
-    <div
-      className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/40">
+    <div className="flex items-center gap-3 rounded-xl border border-neutral-200 bg-neutral-50 px-3 py-2 dark:border-white/10 dark:bg-slate-950/40">
       <span
         className={`h-2.5 w-2.5 rounded-full ${done ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-slate-600'}`}
       />

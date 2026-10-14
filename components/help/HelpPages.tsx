@@ -12,7 +12,6 @@ import {
   Bot,
   BotMessageSquare,
   BrainCog,
-  CircleHelp,
   PlugZap,
   Radar,
   Workflow,
@@ -274,7 +273,6 @@ export function FaqPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        icon={CircleHelp}
         tone="help"
         title="Frequently asked questions"
         description="Essential answers for setting up this Open Agency install, running workflows, and understanding what happened."

@@ -23,7 +23,6 @@ export default async function PhysicalDevicesSetupPage() {
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
-        icon={DatabaseZap}
         tone="monitor"
         title="Set up Physical Devices"
         description="Use this optional module when workflows need canonical device IDs, command approvals, and an audit trail."

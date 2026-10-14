@@ -3,16 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { Badge } from '@/components/library/shadcn/badge';
-import {
-  Download,
-  MoreHorizontal,
-  Pencil,
-  Play,
-  RefreshCw,
-  Trash2,
-  Workflow,
-  X,
-} from 'lucide-react';
+import { Download, MoreHorizontal, Pencil, Play, RefreshCw, Trash2, X } from 'lucide-react';
 import { Button } from '../library/shadcn/button';
 import {
   DropdownMenu,
@@ -74,16 +65,29 @@ export default function WorkflowDetailHeader({
       <PageHeader
         className="lg:items-start"
         compact
-        eyebrow="Workflow"
-        icon={Workflow}
         tone="workflow"
         title={workflowName}
         breadcrumbs={[{ label: 'Workflows', href: '/workflows' }, { label: workflowName }]}
-        meta={<>
-          {savedRevision !== undefined ? <Badge variant="outline">Saved revision {savedRevision}{savedVersion ? ` · v${savedVersion}` : ''}</Badge> : null}
-          <Badge variant={hasUnsavedChanges ? 'secondary' : 'outline'}>{hasUnsavedChanges ? 'Unsaved changes' : isEditing ? 'Editing saved definition' : 'Saved definition'}</Badge>
-          <Button asChild variant="ghost" size="sm"><Link href={`/runs?workflowId=${encodeURIComponent(workflowId)}`}>Run history</Link></Button>
-        </>}
+        meta={
+          <>
+            {savedRevision !== undefined ? (
+              <Badge variant="outline">
+                Saved revision {savedRevision}
+                {savedVersion ? ` · v${savedVersion}` : ''}
+              </Badge>
+            ) : null}
+            <Badge variant={hasUnsavedChanges ? 'secondary' : 'outline'}>
+              {hasUnsavedChanges
+                ? 'Unsaved changes'
+                : isEditing
+                  ? 'Editing saved definition'
+                  : 'Saved definition'}
+            </Badge>
+            <Button asChild variant="ghost" size="sm">
+              <Link href={`/runs?workflowId=${encodeURIComponent(workflowId)}`}>Run history</Link>
+            </Button>
+          </>
+        }
         description={
           <div className="flex max-w-3xl flex-col items-start gap-1">
             <span className={cn(!isDescriptionExpanded && 'line-clamp-2')}>{description}</span>

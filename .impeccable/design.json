@@ -1,0 +1,612 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-14T05:57:01.047Z",
+  "title": "Design System: Open Agency — Wayfinder",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "Primary",
+        "canonical": "hsl(221.29 70.25% 47.45%)",
+        "tonalRamp": [
+          "hsl(219.09 67.35% 19.22%)",
+          "hsl(221.28 73.96% 33.14%)",
+          "hsl(221.6 73.53% 40%)",
+          "hsl(221.29 70.25% 47.45%)",
+          "hsl(220.42 68.57% 58.82%)",
+          "hsl(219.49 92.94% 83.33%)",
+          "hsl(218.57 100% 94.51%)",
+          "hsl(217.5 57.14% 97.25%)"
+        ]
+      },
+      "primary-foreground": {
+        "role": "neutral",
+        "displayName": "Primary Foreground",
+        "canonical": "hsl(0 0% 100%)"
+      },
+      "agency-primary-hover": {
+        "role": "primary",
+        "displayName": "Agency Primary Hover",
+        "canonical": "#1b49b1"
+      },
+      "agency-masthead-bg": {
+        "role": "primary",
+        "displayName": "Agency Masthead Bg",
+        "canonical": "#163d93"
+      },
+      "agency-masthead-text": {
+        "role": "neutral",
+        "displayName": "Agency Masthead Text",
+        "canonical": "#ffffff"
+      },
+      "agency-masthead-selected": {
+        "role": "primary",
+        "displayName": "Agency Masthead Selected",
+        "canonical": "#2b50a2"
+      },
+      "background": {
+        "role": "neutral",
+        "displayName": "Background",
+        "canonical": "hsl(212.73 44% 95.1%)",
+        "tonalRamp": [
+          "hsl(214 55% 15%)",
+          "hsl(214 55% 17%)",
+          "hsl(214 45% 22%)",
+          "hsl(214 33% 27%)",
+          "hsl(214 25% 42%)",
+          "hsl(214 30% 75%)",
+          "hsl(214 50% 95%)",
+          "hsl(214 57% 97%)"
+        ]
+      },
+      "foreground": {
+        "role": "neutral",
+        "displayName": "Foreground",
+        "canonical": "hsl(214.74 55.34% 20.2%)"
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Card",
+        "canonical": "hsl(0 0% 100%)"
+      },
+      "card-foreground": {
+        "role": "neutral",
+        "displayName": "Card Foreground",
+        "canonical": "hsl(214.74 55.34% 20.2%)"
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "hsl(217.5 57.14% 97.25%)"
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "displayName": "Muted Foreground",
+        "canonical": "hsl(213.96 24.88% 41.76%)"
+      },
+      "accent": {
+        "role": "primary",
+        "displayName": "Accent",
+        "canonical": "hsl(218.57 100% 94.51%)"
+      },
+      "accent-foreground": {
+        "role": "neutral",
+        "displayName": "Accent Foreground",
+        "canonical": "hsl(214.74 55.34% 20.2%)"
+      },
+      "border": {
+        "role": "neutral",
+        "displayName": "Border",
+        "canonical": "hsl(214.62 36.11% 85.88%)"
+      },
+      "input": {
+        "role": "neutral",
+        "displayName": "Input",
+        "canonical": "hsl(214.62 36.11% 85.88%)"
+      },
+      "ring": {
+        "role": "primary",
+        "displayName": "Ring",
+        "canonical": "hsl(221.29 70.25% 47.45%)"
+      },
+      "agency-shell-bg": {
+        "role": "neutral",
+        "displayName": "Agency Shell Bg",
+        "canonical": "#edf2f8"
+      },
+      "agency-shell-text": {
+        "role": "neutral",
+        "displayName": "Agency Shell Text",
+        "canonical": "#172f50"
+      },
+      "agency-shell-muted": {
+        "role": "neutral",
+        "displayName": "Agency Shell Muted",
+        "canonical": "#506785"
+      },
+      "agency-shell-border": {
+        "role": "neutral",
+        "displayName": "Agency Shell Border",
+        "canonical": "#ced9e8"
+      },
+      "agency-surface-subtle": {
+        "role": "neutral",
+        "displayName": "Agency Surface Subtle",
+        "canonical": "#f4f7fc"
+      },
+      "agency-active-bg": {
+        "role": "primary",
+        "displayName": "Agency Active Bg",
+        "canonical": "#e3edff"
+      },
+      "agency-success-bg": {
+        "role": "secondary",
+        "displayName": "Agency Success Bg",
+        "canonical": "#e2f4e9"
+      },
+      "agency-success-text": {
+        "role": "secondary",
+        "displayName": "Agency Success Text",
+        "canonical": "#166346",
+        "tonalRamp": [
+          "hsl(160 96% 9%)",
+          "hsl(160 90% 16%)",
+          "hsl(160 94% 20%)",
+          "hsl(160 100% 24%)",
+          "hsl(160 90% 39%)",
+          "hsl(160 82% 80%)",
+          "hsl(161 89% 93%)",
+          "hsl(160 90% 96%)"
+        ]
+      },
+      "agency-warning-bg": {
+        "role": "secondary",
+        "displayName": "Agency Warning Bg",
+        "canonical": "#fff0ce"
+      },
+      "agency-warning-text": {
+        "role": "secondary",
+        "displayName": "Agency Warning Text",
+        "canonical": "#875000",
+        "tonalRamp": [
+          "hsl(40 100% 14%)",
+          "hsl(40 84% 26%)",
+          "hsl(40 90% 31%)",
+          "hsl(40 98% 37%)",
+          "hsl(40 100% 50%)",
+          "hsl(40 100% 75%)",
+          "hsl(40 100% 93%)",
+          "hsl(40 100% 96%)"
+        ]
+      },
+      "agency-danger-bg": {
+        "role": "secondary",
+        "displayName": "Agency Danger Bg",
+        "canonical": "#ffe8e6"
+      },
+      "agency-danger-text": {
+        "role": "secondary",
+        "displayName": "Agency Danger Text",
+        "canonical": "#9f3439",
+        "tonalRamp": [
+          "hsl(0 84% 15%)",
+          "hsl(0 85% 31%)",
+          "hsl(0 85% 35%)",
+          "hsl(0 85% 42%)",
+          "hsl(0 85% 57%)",
+          "hsl(0 85% 79%)",
+          "hsl(0 83% 93%)",
+          "hsl(0 87% 97%)"
+        ]
+      },
+      "destructive": {
+        "role": "secondary",
+        "displayName": "Destructive",
+        "canonical": "hsl(357.2 50.71% 41.37%)"
+      },
+      "destructive-foreground": {
+        "role": "neutral",
+        "displayName": "Destructive Foreground",
+        "canonical": "hsl(0 0% 100%)"
+      },
+      "dark-primary": {
+        "role": "primary",
+        "displayName": "Dark Primary",
+        "canonical": "hsl(220.54 100% 85.49%)"
+      },
+      "dark-primary-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Primary Foreground",
+        "canonical": "hsl(216.73 53.85% 17.84%)"
+      },
+      "dark-agency-primary-hover": {
+        "role": "primary",
+        "displayName": "Dark Agency Primary Hover",
+        "canonical": "#c9dbff"
+      },
+      "dark-agency-masthead-bg": {
+        "role": "primary",
+        "displayName": "Dark Agency Masthead Bg",
+        "canonical": "#102752"
+      },
+      "dark-agency-masthead-text": {
+        "role": "neutral",
+        "displayName": "Dark Agency Masthead Text",
+        "canonical": "#ffffff"
+      },
+      "dark-agency-masthead-selected": {
+        "role": "primary",
+        "displayName": "Dark Agency Masthead Selected",
+        "canonical": "#2b50a2"
+      },
+      "dark-background": {
+        "role": "neutral",
+        "displayName": "Dark Background",
+        "canonical": "hsl(217.5 47.06% 13.33%)"
+      },
+      "dark-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Foreground",
+        "canonical": "hsl(220 100% 96.47%)"
+      },
+      "dark-card": {
+        "role": "neutral",
+        "displayName": "Dark Card",
+        "canonical": "hsl(216.59 44.09% 18.24%)"
+      },
+      "dark-card-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Card Foreground",
+        "canonical": "hsl(220 100% 96.47%)"
+      },
+      "dark-muted": {
+        "role": "neutral",
+        "displayName": "Dark Muted",
+        "canonical": "hsl(214.47 40.87% 22.55%)"
+      },
+      "dark-muted-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Muted Foreground",
+        "canonical": "hsl(215.71 36.84% 77.65%)"
+      },
+      "dark-accent": {
+        "role": "primary",
+        "displayName": "Dark Accent",
+        "canonical": "hsl(218 38.46% 30.59%)"
+      },
+      "dark-accent-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Accent Foreground",
+        "canonical": "hsl(220 100% 96.47%)"
+      },
+      "dark-border": {
+        "role": "neutral",
+        "displayName": "Dark Border",
+        "canonical": "hsl(213.75 27.27% 34.51%)"
+      },
+      "dark-input": {
+        "role": "neutral",
+        "displayName": "Dark Input",
+        "canonical": "hsl(213.75 27.27% 34.51%)"
+      },
+      "dark-ring": {
+        "role": "primary",
+        "displayName": "Dark Ring",
+        "canonical": "hsl(220.54 100% 85.49%)"
+      },
+      "dark-agency-shell-bg": {
+        "role": "neutral",
+        "displayName": "Dark Agency Shell Bg",
+        "canonical": "#121e32"
+      },
+      "dark-agency-shell-text": {
+        "role": "neutral",
+        "displayName": "Dark Agency Shell Text",
+        "canonical": "#edf3ff"
+      },
+      "dark-agency-shell-muted": {
+        "role": "neutral",
+        "displayName": "Dark Agency Shell Muted",
+        "canonical": "#b1c2db"
+      },
+      "dark-agency-shell-border": {
+        "role": "neutral",
+        "displayName": "Dark Agency Shell Border",
+        "canonical": "#405570"
+      },
+      "dark-agency-surface-subtle": {
+        "role": "neutral",
+        "displayName": "Dark Agency Surface Subtle",
+        "canonical": "#223651"
+      },
+      "dark-agency-active-bg": {
+        "role": "primary",
+        "displayName": "Dark Agency Active Bg",
+        "canonical": "#30466c"
+      },
+      "dark-agency-success-bg": {
+        "role": "secondary",
+        "displayName": "Dark Agency Success Bg",
+        "canonical": "#253d34"
+      },
+      "dark-agency-success-text": {
+        "role": "secondary",
+        "displayName": "Dark Agency Success Text",
+        "canonical": "#a4e6bc"
+      },
+      "dark-agency-warning-bg": {
+        "role": "secondary",
+        "displayName": "Dark Agency Warning Bg",
+        "canonical": "#473b28"
+      },
+      "dark-agency-warning-text": {
+        "role": "secondary",
+        "displayName": "Dark Agency Warning Text",
+        "canonical": "#ffd28c"
+      },
+      "dark-agency-danger-bg": {
+        "role": "secondary",
+        "displayName": "Dark Agency Danger Bg",
+        "canonical": "#492e3b"
+      },
+      "dark-agency-danger-text": {
+        "role": "secondary",
+        "displayName": "Dark Agency Danger Text",
+        "canonical": "#ffb9bc"
+      },
+      "dark-destructive": {
+        "role": "secondary",
+        "displayName": "Dark Destructive",
+        "canonical": "hsl(357.43 100% 86.27%)"
+      },
+      "dark-destructive-foreground": {
+        "role": "neutral",
+        "displayName": "Dark Destructive Foreground",
+        "canonical": "hsl(216.73 53.85% 17.84%)"
+      }
+    },
+    "typographyMeta": {
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Standard PageHeader title below the small breakpoint."
+      },
+      "headline-compact": {
+        "displayName": "Headline Compact",
+        "purpose": "Compact PageHeader title below the small breakpoint."
+      },
+      "headline-wide": {
+        "displayName": "Headline Wide",
+        "purpose": "Both PageHeader title variants from 640px."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "CardTitle with level-two heading semantics."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Compact workspace content and fields."
+      },
+      "body-reading": {
+        "displayName": "Body Reading",
+        "purpose": "Card descriptions and review evidence."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, tabs, field labels, and navigation groups."
+      },
+      "label-small": {
+        "displayName": "Label Small",
+        "purpose": "Badges and compact headings."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Directory and form support text."
+      }
+    },
+    "shadows": [
+      {
+        "name": "agency-elevation-1",
+        "value": "none",
+        "purpose": "Flat working surfaces."
+      },
+      {
+        "name": "agency-input-shadow",
+        "value": "none",
+        "purpose": "Canonical field controls."
+      },
+      {
+        "name": "agency-outline-shadow",
+        "value": "none",
+        "purpose": "Canonical outline controls."
+      },
+      {
+        "name": "agency-elevation-2",
+        "value": "0 12px 28px rgb(12 32 64 / 0.14)",
+        "purpose": "Floating assistant launcher."
+      },
+      {
+        "name": "overlay-utility",
+        "value": "0 25px 50px -12px rgb(0 0 0 / 0.25)",
+        "purpose": "Dialog and Sheet shadow-2xl."
+      },
+      {
+        "name": "select-popover-utility",
+        "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)",
+        "purpose": "SelectContent shadow-lg."
+      },
+      {
+        "name": "theme-toggle-utility",
+        "value": "0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)",
+        "purpose": "Retained active theme-toggle shadow-sm."
+      },
+      {
+        "name": "overlay-footer",
+        "value": "0 -10px 30px rgba(15,23,42,0.06)",
+        "purpose": "AppOverlay footer separation."
+      }
+    ],
+    "motion": [
+      {
+        "name": "agency-motion-fast",
+        "value": "140ms",
+        "purpose": "Button, Input, NativeSelect, SelectTrigger, and Textarea state transitions."
+      },
+      {
+        "name": "utility-default-duration",
+        "value": "150ms",
+        "purpose": "Other transition utilities without explicit duration."
+      },
+      {
+        "name": "utility-standard-ease",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Default Tailwind state-transition easing."
+      },
+      {
+        "name": "dialog-duration",
+        "value": "200ms",
+        "purpose": "DialogContent animation duration."
+      },
+      {
+        "name": "sheet-opening",
+        "value": "500ms",
+        "purpose": "SheetContent opening animation duration."
+      },
+      {
+        "name": "sheet-closing",
+        "value": "300ms",
+        "purpose": "SheetContent closing animation duration."
+      },
+      {
+        "name": "sheet-ease",
+        "value": "cubic-bezier(0.4, 0, 0.2, 1)",
+        "purpose": "Tailwind ease-in-out used by SheetContent."
+      },
+      {
+        "name": "reduced-motion-duration",
+        "value": "0.01ms",
+        "purpose": "Global reduced-motion transition and animation ceiling; moving graph packets are removed."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "md",
+        "value": "768px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "xl",
+        "value": "1280px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default and brand share this primary action geometry.",
+      "html": "<button class=\"ds-button-primary\" type=\"button\">Save access</button>",
+      "css": ".ds-button-primary{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;height:2.5rem;padding:.5rem 1rem;border-radius:var(--agency-radius-control,.5rem);font-size:.875rem;line-height:1.25rem;font-weight:500;transition:background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),box-shadow var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),transform var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);border:0;background:hsl(var(--primary,221.29 70.25% 47.45%));color:hsl(var(--primary-foreground,0 0% 100%));}.ds-button-primary:hover{background:var(--agency-primary-hover,#1b49b1);}.ds-button-primary:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}.ds-button-primary:disabled{pointer-events:none;opacity:.5;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Source-derived outline button variant.",
+      "html": "<button class=\"ds-button-outline\" type=\"button\">Cancel</button>",
+      "css": ".ds-button-outline{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;height:2.5rem;padding:.5rem 1rem;border-radius:var(--agency-radius-control,.5rem);font-size:.875rem;line-height:1.25rem;font-weight:500;transition:background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),box-shadow var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),transform var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);border:1px solid var(--agency-control-border,#ced9e8);background:var(--agency-control-bg,#ffffff);color:var(--agency-control-text,#172f50);}.ds-button-outline:hover{background:var(--agency-control-bg-hover,#f4f7fc);}.ds-button-outline:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}.ds-button-outline:disabled{pointer-events:none;opacity:.5;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Source-derived secondary button variant.",
+      "html": "<button class=\"ds-button-secondary\" type=\"button\">Options</button>",
+      "css": ".ds-button-secondary{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;height:2.5rem;padding:.5rem 1rem;border-radius:var(--agency-radius-control,.5rem);font-size:.875rem;line-height:1.25rem;font-weight:500;transition:background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),box-shadow var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),transform var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);border:0;background:var(--agency-surface-subtle,#f4f7fc);color:hsl(var(--foreground,214.74 55.34% 20.2%));}.ds-button-secondary:hover{background:hsl(var(--accent,218.57 100% 94.51%));}.ds-button-secondary:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}.ds-button-secondary:disabled{pointer-events:none;opacity:.5;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Source-derived ghost button variant.",
+      "html": "<button class=\"ds-button-ghost\" type=\"button\">Clear filters</button>",
+      "css": ".ds-button-ghost{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;height:2.5rem;padding:.5rem 1rem;border-radius:var(--agency-radius-control,.5rem);font-size:.875rem;line-height:1.25rem;font-weight:500;transition:background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),box-shadow var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),transform var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);border:0;background:transparent;color:hsl(var(--foreground,214.74 55.34% 20.2%));}.ds-button-ghost:hover{background:hsl(var(--accent,218.57 100% 94.51%));color:hsl(var(--accent-foreground,214.74 55.34% 20.2%));}.ds-button-ghost:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}.ds-button-ghost:disabled{pointer-events:none;opacity:.5;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Destructive Button",
+      "kind": "button",
+      "refersTo": "button-destructive",
+      "description": "Source-derived destructive button variant.",
+      "html": "<button class=\"ds-button-destructive\" type=\"button\">Discard changes</button>",
+      "css": ".ds-button-destructive{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;height:2.5rem;padding:.5rem 1rem;border-radius:var(--agency-radius-control,.5rem);font-size:.875rem;line-height:1.25rem;font-weight:500;transition:background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),box-shadow var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),transform var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);border:0;background:hsl(var(--destructive,357.2 50.71% 41.37%));color:hsl(var(--destructive-foreground,0 0% 100%));}.ds-button-destructive:hover{background:hsl(var(--destructive,357.2 50.71% 41.37%) / .9);}.ds-button-destructive:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}.ds-button-destructive:disabled{pointer-events:none;opacity:.5;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Link Button",
+      "kind": "button",
+      "refersTo": "button-link",
+      "description": "Source-derived link button variant.",
+      "html": "<button class=\"ds-button-link\" type=\"button\">View details</button>",
+      "css": ".ds-button-link{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:.5rem;white-space:nowrap;height:2.5rem;padding:.5rem 1rem;border-radius:var(--agency-radius-control,.5rem);font-size:.875rem;line-height:1.25rem;font-weight:500;transition:background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),box-shadow var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),transform var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);border:0;background:transparent;color:hsl(var(--primary,221.29 70.25% 47.45%));text-underline-offset:.25rem;}.ds-button-link:hover{text-decoration:underline;}.ds-button-link:focus-visible{outline:none;box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}.ds-button-link:disabled{pointer-events:none;opacity:.5;}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Workspace Search",
+      "kind": "input",
+      "refersTo": "workspace-search",
+      "description": "Controlled WorkspaceSearch geometry; filtering remains feature-owned.",
+      "html": "<div class=\"ds-workspace-search\"><svg class=\"ds-workspace-search-icon\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"11\" cy=\"11\" r=\"8\"/><path d=\"m21 21-4.3-4.3\"/></svg><input class=\"ds-workspace-search-input\" type=\"search\" aria-label=\"Search capabilities\" placeholder=\"Search capabilities\"/></div>",
+      "css": ".ds-workspace-search{position:relative;min-width:0;}.ds-workspace-search-icon{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);pointer-events:none;color:hsl(var(--muted-foreground,213.96 24.88% 41.76%));}.ds-workspace-search-input{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:flex;height:2.5rem;width:100%;padding:.5rem .75rem .5rem 2.25rem;border:1px solid hsl(var(--input,214.62 36.11% 85.88%));border-radius:var(--agency-radius-control,.5rem);background:var(--agency-input-bg,#ffffff);color:hsl(var(--foreground,214.74 55.34% 20.2%));font-size:.875rem;line-height:1.25rem;font-weight:400;box-shadow:var(--agency-input-shadow,none);transition:color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),background-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1),border-color var(--agency-motion-fast,140ms) cubic-bezier(0.4,0,0.2,1);}.ds-workspace-search-input::placeholder{color:hsl(var(--muted-foreground,213.96 24.88% 41.76%));}.ds-workspace-search-input:hover{border-color:hsl(var(--primary,221.29 70.25% 47.45%) / .7);}.ds-workspace-search-input:focus-visible{outline:none;border-color:hsl(var(--primary,221.29 70.25% 47.45%));box-shadow:0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%) / .25);}.ds-workspace-search-input:disabled{cursor:not-allowed;background:hsl(var(--muted,217.5 57.14% 97.25%));opacity:.7;}.ds-workspace-search-input[aria-invalid=\"true\"]{border-color:hsl(var(--destructive,357.2 50.71% 41.37%));box-shadow:0 0 0 2px hsl(var(--destructive,357.2 50.71% 41.37%) / .2);}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Destination Rail",
+      "kind": "nav",
+      "refersTo": "nav-destination",
+      "description": "Shared current-group destinations with a current-page underline.",
+      "html": "<nav class=\"ds-destination-rail\" aria-label=\"Build destinations\"><a class=\"ds-destination-link\" href=\"#workflows\">Workflows</a><a class=\"ds-destination-link\" href=\"#agents\">Agents</a><a class=\"ds-destination-link\" href=\"#integrations\" aria-current=\"page\">Integrations</a></nav>",
+      "css": ".ds-destination-rail{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:flex;min-height:3rem;align-items:stretch;gap:.5rem;overflow-x:auto;padding:0 1rem;border-bottom:1px solid hsl(var(--border,214.62 36.11% 85.88%));background:hsl(var(--card,0 0% 100%));scrollbar-width:thin;}.ds-destination-link{display:inline-flex;min-height:3rem;flex-shrink:0;align-items:center;padding:0 .5rem;border-bottom:2px solid transparent;font-size:.875rem;line-height:1.25rem;font-weight:400;text-decoration:none;color:hsl(var(--muted-foreground,213.96 24.88% 41.76%));transition:color 150ms cubic-bezier(0.4,0,0.2,1);}.ds-destination-link:hover{color:hsl(var(--primary,221.29 70.25% 47.45%));}.ds-destination-link[aria-current=\"page\"]{color:hsl(var(--primary,221.29 70.25% 47.45%));border-bottom-color:hsl(var(--primary,221.29 70.25% 47.45%));font-weight:600;}.ds-destination-link:focus-visible{outline:none;box-shadow:inset 0 0 0 2px hsl(var(--ring,221.29 70.25% 47.45%));}@media(min-width:640px){.ds-destination-rail{padding:0 1.5rem;}}@media(min-width:1024px){.ds-destination-rail{gap:1rem;padding:0 2rem;}}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Default Badge",
+      "kind": "chip",
+      "refersTo": "badge-default",
+      "description": "Badge default variant labels access or selected state.",
+      "html": "<div class=\"ds-badge-default\">Read access</div>",
+      "css": ".ds-badge-default{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;display:inline-flex;align-items:center;border:1px solid var(--agency-shell-border,#ced9e8);border-radius:calc(var(--radius,.75rem) - 2px);padding:.125rem .625rem;font-size:.75rem;line-height:1rem;font-weight:600;background:var(--agency-active-bg,#e3edff);color:hsl(var(--primary,221.29 70.25% 47.45%));transition:color 150ms cubic-bezier(0.4,0,0.2,1),background-color 150ms cubic-bezier(0.4,0,0.2,1),border-color 150ms cubic-bezier(0.4,0,0.2,1);}.ds-badge-default:focus{outline:none;box-shadow:0 0 0 2px hsl(var(--primary,221.29 70.25% 47.45%) / .25);}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Card with the actual CardHeader, CardTitle, CardDescription, and CardContent spacing.",
+      "html": "<div class=\"ds-card\"><div class=\"ds-card-header\"><div class=\"ds-card-title\" role=\"heading\" aria-level=\"2\">Agent access</div><div class=\"ds-card-description\">Choose the operations each specialist can use.</div></div><div class=\"ds-card-content\">All enabled capabilities · Harness managed</div></div>",
+      "css": ".ds-card{font-family:var(--font-agency,'Public Sans'),ui-sans-serif,system-ui,sans-serif;border:1px solid var(--agency-shell-border,#ced9e8);border-radius:.75rem;background:hsl(var(--card,0 0% 100%));color:hsl(var(--card-foreground,214.74 55.34% 20.2%));}.ds-card-header{display:flex;flex-direction:column;gap:.375rem;padding:1.25rem;}.ds-card-title{font-size:1.125rem;line-height:1.5rem;font-weight:600;letter-spacing:-.02em;}.ds-card-description{font-size:.875rem;line-height:1.5rem;color:hsl(var(--muted-foreground,213.96 24.88% 41.76%));}.ds-card-content{padding:0 1.25rem 1.25rem;font-size:.875rem;line-height:1.25rem;}@media(min-width:640px){.ds-card-header{padding:1.5rem;}.ds-card-content{padding:0 1.5rem 1.5rem;}}@media(prefers-reduced-motion:reduce){[class^=\"ds-\"],[class*=\" ds-\"]{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important;}}"
+    }
+  ],
+  "narrative": {
+    "northStar": "Wayfinder",
+    "overview": "A blue masthead groups destinations above quiet working surfaces. Public Sans, compact controls, cool ground, and consistent borders keep configuration and execution evidence readable. Selection and operational state have distinct, labeled roles.",
+    "keyCharacteristics": [
+      "Blue wayfinding",
+      "Flat working surfaces",
+      "Reusable compact controls",
+      "Explicit ownership and approvals"
+    ],
+    "rules": [],
+    "dos": [
+      "Do reuse shared composition and semantic tokens.",
+      "Do preserve accessible labels, unique IDs and feedback.",
+      "Do keep main-agent ownership and explicit approvals legible."
+    ],
+    "donts": [
+      "Don't turn selection or shared UI into a capability grant.",
+      "Don't expose decisions without their evidence.",
+      "Don't treat source tests as rendered verification."
+    ]
+  }
+}

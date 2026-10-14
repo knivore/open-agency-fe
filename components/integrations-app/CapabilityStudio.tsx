@@ -1,25 +1,26 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
-import {useEffect, useState} from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
-import {Bot, FileText, ShieldCheck, UserRound, X} from 'lucide-react';
-import {toast} from 'sonner';
-import {agentsApi} from '@/lib/api/backend/agents';
-import {conversationsApi} from '@/lib/api/backend/conversations';
-import {applyCapabilityEdits, isGeneratedCapability} from '@/lib/tools/capabilityAssignments';
-import {useUnsavedChangesGuard} from '@/hooks/useUnsavedChangesGuard';
-import type {AgentDefinition} from '@/types/agents';
-import {Button} from '../library/shadcn/button';
-import {Alert, AlertDescription, AlertTitle} from '../library/shadcn/alert';
-import {Separator} from '../library/shadcn/separator';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Bot, FileText, ShieldCheck, UserRound, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { agentsApi } from '@/lib/api/backend/agents';
+import { conversationsApi } from '@/lib/api/backend/conversations';
+import { applyCapabilityEdits, isGeneratedCapability } from '@/lib/tools/capabilityAssignments';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import type { AgentDefinition } from '@/types/agents';
+import { Button } from '../library/shadcn/button';
+import { Alert, AlertDescription, AlertTitle } from '../library/shadcn/alert';
+import { Separator } from '../library/shadcn/separator';
 import ConfirmActionDialog from '../app-shell/ConfirmActionDialog';
 import CapabilityCatalog, {
   type CapabilityCatalogProps,
   capabilityProviderTool,
 } from './CapabilityCatalog';
-import {useCapabilityDraftGuard} from './CapabilityDraftGuard';
+import { useCapabilityDraftGuard } from './CapabilityDraftGuard';
 
 const accessQueryKey = ['integrations', 'capability-agent-access'];
 
@@ -36,7 +37,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
         agentsApi.listAgents(),
         conversationsApi.getMainAgent(),
       ]);
-      return {agents: agents.items, main};
+      return { agents: agents.items, main };
     },
     retry: false,
     staleTime: 30_000,
@@ -64,7 +65,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
     else selectedIds.delete(id);
   }
   const dirty = Object.keys(edits).length > 0;
-  const {setDirty} = useCapabilityDraftGuard();
+  const { setDirty } = useCapabilityDraftGuard();
   useEffect(() => {
     setDirty(dirty);
     return () => setDirty(false);
@@ -91,11 +92,11 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
       current?.id === agent?.id
         ? current
         : agent
-          ? {id: agent.id, ids: [...agentToolIds(agent)]}
+          ? { id: agent.id, ids: [...agentToolIds(agent)] }
           : null
     );
     setEdits((current) => {
-      const next = {...current};
+      const next = { ...current };
       if (originalIds.includes(id) === checked) delete next[id];
       else next[id] = checked;
       return next;
@@ -115,15 +116,15 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
       const toolIds = applyCapabilityEdits(agentToolIds(freshAgent), edits, tools);
       // The existing API remains authoritative for policy and reviewed generated
       // revisions. No workflow, security, approval or metadata fields change here.
-      return agentsApi.updateAgent(agent.id, {tool_ids: toolIds});
+      return agentsApi.updateAgent(agent.id, { tool_ids: toolIds });
     },
     onSuccess: async (saved) => {
-      setBaseline({id: saved.id, ids: agentToolIds(saved)});
+      setBaseline({ id: saved.id, ids: agentToolIds(saved) });
       setEdits({});
       await Promise.all([
-        queryClient.invalidateQueries({queryKey: accessQueryKey}),
-        queryClient.invalidateQueries({queryKey: ['agents']}),
-        queryClient.invalidateQueries({queryKey: ['agentCatalog']}),
+        queryClient.invalidateQueries({ queryKey: accessQueryKey }),
+        queryClient.invalidateQueries({ queryKey: ['agents'] }),
+        queryClient.invalidateQueries({ queryKey: ['agentCatalog'] }),
       ]);
       toast.success('Specialist capability access saved.');
     },
@@ -134,10 +135,9 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
     tool: tools.find((tool) => tool.id === id),
   }));
   const panel = (
-    <div
-      className="flex flex-col gap-4 rounded-xl border bg-card p-5 min-[87.5rem]:sticky min-[87.5rem]:top-5">
+    <div className="flex flex-col gap-4 rounded-xl border bg-card p-5 xl:sticky xl:top-5">
       <div className="flex items-center gap-3">
-        <UserRound className="size-5 text-muted-foreground" aria-hidden="true"/>
+        <UserRound className="size-5 text-muted-foreground" aria-hidden="true" />
         <h2 className="text-xl font-semibold">Agent access</h2>
       </div>
       <p className="text-sm text-muted-foreground">
@@ -148,14 +148,14 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
           Main agent
         </h3>
         <div className="flex items-center gap-3 rounded-lg border bg-background p-3">
-          <UserRound className="size-5 shrink-0 text-muted-foreground" aria-hidden="true"/>
+          <UserRound className="size-5 shrink-0 text-muted-foreground" aria-hidden="true" />
           <div>
             <p className="text-sm font-semibold">All enabled capabilities</p>
             <p className="text-xs text-muted-foreground">Harness managed</p>
           </div>
         </div>
       </div>
-      <Separator/>
+      <Separator />
       {accessQuery.isPending ? (
         <p role="status" className="text-sm text-muted-foreground">
           Loading specialist access…
@@ -192,7 +192,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
               Specialist agent
             </label>
             <div className="flex items-center gap-2">
-              <Bot className="size-5 shrink-0 text-primary" aria-hidden="true"/>
+              <Bot className="size-5 shrink-0 text-primary" aria-hidden="true" />
               <NativeSelect
                 id="capability-specialist"
                 className="h-11 min-w-0 w-full rounded-lg border bg-background px-3 text-sm"
@@ -216,9 +216,9 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
               aria-label="Selected operations"
               className="flex max-h-56 flex-col gap-1 overflow-y-auto"
             >
-              {selected.map(({id, tool}) => (
+              {selected.map(({ id, tool }) => (
                 <li key={id} className="flex min-w-0 items-center gap-2 rounded-md py-1.5 text-sm">
-                  <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true"/>
+                  <FileText className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span
                     className="min-w-0 flex-1 truncate"
                     title={tool?.display_name || tool?.name || id}
@@ -234,7 +234,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
                     disabled={!canEdit || !tool}
                     onClick={() => toggle(id, false)}
                   >
-                    <X data-icon="inline-start"/>
+                    <X data-icon="inline-start" />
                   </Button>
                 </li>
               ))}
@@ -246,7 +246,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
         </>
       )}
       <Alert>
-        <ShieldCheck className="size-4"/>
+        <ShieldCheck className="size-4" />
         <AlertTitle>Approval rules stay enforced</AlertTitle>
         <AlertDescription>
           Specialists use explicitly assigned operations. Existing ownership checks and approval
@@ -276,7 +276,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
       <p className="text-xs leading-5 text-muted-foreground">
         Generated tools need reviewed adoption in Agents before new access can be granted here.
       </p>
-      <Button asChild variant="outline" className="min-[87.5rem]:hidden">
+      <Button asChild variant="outline" className="xl:hidden">
         <a href="#capability-operations">Back to operations</a>
       </Button>
     </div>
@@ -284,16 +284,14 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <div
-        className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4 min-[87.5rem]:hidden"
+        className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4 xl:hidden"
         aria-label="Assignment context"
       >
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <label
-            htmlFor="capability-specialist-compact"
-            className="text-xs font-semibold text-muted-foreground"
-          >
-            Assign operations to
-          </label>
+        <FormField
+          label="Assign operations to"
+          htmlFor="capability-specialist-compact"
+          className="flex min-w-0 flex-1 flex-col gap-2"
+        >
           <NativeSelect
             id="capability-specialist-compact"
             className="h-11 min-w-0 w-full rounded-lg border bg-background px-3 text-sm"
@@ -313,7 +311,7 @@ export default function CapabilityStudio(props: Omit<CapabilityCatalogProps, 'as
               ))
             )}
           </NativeSelect>
-        </div>
+        </FormField>
         <Button asChild variant="outline">
           <a href="#capability-agent-access">
             Review access ({selectedIds.size}){dirty ? ' · Unsaved' : ''}

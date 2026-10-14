@@ -1,5 +1,7 @@
 import { Fragment, type ComponentType, type ReactNode } from 'react';
 import Link from 'next/link';
+import { ChevronRight } from 'lucide-react';
+import { Button } from '@/components/library/shadcn/button';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -17,8 +19,6 @@ interface PageHeaderProps {
   className?: string;
   compact?: boolean;
   description?: ReactNode;
-  eyebrow?: string;
-  icon?: ComponentType<{ className?: string }>;
   meta?: ReactNode;
   tone?:
     | 'agent'
@@ -43,8 +43,6 @@ export default function PageHeader({
   className,
   compact = false,
   description,
-  eyebrow,
-  icon: Icon,
   meta,
   tone = 'workflow',
   title,
@@ -59,10 +57,10 @@ export default function PageHeader({
     >
       <div className="min-w-0 flex-1">
         <div className="min-w-0">
-          <Breadcrumb className="mb-3" aria-label="Page context">
-            <BreadcrumbList className="gap-2 text-xs text-muted-foreground">
-              {breadcrumbs?.length ? (
-                breadcrumbs.map((item, index) => (
+          {breadcrumbs?.length ? (
+            <Breadcrumb className="mb-3" aria-label="Page context">
+              <BreadcrumbList className="gap-2 text-xs text-muted-foreground">
+                {breadcrumbs.map((item, index) => (
                   <Fragment key={index}>
                     {index > 0 ? <BreadcrumbSeparator /> : null}
                     <BreadcrumbItem>
@@ -77,19 +75,14 @@ export default function PageHeader({
                       )}
                     </BreadcrumbItem>
                   </Fragment>
-                ))
-              ) : (
-                <BreadcrumbItem>
-                  {Icon ? <Icon className="size-3.5 shrink-0" aria-hidden="true" /> : null}
-                  <span>{eyebrow ?? 'Workspace'}</span>
-                </BreadcrumbItem>
-              )}
-            </BreadcrumbList>
-          </Breadcrumb>
+                ))}
+              </BreadcrumbList>
+            </Breadcrumb>
+          ) : null}
           <h1
             className={cn(
-              'break-words font-semibold leading-tight tracking-[-0.04em] text-(--agency-shell-text)',
-              compact ? 'text-[1.75rem] sm:text-[2.15rem]' : 'text-[1.85rem] sm:text-[2.5rem]'
+              'break-words font-semibold leading-tight tracking-[-0.025em] text-(--agency-shell-text)',
+              compact ? 'text-[1.75rem] sm:text-[2rem]' : 'text-[1.85rem] sm:text-[2rem]'
             )}
           >
             {title}
@@ -97,7 +90,7 @@ export default function PageHeader({
           {description ? (
             <div
               className={cn(
-                'max-w-3xl text-(--agency-shell-muted)',
+                'max-w-[72ch] text-(--agency-shell-muted)',
                 compact
                   ? 'mt-1 text-sm leading-5 sm:text-[0.95rem]'
                   : 'mt-1.5 text-[0.95rem] leading-6 sm:text-base'
@@ -110,7 +103,7 @@ export default function PageHeader({
         </div>
       </div>
       {actions ? (
-        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:max-w-[50%] lg:justify-end lg:pt-7">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 lg:max-w-[50%] lg:justify-end lg:pt-0.5">
           {actions}
         </div>
       ) : null}
@@ -129,7 +122,7 @@ export function WorkspaceSectionNav({
   return (
     <nav
       aria-label={label}
-      className="sticky top-0 z-10 flex flex-wrap gap-1 rounded-xl border bg-background/95 p-2 backdrop-blur"
+      className="sticky top-0 z-10 flex flex-wrap gap-1 rounded-xl border bg-card p-2"
     >
       {sections.map((section) => (
         <a
@@ -140,6 +133,61 @@ export function WorkspaceSectionNav({
           {section.label}
         </a>
       ))}
+    </nav>
+  );
+}
+
+/** Steps report navigation intent; feature callbacks retain their draft guards. */
+export function WorkspaceGuide({
+  label,
+  steps,
+}: {
+  label: string;
+  steps: readonly {
+    id: string;
+    label: string;
+    icon: ComponentType<{ className?: string }>;
+    current?: boolean;
+    href?: string;
+    onSelect?: () => void;
+  }[];
+}) {
+  return (
+    <nav aria-label={label} className="rounded-lg border bg-card p-2 sm:px-3">
+      <ol className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-4">
+        {steps.map((step, index) => {
+          const Icon = step.icon;
+          const content = (
+            <>
+              <Icon data-icon="inline-start" aria-hidden="true" />
+              <span>{step.label}</span>
+            </>
+          );
+          return (
+            <li key={step.id} className="flex min-w-0 items-center gap-4">
+              <Button
+                type="button"
+                variant="ghost"
+                asChild={Boolean(step.href)}
+                onClick={step.onSelect}
+                aria-current={step.current ? 'step' : undefined}
+                className={cn(
+                  'w-full justify-start sm:w-auto',
+                  step.current && 'bg-accent text-primary'
+                )}
+              >
+                {step.href ? <a href={step.href}>{content}</a> : content}
+              </Button>
+              {index < steps.length - 1 ? (
+                <ChevronRight
+                  className="hidden size-4 shrink-0 text-muted-foreground sm:block"
+                  aria-hidden="true"
+                />
+              ) : null}
+            </li>
+          );
+        })}
+      </ol>
     </nav>
   );
 }

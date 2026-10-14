@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { useQuery } from '@tanstack/react-query';
-import { ChartNetwork } from 'lucide-react';
 import AgencyGraphPanel from '@/components/agency-graph/AgencyGraphPanel';
 import PageHeader from '@/components/app-shell/PageHeader';
 import { Alert, AlertDescription, AlertTitle } from '@/components/library/shadcn/alert';
@@ -50,7 +49,6 @@ export default function AgencyGraphWorkspace() {
   return (
     <div className="flex min-h-[calc(100vh-8rem)] flex-col gap-5">
       <PageHeader
-        icon={ChartNetwork}
         tone="graph"
         title="Agency Graph"
         description="Read Agency as a live system: humans, agents, tasks, knowledge, memory, and tools connected by execution flow."

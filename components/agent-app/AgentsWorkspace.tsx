@@ -1,37 +1,36 @@
 'use client';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
-import {useCallback, useEffect, useMemo, useRef, useState, useTransition} from 'react';
-import {useRouter} from 'next/navigation';
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import ToolAssignmentControls from './ToolAssignmentControls';
-import {AgentIdentityFields, AgentInstructionsField} from './AgentDefinitionFields';
-import {useQuery} from '@tanstack/react-query';
-import {useRegisterAssistantPageContext} from '@/components/assistant/AssistantPageContext';
-import {agentsApi} from '@/lib/api/backend/agents';
-import {behaviorProfilesApi} from '@/lib/api/backend/behaviorProfiles';
-import {conversationsApi} from '@/lib/api/backend/conversations';
-import {personasApi} from '@/lib/api/backend/personas';
-import {toolsApi} from '@/lib/api/backend/tools';
-import {queryKeys} from '@/lib/react-query/queryKeys';
-import {toolDisplayName} from '@/lib/tools/displayName';
+import { AgentIdentityFields, AgentInstructionsField } from './AgentDefinitionFields';
+import { useQuery } from '@tanstack/react-query';
+import { useRegisterAssistantPageContext } from '@/components/assistant/AssistantPageContext';
+import { agentsApi } from '@/lib/api/backend/agents';
+import { behaviorProfilesApi } from '@/lib/api/backend/behaviorProfiles';
+import { conversationsApi } from '@/lib/api/backend/conversations';
+import { personasApi } from '@/lib/api/backend/personas';
+import { toolsApi } from '@/lib/api/backend/tools';
+import { queryKeys } from '@/lib/react-query/queryKeys';
+import { toolDisplayName } from '@/lib/tools/displayName';
 import type {
   Agent,
   AgentConfig,
   AgentImportHandoffSuggestion,
   AgentImportProposal,
   AgentImportToolSuggestion,
-  BehaviorTuningProfile
+  BehaviorTuningProfile,
 } from '@/types/agents';
-import type {ToolDefinition} from '@/types/tools';
-import {Badge} from '../library/shadcn/badge';
-import {Tabs, TabsList, TabsTrigger, TabsContent} from '../library/shadcn/tabs';
-import {Alert, AlertTitle, AlertDescription} from '../library/shadcn/alert';
-import {Button} from '../library/shadcn/button';
-import {Card, CardContent, CardDescription, CardHeader, CardTitle} from '../library/shadcn/card';
-import {DialogClose} from '../library/shadcn/dialog';
-import {Input} from '../library/shadcn/input';
-import {Label} from '../library/shadcn/label';
-import {Textarea} from '../library/shadcn/textarea';
+import type { ToolDefinition } from '@/types/tools';
+import { Badge } from '../library/shadcn/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '../library/shadcn/tabs';
+import { Alert, AlertTitle, AlertDescription } from '../library/shadcn/alert';
+import { Button } from '../library/shadcn/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../library/shadcn/card';
+import { DialogClose } from '../library/shadcn/dialog';
+import { Input } from '../library/shadcn/input';
+import { Textarea } from '../library/shadcn/textarea';
 import {
   AlertTriangle,
   Bot,
@@ -46,10 +45,15 @@ import {
   Trash2,
   Upload,
 } from 'lucide-react';
-import {Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,} from '../library/shadcn/tooltip';
-import {EmptyCard, ErrorAlert, LoadingCard} from '@/components/agent-app/StatePanels';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../library/shadcn/tooltip';
+import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
 import AppState from '@/components/app-shell/AppState';
-import {AppDialog} from '@/components/app-shell/AppOverlay';
+import { AppDialog } from '@/components/app-shell/AppOverlay';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
 import {
   FieldFeedback,
@@ -58,13 +62,15 @@ import {
   FormSection,
 } from '@/components/app-shell/FormSection';
 import PageHeader from '@/components/app-shell/PageHeader';
-import WorkspaceDirectory, {type WorkspaceDirectoryEntry} from '@/components/app-shell/WorkspaceDirectory';
+import WorkspaceDirectory, {
+  type WorkspaceDirectoryEntry,
+} from '@/components/app-shell/WorkspaceDirectory';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import UploadedDocumentsList from '@/components/memory-app/UploadedDocumentsList';
-import {toast} from 'sonner';
-import {cn} from '@/lib/utils';
-import {useUnsavedChangesGuard} from '@/hooks/useUnsavedChangesGuard';
-import type {PersonaDefinition} from '@/types/personas';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { useUnsavedChangesGuard } from '@/hooks/useUnsavedChangesGuard';
+import type { PersonaDefinition } from '@/types/personas';
 
 function stringArray(value: unknown): string[] {
   return Array.isArray(value)
@@ -161,8 +167,7 @@ function agentCardTone(agent: Agent, isMainAgent: boolean) {
 function AgentInstructionPreview({ instructions }: { instructions: string }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const normalizedInstructions = instructions.trim();
-  const displayInstructions =
-    normalizedInstructions || 'No instructions configured.';
+  const displayInstructions = normalizedInstructions || 'No instructions configured.';
   const lineCount = displayInstructions.split(/\r\n|\r|\n/).length;
   const isLongPrompt = displayInstructions.length > 360 || lineCount > 4;
 
@@ -246,12 +251,12 @@ function proposalRequiresIndividualReview(proposal: AgentImportProposal) {
 }
 
 function ImportAgentCard({
-                           agents,
-                           onRequestOpen = (open) => open(),
-                           onImported,
-                           profiles,
-                           tools,
-                         }: {
+  agents,
+  onRequestOpen = (open) => open(),
+  onImported,
+  profiles,
+  tools,
+}: {
   agents: Agent[];
   onRequestOpen?: (open: () => void) => void;
   onImported: () => Promise<void> | void;
@@ -330,14 +335,14 @@ function ImportAgentCard({
             sourceMode === 'file'
               ? await agentsApi.previewAgentImportFiles(files)
               : {
-                proposals: [
-                  await agentsApi.previewAgentImport({
-                    markdownText: sourceMode === 'paste' ? markdownText : undefined,
-                    sourceUrl: sourceMode === 'url' ? sourceUrl.trim() : undefined,
-                  }),
-                ],
-                errors: [],
-              };
+                  proposals: [
+                    await agentsApi.previewAgentImport({
+                      markdownText: sourceMode === 'paste' ? markdownText : undefined,
+                      sourceUrl: sourceMode === 'url' ? sourceUrl.trim() : undefined,
+                    }),
+                  ],
+                  errors: [],
+                };
           setProposals(next.proposals);
           setBatchErrors(next.errors);
           setSelectedProposalIndex(0);
@@ -373,7 +378,7 @@ function ImportAgentCard({
             enabled,
           });
           await onImported();
-          toast.success(`Agent ${result.status}.`, {position: 'top-right'});
+          toast.success(`Agent ${result.status}.`, { position: 'top-right' });
           reset();
           setIsOpen(false);
         } catch (commitError) {
@@ -408,7 +413,7 @@ function ImportAgentCard({
           await onImported();
           toast.success(
             `Imported ${result.results.length} agent${result.results.length === 1 ? '' : 's'}.`,
-            {position: 'top-right'}
+            { position: 'top-right' }
           );
           if (result.errors.length > 0 || skippedRiskyImports.length > 0) {
             setBatchErrors([...skippedRiskyImports, ...result.errors]);
@@ -437,12 +442,14 @@ function ImportAgentCard({
         type="button"
         variant="outline"
         aria-label="Import agent"
-        onClick={() => onRequestOpen(() => {
-          setError(null);
-          setIsOpen(true);
-        })}
+        onClick={() =>
+          onRequestOpen(() => {
+            setError(null);
+            setIsOpen(true);
+          })
+        }
       >
-        <Upload className="mr-2 size-4" aria-hidden="true"/> Import agent
+        <Upload className="mr-2 size-4" aria-hidden="true" /> Import agent
       </Button>
       <AppDialog
         open={isOpen}
@@ -456,7 +463,7 @@ function ImportAgentCard({
         busy={isPending}
         onDiscard={reset}
         size="xl"
-        icon={<Upload className="size-4" aria-hidden="true"/>}
+        icon={<Upload className="size-4" aria-hidden="true" />}
         title="Import Markdown agent"
         description="Review parsed instructions, conflicts, tools, and handoffs before committing the agent definition."
         bodyClassName="flex flex-col gap-5"
@@ -496,7 +503,7 @@ function ImportAgentCard({
           <FormSection
             title="Import source"
             description="Paste Markdown, upload one or more files, or load a trusted raw URL."
-            icon={<Upload className="size-4" aria-hidden="true"/>}
+            icon={<Upload className="size-4" aria-hidden="true" />}
             contentClassName="flex flex-col gap-4"
           >
             <div className="grid gap-2 sm:grid-cols-3">
@@ -593,13 +600,13 @@ function ImportAgentCard({
               </Button>
               {proposal ? (
                 <Button type="button" variant="brand" disabled={isPending} onClick={handleCommit}>
-                  <Save className="mr-2 h-4 w-4"/>
+                  <Save className="mr-2 h-4 w-4" />
                   {isPending ? 'Importing...' : 'Import reviewed agent'}
                 </Button>
               ) : null}
             </div>
 
-            <FieldFeedback error={error}/>
+            <FieldFeedback error={error} />
             {batchErrors.length > 0 ? (
               <div className="space-y-1 rounded-md border border-red-200 bg-red-50 p-3">
                 {batchErrors.map((item) => (
@@ -629,7 +636,7 @@ function ImportAgentCard({
                     >
                       {item.agent.name}
                       {proposalRequiresIndividualReview(item) ? (
-                        <AlertTriangle className="ml-2 h-3.5 w-3.5"/>
+                        <AlertTriangle className="ml-2 h-3.5 w-3.5" />
                       ) : null}
                     </Button>
                   ))}
@@ -648,8 +655,7 @@ function ImportAgentCard({
                 <div className="rounded-lg border border-neutral-200 bg-neutral-50 p-4">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
-                      <p
-                        className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
                         Preview
                       </p>
                       <h3 className="mt-1 text-lg font-semibold text-neutral-900">
@@ -684,7 +690,7 @@ function ImportAgentCard({
                 {proposal.warnings.length > 0 || proposal.conflicts.length > 0 ? (
                   <div className="space-y-2 rounded-lg border border-amber-200 bg-amber-50 p-4">
                     <div className="flex items-center gap-2 text-sm font-semibold text-amber-900">
-                      <AlertTriangle className="h-4 w-4"/>
+                      <AlertTriangle className="h-4 w-4" />
                       Review required
                     </div>
                     {[
@@ -699,8 +705,7 @@ function ImportAgentCard({
                 ) : null}
 
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="agent-import-conflict-strategy">Commit mode</Label>
+                  <FormField label="Commit mode" htmlFor="agent-import-conflict-strategy">
                     <NativeSelect
                       id="agent-import-conflict-strategy"
                       value={conflictStrategy}
@@ -719,9 +724,8 @@ function ImportAgentCard({
                       <option value="update_existing">Update existing</option>
                       <option value="duplicate_as_new">Duplicate as new</option>
                     </NativeSelect>
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="agent-import-model-profile">Model profile</Label>
+                  </FormField>
+                  <FormField label="Model profile" htmlFor="agent-import-model-profile">
                     <NativeSelect
                       id="agent-import-model-profile"
                       value={modelProfileId}
@@ -736,7 +740,7 @@ function ImportAgentCard({
                         </option>
                       ))}
                     </NativeSelect>
-                  </div>
+                  </FormField>
                 </div>
 
                 <label className="flex items-center gap-2 text-sm text-neutral-700">
@@ -749,12 +753,11 @@ function ImportAgentCard({
                   Enable after import
                 </label>
 
-                <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''}/>
+                <AgentInstructionPreview instructions={proposal.agent.instructions ?? ''} />
 
                 <div className="grid gap-3 md:grid-cols-2">
                   <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                    <p
-                      className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
                       Suggested tools
                     </p>
                     <div className="mt-3 space-y-2">
@@ -792,8 +795,7 @@ function ImportAgentCard({
                   </div>
 
                   <div className="rounded-lg border border-neutral-200 bg-white p-3">
-                    <p
-                      className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                    <p className="text-xs font-semibold uppercase tracking-[0.14em] text-neutral-500">
                       Suggested handoffs
                     </p>
                     <div className="mt-3 space-y-2">
@@ -835,8 +837,7 @@ function ImportAgentCard({
                 </div>
               </>
             ) : (
-              <div
-                className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
+              <div className="rounded-lg border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-600">
                 Preview a Markdown agent to review its Open Agency mapping.
               </div>
             )}
@@ -916,19 +917,9 @@ function AgentDetailPanel({
   const isEditing = draft !== null;
   const [section, setSection] = useState('overview');
   const values = draft ?? agentDraft(agent, mainAgent);
-  const {
-    name,
-    description,
-    instructions,
-    role,
-    modelProfileId,
-    personaId,
-    toolIds,
-  } = values;
-  const updateField = <K extends keyof AgentDraft>(
-    field: K,
-    value: AgentDraft[K]
-  ) => onDraftChange({ ...values, [field]: value });
+  const { name, description, instructions, role, modelProfileId, personaId, toolIds } = values;
+  const updateField = <K extends keyof AgentDraft>(field: K, value: AgentDraft[K]) =>
+    onDraftChange({ ...values, [field]: value });
   const nameRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLButtonElement>(null);
@@ -941,8 +932,7 @@ function AgentDetailPanel({
             '[data-state="active"] input:not([type="hidden"]):not([type="file"]), [data-state="active"] button:not([disabled])'
           );
       control?.focus({ preventScroll: true });
-    } else if (wasEditing.current)
-      editRef.current?.focus({ preventScroll: true });
+    } else if (wasEditing.current) editRef.current?.focus({ preventScroll: true });
     wasEditing.current = isEditing;
   }, [isEditing]);
   const [error, setError] = useState<string | null>(null);
@@ -967,13 +957,8 @@ function AgentDetailPanel({
     try {
       const normalizedName = name.trim();
       const normalizedRole = role.trim();
-      const selectedPersona = personas.find(
-        (persona) => persona.id === personaId
-      );
-      const metadata = { ...(config.metadata ?? {}) } as Record<
-        string,
-        unknown
-      >;
+      const selectedPersona = personas.find((persona) => persona.id === personaId);
+      const metadata = { ...(config.metadata ?? {}) } as Record<string, unknown>;
 
       if (selectedPersona) {
         metadata.persona_id = selectedPersona.id;
@@ -991,9 +976,7 @@ function AgentDetailPanel({
         const mainAgentPatch: Record<string, unknown> = {};
 
         if (!normalizedName) {
-          setError(
-            'The active main agent must have an assistant display name.'
-          );
+          setError('The active main agent must have an assistant display name.');
           return;
         }
 
@@ -1005,8 +988,7 @@ function AgentDetailPanel({
         }
         if (
           normalizedModelProfileId &&
-          normalizedModelProfileId !==
-            (mainAgent?.default_model_profile_id ?? '')
+          normalizedModelProfileId !== (mainAgent?.default_model_profile_id ?? '')
         ) {
           mainAgentPatch.default_model_profile_id = normalizedModelProfileId;
         }
@@ -1028,11 +1010,7 @@ function AgentDetailPanel({
       toast.success('Agent updated.', { position: 'top-right' });
       onDraftChange(null);
     } catch (saveError) {
-      setError(
-        saveError instanceof Error
-          ? saveError.message
-          : 'Failed to update agent.'
-      );
+      setError(saveError instanceof Error ? saveError.message : 'Failed to update agent.');
     } finally {
       onPendingChange(false);
     }
@@ -1048,11 +1026,7 @@ function AgentDetailPanel({
       await onRefresh();
       toast.success('Agent deleted.', { position: 'top-right' });
     } catch (deleteError) {
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : 'Failed to delete agent.'
-      );
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete agent.');
     } finally {
       onPendingChange(false);
     }
@@ -1101,21 +1075,16 @@ function AgentDetailPanel({
                     <Badge variant="secondary">Managed persona agent</Badge>
                   ) : null}
                 </div>
-                <CardDescription className="mt-1 leading-6">
-                  {cardDescription}
-                </CardDescription>
+                <CardDescription className="mt-1 leading-6">{cardDescription}</CardDescription>
                 {isEditing ? (
                   <p
                     role="status"
                     className={cn(
                       'mt-2 text-xs',
-                      dirty
-                        ? 'text-amber-700 dark:text-amber-200'
-                        : 'text-muted-foreground'
+                      dirty ? 'text-amber-700 dark:text-amber-200' : 'text-muted-foreground'
                     )}
                   >
-                    {dirty ? 'Unsaved changes' : 'Editing agent'} · Changes
-                    apply when you save.
+                    {dirty ? 'Unsaved changes' : 'Editing agent'} · Changes apply when you save.
                   </p>
                 ) : null}
               </div>
@@ -1126,12 +1095,7 @@ function AgentDetailPanel({
             >
               {isEditing ? (
                 <>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    disabled={isPending}
-                    onClick={onCancel}
-                  >
+                  <Button type="button" variant="outline" disabled={isPending} onClick={onCancel}>
                     Cancel
                   </Button>
                   <Button
@@ -1160,28 +1124,22 @@ function AgentDetailPanel({
               )}
             </div>
           </div>
-          <TabsList
-            aria-label="Agent sections"
-            className="w-full border-b-0 px-2 sm:px-6"
-          >
-          <TabsTrigger value="overview" disabled={isPending} className="px-2 sm:px-3">
+          <TabsList aria-label="Agent sections" className="w-full border-b-0 px-2 sm:px-6">
+            <TabsTrigger value="overview" disabled={isPending} className="px-2 sm:px-3">
               Overview
             </TabsTrigger>
-          <TabsTrigger value="capabilities" disabled={isPending} className="px-2 sm:px-3">
+            <TabsTrigger value="capabilities" disabled={isPending} className="px-2 sm:px-3">
               Capabilities{' '}
               <Badge variant="secondary" className="ml-2">
                 {isMainAgent ? tools.length : toolCount}
               </Badge>
             </TabsTrigger>
-          <TabsTrigger value="documents" disabled={isPending} className="px-2 sm:px-3">
+            <TabsTrigger value="documents" disabled={isPending} className="px-2 sm:px-3">
               Documents
             </TabsTrigger>
           </TabsList>
         </CardHeader>
-        <CardContent
-          ref={contentRef}
-          className="flex flex-col gap-5 pt-5 sm:pt-5"
-        >
+        <CardContent ref={contentRef} className="flex flex-col gap-5 pt-5 sm:pt-5">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline">
               {isMainAgent
@@ -1203,15 +1161,15 @@ function AgentDetailPanel({
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="max-w-72 text-xs leading-5">
-                  Handoffs are configured target agents this agent can delegate
-                  work to. This count is configuration, not runtime history.
+                  Handoffs are configured target agents this agent can delegate work to. This count
+                  is configuration, not runtime history.
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
             {generatedPersonaAgent ? (
               <p className="w-full leading-5">
-                Publish a new version in Persona Factory to update this agent’s
-                persona, then refresh the workflows that use it.
+                Publish a new version in Persona Factory to update this agent’s persona, then
+                refresh the workflows that use it.
               </p>
             ) : null}
           </div>
@@ -1220,9 +1178,7 @@ function AgentDetailPanel({
           <Alert role="note">
             <Sparkles className="size-4" aria-hidden="true" />
             <AlertTitle>
-              {isMainAgent
-                ? 'All enabled capabilities'
-                : 'Explicit capability access'}
+              {isMainAgent ? 'All enabled capabilities' : 'Explicit capability access'}
             </AlertTitle>
             <AlertDescription>
               {isMainAgent
@@ -1252,9 +1208,7 @@ function AgentDetailPanel({
                       disabled={isPending}
                       mainAgent={isMainAgent}
                       nameRef={nameRef}
-                      onChange={(patch) =>
-                        onDraftChange({ ...values, ...patch })
-                      }
+                      onChange={(patch) => onDraftChange({ ...values, ...patch })}
                     >
                       <FormField
                         label="Persona"
@@ -1270,25 +1224,16 @@ function AgentDetailPanel({
                         <NativeSelect
                           id={`${agent.id}-persona`}
                           value={personaId}
-                          onChange={(event) =>
-                            updateField('personaId', event.target.value)
-                          }
+                          onChange={(event) => updateField('personaId', event.target.value)}
                           disabled={isPending || generatedPersonaAgent}
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                         >
-                          {personaId &&
-                          !personas.some(
-                            (persona) => persona.id === personaId
-                          ) ? (
+                          {personaId && !personas.some((persona) => persona.id === personaId) ? (
                             <option value={personaId}>
-                              {personaSlug
-                                ? `Persona @${personaSlug}`
-                                : 'Linked persona'}
+                              {personaSlug ? `Persona @${personaSlug}` : 'Linked persona'}
                             </option>
                           ) : null}
-                          {!generatedPersonaAgent ? (
-                            <option value="">No persona</option>
-                          ) : null}
+                          {!generatedPersonaAgent ? <option value="">No persona</option> : null}
                           {personas.map((persona) => (
                             <option key={persona.id} value={persona.id}>
                               {persona.name} (@{persona.slug})
@@ -1302,30 +1247,15 @@ function AgentDetailPanel({
                       <FormFieldGroup columns={2}>
                         {[
                           ['Name', displayName],
-                          [
-                            'Role',
-                            mainAgent?.description ||
-                              agent.role ||
-                              'Not configured',
-                          ],
-                          [
-                            'Description',
-                            agent.description || 'No description configured.',
-                          ],
+                          ['Role', mainAgent?.description || agent.role || 'Not configured'],
+                          ['Description', agent.description || 'No description configured.'],
                         ].map(([label, value]) => (
                           <div
                             key={label}
-                            className={cn(
-                              'min-w-0',
-                              label === 'Description' && 'md:col-span-2'
-                            )}
+                            className={cn('min-w-0', label === 'Description' && 'md:col-span-2')}
                           >
-                            <dt className="text-xs text-muted-foreground">
-                              {label}
-                            </dt>
-                            <dd className="mt-1 break-words text-sm leading-6">
-                              {value}
-                            </dd>
+                            <dt className="text-xs text-muted-foreground">{label}</dt>
+                            <dd className="mt-1 break-words text-sm leading-6">{value}</dd>
                           </div>
                         ))}
                       </FormFieldGroup>
@@ -1345,29 +1275,17 @@ function AgentDetailPanel({
                       disabled={isPending}
                     />
                   ) : (
-                    <AgentInstructionPreview
-                      instructions={instructionSummary}
-                    />
+                    <AgentInstructionPreview instructions={instructionSummary} />
                   )}
                 </FormSection>
               </div>
-              <aside
-                className="flex min-w-0 flex-col gap-4"
-                aria-label="Agent context"
-              >
-                <FormSection
-                  title="Runtime"
-                  description="Reusable defaults for this agent."
-                >
+              <aside className="flex min-w-0 flex-col gap-4" aria-label="Agent context">
+                <FormSection title="Runtime" description="Reusable defaults for this agent.">
                   <dl className="flex flex-col gap-4">
                     <div>
-                      <dt className="text-xs text-muted-foreground">
-                        Model profile
-                      </dt>
+                      <dt className="text-xs text-muted-foreground">Model profile</dt>
                       <dd className="mt-1 break-words text-sm leading-5">
-                        {profiles.find(
-                          (profile) => profile.id === values.modelProfileId
-                        )?.name ||
+                        {profiles.find((profile) => profile.id === values.modelProfileId)?.name ||
                           values.modelProfileId ||
                           'No profile'}
                       </dd>
@@ -1375,9 +1293,7 @@ function AgentDetailPanel({
                     <div>
                       <dt className="text-xs text-muted-foreground">Persona</dt>
                       <dd className="mt-1 break-words text-sm leading-5">
-                        {personas.find(
-                          (persona) => persona.id === values.personaId
-                        )?.name ||
+                        {personas.find((persona) => persona.id === values.personaId)?.name ||
                           ((values.personaId || !isEditing) && personaSlug
                             ? '@' + personaSlug
                             : values.personaId
@@ -1389,20 +1305,13 @@ function AgentDetailPanel({
                 </FormSection>
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-sm">
-                      Knowledge & context
-                    </CardTitle>
+                    <CardTitle className="text-sm">Knowledge & context</CardTitle>
                     <CardDescription>
-                      Reference files help this agent retrieve the right
-                      information.
+                      Reference files help this agent retrieve the right information.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setSection('documents')}
-                    >
+                    <Button type="button" variant="outline" onClick={() => setSection('documents')}>
                       <FileText data-icon="inline-start" />
                       View documents
                     </Button>
@@ -1466,12 +1375,7 @@ function AgentDetailPanel({
             hidden={section !== 'documents'}
             className="mt-0 data-[state=inactive]:hidden"
           >
-            <div
-              className={cn(
-                'grid min-w-0 gap-5',
-                isEditing && 'xl:grid-cols-2'
-              )}
-            >
+            <div className={cn('grid min-w-0 gap-5', isEditing && 'xl:grid-cols-2')}>
               {isEditing ? (
                 <DocumentIngestionControl
                   frame="inline"
@@ -1523,16 +1427,9 @@ function CreateAgentCard({
   const [toolIds, setToolIds] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [touched, setTouched] = useState<Set<'name' | 'instructions'>>(
-    new Set()
-  );
+  const [touched, setTouched] = useState<Set<'name' | 'instructions'>>(new Set());
   const createDirty = Boolean(
-    name ||
-    description ||
-    instructions ||
-    role ||
-    modelProfileId ||
-    toolIds.length
+    name || description || instructions || role || modelProfileId || toolIds.length
   );
 
   const reset = () => {
@@ -1545,8 +1442,7 @@ function CreateAgentCard({
     setError(null);
     setTouched(new Set());
   };
-  const nameError =
-    touched.has('name') && !name.trim() ? 'Enter an agent name.' : null;
+  const nameError = touched.has('name') && !name.trim() ? 'Enter an agent name.' : null;
   const instructionsError =
     touched.has('instructions') && !instructions.trim()
       ? 'Describe the durable behavior this agent should follow.'
@@ -1570,11 +1466,7 @@ function CreateAgentCard({
           reset();
           setIsOpen(false);
         } catch (createError) {
-          setError(
-            createError instanceof Error
-              ? createError.message
-              : 'Failed to create agent.'
-          );
+          setError(createError instanceof Error ? createError.message : 'Failed to create agent.');
         }
       })();
     });
@@ -1633,16 +1525,12 @@ function CreateAgentCard({
             profiles={profiles}
             disabled={isPending}
             nameError={nameError}
-            onNameBlur={() =>
-              setTouched((current) => new Set(current).add('name'))
-            }
+            onNameBlur={() => setTouched((current) => new Set(current).add('name'))}
             onChange={(patch) => {
               if (patch.name !== undefined) setName(patch.name);
-              if (patch.description !== undefined)
-                setDescription(patch.description);
+              if (patch.description !== undefined) setDescription(patch.description);
               if (patch.role !== undefined) setRole(patch.role);
-              if (patch.modelProfileId !== undefined)
-                setModelProfileId(patch.modelProfileId);
+              if (patch.modelProfileId !== undefined) setModelProfileId(patch.modelProfileId);
             }}
           />
         </FormSection>
@@ -1657,9 +1545,7 @@ function CreateAgentCard({
             onChange={setInstructions}
             disabled={isPending}
             error={instructionsError}
-            onBlur={() =>
-              setTouched((current) => new Set(current).add('instructions'))
-            }
+            onBlur={() => setTouched((current) => new Set(current).add('instructions'))}
           />
         </FormSection>
 
@@ -1709,14 +1595,8 @@ export default function AgentsWorkspace() {
   });
 
   const agents = useMemo(() => agentsQuery.data ?? [], [agentsQuery.data]);
-  const profiles = useMemo(
-    () => profilesQuery.data ?? [],
-    [profilesQuery.data]
-  );
-  const personas = useMemo(
-    () => personasQuery.data?.items ?? [],
-    [personasQuery.data?.items]
-  );
+  const profiles = useMemo(() => profilesQuery.data ?? [], [profilesQuery.data]);
+  const personas = useMemo(() => personasQuery.data?.items ?? [], [personasQuery.data?.items]);
   const tools = useMemo(() => toolsQuery.data ?? [], [toolsQuery.data]);
   const activeMainAgentId = mainAgentQuery.data?.agent_id ?? null;
   const activeMainAgent = mainAgentQuery.data ?? null;
@@ -1736,9 +1616,7 @@ export default function AgentsWorkspace() {
     });
   }, [activeMainAgentId, agents]);
   const [search, setSearch] = useState('');
-  const [agentType, setAgentType] = useState<
-    'all' | 'specialists' | 'personas'
-  >('all');
+  const [agentType, setAgentType] = useState<'all' | 'specialists' | 'personas'>('all');
   const profileNames = useMemo(
     () => new Map(profiles.map((profile) => [profile.id, profile.name])),
     [profiles]
@@ -1765,35 +1643,20 @@ export default function AgentsWorkspace() {
             .includes(term)
         )
     );
-  }, [
-    displayedAgents,
-    search,
-    activeMainAgentId,
-    activeMainAgent?.name,
-    agentType,
-    profileNames,
-  ]);
+  }, [displayedAgents, search, activeMainAgentId, activeMainAgent?.name, agentType, profileNames]);
   const toDirectoryEntry = useCallback(
     (entry: Agent): WorkspaceDirectoryEntry => {
       const main = entry.id === activeMainAgentId;
       const config = agentConfigOrDefaults(entry);
-      const linkedPersona = Boolean(
-        personaIdForAgent(entry) || personaSlugForAgent(entry)
-      );
+      const linkedPersona = Boolean(personaIdForAgent(entry) || personaSlugForAgent(entry));
       const label = main ? (activeMainAgent?.name ?? entry.name) : entry.name;
       return {
         id: entry.id,
         label,
         actionLabel: 'Inspect ' + label,
         optionLabel: main ? label + ' · Main agent' : label,
-        description: main
-          ? 'Main agent · Harness managed'
-          : agentRoleLabel(entry),
-        group: main
-          ? 'Main agent'
-          : linkedPersona
-            ? 'Persona-backed'
-            : 'Specialists',
+        description: main ? 'Main agent · Harness managed' : agentRoleLabel(entry),
+        group: main ? 'Main agent' : linkedPersona ? 'Persona-backed' : 'Specialists',
         icon: main ? Sparkles : Bot,
         meta: (
           <span className="flex flex-col">
@@ -1802,11 +1665,7 @@ export default function AgentsWorkspace() {
                 config.modelProfileId ||
                 'No model preset'}
             </span>
-            <span>
-              {main
-                ? 'All capabilities'
-                : `${config.toolIds.length} assigned tools`}
-            </span>
+            <span>{main ? 'All capabilities' : `${config.toolIds.length} assigned tools`}</span>
           </span>
         ),
       };
@@ -1820,9 +1679,7 @@ export default function AgentsWorkspace() {
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [draft, setDraft] = useState<AgentDraft | null>(null);
   const [editorPending, setEditorPending] = useState(false);
-  const [pendingNavigation, setPendingNavigation] = useState<
-    (() => void) | null
-  >(null);
+  const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null);
   const editingAgentId = draft?.agentId;
   const selectedAgent = useMemo(
     () =>
@@ -1831,23 +1688,14 @@ export default function AgentsWorkspace() {
       filteredAgents.find((agent) => agent.id === activeMainAgentId) ??
       filteredAgents[0] ??
       null,
-    [
-      activeMainAgentId,
-      displayedAgents,
-      editingAgentId,
-      filteredAgents,
-      selectedAgentId,
-    ]
+    [activeMainAgentId, displayedAgents, editingAgentId, filteredAgents, selectedAgentId]
   );
   const editorDirty = Boolean(
     draft &&
     selectedAgent &&
     JSON.stringify(draft) !==
       JSON.stringify(
-        agentDraft(
-          selectedAgent,
-          selectedAgent.id === activeMainAgentId ? activeMainAgent : null
-        )
+        agentDraft(selectedAgent, selectedAgent.id === activeMainAgentId ? activeMainAgent : null)
       )
   );
   const requestNavigation = useCallback(
@@ -1923,17 +1771,8 @@ export default function AgentsWorkspace() {
     await Promise.all([agentsQuery.refetch(), mainAgentQuery.refetch()]);
   };
 
-  if (
-    agentsQuery.isLoading ||
-    profilesQuery.isLoading ||
-    mainAgentQuery.isLoading
-  ) {
-    return (
-      <LoadingCard
-        title="Agents"
-        description="Loading backend agent definitions."
-      />
-    );
+  if (agentsQuery.isLoading || profilesQuery.isLoading || mainAgentQuery.isLoading) {
+    return <LoadingCard title="Agents" description="Loading backend agent definitions." />;
   }
 
   if (agentsQuery.isError) {
@@ -1959,7 +1798,6 @@ export default function AgentsWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={Bot}
         tone="agent"
         title="Agents"
         description="Define how your agents work, the models they use, and the capabilities they can access."
@@ -1968,15 +1806,12 @@ export default function AgentsWorkspace() {
           <>
             <Badge variant="outline">{agents.length} agents</Badge>
             <Badge variant="outline">
-              {agents.filter((agent) => agent.id !== activeMainAgentId).length}{' '}
-              specialists
+              {agents.filter((agent) => agent.id !== activeMainAgentId).length} specialists
             </Badge>
             <Badge variant="outline">
               {
-                agents.filter(
-                  (agent) =>
-                    personaIdForAgent(agent) || personaSlugForAgent(agent)
-                ).length
+                agents.filter((agent) => personaIdForAgent(agent) || personaSlugForAgent(agent))
+                  .length
               }{' '}
               persona-backed
             </Badge>
@@ -2046,9 +1881,8 @@ export default function AgentsWorkspace() {
             entries={directoryEntries}
             selected={
               selectedAgent
-                ? (directoryEntries.find(
-                    (entry) => entry.id === selectedAgent.id
-                  ) ?? toDirectoryEntry(selectedAgent))
+                ? (directoryEntries.find((entry) => entry.id === selectedAgent.id) ??
+                  toDirectoryEntry(selectedAgent))
                 : null
             }
             onSelect={(id) => requestNavigation(() => setSelectedAgentId(id))}
@@ -2068,9 +1902,7 @@ export default function AgentsWorkspace() {
                 aria-label="Filter agents by type"
                 disabled={editorPending}
                 value={agentType}
-                onChange={(event) =>
-                  setAgentType(event.target.value as typeof agentType)
-                }
+                onChange={(event) => setAgentType(event.target.value as typeof agentType)}
                 className="h-8 w-auto max-w-full py-1 text-xs"
               >
                 <option value="all">All agents</option>
@@ -2085,11 +1917,7 @@ export default function AgentsWorkspace() {
                 key={selectedAgent.id}
                 agent={selectedAgent}
                 isMainAgent={selectedAgent.id === activeMainAgentId}
-                mainAgent={
-                  selectedAgent.id === activeMainAgentId
-                    ? activeMainAgent
-                    : null
-                }
+                mainAgent={selectedAgent.id === activeMainAgentId ? activeMainAgent : null}
                 draft={draft}
                 onDraftChange={(next) => {
                   setSelectedAgentId(selectedAgent.id);

@@ -1,10 +1,12 @@
 'use client';
+import WorkspaceSearch from '@/components/app-shell/WorkspaceSearch';
+import { FormField, FormFieldGroup } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
 import Link from 'next/link';
-import {useRouter} from 'next/navigation';
-import {useMemo, useState} from 'react';
-import {useMutation, useQuery, useQueryClient} from '@tanstack/react-query';
+import { useRouter } from 'next/navigation';
+import { useMemo, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   Ban,
   Bookmark,
@@ -24,22 +26,28 @@ import {
   Trash2,
 } from 'lucide-react';
 import ConfirmActionDialog from '@/components/app-shell/ConfirmActionDialog';
-import {AppDrawer} from '@/components/app-shell/AppOverlay';
-import {Checkbox} from '@/components/library/shadcn/checkbox';
-import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem } from '@/components/library/shadcn/dropdown-menu';
-import {appFeedback} from '@/lib/appFeedback';
-import {agentsApi} from '@/lib/api/backend/agents';
-import {conversationsApi} from '@/lib/api/backend/conversations';
-import {documentsApi} from '@/lib/api/backend/documents';
-import {memoriesApi} from '@/lib/api/backend/memory';
-import {usersApi} from '@/lib/api/backend/users';
-import {workflowsApi} from '@/lib/api/backend/workflows';
-import {isApiError} from '@/lib/api/errors';
-import {queryKeys} from '@/lib/react-query/queryKeys';
+import { AppDrawer } from '@/components/app-shell/AppOverlay';
+import { Checkbox } from '@/components/library/shadcn/checkbox';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from '@/components/library/shadcn/dropdown-menu';
+import { appFeedback } from '@/lib/appFeedback';
+import { agentsApi } from '@/lib/api/backend/agents';
+import { conversationsApi } from '@/lib/api/backend/conversations';
+import { documentsApi } from '@/lib/api/backend/documents';
+import { memoriesApi } from '@/lib/api/backend/memory';
+import { usersApi } from '@/lib/api/backend/users';
+import { workflowsApi } from '@/lib/api/backend/workflows';
+import { isApiError } from '@/lib/api/errors';
+import { queryKeys } from '@/lib/react-query/queryKeys';
 import DocumentIngestionControl from '@/components/memory-app/DocumentIngestionControl';
 import PageHeader from '@/components/app-shell/PageHeader';
-import type {AgentDefinition} from '@/types/agents';
-import type {JsonObject} from '@/types/api';
+import type { AgentDefinition } from '@/types/agents';
+import type { JsonObject } from '@/types/api';
 import type {
   CompactBackfillMode,
   CompactBackfillResult,
@@ -58,7 +66,7 @@ import type {
   MemoryType,
   WorkflowMemoryLinkTargetType,
 } from '@/types/memory';
-import {MEMORY_TYPES, memoryTypeDescription, memoryTypeLabel} from '@/types/memory';
+import { MEMORY_TYPES, memoryTypeDescription, memoryTypeLabel } from '@/types/memory';
 import type {
   Conversation,
   ConversationCompactMode,
@@ -66,10 +74,10 @@ import type {
   ConversationCompactSourceRange,
   ConversationCompactStrategy,
 } from '@/types/conversations';
-import type {WorkflowDefinition} from '@/types/workflows';
-import {EmptyCard, ErrorAlert, LoadingCard} from '@/components/agent-app/StatePanels';
-import {Badge} from '@/components/library/shadcn/badge';
-import {Button} from '@/components/library/shadcn/button';
+import type { WorkflowDefinition } from '@/types/workflows';
+import { EmptyCard, ErrorAlert, LoadingCard } from '@/components/agent-app/StatePanels';
+import { Badge } from '@/components/library/shadcn/badge';
+import { Button } from '@/components/library/shadcn/button';
 import {
   Card,
   CardContent,
@@ -77,9 +85,9 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/library/shadcn/card';
-import {Input} from '@/components/library/shadcn/input';
-import {Label} from '@/components/library/shadcn/label';
-import {SheetClose} from '@/components/library/shadcn/sheet';
+import { Input } from '@/components/library/shadcn/input';
+import { Label } from '@/components/library/shadcn/label';
+import { SheetClose } from '@/components/library/shadcn/sheet';
 import {
   Table,
   TableBody,
@@ -88,16 +96,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/library/shadcn/table';
-import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/library/shadcn/tabs';
-import {Textarea} from '@/components/library/shadcn/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/library/shadcn/tabs';
+import { Textarea } from '@/components/library/shadcn/textarea';
 
 const scopes: MemoryScope[] = ['user', 'workspace', 'conversation', 'workflow', 'global'];
 const memoryStatuses: MemoryStatus[] = ['active', 'archived', 'superseded'];
 const memoryBrowseViews = [
-  {id: 'all', label: 'All records'},
-  {id: 'missing_embedding', label: 'Needs embedding'},
-  {id: 'sensitive', label: 'Sensitive'},
-  {id: 'archived', label: 'Archived'},
+  { id: 'all', label: 'All records' },
+  { id: 'missing_embedding', label: 'Needs embedding' },
+  { id: 'sensitive', label: 'Sensitive' },
+  { id: 'archived', label: 'Archived' },
 ] as const;
 type MemoryBrowseView = (typeof memoryBrowseViews)[number]['id'];
 const compactModes: CompactBackfillMode[] = [
@@ -176,10 +184,10 @@ const preferenceTemplates = [
   },
 ] as const;
 const workspaceNoteCategories = [
-  {key: 'policy', label: 'Policy note', tags: ['workspace', 'policy']},
-  {key: 'project', label: 'Project context', tags: ['workspace', 'project']},
-  {key: 'handoff', label: 'Handoff note', tags: ['workspace', 'handoff']},
-  {key: 'playbook', label: 'Playbook note', tags: ['workspace', 'playbook']},
+  { key: 'policy', label: 'Policy note', tags: ['workspace', 'policy'] },
+  { key: 'project', label: 'Project context', tags: ['workspace', 'project'] },
+  { key: 'handoff', label: 'Handoff note', tags: ['workspace', 'handoff'] },
+  { key: 'playbook', label: 'Playbook note', tags: ['workspace', 'playbook'] },
 ] as const;
 
 type GuidedAction =
@@ -292,10 +300,10 @@ function parseTagList(value: string) {
 }
 
 function MemoryEmbeddingPanel({
-                                memories,
-                                onBackfilled,
-                                onOpenMemory,
-                              }: {
+  memories,
+  onBackfilled,
+  onOpenMemory,
+}: {
   memories: MemoryRecord[];
   onBackfilled: () => Promise<void> | void;
   onOpenMemory: (memoryId: string) => void;
@@ -352,9 +360,7 @@ function MemoryEmbeddingPanel({
       );
     } catch (backfillError) {
       setError(
-        backfillError instanceof Error
-          ? backfillError.message
-          : 'Failed to backfill embeddings.'
+        backfillError instanceof Error ? backfillError.message : 'Failed to backfill embeddings.'
       );
     } finally {
       setIsPending(false);
@@ -366,7 +372,7 @@ function MemoryEmbeddingPanel({
       <Card className="border-slate-200 bg-slate-50">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-lg">
-            <DatabaseZap className="h-5 w-5"/>
+            <DatabaseZap className="h-5 w-5" />
             Vector retrieval
           </CardTitle>
           <CardDescription>
@@ -399,8 +405,7 @@ function MemoryEmbeddingPanel({
               </p>
             </div>
           </div>
-          <div
-            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             Rebuild all vectors can be slow and replaces existing embedding rows for the loaded
             slice. Prefer backfilling missing vectors for routine maintenance.
           </div>
@@ -459,12 +464,12 @@ function MemoryEmbeddingPanel({
 }
 
 function MaintenanceReviewCard({
-                                 title,
-                                 description,
-                                 memories,
-                                 emptyLabel,
-                                 onOpenMemory,
-                               }: {
+  title,
+  description,
+  memories,
+  emptyLabel,
+  onOpenMemory,
+}: {
   title: string;
   description: string;
   memories: MemoryRecord[];
@@ -479,8 +484,7 @@ function MaintenanceReviewCard({
       </CardHeader>
       <CardContent>
         {memories.length === 0 ? (
-          <p
-            className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-4 text-sm text-neutral-500">
+          <p className="rounded-md border border-neutral-200 bg-neutral-50 px-3 py-4 text-sm text-neutral-500">
             {emptyLabel}
           </p>
         ) : (
@@ -507,7 +511,7 @@ function MaintenanceReviewCard({
                     Updated {formatDateTime(memory.updated_at)}
                   </span>
                   <Button type="button" variant="outline" onClick={() => onOpenMemory(memory.id)}>
-                    <Eye className="mr-2 h-4 w-4"/>
+                    <Eye className="mr-2 h-4 w-4" />
                     Open
                   </Button>
                 </div>
@@ -521,12 +525,12 @@ function MaintenanceReviewCard({
 }
 
 function GuidedMemoryActions({
-                               agents,
-                               conversations,
-                               memories,
-                               workflows,
-                               onCreated,
-                             }: {
+  agents,
+  conversations,
+  memories,
+  workflows,
+  onCreated,
+}: {
   agents: AgentDefinition[];
   conversations: Conversation[];
   memories: MemoryRecord[];
@@ -603,8 +607,7 @@ function GuidedMemoryActions({
   const handleSavePreference = async () => {
     if (isPending) return;
     const selectedAgentId = preferenceAgentId.trim();
-    const selectedAgent =
-      agents.find((agent) => agent.id === selectedAgentId) ?? null;
+    const selectedAgent = agents.find((agent) => agent.id === selectedAgentId) ?? null;
     setError(null);
     setIsPending(true);
     try {
@@ -619,9 +622,7 @@ function GuidedMemoryActions({
           agent_id: selectedAgentId || undefined,
           tags: [
             ...selectedPreferenceTemplate.tags,
-            ...(selectedAgent
-              ? ['agent-preference', `agent:${selectedAgent.id}`]
-              : []),
+            ...(selectedAgent ? ['agent-preference', `agent:${selectedAgent.id}`] : []),
           ],
         },
       });
@@ -631,11 +632,7 @@ function GuidedMemoryActions({
       resetShared();
       appFeedback.success('Preference saved.');
     } catch (createError) {
-      setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Failed to save preference.'
-      );
+      setError(createError instanceof Error ? createError.message : 'Failed to save preference.');
     } finally {
       setIsPending(false);
     }
@@ -655,10 +652,7 @@ function GuidedMemoryActions({
           importance: Number(workspaceImportance) || 60,
           summary: workspaceTitle.trim(),
           content: workspaceNote.trim(),
-          tags: [
-            ...selectedWorkspaceCategory.tags,
-            selectedWorkspaceCategory.key,
-          ],
+          tags: [...selectedWorkspaceCategory.tags, selectedWorkspaceCategory.key],
         },
       });
       await onCreated();
@@ -669,9 +663,7 @@ function GuidedMemoryActions({
       appFeedback.success('Workspace note saved.');
     } catch (createError) {
       setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Failed to save workspace note.'
+        createError instanceof Error ? createError.message : 'Failed to save workspace note.'
       );
     } finally {
       setIsPending(false);
@@ -708,11 +700,7 @@ function GuidedMemoryActions({
       resetShared();
       appFeedback.success('Decision memory saved.');
     } catch (createError) {
-      setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Failed to save decision.'
-      );
+      setError(createError instanceof Error ? createError.message : 'Failed to save decision.');
     } finally {
       setIsPending(false);
     }
@@ -726,11 +714,7 @@ function GuidedMemoryActions({
       await memoriesApi.createMemory({
         confirmed,
         memory: {
-          scope: taskWorkflowId
-            ? 'workflow'
-            : taskConversationId
-              ? 'conversation'
-              : 'user',
+          scope: taskWorkflowId ? 'workflow' : taskConversationId ? 'conversation' : 'user',
           workflow_id: taskWorkflowId || undefined,
           conversation_id: taskConversationId || undefined,
           agent_id: taskAgentId || undefined,
@@ -753,9 +737,7 @@ function GuidedMemoryActions({
       appFeedback.success('Task commitment saved.');
     } catch (createError) {
       setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Failed to save task commitment.'
+        createError instanceof Error ? createError.message : 'Failed to save task commitment.'
       );
     } finally {
       setIsPending(false);
@@ -794,9 +776,7 @@ function GuidedMemoryActions({
       appFeedback.success('Custom memory saved.');
     } catch (createError) {
       setError(
-        createError instanceof Error
-          ? createError.message
-          : 'Failed to save custom memory.'
+        createError instanceof Error ? createError.message : 'Failed to save custom memory.'
       );
     } finally {
       setIsPending(false);
@@ -822,11 +802,7 @@ function GuidedMemoryActions({
       resetShared();
       appFeedback.success('Memory corrected.');
     } catch (updateError) {
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : 'Failed to correct memory.'
-      );
+      setError(updateError instanceof Error ? updateError.message : 'Failed to correct memory.');
     } finally {
       setIsPending(false);
     }
@@ -836,7 +812,7 @@ function GuidedMemoryActions({
     <Card className="border-dashed border-neutral-300 bg-neutral-50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <BrainCircuit className="h-5 w-5"/>
+          <BrainCircuit className="h-5 w-5" />
           Guided memory actions
         </CardTitle>
         <CardDescription>
@@ -880,9 +856,8 @@ function GuidedMemoryActions({
                 Store a reusable user preference without writing raw memory fields manually.
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="preference-template">Preference type</Label>
+            <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+              <FormField label="Preference type" htmlFor="preference-template">
                 <NativeSelect
                   id="preference-template"
                   value={preferenceTemplateKey}
@@ -900,9 +875,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="preference-value">Value</Label>
+              </FormField>
+              <FormField label="Value" htmlFor="preference-value" className="md:col-span-2">
                 <Input
                   id="preference-value"
                   value={preferenceValue}
@@ -910,11 +884,14 @@ function GuidedMemoryActions({
                   disabled={isPending}
                   placeholder={selectedPreferenceTemplate.placeholder}
                 />
-              </div>
-            </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="preference-agent-id">Agent binding</Label>
+              </FormField>
+            </FormFieldGroup>
+            <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+              <FormField
+                label="Agent binding"
+                htmlFor="preference-agent-id"
+                className="md:col-span-2"
+              >
                 <NativeSelect
                   id="preference-agent-id"
                   value={preferenceAgentId}
@@ -929,9 +906,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="preference-importance">Importance</Label>
+              </FormField>
+              <FormField label="Importance" htmlFor="preference-importance">
                 <Input
                   id="preference-importance"
                   type="number"
@@ -941,8 +917,8 @@ function GuidedMemoryActions({
                   onChange={(event) => setPreferenceImportance(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-            </div>
+              </FormField>
+            </FormFieldGroup>
             <Button
               type="button"
               className="agency-gradient text-white hover:brightness-105"
@@ -962,9 +938,8 @@ function GuidedMemoryActions({
                 Capture stable workspace context with structured category and title fields.
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="workspace-note-id">Workspace ID</Label>
+            <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+              <FormField label="Workspace ID" htmlFor="workspace-note-id">
                 <Input
                   id="workspace-note-id"
                   value={workspaceId}
@@ -972,9 +947,8 @@ function GuidedMemoryActions({
                   disabled={isPending}
                   placeholder="workspace-123"
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="workspace-note-category">Category</Label>
+              </FormField>
+              <FormField label="Category" htmlFor="workspace-note-category">
                 <NativeSelect
                   id="workspace-note-category"
                   value={workspaceCategoryKey}
@@ -992,9 +966,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="workspace-note-importance">Importance</Label>
+              </FormField>
+              <FormField label="Importance" htmlFor="workspace-note-importance">
                 <Input
                   id="workspace-note-importance"
                   type="number"
@@ -1004,10 +977,9 @@ function GuidedMemoryActions({
                   onChange={(event) => setWorkspaceImportance(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="workspace-note-title">Short title</Label>
+              </FormField>
+            </FormFieldGroup>
+            <FormField label="Short title" htmlFor="workspace-note-title">
               <Input
                 id="workspace-note-title"
                 value={workspaceTitle}
@@ -1015,9 +987,8 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 placeholder="Use DB-backed memory for rollout continuity"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="workspace-note-content">Workspace note</Label>
+            </FormField>
+            <FormField label="Workspace note" htmlFor="workspace-note-content">
               <Textarea
                 id="workspace-note-content"
                 value={workspaceNote}
@@ -1025,7 +996,7 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 placeholder="Describe the durable note the agent should reuse later."
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               className="agency-gradient text-white hover:brightness-105"
@@ -1047,9 +1018,8 @@ function GuidedMemoryActions({
                 Capture a durable decision with optional workflow or conversation binding.
               </p>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="decision-workflow">Workflow binding</Label>
+            <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+              <FormField label="Workflow binding" htmlFor="decision-workflow">
                 <NativeSelect
                   id="decision-workflow"
                   value={decisionWorkflowId}
@@ -1064,9 +1034,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="decision-conversation">Conversation binding</Label>
+              </FormField>
+              <FormField label="Conversation binding" htmlFor="decision-conversation">
                 <NativeSelect
                   id="decision-conversation"
                   value={decisionConversationId}
@@ -1081,9 +1050,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="decision-importance">Importance</Label>
+              </FormField>
+              <FormField label="Importance" htmlFor="decision-importance">
                 <Input
                   id="decision-importance"
                   type="number"
@@ -1093,10 +1061,9 @@ function GuidedMemoryActions({
                   onChange={(event) => setDecisionImportance(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="decision-summary">Decision summary</Label>
+              </FormField>
+            </FormFieldGroup>
+            <FormField label="Decision summary" htmlFor="decision-summary">
               <Input
                 id="decision-summary"
                 value={decisionSummary}
@@ -1104,9 +1071,8 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 placeholder="Use compact context packs as workflow memory inputs"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="decision-content">Decision details</Label>
+            </FormField>
+            <FormField label="Decision details" htmlFor="decision-content">
               <Textarea
                 id="decision-content"
                 value={decisionContent}
@@ -1114,7 +1080,7 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 placeholder="Record the decision, rationale, and when an agent should reuse it."
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               className="agency-gradient text-white hover:brightness-105"
@@ -1135,8 +1101,7 @@ function GuidedMemoryActions({
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="task-agent">Agent binding</Label>
+              <FormField label="Agent binding" htmlFor="task-agent">
                 <NativeSelect
                   id="task-agent"
                   value={taskAgentId}
@@ -1151,9 +1116,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="task-workflow">Workflow binding</Label>
+              </FormField>
+              <FormField label="Workflow binding" htmlFor="task-workflow">
                 <NativeSelect
                   id="task-workflow"
                   value={taskWorkflowId}
@@ -1168,9 +1132,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="task-due-date">Due date</Label>
+              </FormField>
+              <FormField label="Due date" htmlFor="task-due-date">
                 <Input
                   id="task-due-date"
                   type="date"
@@ -1178,9 +1141,8 @@ function GuidedMemoryActions({
                   onChange={(event) => setTaskDueDate(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="task-importance">Importance</Label>
+              </FormField>
+              <FormField label="Importance" htmlFor="task-importance">
                 <Input
                   id="task-importance"
                   type="number"
@@ -1190,10 +1152,9 @@ function GuidedMemoryActions({
                   onChange={(event) => setTaskImportance(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
+              </FormField>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-conversation">Conversation binding</Label>
+            <FormField label="Conversation binding" htmlFor="task-conversation">
               <NativeSelect
                 id="task-conversation"
                 value={taskConversationId}
@@ -1208,9 +1169,8 @@ function GuidedMemoryActions({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-summary">Commitment summary</Label>
+            </FormField>
+            <FormField label="Commitment summary" htmlFor="task-summary">
               <Input
                 id="task-summary"
                 value={taskSummary}
@@ -1218,16 +1178,15 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 placeholder="Follow up on memory ops browser test gaps"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="task-content">Commitment details</Label>
+            </FormField>
+            <FormField label="Commitment details" htmlFor="task-content">
               <Textarea
                 id="task-content"
                 value={taskContent}
                 onChange={(event) => setTaskContent(event.target.value)}
                 disabled={isPending}
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               className="agency-gradient text-white hover:brightness-105"
@@ -1248,8 +1207,7 @@ function GuidedMemoryActions({
               </p>
             </div>
             <div className="grid gap-3 md:grid-cols-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-scope">Scope</Label>
+              <FormField label="Scope" htmlFor="custom-scope">
                 <NativeSelect
                   id="custom-scope"
                   value={customScope}
@@ -1263,7 +1221,7 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
+              </FormField>
               <div className="space-y-1.5">
                 <Label htmlFor="custom-type">Memory Type</Label>
                 <NativeSelect
@@ -1285,8 +1243,7 @@ function GuidedMemoryActions({
                 </NativeSelect>
                 <p className="text-xs text-neutral-500">{memoryTypeDescription(customType)}</p>
               </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-importance">Importance</Label>
+              <FormField label="Importance" htmlFor="custom-importance">
                 <Input
                   id="custom-importance"
                   type="number"
@@ -1296,7 +1253,7 @@ function GuidedMemoryActions({
                   onChange={(event) => setCustomImportance(event.target.value)}
                   disabled={isPending}
                 />
-              </div>
+              </FormField>
               <label className="flex items-center gap-2 pt-7 text-sm text-neutral-700">
                 <Input
                   type="checkbox"
@@ -1307,9 +1264,8 @@ function GuidedMemoryActions({
                 Sensitive
               </label>
             </div>
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-agent">Agent binding</Label>
+            <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+              <FormField label="Agent binding" htmlFor="custom-agent">
                 <NativeSelect
                   id="custom-agent"
                   value={customAgentId}
@@ -1324,9 +1280,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-workflow">Workflow binding</Label>
+              </FormField>
+              <FormField label="Workflow binding" htmlFor="custom-workflow">
                 <NativeSelect
                   id="custom-workflow"
                   value={customWorkflowId}
@@ -1341,9 +1296,8 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="custom-conversation">Conversation binding</Label>
+              </FormField>
+              <FormField label="Conversation binding" htmlFor="custom-conversation">
                 <NativeSelect
                   id="custom-conversation"
                   value={customConversationId}
@@ -1358,19 +1312,17 @@ function GuidedMemoryActions({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="custom-summary">Summary</Label>
+              </FormField>
+            </FormFieldGroup>
+            <FormField label="Summary" htmlFor="custom-summary">
               <Input
                 id="custom-summary"
                 value={customSummary}
                 onChange={(event) => setCustomSummary(event.target.value)}
                 disabled={isPending}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="custom-content">Content</Label>
+            </FormField>
+            <FormField label="Content" htmlFor="custom-content">
               <Textarea
                 id="custom-content"
                 value={customContent}
@@ -1378,9 +1330,8 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 className="min-h-32"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="custom-tags">Tags</Label>
+            </FormField>
+            <FormField label="Tags" htmlFor="custom-tags">
               <Input
                 id="custom-tags"
                 value={customTags}
@@ -1388,7 +1339,7 @@ function GuidedMemoryActions({
                 disabled={isPending}
                 placeholder="comma, separated, tags"
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               className="agency-gradient text-white hover:brightness-105"
@@ -1408,8 +1359,7 @@ function GuidedMemoryActions({
                 Pick an existing memory first, then correct the summary or full details.
               </p>
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="memory-correction-target">Memory to correct</Label>
+            <FormField label="Memory to correct" htmlFor="memory-correction-target">
               <NativeSelect
                 id="memory-correction-target"
                 value={selectedMemoryId}
@@ -1424,35 +1374,32 @@ function GuidedMemoryActions({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="memory-correction-summary">Corrected summary</Label>
+            </FormField>
+            <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+              <FormField label="Corrected summary" htmlFor="memory-correction-summary">
                 <Input
                   id="memory-correction-summary"
                   value={correctedSummary}
                   onChange={(event) => setCorrectedSummary(event.target.value)}
                   disabled={isPending || !selectedMemory}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="memory-correction-type">Current type</Label>
+              </FormField>
+              <FormField label="Current type" htmlFor="memory-correction-type">
                 <Input
                   id="memory-correction-type"
                   value={memoryTypeLabel(selectedMemory?.memory_type)}
                   disabled
                 />
-              </div>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="memory-correction-content">Corrected details</Label>
+              </FormField>
+            </FormFieldGroup>
+            <FormField label="Corrected details" htmlFor="memory-correction-content">
               <Textarea
                 id="memory-correction-content"
                 value={correctedContent}
                 onChange={(event) => setCorrectedContent(event.target.value)}
                 disabled={isPending || !selectedMemory}
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               className="agency-gradient text-white hover:brightness-105"
@@ -1480,9 +1427,9 @@ function GuidedMemoryActions({
 }
 
 function DailySummaryAdminPanel({
-                                  isAdmin,
-                                  onCompleted,
-                                }: {
+  isAdmin,
+  onCompleted,
+}: {
   isAdmin: boolean;
   onCompleted: () => Promise<void> | void;
 }) {
@@ -1526,11 +1473,7 @@ function DailySummaryAdminPanel({
         `Daily summary run finished with status ${result.status}. Created ${result.created ?? 0}, skipped ${result.skipped ?? 0}.`
       );
     } catch (runError) {
-      setError(
-        runError instanceof Error
-          ? runError.message
-          : 'Failed to run daily summary.'
-      );
+      setError(runError instanceof Error ? runError.message : 'Failed to run daily summary.');
     } finally {
       setIsPending(false);
     }
@@ -1554,9 +1497,7 @@ function DailySummaryAdminPanel({
       );
     } catch (runError) {
       setError(
-        runError instanceof Error
-          ? runError.message
-          : 'Failed to backfill daily summaries.'
+        runError instanceof Error ? runError.message : 'Failed to backfill daily summaries.'
       );
     } finally {
       setIsPending(false);
@@ -1567,7 +1508,7 @@ function DailySummaryAdminPanel({
     <Card className="border-amber-200 bg-amber-50">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Shield className="h-5 w-5"/>
+          <Shield className="h-5 w-5" />
           Daily summary admin actions
         </CardTitle>
         <CardDescription>
@@ -1584,49 +1525,50 @@ function DailySummaryAdminPanel({
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="summary-run-date">Target date</Label>
+            <FormField label="Target date" htmlFor="summary-run-date">
               <Input
                 id="summary-run-date"
                 type="date"
                 value={runPayload.target_date ?? ''}
                 onChange={(event) =>
-                  setRunPayload((current) => ({...current, target_date: event.target.value}))
+                  setRunPayload((current) => ({ ...current, target_date: event.target.value }))
                 }
                 disabled={isPending}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="summary-run-timezone">Timezone</Label>
+            </FormField>
+            <FormField label="Timezone" htmlFor="summary-run-timezone">
               <Input
                 id="summary-run-timezone"
                 value={runPayload.timezone ?? ''}
                 onChange={(event) =>
-                  setRunPayload((current) => ({...current, timezone: event.target.value}))
+                  setRunPayload((current) => ({ ...current, timezone: event.target.value }))
                 }
                 disabled={isPending}
                 placeholder="Asia/Singapore"
               />
-            </div>
-            <div className="space-y-1.5 md:col-span-2">
-              <Label htmlFor="summary-run-conversation">Conversation ID</Label>
+            </FormField>
+            <FormField
+              label="Conversation ID"
+              htmlFor="summary-run-conversation"
+              className="md:col-span-2"
+            >
               <Input
                 id="summary-run-conversation"
                 value={runPayload.conversation_id ?? ''}
                 onChange={(event) =>
-                  setRunPayload((current) => ({...current, conversation_id: event.target.value}))
+                  setRunPayload((current) => ({ ...current, conversation_id: event.target.value }))
                 }
                 disabled={isPending}
                 placeholder="Optional narrow target"
               />
-            </div>
+            </FormField>
           </div>
           <label className="flex items-center gap-2 text-sm text-neutral-700">
             <Input
               type="checkbox"
               checked={Boolean(runPayload.dry_run)}
               onChange={(event) =>
-                setRunPayload((current) => ({...current, dry_run: event.target.checked}))
+                setRunPayload((current) => ({ ...current, dry_run: event.target.checked }))
               }
               disabled={isPending}
             />
@@ -1645,44 +1587,40 @@ function DailySummaryAdminPanel({
             </p>
           </div>
           <div className="grid gap-3 md:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="summary-backfill-start">Start date</Label>
+            <FormField label="Start date" htmlFor="summary-backfill-start">
               <Input
                 id="summary-backfill-start"
                 type="date"
                 value={backfillPayload.start_date}
                 onChange={(event) =>
-                  setBackfillPayload((current) => ({...current, start_date: event.target.value}))
+                  setBackfillPayload((current) => ({ ...current, start_date: event.target.value }))
                 }
                 disabled={isPending}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="summary-backfill-end">End date</Label>
+            </FormField>
+            <FormField label="End date" htmlFor="summary-backfill-end">
               <Input
                 id="summary-backfill-end"
                 type="date"
                 value={backfillPayload.end_date}
                 onChange={(event) =>
-                  setBackfillPayload((current) => ({...current, end_date: event.target.value}))
+                  setBackfillPayload((current) => ({ ...current, end_date: event.target.value }))
                 }
                 disabled={isPending}
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="summary-backfill-timezone">Timezone</Label>
+            </FormField>
+            <FormField label="Timezone" htmlFor="summary-backfill-timezone">
               <Input
                 id="summary-backfill-timezone"
                 value={backfillPayload.timezone ?? ''}
                 onChange={(event) =>
-                  setBackfillPayload((current) => ({...current, timezone: event.target.value}))
+                  setBackfillPayload((current) => ({ ...current, timezone: event.target.value }))
                 }
                 disabled={isPending}
                 placeholder="Asia/Singapore"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="summary-backfill-conversation">Conversation ID</Label>
+            </FormField>
+            <FormField label="Conversation ID" htmlFor="summary-backfill-conversation">
               <Input
                 id="summary-backfill-conversation"
                 value={backfillPayload.conversation_id ?? ''}
@@ -1695,14 +1633,14 @@ function DailySummaryAdminPanel({
                 disabled={isPending}
                 placeholder="Optional narrow target"
               />
-            </div>
+            </FormField>
           </div>
           <label className="flex items-center gap-2 text-sm text-neutral-700">
             <Input
               type="checkbox"
               checked={Boolean(backfillPayload.dry_run)}
               onChange={(event) =>
-                setBackfillPayload((current) => ({...current, dry_run: event.target.checked}))
+                setBackfillPayload((current) => ({ ...current, dry_run: event.target.checked }))
               }
               disabled={isPending}
             />
@@ -1720,7 +1658,7 @@ function DailySummaryAdminPanel({
 
         {error ? <p className="text-sm text-red-600">{error}</p> : null}
         {runResult ? (
-          <DailySummaryRunResultPanel result={runResult} dryRun={Boolean(runPayload.dry_run)}/>
+          <DailySummaryRunResultPanel result={runResult} dryRun={Boolean(runPayload.dry_run)} />
         ) : null}
         {backfillResult ? (
           <DailySummaryBackfillResultPanel
@@ -1734,9 +1672,9 @@ function DailySummaryAdminPanel({
 }
 
 function DailySummaryRunResultPanel({
-                                      result,
-                                      dryRun,
-                                    }: {
+  result,
+  dryRun,
+}: {
   result: DailySummaryRunResult;
   dryRun: boolean;
 }) {
@@ -1753,16 +1691,15 @@ function DailySummaryRunResultPanel({
         {result.failed ? <Badge variant="destructive">{result.failed} failed</Badge> : null}
       </div>
       <div className="mt-3 grid gap-2 text-sm text-neutral-700 md:grid-cols-3">
-        <DetailField label="Target date" value={result.target_date || '—'}/>
-        <DetailField label="Timezone" value={result.timezone || '—'}/>
+        <DetailField label="Target date" value={result.target_date || '—'} />
+        <DetailField label="Timezone" value={result.timezone || '—'} />
         <DetailField
           label="Eligible conversations"
           value={result.eligible_conversation_ids?.length ?? 0}
         />
       </div>
       {result.failures?.length ? (
-        <pre
-          className="mt-3 max-h-40 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
+        <pre className="mt-3 max-h-40 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
           {JSON.stringify(result.failures, null, 2)}
         </pre>
       ) : null}
@@ -1771,9 +1708,9 @@ function DailySummaryRunResultPanel({
 }
 
 function DailySummaryBackfillResultPanel({
-                                           result,
-                                           dryRun,
-                                         }: {
+  result,
+  dryRun,
+}: {
   result: DailySummaryBackfillResult;
   dryRun: boolean;
 }) {
@@ -1817,7 +1754,7 @@ function DailySummaryBackfillResultPanel({
   );
 }
 
-function SummaryReviewPanel({memories}: { memories: MemoryRecord[] }) {
+function SummaryReviewPanel({ memories }: { memories: MemoryRecord[] }) {
   const [summaryType, setSummaryType] = useState<'all' | 'daily_summary' | 'run_summary'>('all');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
@@ -1858,7 +1795,7 @@ function SummaryReviewPanel({memories}: { memories: MemoryRecord[] }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          <Shield className="h-5 w-5"/>
+          <Shield className="h-5 w-5" />
           Recent summaries
         </CardTitle>
         <CardDescription>
@@ -1866,9 +1803,8 @@ function SummaryReviewPanel({memories}: { memories: MemoryRecord[] }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
-          <div className="space-y-1.5">
-            <Label htmlFor="summary-review-type">Type</Label>
+        <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <FormField label="Type" htmlFor="summary-review-type">
             <NativeSelect
               id="summary-review-type"
               value={summaryType}
@@ -1881,54 +1817,49 @@ function SummaryReviewPanel({memories}: { memories: MemoryRecord[] }) {
               <option value="daily_summary">Daily summaries</option>
               <option value="run_summary">Run summaries</option>
             </NativeSelect>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="summary-review-from">Date from</Label>
+          </FormField>
+          <FormField label="Date from" htmlFor="summary-review-from">
             <Input
               id="summary-review-from"
               type="date"
               value={dateFrom}
               onChange={(event) => setDateFrom(event.target.value)}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="summary-review-to">Date to</Label>
+          </FormField>
+          <FormField label="Date to" htmlFor="summary-review-to">
             <Input
               id="summary-review-to"
               type="date"
               value={dateTo}
               onChange={(event) => setDateTo(event.target.value)}
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="summary-review-conversation">Conversation</Label>
+          </FormField>
+          <FormField label="Conversation" htmlFor="summary-review-conversation">
             <Input
               id="summary-review-conversation"
               value={conversationId}
               onChange={(event) => setConversationId(event.target.value)}
               placeholder="conversation id"
             />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="summary-review-execution">Execution</Label>
+          </FormField>
+          <FormField label="Execution" htmlFor="summary-review-execution">
             <Input
               id="summary-review-execution"
               value={executionId}
               onChange={(event) => setExecutionId(event.target.value)}
               placeholder="execution id"
             />
-          </div>
-        </div>
+          </FormField>
+        </FormFieldGroup>
 
         {summaryMemories.length === 0 ? (
-          <div
-            className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
+          <div className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
             No summaries match the current filters.
           </div>
         ) : (
           <div className="grid gap-4 lg:grid-cols-2">
-            <SummaryList title="Daily summaries" memories={dailySummaries}/>
-            <SummaryList title="Run summaries" memories={runSummaries}/>
+            <SummaryList title="Daily summaries" memories={dailySummaries} />
+            <SummaryList title="Run summaries" memories={runSummaries} />
           </div>
         )}
       </CardContent>
@@ -1936,7 +1867,7 @@ function SummaryReviewPanel({memories}: { memories: MemoryRecord[] }) {
   );
 }
 
-function SummaryList({title, memories}: { title: string; memories: MemoryRecord[] }) {
+function SummaryList({ title, memories }: { title: string; memories: MemoryRecord[] }) {
   return (
     <section className="space-y-3">
       <div className="flex items-center justify-between gap-3">
@@ -1944,8 +1875,7 @@ function SummaryList({title, memories}: { title: string; memories: MemoryRecord[
         <Badge variant="secondary">{memories.length}</Badge>
       </div>
       {memories.length === 0 ? (
-        <div
-          className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
+        <div className="rounded-md border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600">
           No records.
         </div>
       ) : (
@@ -1984,12 +1914,12 @@ function SummaryList({title, memories}: { title: string; memories: MemoryRecord[
 }
 
 function MemoryDetailSheet({
-                             memory,
-                             memories,
-                             open,
-                             onOpenChange,
-                             onChanged,
-                           }: {
+  memory,
+  memories,
+  open,
+  onOpenChange,
+  onChanged,
+}: {
   memory: MemoryRecord | null;
   memories: MemoryRecord[];
   open: boolean;
@@ -2062,11 +1992,7 @@ function MemoryDetailSheet({
       setIsEditing(false);
       appFeedback.success('Memory updated.');
     } catch (updateError) {
-      setError(
-        updateError instanceof Error
-          ? updateError.message
-          : 'Failed to update memory.'
-      );
+      setError(updateError instanceof Error ? updateError.message : 'Failed to update memory.');
     } finally {
       setIsPending(false);
     }
@@ -2082,11 +2008,7 @@ function MemoryDetailSheet({
       onOpenChange(false);
       appFeedback.success('Memory deleted.');
     } catch (deleteError) {
-      setError(
-        deleteError instanceof Error
-          ? deleteError.message
-          : 'Failed to delete memory.'
-      );
+      setError(deleteError instanceof Error ? deleteError.message : 'Failed to delete memory.');
     } finally {
       setIsPending(false);
     }
@@ -2118,11 +2040,7 @@ function MemoryDetailSheet({
       setExclusionReason('');
       appFeedback.success('Memory exclusion saved.');
     } catch (excludeError) {
-      setError(
-        excludeError instanceof Error
-          ? excludeError.message
-          : 'Failed to exclude memory.'
-      );
+      setError(excludeError instanceof Error ? excludeError.message : 'Failed to exclude memory.');
     } finally {
       setIsPending(false);
     }
@@ -2137,11 +2055,7 @@ function MemoryDetailSheet({
       await onChanged();
       appFeedback.success('Memory exclusion removed.');
     } catch (removeError) {
-      setError(
-        removeError instanceof Error
-          ? removeError.message
-          : 'Failed to remove exclusion.'
-      );
+      setError(removeError instanceof Error ? removeError.message : 'Failed to remove exclusion.');
     } finally {
       setIsPending(false);
     }
@@ -2155,7 +2069,7 @@ function MemoryDetailSheet({
       busy={isPending}
       onDiscard={resetDrafts}
       width="md"
-      icon={<BrainCircuit className="size-4" aria-hidden="true"/>}
+      icon={<BrainCircuit className="size-4" aria-hidden="true" />}
       title={memory.summary || memory.content.slice(0, 80) || memory.id}
       description={memory.id}
       bodyClassName="flex flex-col gap-5"
@@ -2166,7 +2080,7 @@ function MemoryDetailSheet({
               Cancel edits
             </Button>
             <Button type="button" disabled={isPending || !content.trim()} onClick={handleUpdate}>
-              <Save data-icon="inline-start"/>
+              <Save data-icon="inline-start" />
               {isPending ? 'Saving...' : 'Save changes'}
             </Button>
           </>
@@ -2202,29 +2116,28 @@ function MemoryDetailSheet({
           </Badge>
         </div>
 
-        <div
-          className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-          <DetailField label="Source" value={memory.source || 'manual'}/>
-          <DetailField label="Importance" value={memory.importance ?? '—'}/>
-          <DetailField label="Updated" value={formatDateTime(memory.updated_at)}/>
-          <DetailField label="Summary date" value={formatDate(memory.summary_date)}/>
-          <DetailField label="Conversation" value={sourceConversationId || '—'}/>
-          <DetailField label="Execution" value={memory.source_execution_id || '—'}/>
-          <DetailField label="Document" value={documentFilename || documentId || '—'}/>
-          <DetailField label="Agent" value={memory.agent_id || '—'}/>
-          <DetailField label="Workflow" value={memory.workflow_id || '—'}/>
-          <DetailField label="Workspace" value={memory.workspace_id || '—'}/>
+        <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+          <DetailField label="Source" value={memory.source || 'manual'} />
+          <DetailField label="Importance" value={memory.importance ?? '—'} />
+          <DetailField label="Updated" value={formatDateTime(memory.updated_at)} />
+          <DetailField label="Summary date" value={formatDate(memory.summary_date)} />
+          <DetailField label="Conversation" value={sourceConversationId || '—'} />
+          <DetailField label="Execution" value={memory.source_execution_id || '—'} />
+          <DetailField label="Document" value={documentFilename || documentId || '—'} />
+          <DetailField label="Agent" value={memory.agent_id || '—'} />
+          <DetailField label="Workflow" value={memory.workflow_id || '—'} />
+          <DetailField label="Workspace" value={memory.workspace_id || '—'} />
         </div>
 
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="outline" onClick={handleCopy}>
-            <Copy className="mr-2 h-4 w-4"/>
+            <Copy className="mr-2 h-4 w-4" />
             Copy content
           </Button>
           {memory.workflow_id ? (
             <Button type="button" variant="outline" asChild>
               <Link href={`/workflows/${memory.workflow_id}`}>
-                <ExternalLink className="mr-2 h-4 w-4"/>
+                <ExternalLink className="mr-2 h-4 w-4" />
                 Workflow
               </Link>
             </Button>
@@ -2232,7 +2145,7 @@ function MemoryDetailSheet({
           <ConfirmActionDialog
             trigger={
               <Button type="button" variant="destructive" disabled={isPending}>
-                <Trash2 className="mr-2 h-4 w-4"/>
+                <Trash2 className="mr-2 h-4 w-4" />
                 Delete
               </Button>
             }
@@ -2253,18 +2166,16 @@ function MemoryDetailSheet({
               <CardDescription>Updates use the existing durable-memory API.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid gap-3 md:grid-cols-3">
-                <div className="space-y-1.5 md:col-span-2">
-                  <Label htmlFor="memory-edit-summary">Summary</Label>
+              <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+                <FormField label="Summary" htmlFor="memory-edit-summary" className="md:col-span-2">
                   <Input
                     id="memory-edit-summary"
                     value={summary}
                     onChange={(event) => setSummary(event.target.value)}
                     disabled={isPending}
                   />
-                </div>
-                <div className="space-y-1.5">
-                  <Label htmlFor="memory-edit-status">Status</Label>
+                </FormField>
+                <FormField label="Status" htmlFor="memory-edit-status">
                   <NativeSelect
                     id="memory-edit-status"
                     value={status}
@@ -2278,10 +2189,9 @@ function MemoryDetailSheet({
                       </option>
                     ))}
                   </NativeSelect>
-                </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="memory-edit-content">Content</Label>
+                </FormField>
+              </FormFieldGroup>
+              <FormField label="Content" htmlFor="memory-edit-content">
                 <Textarea
                   id="memory-edit-content"
                   value={content}
@@ -2289,10 +2199,9 @@ function MemoryDetailSheet({
                   disabled={isPending}
                   className="min-h-40"
                 />
-              </div>
+              </FormField>
               <div className="grid gap-3 md:grid-cols-2">
-                <div className="space-y-1.5">
-                  <Label htmlFor="memory-edit-importance">Importance</Label>
+                <FormField label="Importance" htmlFor="memory-edit-importance">
                   <Input
                     id="memory-edit-importance"
                     type="number"
@@ -2302,7 +2211,7 @@ function MemoryDetailSheet({
                     onChange={(event) => setImportance(event.target.value)}
                     disabled={isPending}
                   />
-                </div>
+                </FormField>
                 <label className="flex items-center gap-2 pt-7 text-xs text-neutral-700">
                   <Input
                     type="checkbox"
@@ -2319,8 +2228,7 @@ function MemoryDetailSheet({
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Content</h3>
-          <div
-            className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
+          <div className="rounded-md border border-neutral-200 bg-white p-3 text-sm text-neutral-700">
             <p className="whitespace-pre-wrap">{memory.content}</p>
           </div>
         </section>
@@ -2380,9 +2288,8 @@ function MemoryDetailSheet({
             <p className="text-sm text-neutral-500">No exclusions configured.</p>
           )}
           <div className="rounded-md border border-dashed border-neutral-300 p-3">
-            <div className="grid gap-3 md:grid-cols-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="memory-exclusion-target-type">Target type</Label>
+            <FormFieldGroup columns={3} className="grid gap-3 md:grid-cols-3">
+              <FormField label="Target type" htmlFor="memory-exclusion-target-type">
                 <NativeSelect
                   id="memory-exclusion-target-type"
                   value={exclusionTargetType}
@@ -2398,9 +2305,12 @@ function MemoryDetailSheet({
                     </option>
                   ))}
                 </NativeSelect>
-              </div>
-              <div className="space-y-1.5 md:col-span-2">
-                <Label htmlFor="memory-exclusion-target-id">Target ID</Label>
+              </FormField>
+              <FormField
+                label="Target ID"
+                htmlFor="memory-exclusion-target-id"
+                className="md:col-span-2"
+              >
                 <Input
                   id="memory-exclusion-target-id"
                   value={exclusionTargetId}
@@ -2408,10 +2318,9 @@ function MemoryDetailSheet({
                   disabled={isPending || exclusionTargetType === 'global'}
                   placeholder="workflow, agent, task, conversation, or run id"
                 />
-              </div>
-            </div>
-            <div className="mt-3 space-y-1.5">
-              <Label htmlFor="memory-exclusion-reason">Reason</Label>
+              </FormField>
+            </FormFieldGroup>
+            <FormField label="Reason" htmlFor="memory-exclusion-reason" className="mt-3 ">
               <Input
                 id="memory-exclusion-reason"
                 value={exclusionReason}
@@ -2419,7 +2328,7 @@ function MemoryDetailSheet({
                 disabled={isPending}
                 placeholder="Outdated, irrelevant, or unsafe for this target"
               />
-            </div>
+            </FormField>
             <Button
               type="button"
               variant="outline"
@@ -2429,7 +2338,7 @@ function MemoryDetailSheet({
               }
               onClick={handleAddExclusion}
             >
-              <Ban className="mr-2 h-4 w-4"/>
+              <Ban className="mr-2 h-4 w-4" />
               Add exclusion
             </Button>
           </div>
@@ -2437,34 +2346,31 @@ function MemoryDetailSheet({
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Source and lineage</h3>
-          <div
-            className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-            <DetailField label="Supersedes" value={memory.supersedes_memory_id || '—'}/>
-            <DetailField label="Superseded by" value={supersededBy?.id || '—'}/>
+          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+            <DetailField label="Supersedes" value={memory.supersedes_memory_id || '—'} />
+            <DetailField label="Superseded by" value={supersededBy?.id || '—'} />
             <DetailField
               label="Archived start"
               value={formatDateTime(memory.archived_window_start)}
             />
-            <DetailField label="Archived end" value={formatDateTime(memory.archived_window_end)}/>
-            <DetailField label="Created by" value={memory.created_by_user_id || '—'}/>
+            <DetailField label="Archived end" value={formatDateTime(memory.archived_window_end)} />
+            <DetailField label="Created by" value={memory.created_by_user_id || '—'} />
           </div>
         </section>
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Embedding details</h3>
-          <div
-            className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
-            <DetailField label="Model profile" value={memory.embedding_model_profile_id || '—'}/>
-            <DetailField label="Model" value={memory.embedding_model || '—'}/>
-            <DetailField label="Dimensions" value={memory.embedding_dimensions ?? '—'}/>
-            <DetailField label="Embedded at" value={formatDateTime(memory.embedded_at)}/>
+          <div className="grid gap-2 rounded-md border border-neutral-200 bg-neutral-50 p-3 text-sm md:grid-cols-2">
+            <DetailField label="Model profile" value={memory.embedding_model_profile_id || '—'} />
+            <DetailField label="Model" value={memory.embedding_model || '—'} />
+            <DetailField label="Dimensions" value={memory.embedding_dimensions ?? '—'} />
+            <DetailField label="Embedded at" value={formatDateTime(memory.embedded_at)} />
           </div>
         </section>
 
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Metadata</h3>
-          <pre
-            className="max-h-72 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
+          <pre className="max-h-72 overflow-auto rounded-md border border-neutral-200 bg-neutral-950 p-3 text-xs text-neutral-100">
             {metadataPreview(memory)}
           </pre>
         </section>
@@ -2475,7 +2381,7 @@ function MemoryDetailSheet({
   );
 }
 
-function DetailField({label, value}: { label: string; value: string | number | null }) {
+function DetailField({ label, value }: { label: string; value: string | number | null }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.14em] text-neutral-500">{label}</p>
@@ -2757,9 +2663,9 @@ function parseDocumentLinkTarget(value: string): {
   const [targetType, ...targetIdParts] = value.split(':');
   if (targetType === 'agent' || targetType === 'task') {
     const targetId = targetIdParts.join(':').trim();
-    return {targetType, targetId: targetId || null};
+    return { targetType, targetId: targetId || null };
   }
-  return {targetType: 'workflow', targetId: null};
+  return { targetType: 'workflow', targetId: null };
 }
 
 function splitCompactList(value: string) {
@@ -2863,10 +2769,10 @@ function workflowFromMemoryCompactPack(pack: MemoryRecord): WorkflowDefinition {
 }
 
 function CompactConversationsPanel({
-                                     conversations,
-                                     workflows,
-                                     onChanged,
-                                   }: {
+  conversations,
+  workflows,
+  onChanged,
+}: {
   conversations: Conversation[];
   workflows: WorkflowDefinition[];
   onChanged: () => Promise<void> | void;
@@ -2904,27 +2810,27 @@ function CompactConversationsPanel({
   const selectedTarget = parseDocumentLinkTarget(selectedTargetValue);
   const targetOptions = selectedWorkflow
     ? [
-      {value: documentLinkTargetValue('workflow'), label: 'Workflow'},
-      ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
-        value: documentLinkTargetValue('agent', agent.id),
-        label: `Agent: ${agent.name || agent.id}`,
-      })),
-      ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
-        value: documentLinkTargetValue('task', task.id),
-        label: `Task: ${task.name || task.id}`,
-      })),
-    ]
-    : [{value: documentLinkTargetValue('workflow'), label: 'Workflow'}];
+        { value: documentLinkTargetValue('workflow'), label: 'Workflow' },
+        ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
+          value: documentLinkTargetValue('agent', agent.id),
+          label: `Agent: ${agent.name || agent.id}`,
+        })),
+        ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
+          value: documentLinkTargetValue('task', task.id),
+          label: `Task: ${task.name || task.id}`,
+        })),
+      ]
+    : [{ value: documentLinkTargetValue('workflow'), label: 'Workflow' }];
 
   const compactPacksQuery = useQuery({
     queryKey: [...queryKeys.backendMemories(), 'compact-packs', conversationId],
     queryFn: () =>
       conversationId
         ? conversationsApi.listCompactPacks(conversationId, {
-          limit: 20,
-          include_superseded: true,
-        })
-        : Promise.resolve({items: []}),
+            limit: 20,
+            include_superseded: true,
+          })
+        : Promise.resolve({ items: [] }),
     enabled: Boolean(conversationId),
   });
   const workflowMemoryLinksQuery = useQuery({
@@ -2965,7 +2871,7 @@ function CompactConversationsPanel({
   };
 
   const compactMutation = useMutation({
-    mutationFn: ({persist}: { persist: boolean }) => {
+    mutationFn: ({ persist }: { persist: boolean }) => {
       if (!conversationId) {
         throw new Error('Select a conversation first.');
       }
@@ -2976,8 +2882,8 @@ function CompactConversationsPanel({
       setCompactError(null);
       await Promise.all([
         compactPacksQuery.refetch(),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()}),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
       ]);
       await onChanged();
       appFeedback.success(
@@ -3020,8 +2926,8 @@ function CompactConversationsPanel({
       setBackfillResult(result);
       await Promise.all([
         compactPacksQuery.refetch(),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()}),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
       ]);
       await onChanged();
       appFeedback.success(
@@ -3050,8 +2956,8 @@ function CompactConversationsPanel({
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMemoryLinks(selectedWorkflowId),
         }),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(selectedWorkflowId)}),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(selectedWorkflowId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
       ]);
       appFeedback.success('Compact pack linked.');
     },
@@ -3063,7 +2969,7 @@ function CompactConversationsPanel({
     mutationFn: (pack: MemoryRecord) =>
       workflowsApi.createWorkflow(workflowFromMemoryCompactPack(pack)),
     onSuccess: async (workflow) => {
-      await queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()});
+      await queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() });
       appFeedback.success('Workflow draft created from compact pack.');
       router.push(`/workflows/${workflow.id}`);
     },
@@ -3108,9 +3014,12 @@ function CompactConversationsPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5 lg:col-span-2">
-              <Label htmlFor="compact-conversation">Conversation</Label>
+          <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <FormField
+              label="Conversation"
+              htmlFor="compact-conversation"
+              className="lg:col-span-2"
+            >
               <NativeSelect
                 id="compact-conversation"
                 value={conversationId}
@@ -3127,9 +3036,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-mode">Mode</Label>
+            </FormField>
+            <FormField label="Mode" htmlFor="compact-mode">
               <NativeSelect
                 id="compact-mode"
                 value={mode}
@@ -3142,9 +3050,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-token-budget">Token budget</Label>
+            </FormField>
+            <FormField label="Token budget" htmlFor="compact-token-budget">
               <Input
                 id="compact-token-budget"
                 type="number"
@@ -3152,12 +3059,11 @@ function CompactConversationsPanel({
                 value={tokenBudget}
                 onChange={(event) => setTokenBudget(event.target.value)}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldGroup>
 
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-source-range">Source range</Label>
+          <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <FormField label="Source range" htmlFor="compact-source-range">
               <NativeSelect
                 id="compact-source-range"
                 value={sourceRange}
@@ -3172,9 +3078,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-strategy">Strategy</Label>
+            </FormField>
+            <FormField label="Strategy" htmlFor="compact-strategy">
               <NativeSelect
                 id="compact-strategy"
                 value={strategy}
@@ -3187,9 +3092,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-workflow-id">Workflow binding</Label>
+            </FormField>
+            <FormField label="Workflow binding" htmlFor="compact-workflow-id">
               <NativeSelect
                 id="compact-workflow-id"
                 value={workflowId}
@@ -3203,9 +3107,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-recent-limit">Recent messages kept</Label>
+            </FormField>
+            <FormField label="Recent messages kept" htmlFor="compact-recent-limit">
               <Input
                 id="compact-recent-limit"
                 type="number"
@@ -3214,49 +3117,45 @@ function CompactConversationsPanel({
                 disabled={sourceRange !== 'older_than_recent'}
                 onChange={(event) => setRecentMessageLimit(event.target.value)}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldGroup>
 
           {sourceRange === 'selected' ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="compact-start-message">Start message id</Label>
+            <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+              <FormField label="Start message id" htmlFor="compact-start-message">
                 <Input
                   id="compact-start-message"
                   value={sourceMessageStartId}
                   onChange={(event) => setSourceMessageStartId(event.target.value)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="compact-end-message">End message id</Label>
+              </FormField>
+              <FormField label="End message id" htmlFor="compact-end-message">
                 <Input
                   id="compact-end-message"
                   value={sourceMessageEndId}
                   onChange={(event) => setSourceMessageEndId(event.target.value)}
                 />
-              </div>
-            </div>
+              </FormField>
+            </FormFieldGroup>
           ) : null}
 
           {mode === 'custom' ? (
-            <div className="grid gap-3 md:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="compact-custom-keep">Custom keep, one per line</Label>
+            <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+              <FormField label="Custom keep, one per line" htmlFor="compact-custom-keep">
                 <Textarea
                   id="compact-custom-keep"
                   value={customKeep}
                   onChange={(event) => setCustomKeep(event.target.value)}
                 />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="compact-custom-drop">Custom drop, one per line</Label>
+              </FormField>
+              <FormField label="Custom drop, one per line" htmlFor="compact-custom-drop">
                 <Textarea
                   id="compact-custom-drop"
                   value={customDrop}
                   onChange={(event) => setCustomDrop(event.target.value)}
                 />
-              </div>
-            </div>
+              </FormField>
+            </FormFieldGroup>
           ) : null}
 
           <div className="flex flex-wrap items-center gap-4">
@@ -3280,7 +3179,7 @@ function CompactConversationsPanel({
               type="button"
               variant="outline"
               disabled={!conversationId || compactMutation.isPending}
-              onClick={() => compactMutation.mutate({persist: false})}
+              onClick={() => compactMutation.mutate({ persist: false })}
             >
               {compactMutation.isPending ? 'Working...' : 'Preview'}
             </Button>
@@ -3288,9 +3187,9 @@ function CompactConversationsPanel({
               type="button"
               className="agency-gradient text-white hover:brightness-105"
               disabled={!conversationId || compactMutation.isPending}
-              onClick={() => compactMutation.mutate({persist: true})}
+              onClick={() => compactMutation.mutate({ persist: true })}
             >
-              <Save className="mr-2 h-4 w-4"/>
+              <Save className="mr-2 h-4 w-4" />
               Save pack
             </Button>
           </div>
@@ -3322,8 +3221,7 @@ function CompactConversationsPanel({
                   ))}
                 </div>
               ) : null}
-              <pre
-                className="max-h-96 overflow-auto rounded-md border border-neutral-200 bg-white p-3 whitespace-pre-wrap text-sm text-neutral-800">
+              <pre className="max-h-96 overflow-auto rounded-md border border-neutral-200 bg-white p-3 whitespace-pre-wrap text-sm text-neutral-800">
                 {compactResult.content}
               </pre>
               <div className="flex flex-wrap items-center gap-2">
@@ -3332,7 +3230,7 @@ function CompactConversationsPanel({
                   variant="outline"
                   onClick={() => copyText(compactResult.content)}
                 >
-                  <Copy className="mr-2 h-4 w-4"/>
+                  <Copy className="mr-2 h-4 w-4" />
                   Copy
                 </Button>
                 {compactResult.progress ? (
@@ -3356,9 +3254,8 @@ function CompactConversationsPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-link-workflow">Link target workflow</Label>
+          <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+            <FormField label="Link target workflow" htmlFor="compact-link-workflow">
               <NativeSelect
                 id="compact-link-workflow"
                 value={selectedWorkflowId}
@@ -3375,9 +3272,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-link-target">Link target</Label>
+            </FormField>
+            <FormField label="Link target" htmlFor="compact-link-target">
               <NativeSelect
                 id="compact-link-target"
                 value={selectedTargetValue}
@@ -3391,8 +3287,8 @@ function CompactConversationsPanel({
                   </option>
                 ))}
               </NativeSelect>
-            </div>
-          </div>
+            </FormField>
+          </FormFieldGroup>
 
           {!conversationId ? (
             <p className="text-sm text-neutral-500">Select a conversation to load compact packs.</p>
@@ -3450,7 +3346,7 @@ function CompactConversationsPanel({
                           variant="outline"
                           onClick={() => copyText(pack.content)}
                         >
-                          <Copy className="mr-2 h-4 w-4"/>
+                          <Copy className="mr-2 h-4 w-4" />
                           Copy
                         </Button>
                         <Button
@@ -3458,7 +3354,7 @@ function CompactConversationsPanel({
                           variant="outline"
                           onClick={() => handlePackInNewChat(pack)}
                         >
-                          <ExternalLink className="mr-2 h-4 w-4"/>
+                          <ExternalLink className="mr-2 h-4 w-4" />
                           Use in chat
                         </Button>
                         <Button
@@ -3467,7 +3363,7 @@ function CompactConversationsPanel({
                           disabled={createWorkflowMutation.isPending}
                           onClick={() => createWorkflowMutation.mutate(pack)}
                         >
-                          <Save className="mr-2 h-4 w-4"/>
+                          <Save className="mr-2 h-4 w-4" />
                           Workflow
                         </Button>
                         <Button
@@ -3500,36 +3396,32 @@ function CompactConversationsPanel({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-backfill-user">User filter</Label>
+          <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+            <FormField label="User filter" htmlFor="compact-backfill-user">
               <Input
                 id="compact-backfill-user"
                 value={backfillUserId}
                 onChange={(event) => setBackfillUserId(event.target.value)}
                 placeholder="user id"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-backfill-workspace">Workspace filter</Label>
+            </FormField>
+            <FormField label="Workspace filter" htmlFor="compact-backfill-workspace">
               <Input
                 id="compact-backfill-workspace"
                 value={backfillWorkspaceId}
                 onChange={(event) => setBackfillWorkspaceId(event.target.value)}
                 placeholder="workspace id"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-backfill-workflow">Workflow filter</Label>
+            </FormField>
+            <FormField label="Workflow filter" htmlFor="compact-backfill-workflow">
               <Input
                 id="compact-backfill-workflow"
                 value={backfillWorkflowId}
                 onChange={(event) => setBackfillWorkflowId(event.target.value)}
                 placeholder="workflow id"
               />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="compact-backfill-limit">Limit</Label>
+            </FormField>
+            <FormField label="Limit" htmlFor="compact-backfill-limit">
               <Input
                 id="compact-backfill-limit"
                 type="number"
@@ -3537,8 +3429,8 @@ function CompactConversationsPanel({
                 value={backfillLimit}
                 onChange={(event) => setBackfillLimit(event.target.value)}
               />
-            </div>
-          </div>
+            </FormField>
+          </FormFieldGroup>
           <div className="flex flex-wrap items-center gap-4">
             <label className="flex items-center gap-2 text-sm text-neutral-700">
               <Input
@@ -3602,8 +3494,7 @@ function CompactConversationsPanel({
                 </TableBody>
               </Table>
               {backfillResult.progress.events.length > 0 ? (
-                <div
-                  className="max-h-56 overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-3">
+                <div className="max-h-56 overflow-auto rounded-md border border-neutral-200 bg-neutral-50 p-3">
                   {backfillResult.progress.events.map((event, index) => (
                     <p key={`${event.step}:${index}`} className="text-xs text-neutral-700">
                       {event.status} · {event.step}: {event.message}
@@ -3620,9 +3511,9 @@ function CompactConversationsPanel({
 }
 
 function DocumentCatalogPanel({
-                                onOpenMemory,
-                                workflows,
-                              }: {
+  onOpenMemory,
+  workflows,
+}: {
   onOpenMemory: (memoryId: string) => void;
   workflows: WorkflowDefinition[];
 }) {
@@ -3633,23 +3524,23 @@ function DocumentCatalogPanel({
   );
   const catalogQuery = useQuery({
     queryKey: [...queryKeys.backendMemoryCatalog(), 'documents'],
-    queryFn: () => memoriesApi.listMemoryCatalog({limit_per_group: 100}),
+    queryFn: () => memoriesApi.listMemoryCatalog({ limit_per_group: 100 }),
   });
   const selectedWorkflow = workflows.find((workflow) => workflow.id === selectedWorkflowId) ?? null;
   const selectedTarget = parseDocumentLinkTarget(selectedTargetValue);
   const targetOptions = selectedWorkflow
     ? [
-      {value: documentLinkTargetValue('workflow'), label: 'Workflow'},
-      ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
-        value: documentLinkTargetValue('agent', agent.id),
-        label: `Agent: ${agent.name || agent.id}`,
-      })),
-      ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
-        value: documentLinkTargetValue('task', task.id),
-        label: `Task: ${task.name || task.id}`,
-      })),
-    ]
-    : [{value: documentLinkTargetValue('workflow'), label: 'Workflow'}];
+        { value: documentLinkTargetValue('workflow'), label: 'Workflow' },
+        ...(selectedWorkflow.agent_definitions ?? []).map((agent) => ({
+          value: documentLinkTargetValue('agent', agent.id),
+          label: `Agent: ${agent.name || agent.id}`,
+        })),
+        ...(selectedWorkflow.task_definitions ?? []).map((task) => ({
+          value: documentLinkTargetValue('task', task.id),
+          label: `Task: ${task.name || task.id}`,
+        })),
+      ]
+    : [{ value: documentLinkTargetValue('workflow'), label: 'Workflow' }];
   const workflowMemoryLinksQuery = useQuery({
     queryKey: selectedWorkflowId
       ? queryKeys.backendWorkflowMemoryLinks(selectedWorkflowId)
@@ -3676,8 +3567,8 @@ function DocumentCatalogPanel({
     },
     onSuccess: async (result) => {
       await Promise.all([
-        queryClient.invalidateQueries({queryKey: queryKeys.backendMemories()}),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemories() }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
       ]);
       const removedChunks =
         'deleted_memory_count' in result && typeof result.deleted_memory_count === 'number'
@@ -3714,8 +3605,8 @@ function DocumentCatalogPanel({
         queryClient.invalidateQueries({
           queryKey: queryKeys.backendWorkflowMemoryLinks(selectedWorkflowId),
         }),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflow(selectedWorkflowId)}),
-        queryClient.invalidateQueries({queryKey: queryKeys.backendWorkflowList()}),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflow(selectedWorkflowId) }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.backendWorkflowList() }),
       ]);
       appFeedback.success('Document memory group linked.');
     },
@@ -3748,9 +3639,8 @@ function DocumentCatalogPanel({
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid gap-3 md:grid-cols-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="document-link-workflow">Link target workflow</Label>
+        <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2">
+          <FormField label="Link target workflow" htmlFor="document-link-workflow">
             <NativeSelect
               id="document-link-workflow"
               value={selectedWorkflowId}
@@ -3767,9 +3657,8 @@ function DocumentCatalogPanel({
                 </option>
               ))}
             </NativeSelect>
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="document-link-target">Link target</Label>
+          </FormField>
+          <FormField label="Link target" htmlFor="document-link-target">
             <NativeSelect
               id="document-link-target"
               value={selectedTargetValue}
@@ -3783,8 +3672,8 @@ function DocumentCatalogPanel({
                 </option>
               ))}
             </NativeSelect>
-          </div>
-        </div>
+          </FormField>
+        </FormFieldGroup>
         {catalogQuery.isLoading ? (
           <p className="text-sm text-neutral-500">Loading uploaded documents...</p>
         ) : catalogQuery.isError ? (
@@ -3871,7 +3760,7 @@ function DocumentCatalogPanel({
                         disabled={item.memoryIds.length === 0}
                         onClick={() => onOpenMemory(item.memoryIds[0])}
                       >
-                        <Eye className="mr-2 h-4 w-4"/>
+                        <Eye className="mr-2 h-4 w-4" />
                         Chunks
                       </Button>
                       <ConfirmActionDialog
@@ -3881,7 +3770,7 @@ function DocumentCatalogPanel({
                             variant="destructive"
                             disabled={deleteMutation.isPending}
                           >
-                            <Trash2 className="mr-2 h-4 w-4"/>
+                            <Trash2 className="mr-2 h-4 w-4" />
                             Remove
                           </Button>
                         }
@@ -4014,7 +3903,7 @@ export default function MemoryWorkspace() {
       memories.map((memory) => memory.source).filter((source): source is string => Boolean(source))
     )
   ).sort();
-  const agentOptions = agents.map((agent) => ({id: agent.id, label: agentLabel(agent)}));
+  const agentOptions = agents.map((agent) => ({ id: agent.id, label: agentLabel(agent) }));
   const conversationOptions = conversations.map((conversation) => ({
     id: conversation.id,
     label: `${conversation.title?.trim() || conversation.channel_display_name?.trim() || 'Untitled'} (${conversation.id})`,
@@ -4099,7 +3988,7 @@ export default function MemoryWorkspace() {
       memoryIds.map((memoryId) =>
         memoriesApi.updateMemory(memoryId, {
           confirmed: true,
-          patch: {status: 'archived'},
+          patch: { status: 'archived' },
         })
       )
     );
@@ -4118,7 +4007,7 @@ export default function MemoryWorkspace() {
       `${memoryIds.length - failedIds.length} archived; ${failedIds.length} need attention.`,
       {
         description: 'Failed records remain selected so you can retry safely.',
-        action: {label: 'Retry', onClick: () => void archiveMemoryIds(failedIds)},
+        action: { label: 'Retry', onClick: () => void archiveMemoryIds(failedIds) },
       }
     );
   };
@@ -4127,7 +4016,7 @@ export default function MemoryWorkspace() {
 
   if (memoriesQuery.isLoading || currentUserQuery.isLoading) {
     return (
-      <LoadingCard title="Agent Memory Ops" description="Loading durable memory operations."/>
+      <LoadingCard title="Agent Memory Ops" description="Loading durable memory operations." />
     );
   }
 
@@ -4154,7 +4043,6 @@ export default function MemoryWorkspace() {
   return (
     <div className="space-y-6">
       <PageHeader
-        icon={BrainCircuit}
         tone="memory"
         title="Agent Memory Ops"
         description="Inspect and manage backend durable memory, summaries, and retrieval inputs without treating memory as a standalone tool."
@@ -4189,45 +4077,53 @@ export default function MemoryWorkspace() {
       >
         <label className="flex flex-col gap-2 text-sm font-medium sm:hidden">
           Memory section
-          <NativeSelect value={activeTab} onChange={event => setActiveTab(event.target.value as MemoryOpsTab)}>
-            <option value="browse">Browse ({filteredMemories.length})</option><option value="create">Create</option><option value="ingest">Ingest files ({documentCount})</option><option value="compact">Compact conversations ({compactCount})</option><option value="summaries">Summaries ({summaryCount})</option><option value="maintenance">Maintenance</option>
+          <NativeSelect
+            value={activeTab}
+            onChange={(event) => setActiveTab(event.target.value as MemoryOpsTab)}
+          >
+            <option value="browse">Browse ({filteredMemories.length})</option>
+            <option value="create">Create</option>
+            <option value="ingest">Ingest files ({documentCount})</option>
+            <option value="compact">Compact conversations ({compactCount})</option>
+            <option value="summaries">Summaries ({summaryCount})</option>
+            <option value="maintenance">Maintenance</option>
           </NativeSelect>
         </label>
         <TabsList className="hidden h-auto flex-wrap justify-start gap-1 sm:flex">
           <TabsTrigger value="browse" className="gap-2">
-            <CalendarRange className="h-4 w-4"/>
+            <CalendarRange className="h-4 w-4" />
             Browse
             <Badge variant="secondary" className="ml-1">
               {filteredMemories.length}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="create" className="gap-2">
-            <BrainCircuit className="h-4 w-4"/>
+            <BrainCircuit className="h-4 w-4" />
             Create
           </TabsTrigger>
           <TabsTrigger value="ingest" className="gap-2">
-            <FileText className="h-4 w-4"/>
+            <FileText className="h-4 w-4" />
             Ingest Files
             <Badge variant="secondary" className="ml-1">
               {documentCount}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="compact" className="gap-2">
-            <Sparkles className="h-4 w-4"/>
+            <Sparkles className="h-4 w-4" />
             Compact Conversations
             <Badge variant="secondary" className="ml-1">
               {compactCount}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="summaries" className="gap-2">
-            <Shield className="h-4 w-4"/>
+            <Shield className="h-4 w-4" />
             Summaries
             <Badge variant="secondary" className="ml-1">
               {summaryCount}
             </Badge>
           </TabsTrigger>
           <TabsTrigger value="maintenance" className="gap-2">
-            <DatabaseZap className="h-4 w-4"/>
+            <DatabaseZap className="h-4 w-4" />
             Maintenance
           </TabsTrigger>
         </TabsList>
@@ -4236,7 +4132,7 @@ export default function MemoryWorkspace() {
           <Card>
             <CardHeader className="pb-4">
               <CardTitle className="flex items-center gap-2 text-lg">
-                <CalendarRange className="h-5 w-5"/>
+                <CalendarRange className="h-5 w-5" />
                 Find durable memory
               </CardTitle>
               <CardDescription>
@@ -4244,8 +4140,7 @@ export default function MemoryWorkspace() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div
-                className="grid gap-3 sm:grid-cols-2 min-[80rem]:grid-cols-[180px_minmax(240px,1fr)_180px_auto]">
+              <div className="grid gap-3 sm:grid-cols-2 min-[80rem]:grid-cols-[180px_minmax(240px,1fr)_180px_auto]">
                 <NativeSelect
                   value={scope}
                   onChange={(event) => setScope(event.target.value as MemoryScope | '')}
@@ -4259,9 +4154,10 @@ export default function MemoryWorkspace() {
                     </option>
                   ))}
                 </NativeSelect>
-                <Input
+                <WorkspaceSearch
+                  label="Search memory"
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={setQuery}
                   placeholder="Search content, summaries, tags, or memory IDs"
                 />
                 <NativeSelect
@@ -4283,10 +4179,8 @@ export default function MemoryWorkspace() {
                 ) : null}
               </div>
 
-              <details
-                className="group rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)">
-                <summary
-                  className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-(--agency-row-hover) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <details className="group rounded-xl border border-(--agency-shell-border) bg-(--agency-shell-panel)">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl px-4 py-3 text-sm font-medium hover:bg-(--agency-row-hover) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
                   <span className="flex items-center gap-2">
                     <SlidersHorizontal
                       className="size-4 text-(--agency-shell-muted)"
@@ -4345,9 +4239,8 @@ export default function MemoryWorkspace() {
                     </div>
                   </div>
 
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-source">Source</Label>
+                  <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <FormField label="Source" htmlFor="filter-source">
                       <NativeSelect
                         id="filter-source"
                         value={sourceFilter}
@@ -4361,9 +4254,8 @@ export default function MemoryWorkspace() {
                           </option>
                         ))}
                       </NativeSelect>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-mode">Mode</Label>
+                    </FormField>
+                    <FormField label="Mode" htmlFor="filter-mode">
                       <NativeSelect
                         id="filter-mode"
                         value={modeFilter}
@@ -4377,9 +4269,8 @@ export default function MemoryWorkspace() {
                           </option>
                         ))}
                       </NativeSelect>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-sensitive">Sensitive</Label>
+                    </FormField>
+                    <FormField label="Sensitive" htmlFor="filter-sensitive">
                       <NativeSelect
                         id="filter-sensitive"
                         value={sensitiveFilter}
@@ -4394,9 +4285,8 @@ export default function MemoryWorkspace() {
                         <option value="sensitive">Sensitive only</option>
                         <option value="not_sensitive">Not sensitive</option>
                       </NativeSelect>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-embedding">Embedding</Label>
+                    </FormField>
+                    <FormField label="Embedding" htmlFor="filter-embedding">
                       <NativeSelect
                         id="filter-embedding"
                         value={embeddingFilter}
@@ -4409,12 +4299,11 @@ export default function MemoryWorkspace() {
                         <option value="embedded">Embedded</option>
                         <option value="missing">Missing vector</option>
                       </NativeSelect>
-                    </div>
-                  </div>
+                    </FormField>
+                  </FormFieldGroup>
 
-                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-workflow">Workflow</Label>
+                  <FormFieldGroup columns={2} className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <FormField label="Workflow" htmlFor="filter-workflow">
                       <NativeSelect
                         id="filter-workflow"
                         value={workflowFilter}
@@ -4428,53 +4317,48 @@ export default function MemoryWorkspace() {
                           </option>
                         ))}
                       </NativeSelect>
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-document">Document</Label>
+                    </FormField>
+                    <FormField label="Document" htmlFor="filter-document">
                       <Input
                         id="filter-document"
                         value={documentFilter}
                         onChange={(event) => setDocumentFilter(event.target.value)}
                         placeholder="document id or filename"
                       />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-source-conversation">Source conversation ID</Label>
+                    </FormField>
+                    <FormField label="Source conversation ID" htmlFor="filter-source-conversation">
                       <Input
                         id="filter-source-conversation"
                         value={sourceConversationId}
                         onChange={(event) => setSourceConversationId(event.target.value)}
                         placeholder="conversation-123"
                       />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-source-execution">Source execution ID</Label>
+                    </FormField>
+                    <FormField label="Source execution ID" htmlFor="filter-source-execution">
                       <Input
                         id="filter-source-execution"
                         value={sourceExecutionId}
                         onChange={(event) => setSourceExecutionId(event.target.value)}
                         placeholder="execution-123"
                       />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-summary-date-from">Summary date from</Label>
+                    </FormField>
+                    <FormField label="Summary date from" htmlFor="filter-summary-date-from">
                       <Input
                         id="filter-summary-date-from"
                         type="date"
                         value={summaryDateFrom}
                         onChange={(event) => setSummaryDateFrom(event.target.value)}
                       />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="filter-summary-date-to">Summary date to</Label>
+                    </FormField>
+                    <FormField label="Summary date to" htmlFor="filter-summary-date-to">
                       <Input
                         id="filter-summary-date-to"
                         type="date"
                         value={summaryDateTo}
                         onChange={(event) => setSummaryDateTo(event.target.value)}
                       />
-                    </div>
-                  </div>
+                    </FormField>
+                  </FormFieldGroup>
                 </div>
               </details>
             </CardContent>
@@ -4506,7 +4390,7 @@ export default function MemoryWorkspace() {
             onCreated={async () => {
               await Promise.all([
                 memoriesQuery.refetch(),
-                queryClient.invalidateQueries({queryKey: queryKeys.backendMemoryCatalog()}),
+                queryClient.invalidateQueries({ queryKey: queryKeys.backendMemoryCatalog() }),
               ]);
             }}
           />
@@ -4522,7 +4406,7 @@ export default function MemoryWorkspace() {
               await memoriesQuery.refetch();
             }}
           />
-          <DocumentCatalogPanel onOpenMemory={setSelectedMemoryId} workflows={workflows}/>
+          <DocumentCatalogPanel onOpenMemory={setSelectedMemoryId} workflows={workflows} />
         </TabsContent>
 
         <TabsContent value="compact" className="mt-0">
@@ -4536,7 +4420,7 @@ export default function MemoryWorkspace() {
         </TabsContent>
 
         <TabsContent value="summaries" className="mt-0 space-y-5">
-          <SummaryReviewPanel memories={memories}/>
+          <SummaryReviewPanel memories={memories} />
           <DailySummaryAdminPanel
             isAdmin={isAdmin}
             onCompleted={async () => {

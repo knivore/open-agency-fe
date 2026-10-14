@@ -1,4 +1,5 @@
 'use client';
+import { FormField, FormFieldGroup } from '@/components/app-shell/FormSection';
 
 import { NativeSelect } from '@/components/library/shadcn/select';
 import { FormEvent, useCallback, useEffect, useState } from 'react';
@@ -547,18 +548,16 @@ export default function LocalSetupPage() {
                 </p>
               </div>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="display-name">Admin name</Label>
+              <FormFieldGroup columns={2} className="grid gap-5 md:grid-cols-2">
+                <FormField label="Admin name" htmlFor="display-name">
                   <Input
                     id="display-name"
                     value={displayName}
                     onChange={(event) => setDisplayName(event.target.value)}
                     placeholder="Local Admin"
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
+                </FormField>
+                <FormField label="Email" htmlFor="email">
                   <Input
                     id="email"
                     type="email"
@@ -568,12 +567,11 @@ export default function LocalSetupPage() {
                     placeholder="admin@example.com"
                     required
                   />
-                </div>
-              </div>
+                </FormField>
+              </FormFieldGroup>
 
-              <div className="grid gap-5 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+              <FormFieldGroup columns={2} className="grid gap-5 md:grid-cols-2">
+                <FormField label="Password" htmlFor="password">
                   <Input
                     id="password"
                     type="password"
@@ -583,9 +581,8 @@ export default function LocalSetupPage() {
                     placeholder="At least 8 characters"
                     required
                   />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirm-password">Confirm password</Label>
+                </FormField>
+                <FormField label="Confirm password" htmlFor="confirm-password">
                   <Input
                     id="confirm-password"
                     type="password"
@@ -595,8 +592,8 @@ export default function LocalSetupPage() {
                     placeholder="Repeat the password"
                     required
                   />
-                </div>
-              </div>
+                </FormField>
+              </FormFieldGroup>
 
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <Button type="submit" disabled={isSubmitting}>
@@ -690,9 +687,8 @@ export default function LocalSetupPage() {
 
               {shouldCreateNewProfile ? (
                 <>
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="provider">Provider</Label>
+                  <FormFieldGroup columns={2} className="grid gap-5 md:grid-cols-2">
+                    <FormField label="Provider" htmlFor="provider">
                       <NativeSelect
                         id="provider"
                         className={setupSelectClassName}
@@ -707,9 +703,8 @@ export default function LocalSetupPage() {
                         <option value="openai">OpenAI</option>
                         <option value="ollama">Ollama</option>
                       </NativeSelect>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="model">Model</Label>
+                    </FormField>
+                    <FormField label="Model" htmlFor="model">
                       <Input
                         id="model"
                         value={model}
@@ -717,13 +712,12 @@ export default function LocalSetupPage() {
                         placeholder={provider === 'ollama' ? 'llama3.1:8b' : 'gpt-4.1-mini'}
                         required
                       />
-                    </div>
-                  </div>
+                    </FormField>
+                  </FormFieldGroup>
 
                   <div className="grid gap-5 md:grid-cols-2">
                     {provider === 'openai' ? (
-                      <div className="space-y-2">
-                        <Label htmlFor="provider-api-key">API key</Label>
+                      <FormField label="API key" htmlFor="provider-api-key">
                         <Input
                           id="provider-api-key"
                           type="password"
@@ -732,24 +726,22 @@ export default function LocalSetupPage() {
                           placeholder="sk-..."
                           required
                         />
-                      </div>
+                      </FormField>
                     ) : (
-                      <div className="space-y-2">
-                        <Label htmlFor="provider-base-url">Base URL</Label>
+                      <FormField
+                        label="Base URL"
+                        htmlFor="provider-base-url"
+                        description="Keep Ollama running locally before you finish setup. The launcher starts Open Agency services, but it does not install Ollama for you."
+                      >
                         <Input
                           id="provider-base-url"
                           value={providerBaseUrl}
                           onChange={(event) => setProviderBaseUrl(event.target.value)}
                           placeholder="http://localhost:11434"
                         />
-                        <p className="text-sm leading-6 text-neutral-600 dark:text-slate-300">
-                          Keep Ollama running locally before you finish setup. The launcher starts
-                          Open Agency services, but it does not install Ollama for you.
-                        </p>
-                      </div>
+                      </FormField>
                     )}
-                    <div className="space-y-2">
-                      <Label htmlFor="agent-name">Agent name</Label>
+                    <FormField label="Agent name" htmlFor="agent-name">
                       <Input
                         id="agent-name"
                         value={agentName}
@@ -757,12 +749,11 @@ export default function LocalSetupPage() {
                         placeholder="Main Agent"
                         required
                       />
-                    </div>
+                    </FormField>
                   </div>
                 </>
               ) : (
-                <div className="space-y-2">
-                  <Label htmlFor="agent-name">Agent name</Label>
+                <FormField label="Agent name" htmlFor="agent-name">
                   <Input
                     id="agent-name"
                     value={agentName}
@@ -770,7 +761,7 @@ export default function LocalSetupPage() {
                     placeholder="Main Agent"
                     required
                   />
-                </div>
+                </FormField>
               )}
 
               {isLoadingProfiles ? (
@@ -968,8 +959,7 @@ export default function LocalSetupPage() {
               integrations.
             </p>
 
-            <div className="mt-5 space-y-2">
-              <Label htmlFor="tunnel-provider">Tunnel provider</Label>
+            <FormField label="Tunnel provider" htmlFor="tunnel-provider" className="mt-5 ">
               <NativeSelect
                 id="tunnel-provider"
                 className={setupSelectClassName}
@@ -988,10 +978,14 @@ export default function LocalSetupPage() {
                 <option value="cloudflare">Cloudflare Tunnel</option>
                 <option value="ngrok">ngrok</option>
               </NativeSelect>
-            </div>
+            </FormField>
 
-            <div className="mt-4 space-y-2">
-              <Label htmlFor="tunnel-custom-domain">Custom domain</Label>
+            <FormField
+              label="Custom domain"
+              htmlFor="tunnel-custom-domain"
+              description="Leave blank to use the provider-assigned URL."
+              className="mt-4 "
+            >
               <Input
                 id="tunnel-custom-domain"
                 value={tunnelCustomDomain}
@@ -999,10 +993,7 @@ export default function LocalSetupPage() {
                 onChange={(event) => setTunnelCustomDomain(event.target.value)}
                 placeholder="agency.example.com"
               />
-              <p className="text-xs leading-5 text-neutral-500 dark:text-slate-400">
-                Leave blank to use the provider-assigned URL.
-              </p>
-            </div>
+            </FormField>
 
             {tunnelProvider === 'ngrok' && tunnelCustomDomain ? (
               <p className="mt-4 text-xs leading-5 text-amber-800 dark:text-amber-200">

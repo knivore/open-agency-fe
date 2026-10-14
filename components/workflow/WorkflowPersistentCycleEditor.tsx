@@ -1,9 +1,9 @@
 'use client';
+import { FormField } from '@/components/app-shell/FormSection';
 
 import { Repeat2 } from 'lucide-react';
 import { Button } from '@/components/library/shadcn/button';
 import { Input } from '@/components/library/shadcn/input';
-import { Label } from '@/components/library/shadcn/label';
 import {
   readPersistentCycleConfiguration,
   writePersistentCycleConfiguration,
@@ -86,8 +86,7 @@ export default function WorkflowPersistentCycleEditor({
 
       {configuration.enabled ? (
         <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          <div className="space-y-2">
-            <Label htmlFor="persistent-cycle-interval">Interval (seconds)</Label>
+          <FormField label="Interval (seconds)" htmlFor="persistent-cycle-interval">
             <Input
               id="persistent-cycle-interval"
               type="number"
@@ -96,9 +95,8 @@ export default function WorkflowPersistentCycleEditor({
               value={configuration.intervalSeconds}
               onChange={(event) => updatePositiveNumber('intervalSeconds', event.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="persistent-cycle-backoff">Failure backoff</Label>
+          </FormField>
+          <FormField label="Failure backoff" htmlFor="persistent-cycle-backoff">
             <Input
               id="persistent-cycle-backoff"
               type="number"
@@ -109,9 +107,8 @@ export default function WorkflowPersistentCycleEditor({
                 updatePositiveNumber('failureBackoffMultiplier', event.target.value)
               }
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="persistent-cycle-max-interval">Maximum interval (seconds)</Label>
+          </FormField>
+          <FormField label="Maximum interval (seconds)" htmlFor="persistent-cycle-max-interval">
             <Input
               id="persistent-cycle-max-interval"
               type="number"
@@ -120,9 +117,8 @@ export default function WorkflowPersistentCycleEditor({
               value={configuration.maxIntervalSeconds}
               onChange={(event) => updatePositiveNumber('maxIntervalSeconds', event.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="persistent-cycle-max-failures">Pause after failures</Label>
+          </FormField>
+          <FormField label="Pause after failures" htmlFor="persistent-cycle-max-failures">
             <Input
               id="persistent-cycle-max-failures"
               type="number"
@@ -133,9 +129,8 @@ export default function WorkflowPersistentCycleEditor({
                 updatePositiveNumber('maxConsecutiveFailures', event.target.value)
               }
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="persistent-cycle-no-progress">Pause after repeated results</Label>
+          </FormField>
+          <FormField label="Pause after repeated results" htmlFor="persistent-cycle-no-progress">
             <Input
               id="persistent-cycle-no-progress"
               type="number"
@@ -145,9 +140,8 @@ export default function WorkflowPersistentCycleEditor({
               value={configuration.maxNoProgressCycles ?? ''}
               onChange={(event) => updateOptionalInteger('maxNoProgressCycles', event.target.value)}
             />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="persistent-cycle-max-cycles">Stop after cycles</Label>
+          </FormField>
+          <FormField label="Stop after cycles" htmlFor="persistent-cycle-max-cycles">
             <Input
               id="persistent-cycle-max-cycles"
               type="number"
@@ -157,7 +151,7 @@ export default function WorkflowPersistentCycleEditor({
               value={configuration.maxCycles ?? ''}
               onChange={(event) => updateOptionalInteger('maxCycles', event.target.value)}
             />
-          </div>
+          </FormField>
         </div>
       ) : null}
     </section>
