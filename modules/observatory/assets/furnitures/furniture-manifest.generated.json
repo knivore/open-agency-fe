@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-19T04:41:54.893Z",
+  "generatedAt": "2026-10-13T17:33:57.350Z",
   "schemaVersion": 1,
   "tileSize": 48,
   "folders": [
@@ -3350,7 +3350,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Dark Gray Office Chair Back",
+      "label": "Dark Gray Office Chair · Patterned · Faces North",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-dark-gray-office-chair-back.png",
@@ -3373,7 +3373,8 @@
         "modern-office",
         "reusable-prop",
         "gray",
-        "chair"
+        "chair",
+        "north-facing"
       ],
       "visibleHeight": 63,
       "visibleWidth": 48,
@@ -3386,7 +3387,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Dark Gray Office Chair Front",
+      "label": "Dark Gray Office Chair · Patterned · Faces South",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-dark-gray-office-chair-front.png",
@@ -3409,7 +3410,8 @@
         "modern-office",
         "reusable-prop",
         "gray",
-        "chair"
+        "chair",
+        "south-facing"
       ],
       "visibleHeight": 69,
       "visibleWidth": 48,
@@ -3680,7 +3682,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Gray Office Chair Back",
+      "label": "Gray Office Chair · Faces South",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-gray-office-chair-back.png",
@@ -3703,7 +3705,8 @@
         "modern-office",
         "reusable-prop",
         "gray",
-        "chair"
+        "chair",
+        "south-facing"
       ],
       "visibleHeight": 69,
       "visibleWidth": 48,
@@ -3716,7 +3719,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Gray Office Chair Front",
+      "label": "Gray Office Chair · Faces North",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-gray-office-chair-front.png",
@@ -3739,7 +3742,8 @@
         "modern-office",
         "reusable-prop",
         "gray",
-        "chair"
+        "chair",
+        "north-facing"
       ],
       "visibleHeight": 63,
       "visibleWidth": 48,
@@ -5709,7 +5713,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Orange Office Chair Back Alt",
+      "label": "Orange Office Chair · Patterned · Faces North",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-back-alt.png",
@@ -5732,7 +5736,8 @@
         "modern-office",
         "reusable-prop",
         "orange",
-        "chair"
+        "chair",
+        "north-facing"
       ],
       "visibleHeight": 63,
       "visibleWidth": 48,
@@ -5745,7 +5750,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Orange Office Chair Back",
+      "label": "Orange Office Chair · Faces South",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-back.png",
@@ -5768,7 +5773,8 @@
         "modern-office",
         "reusable-prop",
         "orange",
-        "chair"
+        "chair",
+        "south-facing"
       ],
       "visibleHeight": 69,
       "visibleWidth": 48,
@@ -5781,7 +5787,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Orange Office Chair Front Alt",
+      "label": "Orange Office Chair · Faces North",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-front-alt.png",
@@ -5804,7 +5810,8 @@
         "modern-office",
         "reusable-prop",
         "orange",
-        "chair"
+        "chair",
+        "north-facing"
       ],
       "visibleHeight": 63,
       "visibleWidth": 48,
@@ -5817,7 +5824,7 @@
       "footprintH": 3,
       "footprintW": 2,
       "height": 144,
-      "label": "Modern Office Orange Office Chair Front",
+      "label": "Orange Office Chair · Patterned · Faces South",
       "packId": "1-modern-office-singles-48x48",
       "packName": "Modern Office",
       "path": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-front.png",
@@ -5840,7 +5847,8 @@
         "modern-office",
         "reusable-prop",
         "orange",
-        "chair"
+        "chair",
+        "south-facing"
       ],
       "visibleHeight": 69,
       "visibleWidth": 48,

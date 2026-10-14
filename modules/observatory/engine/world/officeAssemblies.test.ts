@@ -13,6 +13,7 @@ import {
   placeOfficeAssembly,
 } from './officeAssemblies';
 import { getObservatoryFullModuleAssetRegistry } from '../assets/moduleFullAssetRegistry';
+import { observatoryObjectVisibleBounds } from './objectGeometry';
 
 function fixture() {
   const layout = cloneObservatoryLayout(published as ObservatoryLayoutDocument);
@@ -41,7 +42,33 @@ describe('office assemblies', () => {
     expect(parts).toHaveLength(2);
     expect(parts[1].runtime).toEqual({ role: 'surface-trim', targetObjectId: parts[0].id });
     expect(parts[1].render?.sourceCrop?.width).toBe(48);
+    expect(parts[1].render?.sourceCrop?.height).toBe(57);
     expect(placeOfficeAssembly(fixture(), 'map:level-1', parts, 'room').changed).toBe(true);
+  });
+  it.each([
+    ['modern-office-wide-beige-desk-front', 'modern-office-wide-beige-platform-with-drawer'],
+    ['modern-office-wide-beige-table-front', 'modern-office-wide-beige-platform-front'],
+    ['modern-office-wide-white-desk-front', 'modern-office-wide-white-platform-front'],
+    ['modern-office-wide-gray-desk-front', 'modern-office-wide-gray-platform-front'],
+    ['modern-office-wide-tan-desk-front', 'modern-office-wide-tan-platform-front'],
+  ])('completes either half of %s without a stepped tabletop edge', (left, right) => {
+    const assets = new Map(getObservatoryFullModuleAssetRegistry().assets.map((a) => [a.id, a]));
+    for (const [name, expectedOffset] of [
+      [left, 48],
+      [right, 0],
+    ] as const) {
+      const asset = assets.get(`furniture:1-modern-office-singles-48x48:${name}`)!;
+      const parts = createOfficeAssetAssembly(asset, { x: 4, y: 4 }, assets);
+      const root = observatoryObjectVisibleBounds(parts[0], asset);
+      const half = observatoryObjectVisibleBounds(parts[1], assets.get(parts[1].assetId));
+      expect(half).toEqual({
+        x: root.x + expectedOffset,
+        y: root.y,
+        width: 48,
+        height: root.height,
+      });
+      expect(parts[1].render!.depth).toBeLessThan(26);
+    }
   });
   it.each(officePresetOptions)('places the complete $label with valid parent links', ({ id }) => {
     const layout = fixture();
@@ -57,6 +84,15 @@ describe('office assemblies', () => {
       observatoryObjectGroup(result.layout.world.maps[0], result.selectedObjectId!).length
     ).toBeGreaterThan(1);
     expect(map.objects).toHaveLength(0);
+    if (id !== 'meeting') {
+      const parts = result.layout.world.maps[0].objects;
+      const assets = new Map(getObservatoryFullModuleAssetRegistry().assets.map((a) => [a.id, a]));
+      const surface = observatoryObjectVisibleBounds(parts[0], assets.get(parts[0].assetId));
+      for (const part of parts.filter((o) => o.runtime?.targetObjectId && !o.runtime.role)) {
+        const bounds = observatoryObjectVisibleBounds(part, assets.get(part.assetId));
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(surface.y + 39);
+      }
+    }
   });
   it('moves all linked parts atomically and rolls back an invalid move', () => {
     const layout = fixture();

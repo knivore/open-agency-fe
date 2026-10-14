@@ -293,14 +293,18 @@ describe('observatory pixel repo published layout', () => {
       desks.forEach((desk) => {
         const paired = seats.filter((seat) => seat.runtime?.targetObjectId === desk.id);
         expect(paired, desk.id).toHaveLength(1);
-        // The pack's "front" export shows the outside of the backrest, facing the desk.
-        expect(paired[0]!.assetId).toContain('office-chair-front');
+        // Front/back filenames are inconsistent across colors; use the reviewed
+        // direction instead of applying the gray chair's name to every variant.
+        const asset = getObservatoryFullModuleAssetRegistry().assets.find(
+          (candidate) => candidate.id === paired[0]!.assetId
+        );
+        expect(asset?.tags, paired[0]!.id).toContain('north-facing');
         expect(paired[0]!.position.y).toBeGreaterThan(desk.position.y);
       });
     });
   });
 
-  it('finishes wide desktops with a matching right apron and keeps agents off furniture', () => {
+  it('joins the entire right desk half at the same top edge and keeps agents off furniture', () => {
     const assets = new Map(
       getObservatoryFullModuleAssetRegistry().assets.map((asset) => [asset.id, asset])
     );
@@ -319,6 +323,8 @@ describe('observatory pixel repo published layout', () => {
         const surface = observatoryObjectVisibleBounds(desk, assets.get(desk.assetId));
         const trim = observatoryObjectVisibleBounds(finish!, assets.get(finish!.assetId));
         expect(trim.x + trim.width, desk.id).toBeCloseTo(surface.x + surface.width);
+        expect(trim.y, desk.id).toBeCloseTo(surface.y);
+        expect(trim.height, desk.id).toBeCloseTo(surface.height);
         expect(trim.y + trim.height, desk.id).toBeCloseTo(surface.y + surface.height);
       }
     }
@@ -339,9 +345,40 @@ describe('observatory pixel repo published layout', () => {
         expect(chair.assetId, chair.id).toContain(
           seat.x + seat.width / 2 < surface.x + surface.width / 2 ? 'side-right' : 'side-left'
         );
+        const gap =
+          seat.x < surface.x ? surface.x - seat.x - seat.width : seat.x - surface.x - surface.width;
+        expect(gap, chair.id).toBeGreaterThanOrEqual(0);
+        expect(gap, chair.id).toBeLessThanOrEqual(6.01);
         const seatY = seat.y + seat.height * 0.72;
         expect(seatY, chair.id).toBeGreaterThan(surface.y);
         expect(seatY, chair.id).toBeLessThan(surface.y + surface.height);
+      }
+    }
+  });
+
+  it('keeps workstation equipment above the front apron and within the desktop width', () => {
+    const assets = new Map(getObservatoryFullModuleAssetRegistry().assets.map((a) => [a.id, a]));
+    for (const map of validateObservatoryLayout(publishedLayout).layout!.world.maps) {
+      for (const desk of map.objects.filter(
+        (o) =>
+          o.runtime?.role === 'workstation' &&
+          /(?:wide|corner)-(?:beige|white|gray|tan)-desk-front$/.test(o.assetId)
+      )) {
+        const surface = observatoryObjectVisibleBounds(desk, assets.get(desk.assetId));
+        const equipment = map.objects.filter(
+          (o) =>
+            o.runtime?.targetObjectId === desk.id &&
+            !['workstation-seat', 'surface-trim'].includes(o.runtime?.role ?? '')
+        );
+        for (const object of equipment) {
+          const bounds = observatoryObjectVisibleBounds(object, assets.get(object.assetId));
+          // These desk fronts reserve their last 18 source pixels for apron/legs.
+          expect(bounds.y + bounds.height, object.id).toBeLessThanOrEqual(
+            surface.y + surface.height - 18
+          );
+          expect(bounds.x, object.id).toBeGreaterThanOrEqual(surface.x);
+          expect(bounds.x + bounds.width, object.id).toBeLessThanOrEqual(surface.x + surface.width);
+        }
       }
     }
   });

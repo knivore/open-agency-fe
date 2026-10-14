@@ -796,10 +796,12 @@ export default function ObservatoryGameCanvas({
                 style={{
                   position: 'absolute',
                   left:
-                    (point.x * (layout?.world.grid.tileSize ?? 48) - cameraView.scrollX) *
+                    (point.x * (layout?.world.grid.tileSize ?? 48) -
+                      (cameraView.viewX ?? cameraView.scrollX)) *
                     cameraView.zoom,
                   top:
-                    (point.y * (layout?.world.grid.tileSize ?? 48) - cameraView.scrollY) *
+                    (point.y * (layout?.world.grid.tileSize ?? 48) -
+                      (cameraView.viewY ?? cameraView.scrollY)) *
                     cameraView.zoom,
                   width: (layout?.world.grid.tileSize ?? 48) * cameraView.zoom,
                   height: (layout?.world.grid.tileSize ?? 48) * cameraView.zoom,
@@ -830,8 +832,8 @@ export default function ObservatoryGameCanvas({
                   key={object.id}
                   style={{
                     position: 'absolute',
-                    left: (bounds.x - cameraView.scrollX) * cameraView.zoom,
-                    top: (bounds.y - cameraView.scrollY) * cameraView.zoom,
+                    left: (bounds.x - (cameraView.viewX ?? cameraView.scrollX)) * cameraView.zoom,
+                    top: (bounds.y - (cameraView.viewY ?? cameraView.scrollY)) * cameraView.zoom,
                     width: bounds.width * cameraView.zoom,
                     height: bounds.height * cameraView.zoom,
                     overflow: 'hidden',
@@ -863,7 +865,35 @@ export default function ObservatoryGameCanvas({
         <div ref={containerRef} className={styles.viewport} style={viewportStyle} />
         {allowZoom ? (
           <div className={styles.cameraHud} aria-live="polite">
-            Zoom {cameraZoom ? cameraZoom.toFixed(2) : 'fit'}x
+            {presentation === 'builder' ? (
+              <button
+                type="button"
+                aria-label="Zoom out"
+                onClick={() => gameRef.current?.adjustCamera('out')}
+              >
+                −
+              </button>
+            ) : null}
+            <span>Zoom {cameraZoom ? cameraZoom.toFixed(2) : 'fit'}x</span>
+            {presentation === 'builder' ? (
+              <>
+                <button
+                  type="button"
+                  aria-label="Zoom in"
+                  onClick={() => gameRef.current?.adjustCamera('in')}
+                >
+                  +
+                </button>
+                <button type="button" onClick={() => gameRef.current?.adjustCamera('fit')}>
+                  Fit floor
+                </button>
+                {selectedObjectId || selectedRoomId ? (
+                  <button type="button" onClick={() => gameRef.current?.adjustCamera('selection')}>
+                    Inspect selection
+                  </button>
+                ) : null}
+              </>
+            ) : null}
           </div>
         ) : null}
         {selectedObjectId || selectedRoomId ? (

@@ -2422,19 +2422,19 @@
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-gray-office-chair-back.png",
       "reviewedFileName": "modern-office-gray-office-chair-back.png",
-      "label": "Modern Office Gray Office Chair Back",
+      "label": "Gray Office Chair · Faces South",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair", "south-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_101.png"
     },
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-dark-gray-office-chair-front.png",
       "reviewedFileName": "modern-office-dark-gray-office-chair-front.png",
-      "label": "Modern Office Dark Gray Office Chair Front",
+      "label": "Dark Gray Office Chair · Patterned · Faces South",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair", "south-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_102.png"
     },
     {
@@ -2472,37 +2472,37 @@
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-dark-gray-office-chair-back.png",
       "reviewedFileName": "modern-office-dark-gray-office-chair-back.png",
-      "label": "Modern Office Dark Gray Office Chair Back",
+      "label": "Dark Gray Office Chair · Patterned · Faces North",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair", "north-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_105.png"
     },
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-gray-office-chair-front.png",
       "reviewedFileName": "modern-office-gray-office-chair-front.png",
-      "label": "Modern Office Gray Office Chair Front",
+      "label": "Gray Office Chair · Faces North",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "gray", "chair", "north-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_106.png"
     },
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-back.png",
       "reviewedFileName": "modern-office-orange-office-chair-back.png",
-      "label": "Modern Office Orange Office Chair Back",
+      "label": "Orange Office Chair · Faces South",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair", "south-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_107.png"
     },
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-front.png",
       "reviewedFileName": "modern-office-orange-office-chair-front.png",
-      "label": "Modern Office Orange Office Chair Front",
+      "label": "Orange Office Chair · Patterned · Faces South",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair", "south-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_108.png"
     },
     {
@@ -2540,19 +2540,19 @@
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-back-alt.png",
       "reviewedFileName": "modern-office-orange-office-chair-back-alt.png",
-      "label": "Modern Office Orange Office Chair Back Alt",
+      "label": "Orange Office Chair · Patterned · Faces North",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair", "north-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_111.png"
     },
     {
       "sourcePath": "1_Modern_Office_Singles_48x48/modern-office-orange-office-chair-front-alt.png",
       "reviewedFileName": "modern-office-orange-office-chair-front-alt.png",
-      "label": "Modern Office Orange Office Chair Front Alt",
+      "label": "Orange Office Chair · Faces North",
       "category": "seating",
       "semanticRole": "chair",
-      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair"],
+      "tags": ["office", "modern-office", "reusable-prop", "orange", "chair", "north-facing"],
       "originalPath": "1_Modern_Office_Singles_48x48/Modern_Office_Singles_48x48_112.png"
     },
     {

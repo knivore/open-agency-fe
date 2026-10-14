@@ -1,5 +1,9 @@
 import type { OfficeWalkthroughProgress } from '../rendering/officeWalkthrough';
 import type Phaser from 'phaser';
+import {
+  clampObservatoryCameraScroll,
+  observatoryCameraViewOrigin,
+} from '../rendering/cameraGeometry';
 
 import { getObservatoryFullModuleAssetRegistry } from '@/modules/observatory/engine/assets/moduleFullAssetRegistry';
 import {
@@ -30,6 +34,8 @@ export interface ObservatoryCameraState {
   scrollX: number;
   scrollY: number;
   zoom: number;
+  viewX?: number;
+  viewY?: number;
 }
 
 export interface ObservatoryOfficeSceneOptions {
@@ -69,6 +75,7 @@ export function createOfficeScene(
 ) {
   return class OfficeScene extends PhaserRuntime.Scene {
     private renderedMapHandle: ReturnType<typeof renderObservatoryOfficeMap> | null = null;
+    private cameraAction: ((action: 'in' | 'out' | 'fit' | 'selection') => void) | null = null;
 
     constructor() {
       super(options.sceneKey ?? 'OfficeScene');
@@ -81,21 +88,25 @@ export function createOfficeScene(
       this.renderedMapHandle?.stopOfficeWalkthrough();
     }
 
+    adjustCamera(action: 'in' | 'out' | 'fit' | 'selection') {
+      this.cameraAction?.(action);
+    }
+
     getSelectionOverlayState(): ObservatoryCanvasOverlayState | null {
       if (!this.renderedMapHandle) {
         return null;
       }
 
       const camera = this.cameras.main;
+      const origin = observatoryCameraViewOrigin(camera);
       const selectedObjectBounds = this.renderedMapHandle.getSelectedObjectBounds();
 
       if (selectedObjectBounds) {
         const anchorX =
-          (selectedObjectBounds.x + selectedObjectBounds.width / 2 - camera.scrollX) * camera.zoom;
-        const aboveY = (selectedObjectBounds.y - 12 - camera.scrollY) * camera.zoom;
+          (selectedObjectBounds.x + selectedObjectBounds.width / 2 - origin.x) * camera.zoom;
+        const aboveY = (selectedObjectBounds.y - 12 - origin.y) * camera.zoom;
         const belowY =
-          (selectedObjectBounds.y + selectedObjectBounds.height + 12 - camera.scrollY) *
-          camera.zoom;
+          (selectedObjectBounds.y + selectedObjectBounds.height + 12 - origin.y) * camera.zoom;
 
         return {
           anchorX,
@@ -112,8 +123,8 @@ export function createOfficeScene(
       }
 
       return {
-        anchorX: (selectedRoomBounds.x + 18 - camera.scrollX) * camera.zoom,
-        anchorY: (selectedRoomBounds.y + 18 - camera.scrollY) * camera.zoom,
+        anchorX: (selectedRoomBounds.x + 18 - origin.x) * camera.zoom,
+        anchorY: (selectedRoomBounds.y + 18 - origin.y) * camera.zoom,
         kind: 'room',
         label: selectedRoomBounds.label,
         placement: 'below',
@@ -188,21 +199,13 @@ export function createOfficeScene(
       let cameraBounds = applyCameraBoundsForZoom(defaultCameraZoom);
 
       const clampCameraToBounds = () => {
-        const visibleWidthPx = camera.width / camera.zoom;
-        const visibleHeightPx = camera.height / camera.zoom;
-        const minScrollX = -cameraBounds.horizontalMarginPx;
-        const minScrollY = -cameraBounds.verticalMarginPx;
-        const maxScrollX = Math.max(
-          minScrollX,
-          worldWidthPx + cameraBounds.horizontalMarginPx - visibleWidthPx
-        );
-        const maxScrollY = Math.max(
-          minScrollY,
-          worldHeightPx + cameraBounds.verticalMarginPx - visibleHeightPx
-        );
-
-        camera.scrollX = clamp(camera.scrollX, minScrollX, maxScrollX);
-        camera.scrollY = clamp(camera.scrollY, minScrollY, maxScrollY);
+        const scroll = clampObservatoryCameraScroll(camera, {
+          x: -cameraBounds.horizontalMarginPx,
+          y: -cameraBounds.verticalMarginPx,
+          width: worldWidthPx + cameraBounds.horizontalMarginPx * 2,
+          height: worldHeightPx + cameraBounds.verticalMarginPx * 2,
+        });
+        camera.setScroll(scroll.x, scroll.y);
       };
 
       function applyCameraBoundsForZoom(zoom: number) {
@@ -232,16 +235,21 @@ export function createOfficeScene(
       };
       const handleCameraResize = () => {
         fitCameraToFootprint(false);
+        clampCameraToBounds();
+        emitCameraState();
       };
 
       const markCameraUserAdjusted = () => {
         cameraUserAdjusted = true;
       };
       const emitCameraState = () => {
+        const origin = observatoryCameraViewOrigin(camera);
         options.onCameraStateChange?.({
           scrollX: camera.scrollX,
           scrollY: camera.scrollY,
           zoom: camera.zoom,
+          viewX: origin.x,
+          viewY: origin.y,
         });
       };
       const restoreCameraState = (state: ObservatoryCameraState) => {
@@ -252,6 +260,31 @@ export function createOfficeScene(
         camera.setScroll(state.scrollX, state.scrollY);
         clampCameraToBounds();
         cameraUserAdjusted = true;
+        emitCameraState();
+      };
+
+      // Keep inspection zoom in the camera, so checking a sprite join never
+      // changes the furniture scale or its grid footprint.
+      this.cameraAction = (action) => {
+        if (options.allowZoom === false) return;
+        if (action === 'fit') {
+          cameraUserAdjusted = false;
+          fitCameraToFootprint(true);
+        } else {
+          const selected =
+            this.renderedMapHandle?.getSelectedObjectBounds() ??
+            this.renderedMapHandle?.getSelectedRoomBounds();
+          const center =
+            action === 'selection' && selected
+              ? { x: selected.x + selected.width / 2, y: selected.y + selected.height / 2 }
+              : { x: camera.scrollX + camera.width / 2, y: camera.scrollY + camera.height / 2 };
+          const zoom = action === 'selection' ? 2 : camera.zoom * (action === 'in' ? 1.25 : 0.8);
+          camera.setZoom(clamp(zoom, minCameraZoom, maxCameraZoom));
+          cameraBounds = applyCameraBoundsForZoom(camera.zoom);
+          camera.centerOn(center.x, center.y);
+          clampCameraToBounds();
+          cameraUserAdjusted = true;
+        }
         emitCameraState();
       };
 
@@ -268,6 +301,7 @@ export function createOfficeScene(
       }
       this.scale.on('resize', handleCameraResize);
       this.events.once('shutdown', () => {
+        this.cameraAction = null;
         this.events.off(OBSERVATORY_CAMERA_USER_ADJUSTED_EVENT, markCameraUserAdjusted);
         this.scale.off('resize', handleCameraResize);
       });

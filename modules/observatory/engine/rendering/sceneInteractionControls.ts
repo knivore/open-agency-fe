@@ -1,4 +1,5 @@
 import type Phaser from 'phaser';
+import { clampObservatoryCameraScroll, observatoryCameraViewOrigin } from './cameraGeometry';
 
 import type { ObservatoryCanvasGridClick } from '@/modules/observatory/engine/selection';
 import type { ObservatoryGridRect } from '@/modules/observatory/engine/world/grid';
@@ -16,7 +17,13 @@ export interface ObservatorySceneInteractionOptions {
   allowZoom?: boolean;
   grid: ObservatoryGridConfig;
   map: ObservatoryMap;
-  onCameraStateChange?: (state: { scrollX: number; scrollY: number; zoom: number }) => void;
+  onCameraStateChange?: (state: {
+    scrollX: number;
+    scrollY: number;
+    zoom: number;
+    viewX: number;
+    viewY: number;
+  }) => void;
   onGridHover?: (point: ObservatoryCanvasGridClick) => void;
   onGridClick?: (point: ObservatoryCanvasGridClick) => void;
   onRoomResizeCommit?: (roomId: string, bounds: ObservatoryGridRect) => void;
@@ -439,10 +446,13 @@ export function setupObservatorySceneInteractions(
   }
 
   function emitCameraState() {
+    const origin = observatoryCameraViewOrigin(camera);
     onCameraStateChange?.({
       scrollX: camera.scrollX,
       scrollY: camera.scrollY,
       zoom: camera.zoom,
+      viewX: origin.x,
+      viewY: origin.y,
     });
   }
 }
@@ -488,15 +498,9 @@ function clampCamera(
     typeof camera.getBounds === 'function'
       ? camera.getBounds()
       : { x: 0, y: 0, width: worldWidth, height: worldHeight };
-  const visibleWidth = camera.width / camera.zoom;
-  const visibleHeight = camera.height / camera.zoom;
-  const minScrollX = bounds.x;
-  const minScrollY = bounds.y;
-  const maxScrollX = Math.max(minScrollX, bounds.x + bounds.width - visibleWidth);
-  const maxScrollY = Math.max(minScrollY, bounds.y + bounds.height - visibleHeight);
-
-  camera.scrollX = clamp(camera.scrollX, minScrollX, maxScrollX);
-  camera.scrollY = clamp(camera.scrollY, minScrollY, maxScrollY);
+  const scroll = clampObservatoryCameraScroll(camera, bounds);
+  camera.scrollX = scroll.x;
+  camera.scrollY = scroll.y;
 }
 
 function clamp(value: number, min: number, max: number) {

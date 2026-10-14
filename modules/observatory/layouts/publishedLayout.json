@@ -2,11 +2,11 @@
   "metadata": {
     "id": "layout:observatory-default",
     "name": "Default Observatory Agency Office",
-    "notes": "Complete paired desktop fronts; corrected inward-facing chairs; one six-seat conference table; properly grouped kitchenette, refrigerator, water cooler and two-seat pantry tables on both floors. Removed misidentified devices and unfinished decor panels. All 20 workstations and room bounds preserved.",
+    "notes": "Complete desktops joined with matching full-height halves; individually reviewed north-facing chair variants; tabletop equipment inset from the front edges; furnished meeting rooms and kitchenettes on both floors. 20 workstations with clear interaction points.",
     "publishedAt": "2026-10-13T16:47:45.203Z",
     "publishedBy": "local-builder",
     "status": "published",
-    "version": 6,
+    "version": 7,
     "createdAt": "2026-05-11T15:52:31.880Z",
     "updatedAt": "2026-10-13T16:47:45.203Z"
   },
@@ -1035,8 +1035,8 @@
             "render": {
               "depth": 25,
               "offsetPx": {
-                "x": 24,
-                "y": -114
+                "x": 24.0,
+                "y": -120.0
               },
               "sizePx": {
                 "width": 96,
@@ -1069,12 +1069,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -1287,8 +1287,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 24,
-                "y": -111
+                "x": 24.0,
+                "y": -117.0
               }
             },
             "runtime": {
@@ -1311,12 +1311,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -1425,8 +1425,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 21,
-                "y": -111
+                "x": 21.0,
+                "y": -117.0
               }
             },
             "runtime": {
@@ -1449,12 +1449,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -1469,7 +1469,7 @@
           },
           {
             "id": "object:level-1-common-d-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-1-common-work",
             "position": {
               "x": 8,
@@ -1487,10 +1487,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               },
               "offsetPx": {
                 "x": 24.0,
@@ -1553,8 +1553,8 @@
             "render": {
               "depth": 25,
               "offsetPx": {
-                "x": 0,
-                "y": -72
+                "x": 0.0,
+                "y": -87.0
               },
               "sizePx": {
                 "width": 96,
@@ -1573,7 +1573,7 @@
           },
           {
             "id": "object:level-1-common-e-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-1-common-work",
             "position": {
               "x": 12,
@@ -1591,10 +1591,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               },
               "offsetPx": {
                 "x": 24.0,
@@ -1677,7 +1677,7 @@
           },
           {
             "id": "object:level-1-common-f-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-1-common-work",
             "position": {
               "x": 16,
@@ -1695,10 +1695,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               },
               "offsetPx": {
                 "x": 24.0,
@@ -2048,7 +2048,7 @@
           },
           {
             "id": "object:level-1-lab-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-orange-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-orange-office-chair-back-alt",
             "roomId": "room:level-1-runtime-lab",
             "position": {
               "x": 1,
@@ -2070,10 +2070,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -2132,8 +2132,8 @@
             "render": {
               "depth": 25,
               "offsetPx": {
-                "x": 24,
-                "y": -114
+                "x": 24.0,
+                "y": -120.0
               },
               "sizePx": {
                 "width": 96,
@@ -2166,12 +2166,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -2186,7 +2186,7 @@
           },
           {
             "id": "object:level-1-lab-console-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-1-runtime-lab",
             "position": {
               "x": 4,
@@ -2208,10 +2208,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -2373,8 +2373,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 9,
-                "y": -63
+                "x": 21.0,
+                "y": -78.0
               }
             },
             "runtime": {
@@ -2383,7 +2383,7 @@
           },
           {
             "id": "object:level-1-executive-primary-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-1-executive",
             "position": {
               "x": 12,
@@ -2405,10 +2405,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -2726,7 +2726,7 @@
             "render": {
               "depth": 24,
               "offsetPx": {
-                "x": -6,
+                "x": 0,
                 "y": -81
               },
               "sizePx": {
@@ -2760,7 +2760,7 @@
             "render": {
               "depth": 24,
               "offsetPx": {
-                "x": -6,
+                "x": 0,
                 "y": -63
               },
               "sizePx": {
@@ -2794,7 +2794,7 @@
             "render": {
               "depth": 24,
               "offsetPx": {
-                "x": -24,
+                "x": -30,
                 "y": -81
               },
               "sizePx": {
@@ -2828,7 +2828,7 @@
             "render": {
               "depth": 24,
               "offsetPx": {
-                "x": -24,
+                "x": -30,
                 "y": -63
               },
               "sizePx": {
@@ -3075,7 +3075,7 @@
               },
               "offsetPx": {
                 "x": -1.8000000000000007,
-                "y": -16.200000000000003
+                "y": -22.200000000000003
               }
             },
             "runtime": {
@@ -3144,8 +3144,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 3,
-                "y": -15.600000000000001
+                "x": 3.0,
+                "y": -21.6
               }
             },
             "runtime": {
@@ -3200,8 +3200,8 @@
             "render": {
               "depth": 27,
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -3210,8 +3210,8 @@
                 "y": 123
               },
               "offsetPx": {
-                "x": 12,
-                "y": -48
+                "x": 30.0,
+                "y": -26.25
               }
             },
             "runtime": {
@@ -3280,8 +3280,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 66,
-                "y": 36.3
+                "x": 66.0,
+                "y": 31.8
               }
             },
             "runtime": {
@@ -3419,8 +3419,8 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": 0,
-                "y": -72
+                "x": 0.0,
+                "y": -87.0
               },
               "depth": 25
             },
@@ -3635,9 +3635,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3670,9 +3670,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3705,9 +3705,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3740,9 +3740,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3775,9 +3775,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3810,9 +3810,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3845,9 +3845,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3880,9 +3880,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -3915,9 +3915,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -4658,8 +4658,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 21,
-                "y": -111
+                "x": 21.0,
+                "y": -117.0
               }
             },
             "runtime": {
@@ -4682,12 +4682,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -4983,8 +4983,8 @@
             "render": {
               "depth": 25,
               "offsetPx": {
-                "x": 24,
-                "y": -114
+                "x": 24.0,
+                "y": -120.0
               },
               "sizePx": {
                 "width": 96,
@@ -5017,12 +5017,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -5037,7 +5037,7 @@
           },
           {
             "id": "object:level-2-small-b-primary-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-small-meeting-b",
             "position": {
               "x": 24,
@@ -5055,10 +5055,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               },
               "offsetPx": {
                 "x": 24.0,
@@ -5141,7 +5141,7 @@
           },
           {
             "id": "object:level-2-small-b-review-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-small-meeting-b",
             "position": {
               "x": 27,
@@ -5159,10 +5159,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               },
               "offsetPx": {
                 "x": 24.0,
@@ -5353,8 +5353,8 @@
                 "y": 54
               },
               "offsetPx": {
-                "x": 0,
-                "y": -72
+                "x": 0.0,
+                "y": -87.0
               }
             },
             "runtime": {
@@ -5363,7 +5363,7 @@
           },
           {
             "id": "object:level-2-war-1-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-war-room",
             "position": {
               "x": 2,
@@ -5385,10 +5385,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -5467,7 +5467,7 @@
           },
           {
             "id": "object:level-2-war-2-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-war-room",
             "position": {
               "x": 6,
@@ -5489,10 +5489,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -5561,8 +5561,8 @@
                 "y": 99
               },
               "offsetPx": {
-                "x": 21,
-                "y": -111
+                "x": 21.0,
+                "y": -117.0
               }
             },
             "runtime": {
@@ -5585,12 +5585,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -5605,7 +5605,7 @@
           },
           {
             "id": "object:level-2-war-3-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-war-room",
             "position": {
               "x": 10,
@@ -5627,10 +5627,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -5709,7 +5709,7 @@
           },
           {
             "id": "object:level-2-war-4-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-war-room",
             "position": {
               "x": 14,
@@ -5731,10 +5731,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -5793,8 +5793,8 @@
             "render": {
               "depth": 25,
               "offsetPx": {
-                "x": 24,
-                "y": -114
+                "x": 24.0,
+                "y": -120.0
               },
               "sizePx": {
                 "width": 96,
@@ -5827,12 +5827,12 @@
             "render": {
               "depth": 26,
               "offsetPx": {
-                "x": 24,
-                "y": -96
+                "x": 30.0,
+                "y": -65.25
               },
               "sizePx": {
-                "width": 96,
-                "height": 144
+                "width": 72,
+                "height": 108
               },
               "sourceCrop": {
                 "height": 15,
@@ -5847,7 +5847,7 @@
           },
           {
             "id": "object:level-2-war-5-chair",
-            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-front",
+            "assetId": "furniture:1-modern-office-singles-48x48:modern-office-dark-gray-office-chair-back",
             "roomId": "room:level-2-war-room",
             "position": {
               "x": 18,
@@ -5869,10 +5869,10 @@
                 "height": 144.0
               },
               "sourceCrop": {
-                "height": 69,
+                "height": 63,
                 "width": 48,
                 "x": 0,
-                "y": 69
+                "y": 75
               }
             },
             "runtime": {
@@ -6277,7 +6277,7 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": 18,
+                "x": 48,
                 "y": -84
               },
               "depth": 24
@@ -6312,7 +6312,7 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": -15,
+                "x": -45,
                 "y": -84
               },
               "depth": 24
@@ -6347,7 +6347,7 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": 18,
+                "x": 48,
                 "y": -62
               },
               "depth": 24
@@ -6382,7 +6382,7 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": -15,
+                "x": -45,
                 "y": -62
               },
               "depth": 24
@@ -6417,7 +6417,7 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": 18,
+                "x": 48,
                 "y": -40
               },
               "depth": 24
@@ -6452,7 +6452,7 @@
                 "height": 144
               },
               "offsetPx": {
-                "x": -15,
+                "x": -45,
                 "y": -40
               },
               "depth": 24
@@ -6703,9 +6703,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6738,9 +6738,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6773,9 +6773,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6808,9 +6808,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6843,9 +6843,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6878,9 +6878,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6913,9 +6913,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6948,9 +6948,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,
@@ -6983,9 +6983,9 @@
             "render": {
               "sourceCrop": {
                 "x": 48,
-                "y": 93,
+                "y": 48,
                 "width": 48,
-                "height": 12
+                "height": 57
               },
               "sizePx": {
                 "width": 96.0,

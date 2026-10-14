@@ -446,7 +446,7 @@ function observedWallSheetPositions() {
 
 export const observatoryModuleAssetRegistry: ObservatoryAssetRegistry = {
   registryVersion: OBSERVATORY_ASSET_REGISTRY_VERSION,
-  assetPackVersion: 'observatory-office-pack-v2',
+  assetPackVersion: 'observatory-office-pack-v3',
   assets: buildRuntimeCuratedAssets([
     ...observatoryRuntimeFurnitureAssets,
     {

@@ -3,7 +3,11 @@ import { findObservatoryCollisionSafePlacement } from '../../generation/procedur
 import { cloneObservatoryLayout, type ObservatoryLayoutEditResult } from './layoutEditing';
 import type { ObservatoryLayoutDocument, ObservatoryMap, ObservatoryObject } from './layoutTypes';
 import type { ObservatoryGridPoint } from './grid';
-import { observatoryAssetPlacement, observatoryObjectVisibleBounds } from './objectGeometry';
+import {
+  observatoryAssetPlacement,
+  observatoryObjectVisibleBounds,
+  scaleObservatoryObject,
+} from './objectGeometry';
 import type { ObservatoryAssetDefinition } from '../assets/assetRegistry';
 
 export const officePresetOptions = [
@@ -45,19 +49,23 @@ export function completeOfficeDeskFront(
     'modern-office-wide-gray-desk-front': 'modern-office-wide-gray-platform-front',
     'modern-office-wide-tan-desk-front': 'modern-office-wide-tan-platform-front',
   };
-  const finishId = finishes[desk.assetId.replace(prefix, '')];
+  const name = desk.assetId.replace(prefix, '');
+  const reversePair = Object.entries(finishes).find(([, right]) => right === name);
+  const finishId = finishes[name] ?? reversePair?.[0];
+  const completingRightHalf = !reversePair;
   const asset = finishId ? assets.get(prefix + finishId) : undefined;
   if (!asset?.sourceCrop) return null;
   const crop = asset.sourceCrop;
   const visible = observatoryObjectVisibleBounds(desk, assets.get(desk.assetId), tileSize);
   const scale = visible.width / 96;
-  // These wide sprites are complementary end pieces. Draw only the missing
-  // right apron/leg so their overlapping tabletops do not cover desk equipment.
+  // The right half includes its own tabletop edge at source row 39. Cropping
+  // only the bottom 12 rows leaves the original unfinished top visible above
+  // it, creating a stepped apron. Use the entire matching half below equipment.
   const sourceCrop = {
-    x: crop.x + crop.width - 48,
-    y: crop.y + crop.height - 12,
+    x: crop.x + (completingRightHalf ? crop.width - 48 : 0),
+    y: crop.y,
     width: 48,
-    height: 12,
+    height: crop.height,
   };
   return {
     id: `${desk.id}:front-finish`,
@@ -72,16 +80,10 @@ export function completeOfficeDeskFront(
       offsetPx: {
         x:
           visible.x +
-          visible.width -
-          48 * scale -
+          (completingRightHalf ? visible.width - 48 * scale : 0) -
           desk.position.x * tileSize -
           sourceCrop.x * scale,
-        y:
-          visible.y +
-          visible.height -
-          12 * scale -
-          desk.position.y * tileSize -
-          sourceCrop.y * scale,
+        y: visible.y - desk.position.y * tileSize - sourceCrop.y * scale,
       },
       depth: (desk.render?.depth ?? 18) + 0.01,
     },
@@ -104,12 +106,13 @@ export function createOfficePreset(
     px = 0,
     py = 0,
     root = false,
-    seat = false
+    seat = false,
+    scale = 1
   ) => {
     const asset = assets.find((entry) => entry.id === prefix + name);
     if (!asset) throw new Error(`Preset asset missing: ${name}`);
     const placement = observatoryAssetPlacement(asset, tileSize);
-    parts.push({
+    const part: ObservatoryObject = {
       ...placement,
       id: `preset:part-${parts.length}`,
       assetId: asset.id,
@@ -126,25 +129,28 @@ export function createOfficePreset(
       runtime: root
         ? { role: preset === 'meeting' ? 'planning-surface' : 'workstation' }
         : { targetObjectId: 'preset:part-0', ...(seat ? { role: 'workstation-seat' } : {}) },
-    });
+    };
+    parts.push(
+      scale === 1 ? part : { ...part, ...scaleObservatoryObject(part, asset, scale, tileSize) }
+    );
   };
   if (preset === 'meeting') {
     add('large-wood-table-vertical', 0, 0, 0, 0, true);
     for (const y of [0, 1]) {
-      add('modern-office-gray-office-chair-side-right', -1, y, 0, y === 0 ? -18 : 0, false, true);
-      add('modern-office-gray-office-chair-side-left', 2, y, -18, y === 0 ? -18 : 0, false, true);
+      add('modern-office-gray-office-chair-side-right', -1, y, 6, y === 0 ? -18 : 0, false, true);
+      add('modern-office-gray-office-chair-side-left', 2, y, -24, y === 0 ? -18 : 0, false, true);
     }
   } else if (preset === 'lab') {
     add('modern-office-wide-gray-desk-front', 0, 0, 0, 0, true);
-    add('dual-monitor-workstation-wide', 0, 0, 0, -18);
+    add('dual-monitor-workstation-wide', 0, 0, 0, -33);
     add('modern-office-gray-office-chair-front', 0, 1, 24, 6, false, true);
   } else {
     add(`modern-office-wide-${style}-desk-front`, 0, 0, 0, 0, true);
     if (preset === 'desktop') {
-      add('blue-screen-monitor-front', 0, 0, 24, -12);
-      add('low-keyboard-dark', 0, 0, 24, 27);
+      add('blue-screen-monitor-front', 0, 0, 24, -18);
+      add('low-keyboard-dark', 0, 0, 30, 27, false, false, 0.75);
     } else if (preset === 'laptop') add('compact-gray-laptop', 0, 0, 27, 3);
-    else add('dual-monitor-workstation-wide', 0, 0, 0, -18);
+    else add('dual-monitor-workstation-wide', 0, 0, 0, -33);
     add('modern-office-gray-office-chair-front', 0, 1, 24, 6, false, true);
   }
   const finish = completeOfficeDeskFront(

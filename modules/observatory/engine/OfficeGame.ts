@@ -52,6 +52,7 @@ export interface ObservatoryGameOptions {
 }
 
 export interface ObservatoryGameHandle {
+  adjustCamera(action: 'in' | 'out' | 'fit' | 'selection'): void;
   startOfficeWalkthrough(
     agentId: string,
     notify: (progress: OfficeWalkthroughProgress) => void
@@ -300,6 +301,12 @@ export async function createObservatoryGame({
   });
 
   return {
+    adjustCamera(action) {
+      const scene = game.scene.getScene(sceneKeys.office) as {
+        adjustCamera?: (action: 'in' | 'out' | 'fit' | 'selection') => void;
+      } | null;
+      scene?.adjustCamera?.(action);
+    },
     startOfficeWalkthrough(agentId, notify) {
       const scene = game.scene.getScene(sceneKeys.office) as {
         startOfficeWalkthrough?: (id: string, callback: typeof notify) => void;
